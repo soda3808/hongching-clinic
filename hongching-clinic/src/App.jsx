@@ -15,6 +15,7 @@ import PatientPage from './components/PatientPage';
 import BookingPage from './components/BookingPage';
 import SettingsPage from './components/SettingsPage';
 import ReceiptScanner from './components/ReceiptScanner';
+import PublicBooking from './components/PublicBooking';
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -27,6 +28,15 @@ const ALL_PAGES = [
   { id: 'pay', icon: '📋', label: '糧單', section: '人事', perm: 'viewPayroll' },
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
+];
+
+// Mobile bottom tab config
+const MOBILE_TABS = [
+  { id: 'dash', icon: '📊', label: 'Dashboard' },
+  { id: 'rev', icon: '💰', label: '營業' },
+  { id: 'booking', icon: '📅', label: '預約' },
+  { id: 'patient', icon: '👥', label: '病人' },
+  { id: 'more', icon: '≡', label: '更多' },
 ];
 
 // ── Login Page ──
@@ -88,6 +98,10 @@ function useNotifications(data) {
     const thisMonth = new Date().toISOString().substring(0, 7);
     const lastMonth = (() => { const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().substring(0, 7); })();
     const dayOfMonth = new Date().getDate();
+
+    // Pending online bookings
+    const pendingBookings = (data.bookings || []).filter(b => b.status === 'pending');
+    if (pendingBookings.length) notes.push({ icon: '🔔', title: `${pendingBookings.length} 個新預約待確認`, time: '待處理' });
 
     (data.arap || []).filter(a => a.type === 'receivable' && a.status === 'pending' && a.dueDate < today)
       .forEach(a => notes.push({ icon: '🔴', title: `逾期應收：${a.party} ${fmtM(a.amount)}`, time: a.dueDate }));
@@ -179,8 +193,85 @@ function ExportMenu({ data, showToast, onClose }) {
   );
 }
 
+// ── PWA Install Prompt ──
+function InstallPrompt() {
+  const [show, setShow] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  useEffect(() => {
+    // Check if dismissed recently
+    const dismissed = localStorage.getItem('hcmc_install_dismissed');
+    if (dismissed && Date.now() - Number(dismissed) < 7 * 24 * 60 * 60 * 1000) return;
+
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShow(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+    setShow(false);
+  };
+
+  const handleDismiss = () => {
+    localStorage.setItem('hcmc_install_dismissed', String(Date.now()));
+    setShow(false);
+  };
+
+  if (!show) return null;
+
+  return (
+    <div className="install-banner">
+      <span>📱 安裝康晴醫療 App 到主畫面，使用更方便</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-teal btn-sm" onClick={handleInstall}>安裝</button>
+        <button className="btn btn-outline btn-sm" onClick={handleDismiss}>稍後</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Mobile More Menu ──
+function MobileMoreMenu({ pages, page, setPage, onClose }) {
+  return (
+    <div className="mobile-more-overlay" onClick={onClose}>
+      <div className="mobile-more-panel" onClick={e => e.stopPropagation()}>
+        <div className="mobile-more-header">
+          <strong>全部功能</strong>
+          <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 18 }}>✕</span>
+        </div>
+        <div className="mobile-more-grid">
+          {pages.map(p => (
+            <div key={p.id} className={`mobile-more-item ${page === p.id ? 'active' : ''}`} onClick={() => { setPage(p.id); onClose(); }}>
+              <span style={{ fontSize: 24 }}>{p.icon}</span>
+              <span>{p.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──
 export default function App() {
+  // Check for public booking route
+  const path = window.location.pathname;
+  if (path === '/booking') {
+    return <PublicBooking />;
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [user, setUser] = useState(() => getCurrentUser());
   const [page, setPage] = useState('');
   const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [] });
@@ -190,6 +281,7 @@ export default function App() {
   const [showNotif, setShowNotif] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [activeStore, setActiveStore] = useState('all');
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [readNotifs, setReadNotifs] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('hcmc_read_notifs') || '[]'); } catch { return []; }
   });
@@ -262,9 +354,12 @@ export default function App() {
     sections[p.section].push(p);
   });
 
+  // Mobile tabs filtered by permissions
+  const mobileTabs = MOBILE_TABS.filter(t => t.id === 'more' || perms[ALL_PAGES.find(p => p.id === t.id)?.perm]);
+
   return (
     <>
-      {/* SIDEBAR */}
+      {/* SIDEBAR (desktop) */}
       <div className="sidebar">
         <div className="sidebar-logo">
           <h1>康晴醫療中心</h1>
@@ -292,7 +387,7 @@ export default function App() {
         </nav>
         <div className="sidebar-footer">
           <button className="btn-logout" onClick={handleLogout}>🔓 登出</button>
-          <span>v3.0 • {new Date().getFullYear()}</span>
+          <span>v3.1 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -303,12 +398,12 @@ export default function App() {
           <div className="topbar-actions">
             {/* Store Switcher (admin only) */}
             {perms.viewAllStores && (
-              <select className="btn btn-outline btn-sm" style={{ fontWeight: 600 }} value={activeStore} onChange={e => setActiveStore(e.target.value)}>
+              <select className="btn btn-outline btn-sm hide-mobile" style={{ fontWeight: 600 }} value={activeStore} onChange={e => setActiveStore(e.target.value)}>
                 <option value="all">🏢 全部分店</option>
                 {stores.map(s => <option key={s.id} value={s.name}>📍 {s.name}</option>)}
               </select>
             )}
-            <button className="btn btn-outline btn-sm" onClick={() => setShowSearch(true)}>🔍 搜尋</button>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowSearch(true)}>🔍</button>
             <div style={{ position: 'relative' }}>
               <button className="btn btn-outline btn-sm" onClick={() => setShowNotif(!showNotif)}>
                 🔔{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
@@ -327,16 +422,16 @@ export default function App() {
               )}
             </div>
             {perms.viewReports && (
-              <div style={{ position: 'relative' }}>
+              <div className="hide-mobile" style={{ position: 'relative' }}>
                 <button className="btn btn-outline btn-sm" onClick={() => setShowExport(!showExport)}>📥 匯出</button>
                 {showExport && <ExportMenu data={filteredData} showToast={showToast} onClose={() => setShowExport(false)} />}
               </div>
             )}
-            <button className="btn btn-outline btn-sm" onClick={reload}>🔄</button>
-            <span style={{ fontSize: 12, color: 'var(--gray-600)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button className="btn btn-outline btn-sm hide-mobile" onClick={reload}>🔄</button>
+            <span className="hide-mobile" style={{ fontSize: 12, color: 'var(--gray-600)', display: 'flex', alignItems: 'center', gap: 4 }}>
               👤 {user.name} <span className={`tag ${ROLE_TAGS[user.role] || ''}`}>{ROLE_LABELS[user.role]}</span>
             </span>
-            <button className="btn btn-outline btn-sm" onClick={handleLogout}>登出</button>
+            <button className="btn btn-outline btn-sm hide-mobile" onClick={handleLogout}>登出</button>
           </div>
         </div>
         <div className="content">
@@ -354,9 +449,25 @@ export default function App() {
         </div>
       </div>
 
+      {/* Mobile Bottom Tab Bar */}
+      <div className="mobile-tabbar">
+        {mobileTabs.map(t => (
+          <div
+            key={t.id}
+            className={`mobile-tab ${(t.id === 'more' ? false : page === t.id) ? 'active' : ''}`}
+            onClick={() => t.id === 'more' ? setShowMoreMenu(true) : setPage(t.id)}
+          >
+            <span className="mobile-tab-icon">{t.icon}</span>
+            <span className="mobile-tab-label">{t.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {showMoreMenu && <MobileMoreMenu pages={[...visiblePages, ...(perms.viewSettings ? [{ id:'settings', icon:'⚙️', label:'設定' }] : [])]} page={page} setPage={setPage} onClose={() => setShowMoreMenu(false)} />}
       {showSearch && <SearchPanel data={filteredData} onNavigate={setPage} onClose={() => setShowSearch(false)} />}
       {(showNotif || showExport) && <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => { setShowNotif(false); setShowExport(false); }} />}
       {toast && <div className="toast">{toast}</div>}
+      <InstallPrompt />
     </>
   );
 }

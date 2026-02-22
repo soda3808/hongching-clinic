@@ -80,10 +80,11 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   return (
     <>
       {/* Tabs */}
-      <div className="tab-bar">
+      <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
         <button className={`tab-btn ${tab==='clinic'?'active':''}`} onClick={()=>setTab('clinic')}>🏥 診所資料</button>
         <button className={`tab-btn ${tab==='system'?'active':''}`} onClick={()=>setTab('system')}>⚙️ 系統設定</button>
         <button className={`tab-btn ${tab==='data'?'active':''}`} onClick={()=>setTab('data')}>💾 數據管理</button>
+        <button className={`tab-btn ${tab==='promo'?'active':''}`} onClick={()=>setTab('promo')}>📱 推廣工具</button>
         {isAdmin && <button className={`tab-btn ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>👥 用戶管理</button>}
         {isAdmin && <button className={`tab-btn ${tab==='stores'?'active':''}`} onClick={()=>setTab('stores')}>🏢 分店管理</button>}
       </div>
@@ -141,6 +142,74 @@ export default function SettingsPage({ data, setData, showToast, user }) {
             <button className="btn btn-red" onClick={() => setShowReset(true)}>⚠️ 重置所有數據</button>
           </div>
         </div>
+      )}
+
+      {/* Promo Tools */}
+      {tab === 'promo' && (
+        <>
+          <div className="card">
+            <div className="card-header"><h3>📱 線上預約 QR Code</h3></div>
+            <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 16 }}>
+              病人掃描此 QR Code 即可打開線上預約頁面。
+            </p>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://hongching-clinic.vercel.app/booking')}`}
+                alt="Booking QR Code"
+                style={{ width: 200, height: 200, borderRadius: 8, border: '2px solid var(--gray-200)' }}
+              />
+              <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
+                https://hongching-clinic.vercel.app/booking
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <a
+                href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&format=png&data=${encodeURIComponent('https://hongching-clinic.vercel.app/booking')}`}
+                download="hcmc-booking-qr.png"
+                className="btn btn-teal"
+              >
+                📥 下載 QR Code (PNG)
+              </a>
+            </div>
+          </div>
+          <div className="card">
+            <div className="card-header"><h3>🖨️ 宣傳單張預覽</h3></div>
+            <div className="promo-flyer" id="promo-flyer">
+              <div style={{ textAlign: 'center', borderBottom: '3px solid var(--teal-700)', paddingBottom: 16, marginBottom: 16 }}>
+                <h2 style={{ color: 'var(--teal-700)', fontSize: 22, marginBottom: 4 }}>康晴綜合醫療中心</h2>
+                <div style={{ fontSize: 11, color: 'var(--gray-400)', letterSpacing: 2 }}>HONG CHING MEDICAL CENTRE</div>
+                <div style={{ fontSize: 13, color: 'var(--gray-600)', marginTop: 8 }}>專業中醫診療服務</div>
+              </div>
+              <div style={{ background: 'var(--gold-100)', padding: '10px 16px', borderRadius: 8, textAlign: 'center', fontWeight: 700, color: '#92400e', marginBottom: 16, fontSize: 14 }}>
+                🎉 新客優惠：首次免診金 + 療程套餐9折
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16, fontSize: 12 }}>
+                <div>
+                  <strong>📍 宋皇臺店</strong>
+                  <div style={{ color: 'var(--gray-500)' }}>馬頭涌道97號美誠大廈地下</div>
+                </div>
+                <div>
+                  <strong>📍 太子店</strong>
+                  <div style={{ color: 'var(--gray-500)' }}>長沙灣道28號長康大廈地下</div>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, marginBottom: 16 }}>
+                <div>🕐 營業時間：星期一至六 10:00 - 20:00</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent('https://hongching-clinic.vercel.app/booking')}`}
+                  alt="QR"
+                  style={{ width: 120, height: 120 }}
+                />
+                <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 4 }}>掃碼即可線上預約</div>
+              </div>
+            </div>
+            <button className="btn btn-outline" onClick={() => { const w = window.open('', '_blank'); w.document.write('<html><head><title>宣傳單張</title><style>body{font-family:sans-serif;padding:40px;max-width:500px;margin:0 auto}</style></head><body>' + document.getElementById('promo-flyer').innerHTML + '</body></html>'); w.document.close(); w.print(); }} style={{ marginTop: 12 }}>
+              🖨️ 列印宣傳單張
+            </button>
+          </div>
+        </>
       )}
 
       {/* User Management */}

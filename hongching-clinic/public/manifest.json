@@ -1,0 +1,13 @@
+{
+  "name": "康晴醫療中心管理系統",
+  "short_name": "康晴醫療",
+  "description": "Hong Ching Medical Centre Management System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0e7490",
+  "theme_color": "#0e7490",
+  "orientation": "any",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

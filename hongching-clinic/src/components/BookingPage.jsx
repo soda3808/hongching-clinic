@@ -3,8 +3,8 @@ import { saveBooking, updateBookingStatus } from '../api';
 import { uid, DOCTORS } from '../data';
 
 const TYPES = ['初診','覆診','針灸','推拿','天灸','其他'];
-const STATUS_TAGS = { confirmed:'tag-fps', completed:'tag-paid', cancelled:'tag-other', 'no-show':'tag-overdue' };
-const STATUS_LABELS = { confirmed:'已確認', completed:'已完成', cancelled:'已取消', 'no-show':'未到' };
+const STATUS_TAGS = { pending:'tag-pending-orange', confirmed:'tag-fps', completed:'tag-paid', cancelled:'tag-other', 'no-show':'tag-overdue' };
+const STATUS_LABELS = { pending:'待確認', confirmed:'已確認', completed:'已完成', cancelled:'已取消', 'no-show':'未到' };
 const DOC_COLORS = { '常凱晴':'#0e7490', '許植輝':'#8B6914', '曾其方':'#7C3AED' };
 const HOURS = Array.from({ length: 23 }, (_, i) => { const h = 9 + Math.floor(i / 2); const m = i % 2 ? '30' : '00'; return `${String(h).padStart(2,'0')}:${m}`; });
 
@@ -39,7 +39,7 @@ export default function BookingPage({ data, setData, showToast }) {
   const stats = useMemo(() => ({
     today: todayBookings.length,
     completed: todayBookings.filter(b => b.status === 'completed').length,
-    pending: todayBookings.filter(b => b.status === 'confirmed').length,
+    pending: todayBookings.filter(b => b.status === 'confirmed' || b.status === 'pending').length,
     noshow: todayBookings.filter(b => b.status === 'no-show').length,
   }), [todayBookings]);
 
@@ -140,6 +140,12 @@ export default function BookingPage({ data, setData, showToast }) {
                       <td>{b.type}</td>
                       <td><span className={`tag ${STATUS_TAGS[b.status] || ''}`}>{STATUS_LABELS[b.status] || b.status}</span></td>
                       <td>
+                        {b.status === 'pending' && (
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button className="btn btn-teal btn-sm" onClick={() => handleUpdateStatus(b.id, 'confirmed')}>確認</button>
+                            <button className="btn btn-outline btn-sm" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>✕</button>
+                          </div>
+                        )}
                         {b.status === 'confirmed' && (
                           <div style={{ display: 'flex', gap: 4 }}>
                             <button className="btn btn-green btn-sm" onClick={() => handleUpdateStatus(b.id, 'completed')}>✓</button>
