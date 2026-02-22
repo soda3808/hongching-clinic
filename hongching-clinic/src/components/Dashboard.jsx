@@ -4,7 +4,7 @@ import { fmtM, fmt, getMonth, monthLabel } from '../data';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
-export default function Dashboard({ data }) {
+export default function Dashboard({ data, onNavigate }) {
   const [store, setStore] = useState('all');
 
   const filtered = useMemo(() => {
@@ -64,8 +64,33 @@ export default function Dashboard({ data }) {
     });
   });
 
+  // Recent activity
+  const recentActivity = useMemo(() => {
+    const items = [];
+    (data.revenue || []).forEach(r => items.push({ type: '💰', label: `營業 ${r.name} ${fmtM(r.amount)}`, date: r.date }));
+    (data.expenses || []).forEach(r => items.push({ type: '🧾', label: `開支 ${r.merchant} ${fmtM(r.amount)}`, date: r.date }));
+    (data.bookings || []).forEach(r => items.push({ type: '📅', label: `預約 ${r.patientName} (${r.doctor})`, date: r.createdAt || r.date }));
+    return items.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10);
+  }, [data]);
+
   return (
     <>
+      {/* Quick Actions */}
+      {onNavigate && (
+        <div className="quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+          {[
+            { icon: '➕', label: '新增營業', page: 'rev' },
+            { icon: '🧾', label: '新增開支', page: 'exp' },
+            { icon: '📅', label: '新增預約', page: 'booking' },
+            { icon: '📋', label: '生成糧單', page: 'pay' },
+          ].map(a => (
+            <button key={a.page} className="btn btn-outline" style={{ padding: '14px 12px', fontSize: 13, justifyContent: 'center' }} onClick={() => onNavigate(a.page)}>
+              <span style={{ fontSize: 18 }}>{a.icon}</span> {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Store Tabs */}
       <div className="tab-bar">
         {['all', '宋皇臺', '太子'].map(s => (
@@ -195,6 +220,21 @@ export default function Dashboard({ data }) {
             <Line type="monotone" dataKey="開支" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header"><h3>🕐 近期活動</h3></div>
+        <div style={{ fontSize: 13 }}>
+          {recentActivity.map((a, i) => (
+            <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < recentActivity.length - 1 ? '1px solid var(--gray-100)' : 'none', alignItems: 'center' }}>
+              <span style={{ fontSize: 16 }}>{a.type}</span>
+              <span style={{ flex: 1 }}>{a.label}</span>
+              <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{a.date}</span>
+            </div>
+          ))}
+          {recentActivity.length === 0 && <div style={{ color: 'var(--gray-400)', textAlign: 'center', padding: 16 }}>暫無活動紀錄</div>}
+        </div>
       </div>
     </>
   );

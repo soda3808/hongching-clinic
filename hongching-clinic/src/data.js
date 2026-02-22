@@ -99,4 +99,17 @@ export const SEED_DATA = {
     { id:'e_food2', date:'2025-12-24', merchant:'愛文生飯店', amount:380, category:'飲食招待', store:'兩店共用', payment:'其他', desc:'聖誕晚餐', receipt:'' },
   ],
   arap: [],
+  patients: [
+    { id:'pt1', name:'陳大文', phone:'91234567', gender:'男', dob:'1975-03-15', address:'九龍城', allergies:'無', notes:'腰痛舊患', firstVisit:'2025-11-05', lastVisit:'2026-02-10', totalVisits:8, totalSpent:3200, store:'宋皇臺', doctor:'常凱晴', status:'active', createdAt:'2025-11-05' },
+    { id:'pt2', name:'李美玲', phone:'92345678', gender:'女', dob:'1988-07-22', address:'紅磡', allergies:'青霉素', notes:'偏頭痛', firstVisit:'2025-12-01', lastVisit:'2026-02-15', totalVisits:5, totalSpent:2100, store:'宋皇臺', doctor:'許植輝', status:'active', createdAt:'2025-12-01' },
+    { id:'pt3', name:'王志明', phone:'93456789', gender:'男', dob:'1962-11-08', address:'太子', allergies:'無', notes:'高血壓 糖尿病', firstVisit:'2026-01-10', lastVisit:'2026-02-18', totalVisits:4, totalSpent:1800, store:'太子', doctor:'常凱晴', status:'active', createdAt:'2026-01-10' },
+    { id:'pt4', name:'張小燕', phone:'94567890', gender:'女', dob:'1995-01-30', address:'旺角', allergies:'無', notes:'濕疹', firstVisit:'2026-01-20', lastVisit:'2026-02-05', totalVisits:3, totalSpent:1350, store:'太子', doctor:'曾其方', status:'active', createdAt:'2026-01-20' },
+    { id:'pt5', name:'烏若汝', phone:'95678901', gender:'女', dob:'1980-05-12', address:'土瓜灣', allergies:'無', notes:'天灸療程', firstVisit:'2025-12-18', lastVisit:'2025-12-18', totalVisits:1, totalSpent:388, store:'宋皇臺', doctor:'常凱晴', status:'inactive', createdAt:'2025-12-18' },
+  ],
+  bookings: [
+    { id:'bk1', patientName:'陳大文', patientPhone:'91234567', date:'2026-02-24', time:'10:00', duration:30, doctor:'常凱晴', store:'宋皇臺', type:'覆診', status:'confirmed', notes:'腰痛跟進', createdAt:'2026-02-20' },
+    { id:'bk2', patientName:'李美玲', patientPhone:'92345678', date:'2026-02-24', time:'14:30', duration:30, doctor:'許植輝', store:'宋皇臺', type:'針灸', status:'confirmed', notes:'', createdAt:'2026-02-21' },
+    { id:'bk3', patientName:'王志明', patientPhone:'93456789', date:'2026-02-25', time:'11:00', duration:30, doctor:'常凱晴', store:'太子', type:'覆診', status:'confirmed', notes:'血壓跟進', createdAt:'2026-02-21' },
+  ],
+  payslips: [],
 };
