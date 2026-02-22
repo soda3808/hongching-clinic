@@ -4,7 +4,9 @@ import { fmtM, fmt, getMonth, monthLabel, DOCTORS } from '../data';
 
 const COLORS = { '常凱晴': '#0e7490', '許植輝': '#8B6914', '曾其方': '#7C3AED' };
 
-export default function DoctorAnalytics({ data }) {
+export default function DoctorAnalytics({ data, user }) {
+  const isDoctor = user?.role === 'doctor';
+  const visibleDoctors = isDoctor ? [user.name] : DOCTORS;
   const months = useMemo(() => {
     const m = new Set();
     data.revenue.forEach(r => { const k = getMonth(r.date); if (k) m.add(k); });
@@ -15,7 +17,7 @@ export default function DoctorAnalytics({ data }) {
 
   // Per-doctor stats
   const docStats = useMemo(() => {
-    return DOCTORS.map(doc => {
+    return visibleDoctors.map(doc => {
       const recs = data.revenue.filter(r => r.doctor === doc);
       const thisRecs = recs.filter(r => getMonth(r.date) === thisMonth);
       const totalRev = recs.reduce((s, r) => s + Number(r.amount), 0);
@@ -37,7 +39,7 @@ export default function DoctorAnalytics({ data }) {
   // Stacked chart data
   const stackData = months.map(m => {
     const row = { month: monthLabel(m).split(' ')[0] };
-    DOCTORS.forEach(doc => {
+    visibleDoctors.forEach(doc => {
       row[doc] = data.revenue.filter(r => r.doctor === doc && getMonth(r.date) === m).reduce((s, r) => s + Number(r.amount), 0);
     });
     return row;
@@ -46,7 +48,7 @@ export default function DoctorAnalytics({ data }) {
   return (
     <>
       {/* Doctor KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${DOCTORS.length}, 1fr)`, gap: 16, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleDoctors.length}, 1fr)`, gap: 16, marginBottom: 20 }}>
         {docStats.map(d => (
           <div key={d.name} className="card" style={{ borderTop: `4px solid ${d.color}` }}>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>{d.name}</div>
@@ -81,8 +83,8 @@ export default function DoctorAnalytics({ data }) {
             <YAxis fontSize={11} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
             <Tooltip formatter={v => fmtM(v)} />
             <Legend />
-            {DOCTORS.map(doc => (
-              <Bar key={doc} dataKey={doc} stackId="a" fill={COLORS[doc] || '#999'} radius={doc === DOCTORS[DOCTORS.length-1] ? [4,4,0,0] : [0,0,0,0]} />
+            {visibleDoctors.map(doc => (
+              <Bar key={doc} dataKey={doc} stackId="a" fill={COLORS[doc] || '#999'} radius={doc === visibleDoctors[visibleDoctors.length-1] ? [4,4,0,0] : [0,0,0,0]} />
             ))}
           </BarChart>
         </ResponsiveContainer>

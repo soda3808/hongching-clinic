@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react';
 import { saveRevenue, deleteRecord } from '../api';
 import { uid, fmtM, fmt, getMonth, monthLabel, DOCTORS } from '../data';
 
-export default function Revenue({ data, setData, showToast }) {
-  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], name: '', item: '', amount: '', payment: '現金', store: '宋皇臺', doctor: '常凱晴', note: '' });
+export default function Revenue({ data, setData, showToast, user }) {
+  const isDoctor = user?.role === 'doctor';
+  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], name: '', item: '', amount: '', payment: '現金', store: isDoctor ? (user.stores[0] || '宋皇臺') : '宋皇臺', doctor: isDoctor ? user.name : '常凱晴', note: '' });
   const [filterMonth, setFilterMonth] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [filterDoc, setFilterDoc] = useState('');
@@ -88,7 +89,7 @@ export default function Revenue({ data, setData, showToast }) {
             </select>
           </div>
           <div><label>醫師</label>
-            <select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))}>
+            <select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))} disabled={isDoctor}>
               {DOCTORS.map(d => <option key={d}>{d}</option>)}<option>其他</option>
             </select>
           </div>

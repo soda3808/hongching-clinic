@@ -1,164 +1,305 @@
 import { useState } from 'react';
 import { saveAllLocal } from '../api';
 import { exportJSON, importJSON } from '../utils/export';
+import { DEFAULT_USERS, DEFAULT_STORES, ROLE_LABELS, ROLE_TAGS } from '../config';
+import { getUsers, saveUsers, getStores, saveStores } from '../auth';
 
-const DEFAULT_CLINIC = {
-  name: '康晴綜合醫療中心',
-  nameEn: 'Hong Ching International Medical Centre',
-  addr1: '馬頭涌道97號美誠大廈地下',
-  addr2: '長沙灣道28號長康大廈地下',
-  phone: '',
-  whatsapp: '',
-  email: '',
-};
-
-export default function SettingsPage({ data, setData, showToast }) {
+export default function SettingsPage({ data, setData, showToast, user }) {
+  const [tab, setTab] = useState('clinic');
   const [clinic, setClinic] = useState(() => {
-    try { return { ...DEFAULT_CLINIC, ...JSON.parse(localStorage.getItem('hcmc_clinic') || '{}') }; }
-    catch { return { ...DEFAULT_CLINIC }; }
+    try { return { name:'康晴綜合醫療中心', nameEn:'Hong Ching International Medical Centre', addr1:'馬頭涌道97號美誠大廈地下', addr2:'長沙灣道28號長康大廈地下', phone:'', whatsapp:'', email:'', ...JSON.parse(localStorage.getItem('hcmc_clinic') || '{}') }; }
+    catch { return { name:'康晴綜合醫療中心', nameEn:'Hong Ching International Medical Centre', addr1:'', addr2:'', phone:'', whatsapp:'', email:'' }; }
   });
-  const [gasUrl, setGasUrl] = useState(() => import.meta.env.VITE_GAS_URL || localStorage.getItem('hcmc_gas_url') || '');
-  const [oldPw, setOldPw] = useState('');
-  const [newPw, setNewPw] = useState('');
+  const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('hcmc_gas_url') || '');
   const [showReset, setShowReset] = useState(false);
 
-  const saveClinic = () => {
-    localStorage.setItem('hcmc_clinic', JSON.stringify(clinic));
-    showToast('診所資料已儲存');
-  };
+  // User management
+  const [users, setUsersState] = useState(getUsers);
+  const [editUser, setEditUser] = useState(null);
+  const [newUser, setNewUser] = useState({ username:'', password:'', name:'', role:'staff', stores:[], email:'', active:true });
 
-  const saveGasUrl = () => {
-    localStorage.setItem('hcmc_gas_url', gasUrl);
-    showToast('API URL 已儲存（需重新載入）');
-  };
+  // Store management
+  const [stores, setStoresState] = useState(getStores);
+  const [editStore, setEditStore] = useState(null);
+  const [newStore, setNewStore] = useState({ name:'', address:'', phone:'', active:true });
 
-  const changePw = () => {
-    const current = localStorage.getItem('hcmc_password') || 'hcmc2026';
-    if (oldPw !== current) { showToast('舊密碼錯誤'); return; }
-    if (!newPw || newPw.length < 4) { showToast('新密碼至少4位'); return; }
-    localStorage.setItem('hcmc_password', newPw);
-    setOldPw(''); setNewPw('');
-    showToast('密碼已更改');
-  };
+  const isAdmin = user?.role === 'admin';
 
-  const handleExport = () => {
-    exportJSON(data, `hcmc_backup_${new Date().toISOString().substring(0,10)}.json`);
-    showToast('數據已匯出');
-  };
+  // ── Clinic ──
+  const saveClinic = () => { localStorage.setItem('hcmc_clinic', JSON.stringify(clinic)); showToast('診所資料已儲存'); };
+  const saveGas = () => { localStorage.setItem('hcmc_gas_url', gasUrl); showToast('API URL 已儲存'); };
 
-  const handleImport = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
+  // ── Data ──
+  const handleExport = () => { exportJSON(data, `hcmc_backup_${new Date().toISOString().substring(0,10)}.json`); showToast('數據已匯出'); };
+  const handleImport = () => {
+    const input = document.createElement('input'); input.type='file'; input.accept='.json';
     input.onchange = async (e) => {
       try {
         const imported = await importJSON(e.target.files[0]);
-        const merged = {
-          revenue: imported.revenue || data.revenue || [],
-          expenses: imported.expenses || data.expenses || [],
-          arap: imported.arap || data.arap || [],
-          patients: imported.patients || data.patients || [],
-          bookings: imported.bookings || data.bookings || [],
-          payslips: imported.payslips || data.payslips || [],
-        };
-        setData(merged);
-        showToast('數據已匯入');
-      } catch (err) {
-        showToast('匯入失敗：' + err.message);
-      }
+        const merged = { revenue: imported.revenue||data.revenue||[], expenses: imported.expenses||data.expenses||[], arap: imported.arap||data.arap||[], patients: imported.patients||data.patients||[], bookings: imported.bookings||data.bookings||[], payslips: imported.payslips||data.payslips||[] };
+        setData(merged); showToast('數據已匯入');
+      } catch (err) { showToast('匯入失敗：' + err.message); }
     };
     input.click();
   };
+  const handleReset = () => { localStorage.removeItem('hc_data'); localStorage.removeItem('hcmc_clinic'); localStorage.removeItem('hc_users'); localStorage.removeItem('hc_stores'); window.location.reload(); };
 
-  const handleClear = () => {
-    localStorage.removeItem('hc_data');
-    showToast('本地緩存已清除');
+  // ── Users ──
+  const handleSaveUser = (u) => {
+    let updated;
+    if (users.find(x => x.id === u.id)) {
+      updated = users.map(x => x.id === u.id ? u : x);
+    } else {
+      updated = [...users, { ...u, id: 'u' + Date.now() }];
+    }
+    setUsersState(updated); saveUsers(updated); setEditUser(null);
+    setNewUser({ username:'', password:'', name:'', role:'staff', stores:[], email:'', active:true });
+    showToast('用戶已儲存');
+  };
+  const toggleUserStore = (u, store) => {
+    const s = u.stores.includes(store) ? u.stores.filter(x => x !== store) : [...u.stores, store];
+    return { ...u, stores: s };
   };
 
-  const handleReset = () => {
-    localStorage.removeItem('hc_data');
-    localStorage.removeItem('hcmc_clinic');
-    localStorage.removeItem('hcmc_password');
-    localStorage.removeItem('hcmc_gas_url');
-    window.location.reload();
+  // ── Stores ──
+  const handleSaveStore = (s) => {
+    let updated;
+    if (stores.find(x => x.id === s.id)) {
+      updated = stores.map(x => x.id === s.id ? s : x);
+    } else {
+      updated = [...stores, { ...s, id: 's' + Date.now() }];
+    }
+    setStoresState(updated); saveStores(updated); setEditStore(null);
+    setNewStore({ name:'', address:'', phone:'', active:true });
+    showToast('分店已儲存');
   };
 
-  const counts = {
-    rev: (data.revenue || []).length,
-    exp: (data.expenses || []).length,
-    pt: (data.patients || []).length,
-    bk: (data.bookings || []).length,
-  };
+  const counts = { rev:(data.revenue||[]).length, exp:(data.expenses||[]).length, pt:(data.patients||[]).length, bk:(data.bookings||[]).length };
+  const activeStores = stores.filter(s => s.active);
 
   return (
     <>
+      {/* Tabs */}
+      <div className="tab-bar">
+        <button className={`tab-btn ${tab==='clinic'?'active':''}`} onClick={()=>setTab('clinic')}>🏥 診所資料</button>
+        <button className={`tab-btn ${tab==='system'?'active':''}`} onClick={()=>setTab('system')}>⚙️ 系統設定</button>
+        <button className={`tab-btn ${tab==='data'?'active':''}`} onClick={()=>setTab('data')}>💾 數據管理</button>
+        {isAdmin && <button className={`tab-btn ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>👥 用戶管理</button>}
+        {isAdmin && <button className={`tab-btn ${tab==='stores'?'active':''}`} onClick={()=>setTab('stores')}>🏢 分店管理</button>}
+      </div>
+
       {/* Clinic Info */}
-      <div className="card">
-        <div className="card-header"><h3>診所資料</h3></div>
-        <div className="grid-2" style={{ marginBottom: 12 }}>
-          <div><label>中文名稱</label><input value={clinic.name} onChange={e => setClinic({...clinic, name: e.target.value})} /></div>
-          <div><label>英文名稱</label><input value={clinic.nameEn} onChange={e => setClinic({...clinic, nameEn: e.target.value})} /></div>
-        </div>
-        <div className="grid-2" style={{ marginBottom: 12 }}>
-          <div><label>宋皇臺地址</label><input value={clinic.addr1} onChange={e => setClinic({...clinic, addr1: e.target.value})} /></div>
-          <div><label>太子地址</label><input value={clinic.addr2} onChange={e => setClinic({...clinic, addr2: e.target.value})} /></div>
-        </div>
-        <div className="grid-3" style={{ marginBottom: 12 }}>
-          <div><label>電話</label><input value={clinic.phone} onChange={e => setClinic({...clinic, phone: e.target.value})} placeholder="電話" /></div>
-          <div><label>WhatsApp</label><input value={clinic.whatsapp} onChange={e => setClinic({...clinic, whatsapp: e.target.value})} placeholder="WhatsApp" /></div>
-          <div><label>Email</label><input value={clinic.email} onChange={e => setClinic({...clinic, email: e.target.value})} placeholder="Email" /></div>
-        </div>
-        <button className="btn btn-teal" onClick={saveClinic}>儲存診所資料</button>
-      </div>
-
-      {/* System Settings */}
-      <div className="card">
-        <div className="card-header"><h3>系統設定</h3></div>
-        <div style={{ marginBottom: 16 }}>
-          <label>Google Sheets API URL</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input value={gasUrl} onChange={e => setGasUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." style={{ flex: 1 }} />
-            <button className="btn btn-teal btn-sm" onClick={saveGasUrl}>儲存</button>
+      {tab === 'clinic' && (
+        <div className="card">
+          <div className="card-header"><h3>診所資料</h3></div>
+          <div className="grid-2" style={{ marginBottom:12 }}>
+            <div><label>中文名稱</label><input value={clinic.name} onChange={e => setClinic({...clinic, name:e.target.value})} /></div>
+            <div><label>英文名稱</label><input value={clinic.nameEn} onChange={e => setClinic({...clinic, nameEn:e.target.value})} /></div>
           </div>
-          <small style={{ color: 'var(--gray-400)', fontSize: 11 }}>數據同步：{gasUrl ? '已設定 API' : '僅本地儲存'}</small>
+          <div className="grid-2" style={{ marginBottom:12 }}>
+            <div><label>宋皇臺地址</label><input value={clinic.addr1} onChange={e => setClinic({...clinic, addr1:e.target.value})} /></div>
+            <div><label>太子地址</label><input value={clinic.addr2} onChange={e => setClinic({...clinic, addr2:e.target.value})} /></div>
+          </div>
+          <div className="grid-3" style={{ marginBottom:12 }}>
+            <div><label>電話</label><input value={clinic.phone} onChange={e => setClinic({...clinic, phone:e.target.value})} /></div>
+            <div><label>WhatsApp</label><input value={clinic.whatsapp} onChange={e => setClinic({...clinic, whatsapp:e.target.value})} /></div>
+            <div><label>Email</label><input value={clinic.email} onChange={e => setClinic({...clinic, email:e.target.value})} /></div>
+          </div>
+          <button className="btn btn-teal" onClick={saveClinic}>儲存</button>
         </div>
-        <div>
-          <label>修改登入密碼</label>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'end' }}>
-            <input type="password" value={oldPw} onChange={e => setOldPw(e.target.value)} placeholder="舊密碼" style={{ flex: 1 }} />
-            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="新密碼" style={{ flex: 1 }} />
-            <button className="btn btn-gold btn-sm" onClick={changePw}>更改</button>
+      )}
+
+      {/* System */}
+      {tab === 'system' && (
+        <div className="card">
+          <div className="card-header"><h3>系統設定</h3></div>
+          <div style={{ marginBottom:16 }}>
+            <label>Google Sheets API URL</label>
+            <div style={{ display:'flex', gap:8 }}>
+              <input value={gasUrl} onChange={e => setGasUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." style={{ flex:1 }} />
+              <button className="btn btn-teal btn-sm" onClick={saveGas}>儲存</button>
+            </div>
+            <small style={{ color:'var(--gray-400)', fontSize:11 }}>數據同步：{gasUrl ? '已設定 API' : '僅本地儲存'}</small>
+          </div>
+          <div className="card" style={{ background:'var(--gray-50)' }}>
+            <p style={{ fontSize:13, color:'var(--gray-600)' }}>
+              版本 v3.0 — 康晴診所管理系統<br/>
+              數據統計：{counts.rev} 筆營業 / {counts.exp} 筆開支 / {counts.pt} 個病人 / {counts.bk} 筆預約
+            </p>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Data Management */}
-      <div className="card">
-        <div className="card-header"><h3>數據管理</h3></div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-teal" onClick={handleExport}>📥 匯出所有數據 (JSON)</button>
-          <button className="btn btn-gold" onClick={handleImport}>📤 匯入數據 (JSON)</button>
-          <button className="btn btn-outline" onClick={handleClear}>🗑️ 清除本地緩存</button>
-          <button className="btn btn-red" onClick={() => setShowReset(true)}>⚠️ 重置所有數據</button>
+      {/* Data */}
+      {tab === 'data' && (
+        <div className="card">
+          <div className="card-header"><h3>數據管理</h3></div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button className="btn btn-teal" onClick={handleExport}>📥 匯出所有數據</button>
+            <button className="btn btn-gold" onClick={handleImport}>📤 匯入數據</button>
+            <button className="btn btn-outline" onClick={() => { localStorage.removeItem('hc_data'); showToast('已清除'); }}>🗑️ 清除緩存</button>
+            <button className="btn btn-red" onClick={() => setShowReset(true)}>⚠️ 重置所有數據</button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* About */}
-      <div className="card">
-        <div className="card-header"><h3>關於</h3></div>
-        <p style={{ fontSize: 13, color: 'var(--gray-600)' }}>
-          版本 v2.5 — 康晴診所管理系統<br/>
-          數據統計：{counts.rev} 筆營業 / {counts.exp} 筆開支 / {counts.pt} 個病人 / {counts.bk} 筆預約
-        </p>
-      </div>
+      {/* User Management */}
+      {tab === 'users' && isAdmin && (
+        <>
+          <div className="card">
+            <div className="card-header"><h3>新增用戶</h3></div>
+            <div className="grid-3" style={{ marginBottom:12 }}>
+              <div><label>用戶名</label><input value={newUser.username} onChange={e => setNewUser({...newUser, username:e.target.value})} /></div>
+              <div><label>密碼</label><input value={newUser.password} onChange={e => setNewUser({...newUser, password:e.target.value})} /></div>
+              <div><label>姓名</label><input value={newUser.name} onChange={e => setNewUser({...newUser, name:e.target.value})} /></div>
+            </div>
+            <div className="grid-2" style={{ marginBottom:12 }}>
+              <div><label>角色</label>
+                <select value={newUser.role} onChange={e => setNewUser({...newUser, role:e.target.value})}>
+                  <option value="admin">管理員</option><option value="manager">店長</option><option value="doctor">醫師</option><option value="staff">助理</option>
+                </select>
+              </div>
+              <div><label>負責分店</label>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', paddingTop:4 }}>
+                  {activeStores.map(s => (
+                    <label key={s.id} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, cursor:'pointer' }}>
+                      <input type="checkbox" checked={newUser.stores.includes(s.name)} onChange={() => setNewUser(toggleUserStore(newUser, s.name))} />
+                      {s.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button className="btn btn-teal" onClick={() => { if(!newUser.username||!newUser.password||!newUser.name) return showToast('請填寫必要欄位'); handleSaveUser(newUser); }}>新增用戶</button>
+          </div>
+          <div className="card" style={{ padding:0 }}>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>用戶名</th><th>姓名</th><th>角色</th><th>負責分店</th><th>狀態</th><th>操作</th></tr></thead>
+                <tbody>
+                  {users.map(u => (
+                    <tr key={u.id} style={{ opacity: u.active ? 1 : 0.5 }}>
+                      <td style={{ fontWeight:600 }}>{u.username}</td>
+                      <td>{u.name}</td>
+                      <td><span className={`tag ${ROLE_TAGS[u.role]||''}`}>{ROLE_LABELS[u.role]}</span></td>
+                      <td>{u.stores.includes('all') ? '全部' : u.stores.join(', ')}</td>
+                      <td><span className={`tag ${u.active?'tag-paid':'tag-overdue'}`}>{u.active?'啟用':'停用'}</span></td>
+                      <td><button className="btn btn-outline btn-sm" onClick={() => setEditUser({...u})}>編輯</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
-      {/* Reset Confirmation Modal */}
+      {/* Store Management */}
+      {tab === 'stores' && isAdmin && (
+        <>
+          <div className="card">
+            <div className="card-header"><h3>新增分店</h3></div>
+            <div className="grid-3" style={{ marginBottom:12 }}>
+              <div><label>分店名稱</label><input value={newStore.name} onChange={e => setNewStore({...newStore, name:e.target.value})} /></div>
+              <div><label>地址</label><input value={newStore.address} onChange={e => setNewStore({...newStore, address:e.target.value})} /></div>
+              <div><label>電話</label><input value={newStore.phone} onChange={e => setNewStore({...newStore, phone:e.target.value})} /></div>
+            </div>
+            <button className="btn btn-teal" onClick={() => { if(!newStore.name) return showToast('請填寫分店名稱'); handleSaveStore(newStore); }}>新增分店</button>
+          </div>
+          <div className="card" style={{ padding:0 }}>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>分店名稱</th><th>地址</th><th>電話</th><th>狀態</th><th>操作</th></tr></thead>
+                <tbody>
+                  {stores.map(s => (
+                    <tr key={s.id} style={{ opacity: s.active ? 1 : 0.5 }}>
+                      <td style={{ fontWeight:600 }}>{s.name}</td>
+                      <td>{s.address}</td>
+                      <td>{s.phone || '-'}</td>
+                      <td><span className={`tag ${s.active?'tag-paid':'tag-overdue'}`}>{s.active?'營業中':'已停用'}</span></td>
+                      <td><button className="btn btn-outline btn-sm" onClick={() => setEditStore({...s})}>編輯</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="modal-overlay" onClick={() => setEditUser(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>編輯用戶 — {editUser.name}</h3>
+            <div className="grid-2" style={{ marginBottom:12 }}>
+              <div><label>密碼</label><input value={editUser.password} onChange={e => setEditUser({...editUser, password:e.target.value})} /></div>
+              <div><label>姓名</label><input value={editUser.name} onChange={e => setEditUser({...editUser, name:e.target.value})} /></div>
+            </div>
+            <div className="grid-2" style={{ marginBottom:12 }}>
+              <div><label>角色</label>
+                <select value={editUser.role} onChange={e => setEditUser({...editUser, role:e.target.value})} disabled={editUser.role==='admin' && users.filter(u=>u.role==='admin').length<=1}>
+                  <option value="admin">管理員</option><option value="manager">店長</option><option value="doctor">醫師</option><option value="staff">助理</option>
+                </select>
+              </div>
+              <div><label>狀態</label>
+                <select value={editUser.active?'true':'false'} onChange={e => setEditUser({...editUser, active:e.target.value==='true'})}>
+                  <option value="true">啟用</option><option value="false">停用</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom:12 }}>
+              <label>負責分店</label>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {editUser.role === 'admin' ? <span style={{ fontSize:12, color:'var(--gray-400)' }}>管理員可見全部分店</span> :
+                  activeStores.map(s => (
+                    <label key={s.id} style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, cursor:'pointer' }}>
+                      <input type="checkbox" checked={editUser.stores.includes(s.name)} onChange={() => setEditUser(toggleUserStore(editUser, s.name))} />
+                      {s.name}
+                    </label>
+                  ))
+                }
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button className="btn btn-teal" onClick={() => handleSaveUser(editUser)}>儲存</button>
+              <button className="btn btn-outline" onClick={() => setEditUser(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Store Modal */}
+      {editStore && (
+        <div className="modal-overlay" onClick={() => setEditStore(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>編輯分店 — {editStore.name}</h3>
+            <div className="grid-2" style={{ marginBottom:12 }}>
+              <div><label>分店名稱</label><input value={editStore.name} onChange={e => setEditStore({...editStore, name:e.target.value})} /></div>
+              <div><label>電話</label><input value={editStore.phone||''} onChange={e => setEditStore({...editStore, phone:e.target.value})} /></div>
+            </div>
+            <div style={{ marginBottom:12 }}><label>地址</label><input value={editStore.address} onChange={e => setEditStore({...editStore, address:e.target.value})} /></div>
+            <div style={{ marginBottom:12 }}>
+              <label>狀態</label>
+              <select value={editStore.active?'true':'false'} onChange={e => setEditStore({...editStore, active:e.target.value==='true'})}>
+                <option value="true">營業中</option><option value="false">已停用</option>
+              </select>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button className="btn btn-teal" onClick={() => handleSaveStore(editStore)}>儲存</button>
+              <button className="btn btn-outline" onClick={() => setEditStore(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Confirmation */}
       {showReset && (
         <div className="modal-overlay" onClick={() => setShowReset(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
-            <h3 style={{ color: 'var(--red-600)' }}>⚠️ 確認重置所有數據？</h3>
-            <p style={{ fontSize: 13, color: 'var(--gray-500)', margin: '16px 0' }}>此操作將清除所有本地數據並重新載入，無法恢復。</p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign:'center' }}>
+            <h3 style={{ color:'var(--red-600)' }}>⚠️ 確認重置所有數據？</h3>
+            <p style={{ fontSize:13, color:'var(--gray-500)', margin:'16px 0' }}>此操作無法恢復。</p>
+            <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
               <button className="btn btn-red" onClick={handleReset}>確認重置</button>
               <button className="btn btn-outline" onClick={() => setShowReset(false)}>取消</button>
             </div>
