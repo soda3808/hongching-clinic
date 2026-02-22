@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { fmtM, fmt, getMonth, monthLabel } from '../data';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
@@ -179,6 +179,22 @@ export default function Dashboard({ data }) {
             </PieChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* Line Chart */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-header"><h3>📉 營業額趨勢折線圖</h3></div>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={barData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="month" fontSize={11} />
+            <YAxis fontSize={11} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
+            <Tooltip formatter={v => fmtM(v)} />
+            <Legend />
+            <Line type="monotone" dataKey="營業額" stroke="#8B6914" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="開支" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </>
   );
