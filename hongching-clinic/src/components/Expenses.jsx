@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { saveExpense, deleteRecord } from '../api';
 import { uid, fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, ALL_CATEGORIES } from '../data';
+import ConfirmModal from './ConfirmModal';
 
 export default function Expenses({ data, setData, showToast }) {
   const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], merchant: '', amount: '', category: '租金', store: '宋皇臺', payment: '現金', desc: '', receipt: '' });
@@ -10,6 +11,9 @@ export default function Expenses({ data, setData, showToast }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileName, setFileName] = useState('');
+  const [deleteId, setDeleteId] = useState(null);
+  const [sortBy, setSortBy] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
 
   const months = useMemo(() => {
     const m = new Set();
@@ -22,10 +26,26 @@ export default function Expenses({ data, setData, showToast }) {
     if (filterMonth) l = l.filter(r => getMonth(r.date) === filterMonth);
     if (filterStore) l = l.filter(r => r.store === filterStore);
     if (filterCat) l = l.filter(r => r.category === filterCat);
-    return l.sort((a, b) => b.date.localeCompare(a.date));
-  }, [data.expenses, filterMonth, filterStore, filterCat]);
+    l.sort((a, b) => {
+      if (sortBy === 'amount') {
+        return sortDir === 'desc' ? Number(b.amount) - Number(a.amount) : Number(a.amount) - Number(b.amount);
+      }
+      return sortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+    });
+    return l;
+  }, [data.expenses, filterMonth, filterStore, filterCat, sortBy, sortDir]);
 
   const total = list.reduce((s, r) => s + Number(r.amount), 0);
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setSortBy(col); setSortDir('desc'); }
+  };
+
+  const sortIcon = (col) => {
+    if (sortBy !== col) return ' ↕';
+    return sortDir === 'desc' ? ' ↓' : ' ↑';
+  };
 
   // Group totals by category
   const catTotals = useMemo(() => {
@@ -51,6 +71,14 @@ export default function Expenses({ data, setData, showToast }) {
     reader.readAsDataURL(file);
   };
 
+  // Amount input: only positive numbers
+  const handleAmountChange = (val) => {
+    const cleaned = val.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const safe = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+    setForm(f => ({ ...f, amount: safe }));
+  };
+
   const handleAdd = async () => {
     if (!form.date || !form.amount) { alert('請填日期同金額'); return; }
     setSaving(true);
@@ -63,11 +91,12 @@ export default function Expenses({ data, setData, showToast }) {
     setSaving(false);
   };
 
-  const handleDel = async (id) => {
-    if (!confirm('確認刪除？')) return;
-    await deleteRecord('expenses', id);
-    setData({ ...data, expenses: data.expenses.filter(r => r.id !== id) });
+  const handleDel = async () => {
+    if (!deleteId) return;
+    await deleteRecord('expenses', deleteId);
+    setData({ ...data, expenses: data.expenses.filter(r => r.id !== deleteId) });
     showToast('已刪除');
+    setDeleteId(null);
   };
 
   return (
@@ -78,7 +107,7 @@ export default function Expenses({ data, setData, showToast }) {
         <div className="grid-4">
           <div><label>日期</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
           <div><label>商戶</label><input placeholder="CLP中電" value={form.merchant} onChange={e => setForm(f => ({ ...f, merchant: e.target.value }))} /></div>
-          <div><label>金額 ($)</label><input type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} /></div>
+          <div><label>金額 ($)</label><input type="text" inputMode="decimal" placeholder="0" value={form.amount} onChange={e => handleAmountChange(e.target.value)} /></div>
           <div><label>類別</label>
             <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
               {Object.entries(EXPENSE_CATEGORIES).map(([group, cats]) => (
@@ -151,13 +180,23 @@ export default function Expenses({ data, setData, showToast }) {
         <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
           <table>
             <thead>
-              <tr><th></th><th>📎</th><th>日期</th><th>店舖</th><th>商戶</th><th>類別</th><th style={{ textAlign: 'right' }}>金額</th><th>付款</th><th>描述</th></tr>
+              <tr>
+                <th></th>
+                <th>📎</th>
+                <th className="sortable-th" onClick={() => toggleSort('date')}>日期{sortIcon('date')}</th>
+                <th>店舖</th>
+                <th>商戶</th>
+                <th>類別</th>
+                <th className="sortable-th" onClick={() => toggleSort('amount')} style={{ textAlign: 'right' }}>金額{sortIcon('amount')}</th>
+                <th>付款</th>
+                <th>描述</th>
+              </tr>
             </thead>
             <tbody>
               {!list.length && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
               {list.map(r => (
                 <tr key={r.id}>
-                  <td><span onClick={() => handleDel(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
+                  <td><span onClick={() => setDeleteId(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
                   <td>{r.receipt ? <a href={r.receipt} target="_blank" rel="noopener" title="查看收據" style={{ fontSize: 16 }}>🧾</a> : <span style={{ color: '#ddd' }}>-</span>}</td>
                   <td>{String(r.date).substring(0, 10)}</td>
                   <td>{r.store}</td>
@@ -172,6 +211,8 @@ export default function Expenses({ data, setData, showToast }) {
           </table>
         </div>
       </div>
+
+      {deleteId && <ConfirmModal message="確認刪除此開支紀錄？此操作無法復原。" onConfirm={handleDel} onCancel={() => setDeleteId(null)} />}
     </>
   );
 }

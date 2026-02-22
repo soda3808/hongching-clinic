@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { saveRevenue, deleteRecord } from '../api';
 import { uid, fmtM, fmt, getMonth, monthLabel, DOCTORS } from '../data';
+import ConfirmModal from './ConfirmModal';
 
 export default function Revenue({ data, setData, showToast, user }) {
   const isDoctor = user?.role === 'doctor';
@@ -9,6 +10,9 @@ export default function Revenue({ data, setData, showToast, user }) {
   const [filterStore, setFilterStore] = useState('');
   const [filterDoc, setFilterDoc] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState(null);
+  const [sortBy, setSortBy] = useState('date');
+  const [sortDir, setSortDir] = useState('desc');
 
   const months = useMemo(() => {
     const m = new Set();
@@ -21,10 +25,26 @@ export default function Revenue({ data, setData, showToast, user }) {
     if (filterMonth) l = l.filter(r => getMonth(r.date) === filterMonth);
     if (filterStore) l = l.filter(r => r.store === filterStore);
     if (filterDoc) l = l.filter(r => r.doctor === filterDoc);
-    return l.sort((a, b) => b.date.localeCompare(a.date));
-  }, [data.revenue, filterMonth, filterStore, filterDoc]);
+    l.sort((a, b) => {
+      if (sortBy === 'amount') {
+        return sortDir === 'desc' ? Number(b.amount) - Number(a.amount) : Number(a.amount) - Number(b.amount);
+      }
+      return sortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+    });
+    return l;
+  }, [data.revenue, filterMonth, filterStore, filterDoc, sortBy, sortDir]);
 
   const total = list.reduce((s, r) => s + Number(r.amount), 0);
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setSortBy(col); setSortDir('desc'); }
+  };
+
+  const sortIcon = (col) => {
+    if (sortBy !== col) return ' ↕';
+    return sortDir === 'desc' ? ' ↓' : ' ↑';
+  };
 
   // Auto-calc math expression in treatment item
   const handleItemChange = (val) => {
@@ -42,6 +62,15 @@ export default function Revenue({ data, setData, showToast, user }) {
     }
   };
 
+  // Amount input: only positive numbers
+  const handleAmountChange = (val) => {
+    const cleaned = val.replace(/[^0-9.]/g, '');
+    // Prevent multiple decimal points
+    const parts = cleaned.split('.');
+    const safe = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+    setForm(f => ({ ...f, amount: safe }));
+  };
+
   const handleAdd = async () => {
     if (!form.date || !form.name || !form.amount) { alert('請填日期、姓名同金額'); return; }
     setSaving(true);
@@ -53,11 +82,12 @@ export default function Revenue({ data, setData, showToast, user }) {
     setSaving(false);
   };
 
-  const handleDel = async (id) => {
-    if (!confirm('確認刪除？')) return;
-    await deleteRecord('revenue', id);
-    setData({ ...data, revenue: data.revenue.filter(r => r.id !== id) });
+  const handleDel = async () => {
+    if (!deleteId) return;
+    await deleteRecord('revenue', deleteId);
+    setData({ ...data, revenue: data.revenue.filter(r => r.id !== deleteId) });
     showToast('已刪除');
+    setDeleteId(null);
   };
 
   const payTag = (p) => {
@@ -80,7 +110,7 @@ export default function Revenue({ data, setData, showToast, user }) {
           <div><label>日期</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
           <div><label>病人姓名</label><input placeholder="陳大文" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
           <div><label>治療項目</label><input placeholder="90*4+100" value={form.item} onChange={e => handleItemChange(e.target.value)} /></div>
-          <div><label>金額 ($)</label><input type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} /></div>
+          <div><label>金額 ($)</label><input type="text" inputMode="decimal" placeholder="0" value={form.amount} onChange={e => handleAmountChange(e.target.value)} /></div>
         </div>
         <div className="grid-4" style={{ marginTop: 10 }}>
           <div><label>付款方式</label>
@@ -123,13 +153,23 @@ export default function Revenue({ data, setData, showToast, user }) {
         <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
           <table>
             <thead>
-              <tr><th></th><th>日期</th><th>店舖</th><th>病人</th><th>項目</th><th style={{ textAlign: 'right' }}>金額</th><th>付款</th><th>醫師</th><th>備註</th></tr>
+              <tr>
+                <th></th>
+                <th className="sortable-th" onClick={() => toggleSort('date')}>日期{sortIcon('date')}</th>
+                <th>店舖</th>
+                <th>病人</th>
+                <th>項目</th>
+                <th className="sortable-th" onClick={() => toggleSort('amount')} style={{ textAlign: 'right' }}>金額{sortIcon('amount')}</th>
+                <th>付款</th>
+                <th>醫師</th>
+                <th>備註</th>
+              </tr>
             </thead>
             <tbody>
               {!list.length && <tr><td colSpan={9} className="empty" style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
               {list.map(r => (
                 <tr key={r.id}>
-                  <td><span onClick={() => handleDel(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
+                  <td><span onClick={() => setDeleteId(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
                   <td>{String(r.date).substring(0, 10)}</td>
                   <td>{r.store}</td>
                   <td style={{ fontWeight: 600 }}>{r.name}</td>
@@ -144,6 +184,8 @@ export default function Revenue({ data, setData, showToast, user }) {
           </table>
         </div>
       </div>
+
+      {deleteId && <ConfirmModal message="確認刪除此營業紀錄？此操作無法復原。" onConfirm={handleDel} onCancel={() => setDeleteId(null)} />}
     </>
   );
 }

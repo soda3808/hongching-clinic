@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
 import { saveARAP, deleteRecord } from '../api';
 import { uid, fmtM, fmt } from '../data';
+import ConfirmModal from './ConfirmModal';
 
 export default function ARAP({ data, setData, showToast }) {
   const [tab, setTab] = useState('receivable');
   const [form, setForm] = useState({ type: 'receivable', date: new Date().toISOString().split('T')[0], party: '', amount: '', desc: '', dueDate: '', status: '未收' });
+  const [deleteId, setDeleteId] = useState(null);
 
   const arap = data.arap || [];
 
@@ -14,6 +16,14 @@ export default function ARAP({ data, setData, showToast }) {
   const list = tab === 'receivable' ? receivables : payables;
   const totalPending = list.filter(r => r.status !== '已收' && r.status !== '已付').reduce((s, r) => s + Number(r.amount), 0);
   const totalAll = list.reduce((s, r) => s + Number(r.amount), 0);
+
+  // Amount input: only positive numbers
+  const handleAmountChange = (val) => {
+    const cleaned = val.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    const safe = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : cleaned;
+    setForm(f => ({ ...f, amount: safe }));
+  };
 
   const handleAdd = async () => {
     if (!form.party || !form.amount) { alert('請填對象同金額'); return; }
@@ -32,11 +42,12 @@ export default function ARAP({ data, setData, showToast }) {
     showToast(`已更新狀態為「${newStatus}」`);
   };
 
-  const handleDel = async (id) => {
-    if (!confirm('確認刪除？')) return;
-    await deleteRecord('arap', id);
-    setData({ ...data, arap: arap.filter(r => r.id !== id) });
+  const handleDel = async () => {
+    if (!deleteId) return;
+    await deleteRecord('arap', deleteId);
+    setData({ ...data, arap: arap.filter(r => r.id !== deleteId) });
     showToast('已刪除');
+    setDeleteId(null);
   };
 
   const isOverdue = (dueDate, status) => {
@@ -89,7 +100,7 @@ export default function ARAP({ data, setData, showToast }) {
         <div className="card-header"><h3>➕ 新增{tab === 'receivable' ? '應收' : '應付'}帳</h3></div>
         <div className="grid-4">
           <div><label>{tab === 'receivable' ? '應收對象' : '應付對象'}</label><input placeholder={tab === 'receivable' ? '病人姓名' : '供應商'} value={form.party} onChange={e => setForm(f => ({ ...f, party: e.target.value }))} /></div>
-          <div><label>金額 ($)</label><input type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} /></div>
+          <div><label>金額 ($)</label><input type="text" inputMode="decimal" placeholder="0" value={form.amount} onChange={e => handleAmountChange(e.target.value)} /></div>
           <div><label>到期日</label><input type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} /></div>
           <div><label>描述</label><input value={form.desc} onChange={e => setForm(f => ({ ...f, desc: e.target.value }))} /></div>
         </div>
@@ -112,7 +123,7 @@ export default function ARAP({ data, setData, showToast }) {
               {!list.length && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
               {list.sort((a, b) => (a.status === '已收' || a.status === '已付' ? 1 : -1)).map(r => (
                 <tr key={r.id} style={{ opacity: r.status === '已收' || r.status === '已付' ? .5 : 1 }}>
-                  <td><span onClick={() => handleDel(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
+                  <td><span onClick={() => setDeleteId(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
                   <td>{String(r.date).substring(0, 10)}</td>
                   <td style={{ fontWeight: 600 }}>{r.party}</td>
                   <td className="money" style={{ color: tab === 'receivable' ? 'var(--teal-700)' : 'var(--red-600)' }}>{fmtM(r.amount)}</td>
@@ -132,6 +143,8 @@ export default function ARAP({ data, setData, showToast }) {
           </table>
         </div>
       </div>
+
+      {deleteId && <ConfirmModal message={`確認刪除此${tab === 'receivable' ? '應收' : '應付'}帳紀錄？此操作無法復原。`} onConfirm={handleDel} onCancel={() => setDeleteId(null)} />}
     </>
   );
 }
