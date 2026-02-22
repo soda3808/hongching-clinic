@@ -102,7 +102,7 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
           setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'done', result: json.data } : f));
           setResults(prev => [...prev, {
             id: item.id,
-            filePreview: item.preview,
+            filePreview: dataUrl,
             fileDataUrl: dataUrl,
             date: json.data.date || '',
             merchant: json.data.merchant || '',
@@ -126,13 +126,19 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
     setProcessing(false);
   };
 
-  const clearAll = () => { setFiles([]); setResults([]); };
+  const clearAll = () => {
+    files.forEach(f => { if (f.preview) URL.revokeObjectURL(f.preview); });
+    setFiles([]);
+    setResults([]);
+  };
 
   const updateResult = (id, field, value) => {
     setResults(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
   const removeResult = (id) => {
+    const file = files.find(f => f.id === id);
+    if (file?.preview) URL.revokeObjectURL(file.preview);
     setResults(prev => prev.filter(r => r.id !== id));
     setFiles(prev => prev.filter(f => f.id !== id));
   };

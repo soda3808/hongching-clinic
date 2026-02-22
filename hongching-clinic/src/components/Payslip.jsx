@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { saveExpense } from '../api';
 import { uid, fmtM, fmt, EMPLOYEES } from '../data';
 
-export default function Payslip({ data, showToast }) {
+export default function Payslip({ data, setData, showToast }) {
   const [empId, setEmpId] = useState('hui');
   const [form, setForm] = useState({ period: 'Feb 2026', revenue: 0, bonus: 0, allow: 0, deduct: 0 });
 
@@ -73,6 +73,7 @@ export default function Payslip({ data, showToast }) {
     if (!net) { alert('淨薪為0'); return; }
     const rec = { id: uid(), date: new Date().toISOString().split('T')[0], merchant: emp.name, amount: net, category: '人工', store: '兩店共用', payment: '轉帳', desc: `${form.period} 薪酬`, receipt: '' };
     await saveExpense(rec);
+    if (setData) setData({ ...data, expenses: [...(data.expenses || []), rec] });
     showToast(`已將 ${emp.name} ${fmtM(net)} 計入開支`);
   };
 

@@ -159,7 +159,7 @@ export default function Expenses({ data, setData, showToast }) {
                 <tr key={r.id}>
                   <td><span onClick={() => handleDel(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
                   <td>{r.receipt ? <a href={r.receipt} target="_blank" rel="noopener" title="查看收據" style={{ fontSize: 16 }}>🧾</a> : <span style={{ color: '#ddd' }}>-</span>}</td>
-                  <td>{r.date}</td>
+                  <td>{String(r.date).substring(0, 10)}</td>
                   <td>{r.store}</td>
                   <td style={{ fontWeight: 600 }}>{r.merchant || '-'}</td>
                   <td><span style={{ background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600 }}>{r.category}</span></td>

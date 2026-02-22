@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { savePatient } from '../api';
 import { uid, fmtM, getMonth, DOCTORS } from '../data';
 
 const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:'宋皇臺', doctor:DOCTORS[0] };
@@ -41,7 +42,7 @@ export default function PatientPage({ data, setData, showToast }) {
     return Math.floor(diff / (365.25 * 86400000));
   };
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     if (!form.name || !form.phone) return showToast('請填寫姓名和電話');
     const now = new Date().toISOString().substring(0, 10);
@@ -49,8 +50,8 @@ export default function PatientPage({ data, setData, showToast }) {
       ...form, id: uid(), firstVisit: now, lastVisit: now,
       totalVisits: 0, totalSpent: 0, status: 'active', createdAt: now,
     };
-    const newData = { ...data, patients: [...patients, record] };
-    setData(newData);
+    await savePatient(record);
+    setData({ ...data, patients: [...patients, record] });
     setForm({ ...EMPTY });
     showToast('已新增病人');
   };
@@ -164,7 +165,7 @@ export default function PatientPage({ data, setData, showToast }) {
                 <thead><tr><th>日期</th><th>項目</th><th>金額</th><th>醫師</th><th>店舖</th></tr></thead>
                 <tbody>
                   {visitHistory.map(r => (
-                    <tr key={r.id}><td>{r.date}</td><td>{r.item}</td><td className="money">{fmtM(r.amount)}</td><td>{r.doctor}</td><td>{r.store}</td></tr>
+                    <tr key={r.id}><td>{String(r.date).substring(0, 10)}</td><td>{r.item}</td><td className="money">{fmtM(r.amount)}</td><td>{r.doctor}</td><td>{r.store}</td></tr>
                   ))}
                   {visitHistory.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-400)' }}>暫無就診紀錄</td></tr>}
                 </tbody>

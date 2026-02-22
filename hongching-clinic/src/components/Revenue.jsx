@@ -25,6 +25,22 @@ export default function Revenue({ data, setData, showToast }) {
 
   const total = list.reduce((s, r) => s + Number(r.amount), 0);
 
+  // Auto-calc math expression in treatment item
+  const handleItemChange = (val) => {
+    setForm(f => ({ ...f, item: val }));
+    // Replace × with * and ÷ with / for evaluation
+    const expr = val.replace(/×/g, '*').replace(/÷/g, '/');
+    // Check if it looks like a math expression (contains operators and numbers)
+    if (/^[\d\s+\-*/().]+$/.test(expr) && /[+\-*/]/.test(expr)) {
+      try {
+        const result = Function('"use strict"; return (' + expr + ')')();
+        if (typeof result === 'number' && isFinite(result) && result > 0) {
+          setForm(f => ({ ...f, item: val, amount: String(result) }));
+        }
+      } catch {}
+    }
+  };
+
   const handleAdd = async () => {
     if (!form.date || !form.name || !form.amount) { alert('請填日期、姓名同金額'); return; }
     setSaving(true);
@@ -62,7 +78,7 @@ export default function Revenue({ data, setData, showToast }) {
         <div className="grid-4">
           <div><label>日期</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
           <div><label>病人姓名</label><input placeholder="陳大文" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
-          <div><label>治療項目</label><input placeholder="90x4+100" value={form.item} onChange={e => setForm(f => ({ ...f, item: e.target.value }))} /></div>
+          <div><label>治療項目</label><input placeholder="90*4+100" value={form.item} onChange={e => handleItemChange(e.target.value)} /></div>
           <div><label>金額 ($)</label><input type="number" placeholder="0" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} /></div>
         </div>
         <div className="grid-4" style={{ marginTop: 10 }}>
@@ -113,7 +129,7 @@ export default function Revenue({ data, setData, showToast }) {
               {list.map(r => (
                 <tr key={r.id}>
                   <td><span onClick={() => handleDel(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
-                  <td>{r.date}</td>
+                  <td>{String(r.date).substring(0, 10)}</td>
                   <td>{r.store}</td>
                   <td style={{ fontWeight: 600 }}>{r.name}</td>
                   <td>{r.item || '-'}</td>

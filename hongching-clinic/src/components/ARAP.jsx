@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { saveARAP, deleteRecord } from '../api';
 import { uid, fmtM, fmt } from '../data';
 
 export default function ARAP({ data, setData, showToast }) {
@@ -14,23 +15,26 @@ export default function ARAP({ data, setData, showToast }) {
   const totalPending = list.filter(r => r.status !== '已收' && r.status !== '已付').reduce((s, r) => s + Number(r.amount), 0);
   const totalAll = list.reduce((s, r) => s + Number(r.amount), 0);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!form.party || !form.amount) { alert('請填對象同金額'); return; }
     const rec = { ...form, id: uid(), type: tab, amount: parseFloat(form.amount), status: tab === 'receivable' ? '未收' : '未付' };
-    const newArap = [...arap, rec];
-    setData({ ...data, arap: newArap });
+    await saveARAP(rec);
+    setData({ ...data, arap: [...arap, rec] });
     setForm(f => ({ ...f, party: '', amount: '', desc: '', dueDate: '' }));
     showToast(`已新增${tab === 'receivable' ? '應收' : '應付'}帳`);
   };
 
-  const handleStatus = (id, newStatus) => {
+  const handleStatus = async (id, newStatus) => {
+    const updated = arap.find(r => r.id === id);
+    if (updated) await saveARAP({ ...updated, status: newStatus });
     const newArap = arap.map(r => r.id === id ? { ...r, status: newStatus } : r);
     setData({ ...data, arap: newArap });
     showToast(`已更新狀態為「${newStatus}」`);
   };
 
-  const handleDel = (id) => {
+  const handleDel = async (id) => {
     if (!confirm('確認刪除？')) return;
+    await deleteRecord('arap', id);
     setData({ ...data, arap: arap.filter(r => r.id !== id) });
     showToast('已刪除');
   };
@@ -109,7 +113,7 @@ export default function ARAP({ data, setData, showToast }) {
               {list.sort((a, b) => (a.status === '已收' || a.status === '已付' ? 1 : -1)).map(r => (
                 <tr key={r.id} style={{ opacity: r.status === '已收' || r.status === '已付' ? .5 : 1 }}>
                   <td><span onClick={() => handleDel(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
-                  <td>{r.date}</td>
+                  <td>{String(r.date).substring(0, 10)}</td>
                   <td style={{ fontWeight: 600 }}>{r.party}</td>
                   <td className="money" style={{ color: tab === 'receivable' ? 'var(--teal-700)' : 'var(--red-600)' }}>{fmtM(r.amount)}</td>
                   <td style={{ color: isOverdue(r.dueDate, r.status) ? 'var(--red-500)' : 'inherit', fontWeight: isOverdue(r.dueDate, r.status) ? 700 : 400 }}>{r.dueDate || '-'}</td>

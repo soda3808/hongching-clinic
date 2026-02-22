@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { saveBooking, updateBookingStatus } from '../api';
 import { uid, DOCTORS } from '../data';
 
 const TYPES = ['初診','覆診','針灸','推拿','天灸','其他'];
@@ -63,17 +64,19 @@ export default function BookingPage({ data, setData, showToast }) {
 
   const weekDates = useMemo(() => getWeekDates(calWeek), [calWeek]);
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     if (!form.patientName || !form.date || !form.time) return showToast('請填寫必要欄位');
     const record = { ...form, id: uid(), status: 'confirmed', createdAt: new Date().toISOString().substring(0, 10) };
+    await saveBooking(record);
     setData({ ...data, bookings: [...bookings, record] });
     setShowModal(false);
     setForm({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:'宋皇臺', type:'覆診', notes:'' });
     showToast('已新增預約');
   };
 
-  const updateStatus = (id, status) => {
+  const handleUpdateStatus = async (id, status) => {
+    await updateBookingStatus(id, status);
     const updated = bookings.map(b => b.id === id ? { ...b, status } : b);
     setData({ ...data, bookings: updated });
     showToast(`已更新為${STATUS_LABELS[status]}`);
@@ -139,9 +142,9 @@ export default function BookingPage({ data, setData, showToast }) {
                       <td>
                         {b.status === 'confirmed' && (
                           <div style={{ display: 'flex', gap: 4 }}>
-                            <button className="btn btn-green btn-sm" onClick={() => updateStatus(b.id, 'completed')}>✓</button>
-                            <button className="btn btn-outline btn-sm" onClick={() => updateStatus(b.id, 'cancelled')}>✕</button>
-                            <button className="btn btn-red btn-sm" onClick={() => updateStatus(b.id, 'no-show')}>NS</button>
+                            <button className="btn btn-green btn-sm" onClick={() => handleUpdateStatus(b.id, 'completed')}>✓</button>
+                            <button className="btn btn-outline btn-sm" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>✕</button>
+                            <button className="btn btn-red btn-sm" onClick={() => handleUpdateStatus(b.id, 'no-show')}>NS</button>
                           </div>
                         )}
                       </td>
