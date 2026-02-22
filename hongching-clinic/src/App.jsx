@@ -9,6 +9,9 @@ import DoctorAnalytics from './components/DoctorAnalytics';
 import Reports from './components/Reports';
 import ARAP from './components/ARAP';
 
+const APP_PASSWORD = 'hcmc2026';
+const AUTH_KEY = 'hcmc_authenticated';
+
 const PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽' },
   { id: 'rev', icon: '💰', label: '營業紀錄', section: '財務' },
@@ -19,11 +22,56 @@ const PAGES = [
   { id: 'report', icon: '📈', label: '報表中心', section: '分析' },
 ];
 
+function LoginPage({ onLogin }) {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (password === APP_PASSWORD) {
+      sessionStorage.setItem(AUTH_KEY, 'true');
+      onLogin();
+    } else {
+      setError('密碼錯誤，請重新輸入');
+      setPassword('');
+    }
+  };
+
+  return (
+    <div className="login-page">
+      <form className="login-card" onSubmit={handleSubmit}>
+        <div className="login-brand">
+          <h1>康晴綜合醫療中心</h1>
+          <small>HONG CHING MEDICAL CENTRE</small>
+        </div>
+        <div className="login-divider" />
+        <label htmlFor="password">密碼</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="請輸入密碼"
+          value={password}
+          onChange={(e) => { setPassword(e.target.value); setError(''); }}
+          autoFocus
+        />
+        {error && <div className="login-error">{error}</div>}
+        <button type="submit" className="btn btn-teal btn-lg login-btn">登入</button>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === 'true');
   const [page, setPage] = useState('dash');
   const [data, setData] = useState({ revenue: [], expenses: [], arap: [] });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem(AUTH_KEY);
+    setAuthed(false);
+  }, []);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -48,12 +96,16 @@ export default function App() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { if (authed) reload(); }, [authed, reload]);
 
   const updateData = useCallback((newData) => {
     setData(newData);
     saveAllLocal(newData);
   }, []);
+
+  if (!authed) {
+    return <LoginPage onLogin={() => setAuthed(true)} />;
+  }
 
   if (loading) {
     return (
@@ -96,7 +148,10 @@ export default function App() {
             </div>
           ))}
         </nav>
-        <div className="sidebar-footer">v2.0 • {new Date().getFullYear()}</div>
+        <div className="sidebar-footer">
+          <button className="btn-logout" onClick={handleLogout}>登出</button>
+          <span>v2.0 • {new Date().getFullYear()}</span>
+        </div>
       </div>
 
       {/* MAIN */}
@@ -105,6 +160,7 @@ export default function App() {
           <h2>{currentPage?.icon} {currentPage?.label}</h2>
           <div className="topbar-actions">
             <button className="btn btn-outline btn-sm" onClick={reload}>🔄 重新載入</button>
+            <button className="btn btn-outline btn-sm" onClick={handleLogout}>登出</button>
           </div>
         </div>
         <div className="content">
