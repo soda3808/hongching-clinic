@@ -24,9 +24,12 @@ export default function PublicBooking() {
   const todayStr = new Date().toISOString().split('T')[0];
   const minDate = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0]; })();
 
+  const isValidPhone = (phone) => /^[2-9]\d{7}$/.test(phone.replace(/[\s\-]/g, ''));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.phone || !form.date) return;
+    if (!isValidPhone(form.phone)) { alert('請輸入有效的8位香港電話號碼'); return; }
     setSubmitting(true);
     const record = {
       id: uid(),
@@ -133,12 +136,12 @@ export default function PublicBooking() {
           <h3 style={{ marginBottom: 16 }}>📅 線上預約</h3>
           <form onSubmit={handleSubmit}>
             <div className="pb-field">
-              <label>姓名 *</label>
-              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="請輸入姓名" required />
+              <label htmlFor="pb-name">姓名 *</label>
+              <input id="pb-name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="請輸入姓名" required />
             </div>
             <div className="pb-field">
-              <label>電話 *</label>
-              <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="請輸入電話號碼" required />
+              <label htmlFor="pb-phone">電話 *</label>
+              <input id="pb-phone" type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="請輸入電話號碼" required />
             </div>
             <div className="pb-field">
               <label>選擇分店</label>
@@ -147,8 +150,8 @@ export default function PublicBooking() {
               </select>
             </div>
             <div className="pb-field">
-              <label>選擇日期 *</label>
-              <input type="date" value={form.date} min={minDate} onChange={e => setForm({ ...form, date: e.target.value })} required />
+              <label htmlFor="pb-date">選擇日期 *</label>
+              <input id="pb-date" type="date" value={form.date} min={minDate} onChange={e => setForm({ ...form, date: e.target.value })} required />
             </div>
             <div className="pb-field">
               <label>選擇時段</label>

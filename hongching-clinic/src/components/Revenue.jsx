@@ -46,19 +46,40 @@ export default function Revenue({ data, setData, showToast, user }) {
     return sortDir === 'desc' ? ' ↓' : ' ↑';
   };
 
+  // Safe math evaluator (no Function/eval)
+  const safeMathEval = (expr) => {
+    const tokens = expr.match(/(\d+\.?\d*|[+\-*/()])/g);
+    if (!tokens) return null;
+    let pos = 0;
+    const peek = () => tokens[pos];
+    const consume = () => tokens[pos++];
+    const parseNum = () => {
+      if (peek() === '(') { consume(); const v = parseExpr(); consume(); return v; }
+      if (peek() === '-') { consume(); return -parseNum(); }
+      return parseFloat(consume());
+    };
+    const parseTerm = () => {
+      let v = parseNum();
+      while (peek() === '*' || peek() === '/') { const op = consume(); const r = parseNum(); v = op === '*' ? v * r : v / r; }
+      return v;
+    };
+    const parseExpr = () => {
+      let v = parseTerm();
+      while (peek() === '+' || peek() === '-') { const op = consume(); const r = parseTerm(); v = op === '+' ? v + r : v - r; }
+      return v;
+    };
+    try { const result = parseExpr(); return pos === tokens.length && isFinite(result) ? result : null; } catch { return null; }
+  };
+
   // Auto-calc math expression in treatment item
   const handleItemChange = (val) => {
     setForm(f => ({ ...f, item: val }));
-    // Replace × with * and ÷ with / for evaluation
     const expr = val.replace(/×/g, '*').replace(/÷/g, '/');
-    // Check if it looks like a math expression (contains operators and numbers)
     if (/^[\d\s+\-*/().]+$/.test(expr) && /[+\-*/]/.test(expr)) {
-      try {
-        const result = Function('"use strict"; return (' + expr + ')')();
-        if (typeof result === 'number' && isFinite(result) && result > 0) {
-          setForm(f => ({ ...f, item: val, amount: String(result) }));
-        }
-      } catch {}
+      const result = safeMathEval(expr);
+      if (result !== null && result > 0) {
+        setForm(f => ({ ...f, item: val, amount: String(result) }));
+      }
     }
   };
 

@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { saveBooking, updateBookingStatus } from '../api';
 import { uid, DOCTORS } from '../data';
+import { useFocusTrap, nullRef } from './ConfirmModal';
 
 const TYPES = ['初診','覆診','針灸','推拿','天灸','其他'];
 const STATUS_TAGS = { pending:'tag-pending-orange', confirmed:'tag-fps', completed:'tag-paid', cancelled:'tag-other', 'no-show':'tag-overdue' };
@@ -30,6 +31,8 @@ export default function BookingPage({ data, setData, showToast }) {
   const [filterDoc, setFilterDoc] = useState('all');
   const [calWeek, setCalWeek] = useState(new Date().toISOString().substring(0, 10));
   const [form, setForm] = useState({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:'宋皇臺', type:'覆診', notes:'' });
+  const addModalRef = useRef(null);
+  useFocusTrap(showModal ? addModalRef : nullRef);
 
   const bookings = data.bookings || [];
   const today = new Date().toISOString().substring(0, 10);
@@ -67,6 +70,8 @@ export default function BookingPage({ data, setData, showToast }) {
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!form.patientName || !form.date || !form.time) return showToast('請填寫必要欄位');
+    const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+    if (new Date(form.date) < todayDate) return showToast('不能預約過去的日期');
     const record = { ...form, id: uid(), status: 'confirmed', createdAt: new Date().toISOString().substring(0, 10) };
     await saveBooking(record);
     setData({ ...data, bookings: [...bookings, record] });
@@ -181,7 +186,7 @@ export default function BookingPage({ data, setData, showToast }) {
                 </div>
               ))}
               {HOURS.map(time => (
-                <div key={time} style={{ display: 'contents' }}>
+                <React.Fragment key={time}>
                   <div style={{ padding: '4px 6px', fontSize: 10, color: 'var(--gray-400)', borderBottom: '1px solid var(--gray-100)', textAlign: 'right' }}>{time}</div>
                   {weekDates.map(d => {
                     const cell = bookings.filter(b => b.date === d && b.time === time && b.status !== 'cancelled');
@@ -196,7 +201,7 @@ export default function BookingPage({ data, setData, showToast }) {
                       </div>
                     );
                   })}
-                </div>
+                </React.Fragment>
               ))}
             </div>
           </div>
@@ -205,8 +210,8 @@ export default function BookingPage({ data, setData, showToast }) {
 
       {/* Add Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label="新增預約">
+          <div className="modal" onClick={e => e.stopPropagation()} ref={addModalRef}>
             <h3>新增預約</h3>
             <form onSubmit={handleAdd}>
               <div className="grid-2" style={{ marginBottom: 12 }}>

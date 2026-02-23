@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { saveAllLocal } from '../api';
 import { exportJSON, importJSON } from '../utils/export';
 import { DEFAULT_USERS, DEFAULT_STORES, ROLE_LABELS, ROLE_TAGS } from '../config';
 import { getUsers, saveUsers, getStores, saveStores } from '../auth';
+import { useFocusTrap, nullRef } from './ConfirmModal';
 
 export default function SettingsPage({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('clinic');
@@ -24,6 +25,12 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   const [newStore, setNewStore] = useState({ name:'', address:'', phone:'', active:true });
 
   const isAdmin = user?.role === 'admin';
+  const editUserRef = useRef(null);
+  const editStoreRef = useRef(null);
+  const resetRef = useRef(null);
+  useFocusTrap(editUser ? editUserRef : nullRef);
+  useFocusTrap(editStore ? editStoreRef : nullRef);
+  useFocusTrap(showReset ? resetRef : nullRef);
 
   // ── Clinic ──
   const saveClinic = () => { localStorage.setItem('hcmc_clinic', JSON.stringify(clinic)); showToast('診所資料已儲存'); };
@@ -298,8 +305,8 @@ export default function SettingsPage({ data, setData, showToast, user }) {
 
       {/* Edit User Modal */}
       {editUser && (
-        <div className="modal-overlay" onClick={() => setEditUser(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setEditUser(null)} role="dialog" aria-modal="true" aria-label="編輯用戶">
+          <div className="modal" onClick={e => e.stopPropagation()} ref={editUserRef}>
             <h3>編輯用戶 — {editUser.name}</h3>
             <div className="grid-2" style={{ marginBottom:12 }}>
               <div><label>密碼</label><input value={editUser.password} onChange={e => setEditUser({...editUser, password:e.target.value})} /></div>
@@ -340,8 +347,8 @@ export default function SettingsPage({ data, setData, showToast, user }) {
 
       {/* Edit Store Modal */}
       {editStore && (
-        <div className="modal-overlay" onClick={() => setEditStore(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setEditStore(null)} role="dialog" aria-modal="true" aria-label="編輯分店">
+          <div className="modal" onClick={e => e.stopPropagation()} ref={editStoreRef}>
             <h3>編輯分店 — {editStore.name}</h3>
             <div className="grid-2" style={{ marginBottom:12 }}>
               <div><label>分店名稱</label><input value={editStore.name} onChange={e => setEditStore({...editStore, name:e.target.value})} /></div>
@@ -364,8 +371,8 @@ export default function SettingsPage({ data, setData, showToast, user }) {
 
       {/* Reset Confirmation */}
       {showReset && (
-        <div className="modal-overlay" onClick={() => setShowReset(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign:'center' }}>
+        <div className="modal-overlay" onClick={() => setShowReset(false)} role="dialog" aria-modal="true" aria-label="確認重置">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign:'center' }} ref={resetRef}>
             <h3 style={{ color:'var(--red-600)' }}>⚠️ 確認重置所有數據？</h3>
             <p style={{ fontSize:13, color:'var(--gray-500)', margin:'16px 0' }}>此操作無法恢復。</p>
             <div style={{ display:'flex', gap:8, justifyContent:'center' }}>

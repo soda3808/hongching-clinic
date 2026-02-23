@@ -59,7 +59,7 @@ export default function PatientPage({ data, setData, showToast }) {
   const visitHistory = useMemo(() => {
     if (!detail) return [];
     return (data.revenue || []).filter(r =>
-      r.name === detail.name || r.name.includes(detail.name)
+      r.name === detail.name
     ).sort((a, b) => b.date.localeCompare(a.date));
   }, [detail, data.revenue]);
 
@@ -144,11 +144,11 @@ export default function PatientPage({ data, setData, showToast }) {
 
       {/* Detail Modal */}
       {detail && (
-        <div className="modal-overlay" onClick={() => setDetail(null)}>
+        <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="病人詳情">
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3>病人詳情 — {detail.name}</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)}>✕ 關閉</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
             </div>
             <div className="grid-3" style={{ marginBottom: 16, fontSize: 13 }}>
               <div><strong>電話：</strong>{detail.phone}</div>

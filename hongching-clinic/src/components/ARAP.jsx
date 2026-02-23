@@ -53,7 +53,8 @@ export default function ARAP({ data, setData, showToast }) {
   const isOverdue = (dueDate, status) => {
     if (status === '已收' || status === '已付') return false;
     if (!dueDate) return false;
-    return new Date(dueDate) < new Date();
+    const due = new Date(dueDate); due.setHours(23, 59, 59, 999);
+    return due < new Date();
   };
 
   const statusTag = (r) => {

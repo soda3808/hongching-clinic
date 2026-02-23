@@ -140,7 +140,7 @@ function SearchPanel({ data, onNavigate, onClose }) {
   return (
     <div className="search-overlay" onClick={onClose}>
       <div className="search-panel" onClick={e => e.stopPropagation()}>
-        <input ref={inputRef} className="search-input" placeholder="搜尋病人、營業、開支..." value={q} onChange={e => setQ(e.target.value)} />
+        <input ref={inputRef} className="search-input" placeholder="搜尋病人、營業、開支..." value={q} onChange={e => setQ(e.target.value)} aria-label="全域搜尋" />
         {q && (
           <div className="search-results">
             {results.patients.length > 0 && (
@@ -239,14 +239,20 @@ function InstallPrompt() {
 }
 
 // ── Mobile More Menu ──
-function MobileMoreMenu({ pages, page, setPage, onClose }) {
+function MobileMoreMenu({ pages, page, setPage, onClose, user, onLogout }) {
   return (
     <div className="mobile-more-overlay" onClick={onClose}>
       <div className="mobile-more-panel" onClick={e => e.stopPropagation()}>
         <div className="mobile-more-header">
           <strong>全部功能</strong>
-          <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 18 }}>✕</span>
+          <span onClick={onClose} style={{ cursor: 'pointer', fontSize: 18 }} role="button" aria-label="關閉">✕</span>
         </div>
+        {user && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 4px 14px', marginBottom: 8, borderBottom: '1px solid var(--gray-200)' }}>
+            <span style={{ fontSize: 13, color: 'var(--gray-600)' }}>👤 {user.name} <span className={`tag ${ROLE_TAGS[user.role] || ''}`}>{ROLE_LABELS[user.role]}</span></span>
+            <button className="btn btn-outline btn-sm" onClick={onLogout}>登出</button>
+          </div>
+        )}
         <div className="mobile-more-grid">
           {pages.map(p => (
             <div key={p.id} className={`mobile-more-item ${page === p.id ? 'active' : ''}`} onClick={() => { setPage(p.id); onClose(); }}>
@@ -282,9 +288,30 @@ function MainApp() {
   const [showExport, setShowExport] = useState(false);
   const [activeStore, setActiveStore] = useState('all');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [readNotifs, setReadNotifs] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('hcmc_read_notifs') || '[]'); } catch { return []; }
   });
+
+  // Auto-logout after 30 minutes of inactivity
+  useEffect(() => {
+    if (!user) return;
+    const TIMEOUT = 30 * 60 * 1000;
+    let timer = setTimeout(() => { logout(); setUser(null); }, TIMEOUT);
+    const reset = () => { clearTimeout(timer); timer = setTimeout(() => { logout(); setUser(null); }, TIMEOUT); };
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, reset)); };
+  }, [user]);
+
+  // Online/offline detection
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
+  }, []);
 
   // Set default page based on role
   useEffect(() => {
@@ -396,6 +423,7 @@ function MainApp() {
         <div className="topbar">
           <h2>{page === 'settings' ? '⚙️ 設定' : `${currentPage?.icon || ''} ${currentPage?.label || ''}`}</h2>
           <div className="topbar-actions">
+            {isOffline && <span className="offline-badge">離線模式</span>}
             {/* Store Switcher (admin only) */}
             {perms.viewAllStores && (
               <select className="btn btn-outline btn-sm hide-mobile" style={{ fontWeight: 600 }} value={activeStore} onChange={e => setActiveStore(e.target.value)}>
@@ -403,10 +431,10 @@ function MainApp() {
                 {stores.map(s => <option key={s.id} value={s.name}>📍 {s.name}</option>)}
               </select>
             )}
-            <button className="btn btn-outline btn-sm" onClick={() => setShowSearch(true)}>🔍</button>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowSearch(true)} aria-label="搜尋">🔍</button>
             <div style={{ position: 'relative' }}>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowNotif(!showNotif)}>
-                🔔{unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
+              <button className="btn btn-outline btn-sm" onClick={() => setShowNotif(!showNotif)} aria-label={`通知${unreadCount > 0 ? `，${unreadCount} 條未讀` : ''}`}>
+                🔔{unreadCount > 0 && <span className="notif-badge" aria-hidden="true">{unreadCount}</span>}
               </button>
               {showNotif && (
                 <div className="dropdown-menu notif-panel" style={{ right: 0, width: 320 }}>
@@ -463,7 +491,7 @@ function MainApp() {
         ))}
       </div>
 
-      {showMoreMenu && <MobileMoreMenu pages={[...visiblePages, ...(perms.viewSettings ? [{ id:'settings', icon:'⚙️', label:'設定' }] : [])]} page={page} setPage={setPage} onClose={() => setShowMoreMenu(false)} />}
+      {showMoreMenu && <MobileMoreMenu pages={[...visiblePages, ...(perms.viewSettings ? [{ id:'settings', icon:'⚙️', label:'設定' }] : [])]} page={page} setPage={setPage} onClose={() => setShowMoreMenu(false)} user={user} onLogout={handleLogout} />}
       {showSearch && <SearchPanel data={filteredData} onNavigate={setPage} onClose={() => setShowSearch(false)} />}
       {(showNotif || showExport) && <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => { setShowNotif(false); setShowExport(false); }} />}
       {toast && <div className="toast">{toast}</div>}

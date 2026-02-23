@@ -34,12 +34,12 @@ body {
 .nav-item {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px;
   border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
-  color: rgba(255,255,255,.65); transition: all .15s; margin-bottom: 2px;
+  color: rgba(255,255,255,.78); transition: all .15s; margin-bottom: 2px;
 }
 .nav-item:hover { background: rgba(255,255,255,.1); color: #fff; }
 .nav-item.active { background: rgba(255,255,255,.18); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
 .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
-.nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,.35); padding: 16px 14px 6px; font-weight: 700; }
+.nav-section { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,.45); padding: 16px 14px 6px; font-weight: 700; }
 .sidebar-footer {
   padding: 14px; border-top: 1px solid rgba(255,255,255,.1); font-size: 11px; opacity: .7;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -209,7 +209,15 @@ tr:hover { background: var(--gray-50); }
   display: flex; align-items: center; justify-content: center;
   animation: fadeIn .2s;
 }
-.modal { background: #fff; border-radius: var(--radius-lg); padding: 24px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
+.modal {
+  background: #fff; border-radius: var(--radius-lg); padding: 24px; max-width: 600px;
+  width: 90%; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);
+  scrollbar-width: thin; scrollbar-color: var(--gray-300) transparent;
+}
+.modal::-webkit-scrollbar { width: 6px; }
+.modal::-webkit-scrollbar-track { background: transparent; }
+.modal::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
+.modal::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
 .modal h3 { font-size: 16px; margin-bottom: 16px; }
 @keyframes fadeIn { from { opacity: 0; } }
 
@@ -287,8 +295,23 @@ tr:hover { background: var(--gray-50); }
 .confirm-actions .btn { min-width: 100px; justify-content: center; }
 
 /* ── SORTABLE TABLE HEADER ── */
-.sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable-th { cursor: pointer; user-select: none; white-space: nowrap; position: relative; }
 .sortable-th:hover { color: var(--teal-700); }
+.sortable-th.sort-asc::after, .sortable-th.sort-desc::after {
+  content: ''; display: inline-block; width: 0; height: 0; margin-left: 4px; vertical-align: middle;
+  border-left: 4px solid transparent; border-right: 4px solid transparent;
+}
+.sortable-th.sort-asc::after { border-bottom: 5px solid currentColor; }
+.sortable-th.sort-desc::after { border-top: 5px solid currentColor; }
+
+/* ── OFFLINE BADGE ── */
+.offline-badge {
+  display: inline-flex; align-items: center; padding: 4px 10px;
+  background: var(--gold-100); color: #92400e; border-radius: 20px;
+  font-size: 11px; font-weight: 700; border: 1px solid var(--gold-500);
+  animation: pulse-offline 2s ease-in-out infinite;
+}
+@keyframes pulse-offline { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
 
 /* ── PWA INSTALL BANNER ── */
 .install-banner {
@@ -459,7 +482,18 @@ tr:hover { background: var(--gray-50); }
 }
 
 @media print {
-  .sidebar, .topbar, .mobile-tabbar { display: none !important; }
+  @page { size: A4; margin: 15mm; }
+  .sidebar, .topbar, .mobile-tabbar, .install-banner, .toast,
+  .btn, button, .tab-bar, .preset-bar, .stats-grid,
+  .modal-overlay, .search-overlay, .upload-zone { display: none !important; }
   .main { margin-left: 0 !important; padding-bottom: 0 !important; }
-  .content { padding: 0 !important; }
+  .content { padding: 0 !important; max-width: 100% !important; }
+  body { background: #fff !important; color: #000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .card { box-shadow: none !important; border: 1px solid #ddd !important; break-inside: avoid; margin-bottom: 12px !important; }
+  table { font-size: 10px !important; }
+  th { background: #f3f4f6 !important; color: #333 !important; }
+  .table-wrap { overflow: visible !important; border: none !important; }
+  tr { break-inside: avoid; }
+  .money { color: #000 !important; }
+  .tag { border: 1px solid #ccc !important; }
 }

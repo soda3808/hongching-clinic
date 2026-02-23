@@ -46,16 +46,16 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
   const fileInputRef = useRef(null);
   const dropRef = useRef(null);
 
+  const MAX_FILES = 20;
   const addFiles = useCallback((newFiles) => {
     const items = Array.from(newFiles).filter(f => f.type.startsWith('image/') || f.type === 'application/pdf');
-    const mapped = items.map(f => ({
-      id: uid(),
-      file: f,
-      preview: URL.createObjectURL(f),
-      status: 'pending', // pending | processing | done | error
-      result: null,
-    }));
-    setFiles(prev => [...prev, ...mapped]);
+    setFiles(prev => {
+      const remaining = MAX_FILES - prev.length;
+      if (remaining <= 0) { alert(`最多只能上傳 ${MAX_FILES} 張收據`); return prev; }
+      const toAdd = items.slice(0, remaining);
+      if (toAdd.length < items.length) alert(`已達上限，只加入了 ${toAdd.length}/${items.length} 張`);
+      return [...prev, ...toAdd.map(f => ({ id: uid(), file: f, preview: URL.createObjectURL(f), status: 'pending', result: null }))];
+    });
   }, []);
 
   const handleDrop = (e) => {
@@ -96,6 +96,7 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64, mimeType }),
         });
+        if (!res.ok) throw new Error(`API error ${res.status}`);
         const json = await res.json();
 
         if (json.success && json.data) {
@@ -223,7 +224,7 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             {files.map(f => (
               <div key={f.id} style={{ position: 'relative', width: 64, height: 64 }}>
-                <img src={f.preview} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '2px solid var(--gray-200)' }} />
+                <img src={f.preview} alt="收據縮圖" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '2px solid var(--gray-200)' }} />
                 <span style={{ position: 'absolute', bottom: -2, right: -2, fontSize: 14 }}>
                   {f.status === 'pending' && '⏳'}
                   {f.status === 'processing' && <span className="spinner" style={{ width: 14, height: 14 }} />}
@@ -279,7 +280,7 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
                       <td>
                         <img
                           src={r.filePreview}
-                          alt=""
+                          alt={`收據 - ${r.merchant || '待辨識'}`}
                           style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
                           onClick={() => setPreviewIdx(idx)}
                         />
@@ -325,10 +326,10 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
 
       {/* Preview Modal */}
       {previewIdx !== null && results[previewIdx] && (
-        <div className="modal-overlay" onClick={() => setPreviewIdx(null)}>
+        <div className="modal-overlay" onClick={() => setPreviewIdx(null)} role="dialog" aria-modal="true" aria-label="收據預覽">
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 900, display: 'flex', gap: 20 }}>
             <div style={{ flex: 1 }}>
-              <img src={results[previewIdx].filePreview} alt="" style={{ width: '100%', borderRadius: 8 }} />
+              <img src={results[previewIdx].filePreview} alt="收據圖片" style={{ width: '100%', borderRadius: 8 }} />
             </div>
             <div style={{ flex: 1, fontSize: 13 }}>
               <h3>辨識結果</h3>
@@ -353,7 +354,7 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
 
       {/* Import Confirmation */}
       {showConfirm && (
-        <div className="modal-overlay" onClick={() => setShowConfirm(false)}>
+        <div className="modal-overlay" onClick={() => setShowConfirm(false)} role="dialog" aria-modal="true" aria-label="確認匯入">
           <div className="modal" onClick={e => e.stopPropagation()} style={{ textAlign: 'center' }}>
             <h3>確認匯入</h3>
             <p style={{ fontSize: 14, margin: '16px 0', color: 'var(--gray-600)' }}>

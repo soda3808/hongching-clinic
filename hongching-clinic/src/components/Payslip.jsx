@@ -17,7 +17,7 @@ export default function Payslip({ data, setData, showToast }) {
     if (!emp.comm) return { total: 0, bd: [] };
     let total = 0, bd = [];
     emp.comm.tiers.forEach(t => {
-      if (rev <= t.min) return;
+      if (rev < t.min) return;
       const base = Math.min(rev, t.max) - t.min;
       if (base > 0) { const c = base * t.r; bd.push({ range: `$${fmt(t.min)}-$${fmt(t.max)}`, rate: `${t.r*100}%`, amt: c }); total += c; }
     });
