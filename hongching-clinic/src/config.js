@@ -2,12 +2,14 @@
 // Users, Stores & Permissions
 // ══════════════════════════════════
 
+// Bcrypt hashes — original passwords removed for security
+// To update, use: node -e "require('bcryptjs').hash('newpass',10).then(h=>console.log(h))"
 export const DEFAULT_USERS = [
-  { id: 'admin1', username: 'steven', password: 'hcmc2026', name: '林先生', role: 'admin', stores: ['all'], email: '', active: true },
-  { id: 'mgr1', username: 'kaishing', password: 'ks2026', name: '常凱晴', role: 'manager', stores: ['宋皇臺', '太子'], email: '', active: true },
-  { id: 'doc1', username: 'drhu', password: 'dh2026', name: '許植輝', role: 'doctor', stores: ['宋皇臺'], email: '', active: true },
-  { id: 'doc2', username: 'drtsang', password: 'dt2026', name: '曾其方', role: 'doctor', stores: ['太子'], email: '', active: true },
-  { id: 'staff1', username: 'yp', password: 'yp2026', name: '譚玉冰', role: 'staff', stores: ['宋皇臺'], email: '', active: true },
+  { id: 'admin1', username: 'steven', passwordHash: '$2b$10$HP5oHKUKaI9lSV.Cl1m5LOKjvnZIDF3k5KIWTTwgnNpk1be/Qjv0i', name: '林先生', role: 'admin', stores: ['all'], email: '', active: true },
+  { id: 'mgr1', username: 'kaishing', passwordHash: '$2b$10$8LAxul8SJwM5gU.2w4wlteFBiF/MdRyWWBTALXKR4HX3QxkE5RQli', name: '常凱晴', role: 'manager', stores: ['宋皇臺', '太子'], email: '', active: true },
+  { id: 'doc1', username: 'drhu', passwordHash: '$2b$10$R7P0.tAoGcqkAiC3MgNwTeoaxDM4P117e/tVznEWUVycqV0uhC8mW', name: '許植輝', role: 'doctor', stores: ['宋皇臺'], email: '', active: true },
+  { id: 'doc2', username: 'drtsang', passwordHash: '$2b$10$7XrCKyQWggqKiNYxnaVZS.FOsraVqCoCoCmyHfHDNrSUqFSZ.7cMq', name: '曾其方', role: 'doctor', stores: ['太子'], email: '', active: true },
+  { id: 'staff1', username: 'yp', passwordHash: '$2b$10$vfbWg/OZX.ggK2KJoQS6wusMl0fItYsTOK32xZ6QQdPjnGwFNP22y', name: '譚玉冰', role: 'staff', stores: ['宋皇臺'], email: '', active: true },
 ];
 
 export const DEFAULT_STORES = [
@@ -23,21 +25,25 @@ export const PERMISSIONS = {
     viewAllStores: true, viewDashboard: true, editRevenue: true, editExpenses: true, editARAP: true,
     viewPayroll: true, editPayroll: true, viewDoctorAnalytics: true, viewReports: true,
     viewSettings: true, manageUsers: true, viewReceiptScanner: true, viewPatients: true, viewBookings: true,
+    viewEMR: true, editEMR: true, viewPackages: true, editPackages: true,
   },
   manager: {
     viewAllStores: false, viewDashboard: true, editRevenue: true, editExpenses: true, editARAP: true,
     viewPayroll: false, editPayroll: false, viewDoctorAnalytics: true, viewReports: true,
     viewSettings: false, manageUsers: false, viewReceiptScanner: true, viewPatients: true, viewBookings: true,
+    viewEMR: true, editEMR: true, viewPackages: true, editPackages: true,
   },
   doctor: {
     viewAllStores: false, viewDashboard: false, editRevenue: true, editExpenses: false, editARAP: false,
     viewPayroll: false, editPayroll: false, viewDoctorAnalytics: true, viewReports: false,
     viewSettings: false, manageUsers: false, viewReceiptScanner: false, viewPatients: true, viewBookings: true,
+    viewEMR: true, editEMR: true, viewPackages: false, editPackages: false,
   },
   staff: {
     viewAllStores: false, viewDashboard: false, editRevenue: true, editExpenses: true, editARAP: false,
     viewPayroll: false, editPayroll: false, viewDoctorAnalytics: false, viewReports: false,
     viewSettings: false, manageUsers: false, viewReceiptScanner: true, viewPatients: true, viewBookings: true,
+    viewEMR: false, editEMR: false, viewPackages: true, editPackages: false,
   },
 };
 
@@ -50,6 +56,8 @@ export const PAGE_PERMISSIONS = {
   arap: 'editARAP',
   patient: 'viewPatients',
   booking: 'viewBookings',
+  emr: 'viewEMR',
+  package: 'viewPackages',
   pay: 'viewPayroll',
   doc: 'viewDoctorAnalytics',
   report: 'viewReports',

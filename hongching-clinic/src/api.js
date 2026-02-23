@@ -37,7 +37,7 @@ export async function loadAllData() {
     const saved = localStorage.getItem('hc_data');
     if (saved) return JSON.parse(saved);
   } catch {}
-  return { revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [] };
+  return { revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [] };
 }
 
 // ── Revenue ──
@@ -97,6 +97,67 @@ export async function savePayslip(record) {
   const res = await gasCall('savePayslip', { record });
   saveLocal('payslips', record);
   return res || { ok: true };
+}
+
+// ── Consultations (EMR) ──
+export async function saveConsultation(record) {
+  const res = await gasCall('saveConsultation', { record });
+  saveLocal('consultations', record);
+  return res || { ok: true };
+}
+
+export async function deleteConsultation(id) {
+  return deleteRecord('consultations', id);
+}
+
+// ── Packages ──
+export async function savePackage(record) {
+  const res = await gasCall('savePackage', { record });
+  saveLocal('packages', record);
+  return res || { ok: true };
+}
+
+// ── Enrollments (Package enrollment) ──
+export async function saveEnrollment(record) {
+  const res = await gasCall('saveEnrollment', { record });
+  saveLocal('enrollments', record);
+  return res || { ok: true };
+}
+
+// ── Conversations (CRM) ──
+export async function saveConversation(record) {
+  saveLocal('conversations', record);
+  return { ok: true };
+}
+
+// ── WhatsApp API ──
+export async function sendWhatsApp(phone, message, type = 'text', store = '宋皇臺') {
+  try {
+    const res = await fetch('/api/send-whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, message, type, store }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('WhatsApp API Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+// ── AI Chatbot ──
+export async function chatWithAI(message, context) {
+  try {
+    const res = await fetch('/api/chatbot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, context }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Chatbot API Error:', err);
+    return { success: false, error: err.message };
+  }
 }
 
 // ── Delete ──

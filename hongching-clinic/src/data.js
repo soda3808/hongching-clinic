@@ -14,6 +14,79 @@ export const monthLabel = (m) => {
   return `${names[+mo]} ${y}`;
 };
 
+// ── Linear Regression (for revenue forecast) ──
+export function linearRegression(points) {
+  const n = points.length;
+  if (n < 2) return { slope: 0, intercept: 0 };
+  const sumX = points.reduce((s, p) => s + p.x, 0);
+  const sumY = points.reduce((s, p) => s + p.y, 0);
+  const sumXY = points.reduce((s, p) => s + p.x * p.y, 0);
+  const sumX2 = points.reduce((s, p) => s + p.x * p.x, 0);
+  const denom = n * sumX2 - sumX * sumX;
+  if (denom === 0) return { slope: 0, intercept: sumY / n };
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  return { slope, intercept };
+}
+
+// ── Membership Tiers ──
+export const MEMBERSHIP_TIERS = [
+  { name: '普通', minSpent: 0, discount: 0, color: '#888', bg: '#f5f5f5' },
+  { name: '銅卡', minSpent: 3000, discount: 0.05, color: '#CD7F32', bg: '#FFF8F0' },
+  { name: '銀卡', minSpent: 8000, discount: 0.10, color: '#A0A0A0', bg: '#F8F8F8' },
+  { name: '金卡', minSpent: 20000, discount: 0.15, color: '#DAA520', bg: '#FFFDF0' },
+];
+
+export function getMembershipTier(totalSpent) {
+  let tier = MEMBERSHIP_TIERS[0];
+  for (const t of MEMBERSHIP_TIERS) {
+    if (totalSpent >= t.minSpent) tier = t;
+  }
+  return tier;
+}
+
+// ── TCM Herbs Database ──
+export const TCM_HERBS = [
+  '黃芪','當歸','川芎','白芍','熟地','生地','人參','黨參','白朮','茯苓',
+  '甘草','柴胡','半夏','陳皮','枳殼','香附','桃仁','紅花','丹參','三七',
+  '枸杞子','菊花','金銀花','連翹','板藍根','黃芩','黃連','黃柏','蒼朮','厚朴',
+  '山藥','蓮子','薏苡仁','砂仁','木香','延胡索','杜仲','續斷','牛膝','獨活',
+  '羌活','防風','荊芥','桂枝','麻黃','石膏','知母','天麻','鉤藤','葛根',
+  '北沙參','麥冬','玉竹','百合','五味子','酸棗仁','遠志','龍骨','牡蠣','珍珠母',
+  '附子','肉桂','乾薑','吳茱萸','小茴香','丁香','艾葉','益母草','澤瀉','車前子',
+  '大黃','芒硝','火麻仁','肉蓯蓉','何首烏','阿膠','雞血藤','白芷','細辛','蒼耳子',
+];
+
+// ── TCM Formula Templates ──
+export const TCM_FORMULAS = [
+  { name: '四物湯', herbs: [{herb:'熟地',dosage:'12g'},{herb:'當歸',dosage:'10g'},{herb:'白芍',dosage:'10g'},{herb:'川芎',dosage:'6g'}], indication: '血虛、月經不調' },
+  { name: '四君子湯', herbs: [{herb:'人參',dosage:'10g'},{herb:'白朮',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'}], indication: '脾胃氣虛' },
+  { name: '六味地黃丸', herbs: [{herb:'熟地',dosage:'24g'},{herb:'山藥',dosage:'12g'},{herb:'茯苓',dosage:'9g'},{herb:'澤瀉',dosage:'9g'},{herb:'牛膝',dosage:'9g'},{herb:'枸杞子',dosage:'9g'}], indication: '腎陰虛' },
+  { name: '補陽還五湯', herbs: [{herb:'黃芪',dosage:'120g'},{herb:'當歸',dosage:'6g'},{herb:'川芎',dosage:'4.5g'},{herb:'桃仁',dosage:'3g'},{herb:'紅花',dosage:'3g'},{herb:'白芍',dosage:'4.5g'},{herb:'生地',dosage:'3g'}], indication: '中風後遺症、氣虛血瘀' },
+  { name: '逍遙散', herbs: [{herb:'柴胡',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'白芍',dosage:'10g'},{herb:'白朮',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'},{herb:'生地',dosage:'6g'},{herb:'薏苡仁',dosage:'6g'}], indication: '肝鬱脾虛' },
+  { name: '小柴胡湯', herbs: [{herb:'柴胡',dosage:'12g'},{herb:'黃芩',dosage:'9g'},{herb:'半夏',dosage:'9g'},{herb:'人參',dosage:'6g'},{herb:'甘草',dosage:'5g'},{herb:'生地',dosage:'3g'},{herb:'大黃',dosage:'3g'}], indication: '少陽病、寒熱往來' },
+  { name: '桂枝湯', herbs: [{herb:'桂枝',dosage:'9g'},{herb:'白芍',dosage:'9g'},{herb:'甘草',dosage:'6g'},{herb:'生地',dosage:'3g'},{herb:'大黃',dosage:'3g'}], indication: '太陽中風' },
+  { name: '麻黃湯', herbs: [{herb:'麻黃',dosage:'6g'},{herb:'桂枝',dosage:'4g'},{herb:'甘草',dosage:'3g'},{herb:'杏仁',dosage:'9g'}], indication: '太陽傷寒' },
+  { name: '銀翹散', herbs: [{herb:'金銀花',dosage:'15g'},{herb:'連翹',dosage:'15g'},{herb:'荊芥',dosage:'6g'},{herb:'薏苡仁',dosage:'6g'},{herb:'甘草',dosage:'5g'},{herb:'桔梗',dosage:'6g'}], indication: '風熱感冒' },
+  { name: '天王補心丹', herbs: [{herb:'人參',dosage:'10g'},{herb:'麥冬',dosage:'10g'},{herb:'五味子',dosage:'6g'},{herb:'當歸',dosage:'10g'},{herb:'生地',dosage:'15g'},{herb:'酸棗仁',dosage:'10g'},{herb:'遠志',dosage:'6g'}], indication: '心陰不足、失眠多夢' },
+  { name: '歸脾湯', herbs: [{herb:'黨參',dosage:'12g'},{herb:'黃芪',dosage:'12g'},{herb:'白朮',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'龍骨',dosage:'10g'},{herb:'酸棗仁',dosage:'10g'},{herb:'遠志',dosage:'6g'},{herb:'甘草',dosage:'5g'}], indication: '心脾兩虛' },
+  { name: '獨活寄生湯', herbs: [{herb:'獨活',dosage:'9g'},{herb:'桑寄生',dosage:'12g'},{herb:'杜仲',dosage:'10g'},{herb:'牛膝',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'川芎',dosage:'6g'},{herb:'白芍',dosage:'10g'},{herb:'熟地',dosage:'12g'},{herb:'人參',dosage:'6g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'},{herb:'桂枝',dosage:'6g'},{herb:'防風',dosage:'6g'},{herb:'細辛',dosage:'3g'},{herb:'秦艽',dosage:'10g'}], indication: '風寒濕痹、腰膝痠痛' },
+  { name: '血府逐瘀湯', herbs: [{herb:'桃仁',dosage:'12g'},{herb:'紅花',dosage:'9g'},{herb:'當歸',dosage:'9g'},{herb:'川芎',dosage:'4.5g'},{herb:'白芍',dosage:'6g'},{herb:'生地',dosage:'9g'},{herb:'柴胡',dosage:'3g'},{herb:'枳殼',dosage:'6g'},{herb:'甘草',dosage:'3g'},{herb:'桔梗',dosage:'4.5g'},{herb:'牛膝',dosage:'9g'}], indication: '胸中血瘀' },
+  { name: '溫膽湯', herbs: [{herb:'半夏',dosage:'6g'},{herb:'陳皮',dosage:'9g'},{herb:'茯苓',dosage:'6g'},{herb:'甘草',dosage:'3g'},{herb:'枳殼',dosage:'6g'},{herb:'竹茹',dosage:'6g'}], indication: '痰熱擾心' },
+  { name: '二陳湯', herbs: [{herb:'半夏',dosage:'10g'},{herb:'陳皮',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'}], indication: '濕痰咳嗽' },
+  { name: '補中益氣湯', herbs: [{herb:'黃芪',dosage:'15g'},{herb:'人參',dosage:'10g'},{herb:'白朮',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'陳皮',dosage:'6g'},{herb:'柴胡',dosage:'6g'},{herb:'甘草',dosage:'5g'}], indication: '中氣下陷' },
+];
+
+// ── TCM Treatment Types ──
+export const TCM_TREATMENTS = ['內服中藥','針灸','推拿','天灸','拔罐','刮痧','艾灸','耳穴','其他'];
+
+// ── Common Acupuncture Points ──
+export const ACUPOINTS = [
+  '合谷','足三里','三陰交','太衝','內關','外關','曲池','肩井','風池','百會',
+  '大椎','命門','腎俞','肝俞','脾俞','肺俞','心俞','委中','環跳','陽陵泉',
+  '陰陵泉','太溪','崑崙','中脘','關元','氣海','神闕','天樞','血海','膈俞',
+];
+
 export const EXPENSE_CATEGORIES = {
   '固定成本': ['租金', '管理費', '保險', '牌照/註冊'],
   '人事成本': ['人工', 'MPF', '勞保', '培訓'],
@@ -41,6 +114,18 @@ export const EMPLOYEES = [
 ];
 
 export const DOCTORS = ['常凱晴', '許植輝', '曾其方'];
+
+// ── Clinic Pricing (for AI chatbot) ──
+export const CLINIC_PRICING = {
+  '初診': { price: 450, desc: '首次診症（含診金+藥費）' },
+  '覆診': { price: 350, desc: '覆診（含診金+藥費）' },
+  '針灸': { price: 450, desc: '針灸治療' },
+  '推拿': { price: 350, desc: '推拿治療' },
+  '天灸': { price: 388, desc: '天灸貼藥' },
+  '拔罐': { price: 250, desc: '拔罐治療' },
+  '刮痧': { price: 300, desc: '刮痧治療' },
+  '針灸+推拿': { price: 650, desc: '針灸加推拿套餐' },
+};
 
 export const SEED_DATA = {
   revenue: [
@@ -112,4 +197,8 @@ export const SEED_DATA = {
     { id:'bk3', patientName:'王志明', patientPhone:'93456789', date:'2026-02-25', time:'11:00', duration:30, doctor:'常凱晴', store:'太子', type:'覆診', status:'confirmed', notes:'血壓跟進', createdAt:'2026-02-21' },
   ],
   payslips: [],
+  consultations: [],
+  packages: [],
+  enrollments: [],
+  conversations: [],
 };

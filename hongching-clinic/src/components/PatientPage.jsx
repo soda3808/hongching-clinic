@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { savePatient } from '../api';
-import { uid, fmtM, getMonth, DOCTORS } from '../data';
+import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
 
 const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:'宋皇臺', doctor:DOCTORS[0] };
 
-export default function PatientPage({ data, setData, showToast }) {
+export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [form, setForm] = useState({ ...EMPTY });
   const [search, setSearch] = useState('');
   const [filterDoc, setFilterDoc] = useState('all');
@@ -143,12 +143,24 @@ export default function PatientPage({ data, setData, showToast }) {
       </div>
 
       {/* Detail Modal */}
-      {detail && (
+      {detail && (() => {
+        const tier = getMembershipTier(detail.totalSpent || 0);
+        const consultations = (data.consultations || []).filter(c => c.patientId === detail.id || c.patientName === detail.name).sort((a, b) => b.date.localeCompare(a.date));
+        const activeEnrollments = (data.enrollments || []).filter(e => e.patientId === detail.id && e.status === 'active');
+        return (
         <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="病人詳情">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 750 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>病人詳情 — {detail.name}</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h3>病人詳情 — {detail.name}</h3>
+                <span className="membership-badge" style={{ color: tier.color, background: tier.bg, border: `1px solid ${tier.color}` }}>
+                  {tier.name}{tier.discount > 0 ? ` ${tier.discount*100}%折扣` : ''}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {onNavigate && <button className="btn btn-teal btn-sm" onClick={() => { setDetail(null); onNavigate('emr'); }}>開診</button>}
+                <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕</button>
+              </div>
             </div>
             <div className="grid-3" style={{ marginBottom: 16, fontSize: 13 }}>
               <div><strong>電話：</strong>{detail.phone}</div>
@@ -157,9 +169,51 @@ export default function PatientPage({ data, setData, showToast }) {
               <div><strong>地址：</strong>{detail.address || '-'}</div>
               <div><strong>過敏史：</strong>{detail.allergies || '-'}</div>
               <div><strong>主診：</strong>{detail.doctor}</div>
+              <div><strong>累計消費：</strong>{fmtM(detail.totalSpent || 0)}</div>
+              <div><strong>總就診：</strong>{detail.totalVisits || 0} 次</div>
+              <div><strong>店舖：</strong>{detail.store}</div>
             </div>
             {detail.notes && <div style={{ fontSize: 13, marginBottom: 16, padding: 10, background: 'var(--gray-50)', borderRadius: 6 }}><strong>備註：</strong>{detail.notes}</div>}
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診歷史</h4>
+            {activeEnrollments.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>活躍套餐</h4>
+                {activeEnrollments.map(e => {
+                  const pkg = (data.packages || []).find(p => p.id === e.packageId);
+                  return (
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 8, background: 'var(--teal-50)', borderRadius: 6, marginBottom: 4, fontSize: 12 }}>
+                      <strong>{pkg?.name || '套餐'}</strong>
+                      <div className="progress-bar" style={{ flex: 1 }}>
+                        <div className="progress-bar-track"><div className="progress-bar-fill" style={{ width: `${(e.usedSessions/e.totalSessions)*100}%` }} /></div>
+                        <span className="progress-bar-label">{e.usedSessions}/{e.totalSessions}</span>
+                      </div>
+                      <span style={{ color: 'var(--gray-400)' }}>到期：{e.expiryDate}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {consultations.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>診症紀錄 (EMR)</h4>
+                <div className="table-wrap">
+                  <table>
+                    <thead><tr><th>日期</th><th>診斷</th><th>治療</th><th>處方</th><th>醫師</th></tr></thead>
+                    <tbody>
+                      {consultations.slice(0, 5).map(c => (
+                        <tr key={c.id}>
+                          <td>{c.date}</td>
+                          <td>{c.tcmDiagnosis || c.assessment || '-'}</td>
+                          <td>{(c.treatments || []).join('、') || '-'}</td>
+                          <td>{c.formulaName || (c.prescription?.length ? `${c.prescription.length}味藥` : '-')}</td>
+                          <td>{c.doctor}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診歷史（營業紀錄）</h4>
             <div className="table-wrap">
               <table>
                 <thead><tr><th>日期</th><th>項目</th><th>金額</th><th>醫師</th><th>店舖</th></tr></thead>
@@ -173,7 +227,8 @@ export default function PatientPage({ data, setData, showToast }) {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </>
   );
 }

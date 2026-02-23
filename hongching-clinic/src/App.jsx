@@ -13,6 +13,9 @@ import Reports from './components/Reports';
 import ARAP from './components/ARAP';
 import PatientPage from './components/PatientPage';
 import BookingPage from './components/BookingPage';
+import EMRPage from './components/EMRPage';
+import PackagePage from './components/PackagePage';
+import CRMPage from './components/CRMPage';
 import SettingsPage from './components/SettingsPage';
 import ReceiptScanner from './components/ReceiptScanner';
 import PublicBooking from './components/PublicBooking';
@@ -25,6 +28,9 @@ const ALL_PAGES = [
   { id: 'arap', icon: '📑', label: '應收應付', section: '財務', perm: 'editARAP' },
   { id: 'patient', icon: '👥', label: '病人管理', section: '病人', perm: 'viewPatients' },
   { id: 'booking', icon: '📅', label: '預約系統', section: '病人', perm: 'viewBookings' },
+  { id: 'emr', icon: '🏥', label: '電子病歷', section: '病人', perm: 'viewEMR' },
+  { id: 'package', icon: '🎫', label: '套餐/會員', section: '病人', perm: 'viewPackages' },
+  { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
   { id: 'pay', icon: '📋', label: '糧單', section: '人事', perm: 'viewPayroll' },
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
@@ -44,16 +50,23 @@ function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const session = login(username, password);
-    if (session) {
-      onLogin(session);
-    } else {
-      setError('用戶名或密碼錯誤');
-      setPassword('');
+    setLoading(true);
+    try {
+      const session = await login(username, password);
+      if (session) {
+        onLogin(session);
+      } else {
+        setError('用戶名或密碼錯誤');
+        setPassword('');
+      }
+    } catch {
+      setError('登入失敗，請重試');
     }
+    setLoading(false);
   };
 
   return (
@@ -82,7 +95,7 @@ function LoginPage({ onLogin }) {
           onChange={(e) => { setPassword(e.target.value); setError(''); }}
         />
         {error && <div className="login-error">{error}</div>}
-        <button type="submit" className="btn btn-teal btn-lg login-btn">登入</button>
+        <button type="submit" className="btn btn-teal btn-lg login-btn" disabled={loading}>{loading ? '登入中...' : '登入'}</button>
         <p style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 12 }}>如忘記密碼，請聯絡管理員</p>
       </form>
     </div>
@@ -280,7 +293,7 @@ export default function App() {
 function MainApp() {
   const [user, setUser] = useState(() => getCurrentUser());
   const [page, setPage] = useState('');
-  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [] });
+  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [] });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -341,7 +354,7 @@ function MainApp() {
     try {
       const d = await loadAllData();
       if (d && (d.revenue?.length || d.expenses?.length || d.patients?.length)) {
-        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[] });
+        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[] });
       } else {
         setData(SEED_DATA);
         saveAllLocal(SEED_DATA);
@@ -414,7 +427,7 @@ function MainApp() {
         </nav>
         <div className="sidebar-footer">
           <button className="btn-logout" onClick={handleLogout}>🔓 登出</button>
-          <span>v3.1 • {new Date().getFullYear()}</span>
+          <span>v4.0 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -468,8 +481,11 @@ function MainApp() {
           {page === 'exp' && <Expenses data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'scan' && <ReceiptScanner data={filteredData} setData={updateData} showToast={showToast} onNavigate={setPage} allData={data} />}
           {page === 'arap' && <ARAP data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
-          {page === 'patient' && <PatientPage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+          {page === 'patient' && <PatientPage data={filteredData} setData={updateData} showToast={showToast} allData={data} onNavigate={setPage} />}
           {page === 'booking' && <BookingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+          {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+          {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+          {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
           {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
           {page === 'report' && <Reports data={filteredData} />}

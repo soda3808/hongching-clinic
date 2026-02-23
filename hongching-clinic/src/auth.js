@@ -1,10 +1,11 @@
 // ══════════════════════════════════
-// Auth & Permission Utilities
+// Auth & Permission Utilities (JWT + Offline Fallback)
 // ══════════════════════════════════
 
 import { DEFAULT_USERS, DEFAULT_STORES, PERMISSIONS } from './config';
 
 const AUTH_KEY = 'hcmc_user';
+const TOKEN_KEY = 'hcmc_token';
 
 export function getUsers() {
   try {
@@ -30,24 +31,82 @@ export function saveStores(stores) {
   localStorage.setItem('hc_stores', JSON.stringify(stores));
 }
 
-export function login(username, password) {
-  const users = getUsers();
-  const user = users.find(u => u.username === username && u.password === password && u.active);
-  if (!user) return null;
-  const session = { userId: user.id, username: user.username, name: user.name, role: user.role, stores: user.stores };
-  sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
-  return session;
+// JWT-based login: tries serverless endpoint first, falls back to local hash comparison
+export async function login(username, password) {
+  // Try JWT auth via serverless
+  if (navigator.onLine) {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        const session = data.user;
+        sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
+        sessionStorage.setItem(TOKEN_KEY, data.token);
+        return session;
+      }
+      // Server said invalid credentials
+      if (res.status === 401) return null;
+    } catch {
+      // Network error — fall through to offline mode
+    }
+  }
+
+  // Offline fallback: compare against bcrypt hashes stored in config
+  try {
+    const { default: bcrypt } = await import('bcryptjs');
+    const users = getUsers();
+    const user = users.find(u => u.username === username && u.active);
+    if (!user) return null;
+    const hash = user.passwordHash || user.password;
+    // If it looks like a bcrypt hash, use bcrypt compare
+    if (hash && hash.startsWith('$2')) {
+      const valid = bcrypt.compareSync(password, hash);
+      if (!valid) return null;
+    } else if (hash !== password) {
+      // Legacy plaintext fallback for migrating users
+      return null;
+    }
+    const session = { userId: user.id, username: user.username, name: user.name, role: user.role, stores: user.stores };
+    sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
+    return session;
+  } catch {
+    return null;
+  }
 }
 
 export function logout() {
   sessionStorage.removeItem(AUTH_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
 }
 
 export function getCurrentUser() {
   try {
     const s = sessionStorage.getItem(AUTH_KEY);
-    return s ? JSON.parse(s) : null;
+    if (!s) return null;
+    const session = JSON.parse(s);
+    // Check JWT expiry if token exists
+    const token = sessionStorage.getItem(TOKEN_KEY);
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          logout();
+          return null;
+        }
+      } catch {
+        // Token parse failed — keep session (offline mode)
+      }
+    }
+    return session;
   } catch { return null; }
+}
+
+export function getToken() {
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
 export function hasPermission(action) {

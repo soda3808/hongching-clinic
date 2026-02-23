@@ -1,10 +1,14 @@
 import { useState, useMemo } from 'react';
-import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES } from '../data';
+import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, DOCTORS, linearRegression } from '../data';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+
+const COLORS = ['#0e7490', '#16a34a', '#DAA520', '#dc2626', '#7C3AED', '#0284c7'];
 
 export default function Reports({ data }) {
   const [reportType, setReportType] = useState('monthly');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().substring(0, 7));
   const [selectedStore, setSelectedStore] = useState('all');
+  const [doctorTarget, setDoctorTarget] = useState(80000);
 
   const months = useMemo(() => {
     const m = new Set();
@@ -224,19 +228,347 @@ export default function Reports({ data }) {
     );
   };
 
+  // ── YOY COMPARISON (按年比較) ──
+  const YoYReport = () => {
+    const rev = filterStore(data.revenue);
+    const monthlyTotals = {};
+    rev.forEach(r => {
+      const m = getMonth(r.date);
+      if (m) monthlyTotals[m] = (monthlyTotals[m] || 0) + Number(r.amount);
+    });
+    const sorted = Object.entries(monthlyTotals).sort((a, b) => a[0].localeCompare(b[0]));
+    const tableData = sorted.map(([m, total], i) => {
+      const prev = i > 0 ? sorted[i - 1][1] : null;
+      const growth = prev !== null ? ((total - prev) / prev * 100) : null;
+      return { month: m, revenue: total, prevRevenue: prev, growth };
+    });
+    const chartData = sorted.map(([m, total]) => ({ name: monthLabel(m), revenue: total }));
+
+    return (
+      <div className="card">
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--teal-700)', marginBottom: 16 }}>📊 按月營業額比較</h3>
+        <div style={{ width: '100%', height: 300, marginBottom: 24 }}>
+          <ResponsiveContainer>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" fontSize={11} />
+              <YAxis fontSize={11} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={v => fmtM(v)} />
+              <Bar dataKey="revenue" name="營業額" fill={COLORS[0]} radius={[4,4,0,0]}>
+                {chartData.map((_, i) => {
+                  const row = tableData[i];
+                  const isNeg = row && row.growth !== null && row.growth < 0;
+                  return <Cell key={i} fill={isNeg ? COLORS[3] : COLORS[0]} />;
+                })}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>月份</th><th style={{ textAlign: 'right' }}>營業額</th><th style={{ textAlign: 'right' }}>上月營業額</th><th style={{ textAlign: 'right' }}>按月增長 %</th></tr>
+            </thead>
+            <tbody>
+              {tableData.map(row => (
+                <tr key={row.month}>
+                  <td style={{ fontWeight: 600 }}>{monthLabel(row.month)}</td>
+                  <td className="money" style={{ color: 'var(--gold-700)' }}>{fmtM(row.revenue)}</td>
+                  <td className="money">{row.prevRevenue !== null ? fmtM(row.prevRevenue) : '—'}</td>
+                  <td className="money" style={{ color: row.growth !== null && row.growth < 0 ? 'var(--red-600)' : 'var(--green-700)', fontWeight: 600 }}>
+                    {row.growth !== null ? `${row.growth >= 0 ? '+' : ''}${row.growth.toFixed(1)}%` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // ── DOCTOR PERFORMANCE (醫師績效) ──
+  const DoctorReport = () => {
+    const rev = filterStore(data.revenue.filter(r => getMonth(r.date) === selectedMonth));
+    const byDoctor = {};
+    rev.forEach(r => {
+      const doc = r.doctor;
+      if (!byDoctor[doc]) byDoctor[doc] = { revenue: 0, count: 0 };
+      byDoctor[doc].revenue += Number(r.amount);
+      if (!r.name.includes('匯總')) byDoctor[doc].count += 1;
+    });
+    const totalRev = rev.reduce((s, r) => s + Number(r.amount), 0);
+    const rows = Object.entries(byDoctor).sort((a, b) => b[1].revenue - a[1].revenue).map(([doc, d]) => ({
+      doctor: doc, revenue: d.revenue, count: d.count,
+      avg: d.count > 0 ? d.revenue / d.count : 0,
+      share: totalRev > 0 ? (d.revenue / totalRev * 100) : 0,
+    }));
+    const chartData = rows.map(r => ({ name: r.doctor, revenue: r.revenue }));
+
+    return (
+      <div className="card">
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--teal-700)', marginBottom: 12 }}>👨‍⚕️ 醫師績效 — {monthLabel(selectedMonth)}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <label style={{ fontSize: 13, fontWeight: 600 }}>月度目標:</label>
+          <input type="number" value={doctorTarget} onChange={e => setDoctorTarget(Number(e.target.value))}
+            style={{ width: 120, padding: '4px 8px', border: '1px solid var(--gray-300)', borderRadius: 6 }} />
+        </div>
+
+        <div style={{ width: '100%', height: 260, marginBottom: 24 }}>
+          <ResponsiveContainer>
+            <BarChart data={chartData} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis type="number" fontSize={11} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+              <YAxis dataKey="name" type="category" fontSize={12} width={70} />
+              <Tooltip formatter={v => fmtM(v)} />
+              <Bar dataKey="revenue" name="營業額" radius={[0,4,4,0]}>
+                {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="table-wrap" style={{ marginBottom: 16 }}>
+          <table>
+            <thead>
+              <tr><th>醫師</th><th style={{ textAlign: 'right' }}>營業額</th><th style={{ textAlign: 'right' }}>人次</th><th style={{ textAlign: 'right' }}>平均單價</th><th style={{ textAlign: 'right' }}>佔比</th><th style={{ width: 160 }}>目標進度</th></tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const pct = Math.min((r.revenue / doctorTarget) * 100, 100);
+                return (
+                  <tr key={r.doctor}>
+                    <td style={{ fontWeight: 600 }}>{r.doctor}</td>
+                    <td className="money" style={{ color: 'var(--gold-700)' }}>{fmtM(r.revenue)}</td>
+                    <td className="money">{r.count}</td>
+                    <td className="money">{fmtM(r.avg)}</td>
+                    <td className="money">{r.share.toFixed(1)}%</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, height: 8, background: 'var(--gray-200)', borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: pct >= 100 ? 'var(--green-600)' : 'var(--teal-600)', borderRadius: 4, transition: 'width .3s' }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: pct >= 100 ? 'var(--green-700)' : 'var(--gray-500)', minWidth: 38, textAlign: 'right' }}>{pct.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // ── PATIENT ANALYTICS (病人分析) ──
+  const PatientReport = () => {
+    const patients = data.patients || [];
+    const totalPatients = patients.length;
+    const newThisMonth = patients.filter(p => getMonth(p.firstVisit) === selectedMonth).length;
+    const returning = patients.filter(p => p.totalVisits > 1).length;
+    const returningRate = totalPatients > 0 ? (returning / totalPatients * 100) : 0;
+    const avgVisits = totalPatients > 0 ? (patients.reduce((s, p) => s + (p.totalVisits || 0), 0) / totalPatients) : 0;
+
+    // Top 10 spenders
+    const topSpenders = [...patients].sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0)).slice(0, 10);
+
+    // Visit frequency distribution
+    const freqBuckets = { '1次': 0, '2-3次': 0, '4-5次': 0, '6次+': 0 };
+    patients.forEach(p => {
+      const v = p.totalVisits || 0;
+      if (v <= 1) freqBuckets['1次']++;
+      else if (v <= 3) freqBuckets['2-3次']++;
+      else if (v <= 5) freqBuckets['4-5次']++;
+      else freqBuckets['6次+']++;
+    });
+    const freqData = Object.entries(freqBuckets).map(([name, count]) => ({ name, count }));
+
+    // New vs Returning by month
+    const newRetByMonth = {};
+    months.forEach(m => { newRetByMonth[m] = { newP: 0, retP: 0 }; });
+    // For each revenue record, check if the patient's firstVisit month matches
+    data.revenue.forEach(r => {
+      const m = getMonth(r.date);
+      if (!m || !newRetByMonth[m]) return;
+      const pt = patients.find(p => p.name === r.name);
+      if (!pt) return;
+      if (getMonth(pt.firstVisit) === m) newRetByMonth[m].newP++;
+      else newRetByMonth[m].retP++;
+    });
+    const newRetData = months.map(m => ({ name: monthLabel(m), '新症': newRetByMonth[m]?.newP || 0, '覆診': newRetByMonth[m]?.retP || 0 }));
+
+    return (
+      <div className="card">
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--teal-700)', marginBottom: 16 }}>👥 病人分析</h3>
+
+        <div className="stats-grid" style={{ marginBottom: 20 }}>
+          <div className="stat-card teal"><div className="stat-label">總病人數</div><div className="stat-value teal">{totalPatients}</div></div>
+          <div className="stat-card gold"><div className="stat-label">本月新症</div><div className="stat-value gold">{newThisMonth}</div></div>
+          <div className="stat-card"><div className="stat-label">覆診率</div><div className="stat-value" style={{ color: 'var(--green-700)' }}>{returningRate.toFixed(1)}%</div></div>
+          <div className="stat-card"><div className="stat-label">平均到訪次數</div><div className="stat-value" style={{ color: 'var(--teal-700)' }}>{avgVisits.toFixed(1)}</div></div>
+        </div>
+
+        {/* Visit frequency chart */}
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8 }}>📊 到訪頻率分佈</h4>
+        <div style={{ width: '100%', height: 240, marginBottom: 24 }}>
+          <ResponsiveContainer>
+            <BarChart data={freqData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" fontSize={12} />
+              <YAxis fontSize={11} allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="count" name="病人數" radius={[4,4,0,0]}>
+                {freqData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Top 10 spenders */}
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8 }}>🏆 消費排行 Top 10</h4>
+        <div className="table-wrap" style={{ marginBottom: 20 }}>
+          <table>
+            <thead><tr><th>#</th><th>姓名</th><th style={{ textAlign: 'right' }}>總消費</th><th style={{ textAlign: 'right' }}>到訪次數</th><th style={{ textAlign: 'right' }}>平均單次</th><th>主診醫師</th></tr></thead>
+            <tbody>
+              {topSpenders.map((p, i) => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 700, color: i < 3 ? 'var(--gold-700)' : 'var(--gray-400)' }}>{i + 1}</td>
+                  <td style={{ fontWeight: 600 }}>{p.name}</td>
+                  <td className="money" style={{ color: 'var(--gold-700)' }}>{fmtM(p.totalSpent || 0)}</td>
+                  <td className="money">{p.totalVisits || 0}</td>
+                  <td className="money">{p.totalVisits ? fmtM((p.totalSpent || 0) / p.totalVisits) : '—'}</td>
+                  <td>{p.doctor || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* New vs Returning by month */}
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8 }}>📈 新症 vs 覆診（按月）</h4>
+        <div style={{ width: '100%', height: 240 }}>
+          <ResponsiveContainer>
+            <BarChart data={newRetData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" fontSize={11} />
+              <YAxis fontSize={11} allowDecimals={false} />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="新症" fill={COLORS[1]} radius={[4,4,0,0]} />
+              <Bar dataKey="覆診" fill={COLORS[0]} radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
+
+  // ── REVENUE FORECAST (營業預測) ──
+  const ForecastReport = () => {
+    const rev = filterStore(data.revenue);
+    const monthlyTotals = {};
+    rev.forEach(r => {
+      const m = getMonth(r.date);
+      if (m) monthlyTotals[m] = (monthlyTotals[m] || 0) + Number(r.amount);
+    });
+    const sorted = Object.entries(monthlyTotals).sort((a, b) => a[0].localeCompare(b[0]));
+    const points = sorted.map(([, total], i) => ({ x: i, y: total }));
+    const { slope, intercept } = linearRegression(points);
+
+    // Build actual data
+    const actualData = sorted.map(([m, total], i) => ({
+      name: monthLabel(m), actual: total, projected: null, month: m, idx: i,
+    }));
+
+    // Project 3 months forward
+    const lastMonth = sorted.length > 0 ? sorted[sorted.length - 1][0] : new Date().toISOString().substring(0, 7);
+    const projectedData = [];
+    let pm = lastMonth;
+    for (let j = 1; j <= 3; j++) {
+      const [y, mo] = pm.split('-').map(Number);
+      const nextMo = mo === 12 ? 1 : mo + 1;
+      const nextY = mo === 12 ? y + 1 : y;
+      pm = `${nextY}-${String(nextMo).padStart(2, '0')}`;
+      const idx = sorted.length - 1 + j;
+      const val = Math.max(0, slope * idx + intercept);
+      projectedData.push({ name: monthLabel(pm), actual: null, projected: Math.round(val), month: pm, idx });
+    }
+
+    // Merge: for the bridge point, duplicate last actual as projected too
+    const merged = [...actualData];
+    if (merged.length > 0) {
+      merged[merged.length - 1] = { ...merged[merged.length - 1], projected: merged[merged.length - 1].actual };
+    }
+    const chartData = [...merged, ...projectedData];
+
+    return (
+      <div className="card">
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--teal-700)', marginBottom: 16 }}>📈 營業預測</h3>
+
+        <div style={{ width: '100%', height: 320, marginBottom: 24 }}>
+          <ResponsiveContainer>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" fontSize={11} />
+              <YAxis fontSize={11} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={v => v !== null ? fmtM(v) : '—'} />
+              <Legend />
+              <Line type="monotone" dataKey="actual" name="實際營業額" stroke={COLORS[0]} strokeWidth={2} dot={{ r: 4 }} connectNulls={false} />
+              <Line type="monotone" dataKey="projected" name="預測營業額" stroke={COLORS[2]} strokeWidth={2} strokeDasharray="8 4" dot={{ r: 4 }} connectNulls={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8 }}>🔮 未來三個月預測</h4>
+        <div className="table-wrap" style={{ marginBottom: 16 }}>
+          <table>
+            <thead><tr><th>月份</th><th style={{ textAlign: 'right' }}>預計營業額</th><th style={{ textAlign: 'right' }}>預計增長</th></tr></thead>
+            <tbody>
+              {projectedData.map((row, i) => {
+                const prevVal = i === 0 ? (sorted.length > 0 ? sorted[sorted.length - 1][1] : 0) : projectedData[i - 1].projected;
+                const growth = prevVal > 0 ? ((row.projected - prevVal) / prevVal * 100) : 0;
+                return (
+                  <tr key={row.month}>
+                    <td style={{ fontWeight: 600 }}>{row.name}</td>
+                    <td className="money" style={{ color: 'var(--gold-700)' }}>{fmtM(row.projected)}</td>
+                    <td className="money" style={{ color: growth >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>
+                      {growth >= 0 ? '+' : ''}{growth.toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ fontSize: 11, color: 'var(--gray-400)', padding: '8px 12px', background: 'var(--gray-50)', borderRadius: 6, border: '1px solid var(--gray-200)' }}>
+          * 預測基於線性回歸模型，僅供參考
+        </div>
+      </div>
+    );
+  };
+
   const handlePrint = () => window.print();
+
+  const showMonthFilter = reportType === 'monthly' || reportType === 'doctor' || reportType === 'patient';
 
   return (
     <>
       {/* Report Type Tabs */}
-      <div className="tab-bar">
+      <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
         <button className={`tab-btn ${reportType === 'monthly' ? 'active' : ''}`} onClick={() => setReportType('monthly')}>📅 月結報表</button>
         <button className={`tab-btn ${reportType === 'tax' ? 'active' : ''}`} onClick={() => setReportType('tax')}>🏛️ 稅務/年結</button>
+        <button className={`tab-btn ${reportType === 'yoy' ? 'active' : ''}`} onClick={() => setReportType('yoy')}>📊 按年比較</button>
+        <button className={`tab-btn ${reportType === 'doctor' ? 'active' : ''}`} onClick={() => setReportType('doctor')}>👨‍⚕️ 醫師績效</button>
+        <button className={`tab-btn ${reportType === 'patient' ? 'active' : ''}`} onClick={() => setReportType('patient')}>👥 病人分析</button>
+        <button className={`tab-btn ${reportType === 'forecast' ? 'active' : ''}`} onClick={() => setReportType('forecast')}>📈 營業預測</button>
       </div>
 
       {/* Filters */}
       <div className="card" style={{ padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
-        {reportType === 'monthly' && (
+        {showMonthFilter && (
           <div>
             <label>月份</label>
             <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} style={{ width: 'auto' }}>
@@ -256,7 +588,12 @@ export default function Reports({ data }) {
       </div>
 
       {/* Report Content */}
-      {reportType === 'monthly' ? <MonthlyReport /> : <TaxReport />}
+      {reportType === 'monthly' && <MonthlyReport />}
+      {reportType === 'tax' && <TaxReport />}
+      {reportType === 'yoy' && <YoYReport />}
+      {reportType === 'doctor' && <DoctorReport />}
+      {reportType === 'patient' && <PatientReport />}
+      {reportType === 'forecast' && <ForecastReport />}
     </>
   );
 }

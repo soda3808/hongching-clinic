@@ -52,12 +52,25 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   const handleReset = () => { localStorage.removeItem('hc_data'); localStorage.removeItem('hcmc_clinic'); localStorage.removeItem('hc_users'); localStorage.removeItem('hc_stores'); window.location.reload(); };
 
   // ── Users ──
-  const handleSaveUser = (u) => {
+  const handleSaveUser = async (u) => {
+    // Hash password if provided as plaintext (not already a bcrypt hash)
+    let userToSave = { ...u };
+    if (userToSave.password && !userToSave.password.startsWith('$2')) {
+      try {
+        const { default: bcrypt } = await import('bcryptjs');
+        userToSave.passwordHash = bcrypt.hashSync(userToSave.password, 10);
+      } catch {
+        userToSave.passwordHash = userToSave.password;
+      }
+    } else if (userToSave.password && userToSave.password.startsWith('$2')) {
+      userToSave.passwordHash = userToSave.password;
+    }
+    delete userToSave.password;
     let updated;
-    if (users.find(x => x.id === u.id)) {
-      updated = users.map(x => x.id === u.id ? u : x);
+    if (users.find(x => x.id === userToSave.id)) {
+      updated = users.map(x => x.id === userToSave.id ? userToSave : x);
     } else {
-      updated = [...users, { ...u, id: 'u' + Date.now() }];
+      updated = [...users, { ...userToSave, id: 'u' + Date.now() }];
     }
     setUsersState(updated); saveUsers(updated); setEditUser(null);
     setNewUser({ username:'', password:'', name:'', role:'staff', stores:[], email:'', active:true });
@@ -309,7 +322,7 @@ export default function SettingsPage({ data, setData, showToast, user }) {
           <div className="modal" onClick={e => e.stopPropagation()} ref={editUserRef}>
             <h3>編輯用戶 — {editUser.name}</h3>
             <div className="grid-2" style={{ marginBottom:12 }}>
-              <div><label>密碼</label><input value={editUser.password} onChange={e => setEditUser({...editUser, password:e.target.value})} /></div>
+              <div><label>新密碼 (留空不改)</label><input value={editUser.password || ''} onChange={e => setEditUser({...editUser, password:e.target.value})} placeholder="輸入新密碼" /></div>
               <div><label>姓名</label><input value={editUser.name} onChange={e => setEditUser({...editUser, name:e.target.value})} /></div>
             </div>
             <div className="grid-2" style={{ marginBottom:12 }}>
