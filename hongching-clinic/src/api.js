@@ -54,7 +54,7 @@ async function gasCall(action, payload = null) {
 }
 
 // ── Load All ──
-const COLLECTIONS = ['revenue', 'expenses', 'arap', 'patients', 'bookings', 'payslips', 'consultations', 'packages', 'enrollments', 'conversations', 'inventory'];
+const COLLECTIONS = ['revenue', 'expenses', 'arap', 'patients', 'bookings', 'payslips', 'consultations', 'packages', 'enrollments', 'conversations', 'inventory', 'queue'];
 
 export async function loadAllData() {
   // Try Supabase first
@@ -117,10 +117,13 @@ export async function saveEnrollment(record) { return saveRecord('enrollments', 
 export async function saveConversation(record) { return saveRecord('conversations', record, null); }
 // ── Inventory ──
 export async function saveInventory(record) { return saveRecord('inventory', record, null); }
+// ── Queue ──
+export async function saveQueue(record) { return saveRecord('queue', record, null); }
 
 export async function deleteBooking(id) { return deleteRecord('bookings', id); }
 export async function deleteConsultation(id) { return deleteRecord('consultations', id); }
 export async function deleteInventory(id) { return deleteRecord('inventory', id); }
+export async function deleteQueue(id) { return deleteRecord('queue', id); }
 
 export async function updateBookingStatus(id, status) {
   try {

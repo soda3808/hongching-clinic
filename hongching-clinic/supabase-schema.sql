@@ -185,6 +185,31 @@ CREATE TABLE IF NOT EXISTS inventory (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Queue/Registration
+CREATE TABLE IF NOT EXISTS queue (
+  id TEXT PRIMARY KEY,
+  "queueNo" TEXT,
+  "patientName" TEXT,
+  "patientPhone" TEXT,
+  date TEXT NOT NULL,
+  "registeredAt" TEXT,
+  "arrivedAt" TEXT,
+  "completedAt" TEXT,
+  doctor TEXT,
+  store TEXT,
+  services TEXT,
+  "serviceFee" NUMERIC DEFAULT 0,
+  status TEXT DEFAULT 'waiting',
+  "dispensingStatus" TEXT DEFAULT 'not-needed',
+  "paymentStatus" TEXT DEFAULT 'pending',
+  "consultationId" TEXT,
+  "createdAt" TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Add medicineCode to inventory
+ALTER TABLE inventory ADD COLUMN IF NOT EXISTS "medicineCode" TEXT;
+
 -- Enable Row Level Security (optional, can be configured later)
 -- ALTER TABLE revenue ENABLE ROW LEVEL SECURITY;
 -- etc.
@@ -193,3 +218,4 @@ CREATE TABLE IF NOT EXISTS inventory (
 ALTER PUBLICATION supabase_realtime ADD TABLE bookings;
 ALTER PUBLICATION supabase_realtime ADD TABLE consultations;
 ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
+ALTER PUBLICATION supabase_realtime ADD TABLE queue;

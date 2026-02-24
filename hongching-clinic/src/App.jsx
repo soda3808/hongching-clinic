@@ -17,6 +17,8 @@ import EMRPage from './components/EMRPage';
 import PackagePage from './components/PackagePage';
 import CRMPage from './components/CRMPage';
 import InventoryPage from './components/InventoryPage';
+import QueuePage from './components/QueuePage';
+import BillingPage from './components/BillingPage';
 import SettingsPage from './components/SettingsPage';
 import ReceiptScanner from './components/ReceiptScanner';
 import PublicBooking from './components/PublicBooking';
@@ -29,10 +31,12 @@ const ALL_PAGES = [
   { id: 'arap', icon: '📑', label: '應收應付', section: '財務', perm: 'editARAP' },
   { id: 'patient', icon: '👥', label: '病人管理', section: '病人', perm: 'viewPatients' },
   { id: 'booking', icon: '📅', label: '預約系統', section: '病人', perm: 'viewBookings' },
+  { id: 'queue', icon: '🎫', label: '掛號排隊', section: '病人', perm: 'viewQueue' },
   { id: 'emr', icon: '🏥', label: '電子病歷', section: '病人', perm: 'viewEMR' },
   { id: 'package', icon: '🎫', label: '套餐/會員', section: '病人', perm: 'viewPackages' },
   { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
   { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
+  { id: 'billing', icon: '💵', label: '配藥/收費', section: '營運', perm: 'viewBilling' },
   { id: 'pay', icon: '📋', label: '糧單', section: '人事', perm: 'viewPayroll' },
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
@@ -128,6 +132,15 @@ function useNotifications(data) {
     if (lastRev > 0 && thisRev < lastRev) notes.push({ icon: '⚠️', title: `本月營業額 (${fmtM(thisRev)}) 低於上月 (${fmtM(lastRev)})`, time: thisMonth });
 
     if (dayOfMonth >= 20 && dayOfMonth <= 25) notes.push({ icon: '💼', title: 'MPF 供款提醒：請於25日前完成供款', time: today });
+
+    // Low-stock inventory alerts
+    const lowStockItems = (data.inventory || []).filter(i => Number(i.stock) < Number(i.minStock));
+    if (lowStockItems.length) {
+      notes.push({ icon: '💊', title: `藥物庫存不足：${lowStockItems.length} 項低於安全庫存`, time: '庫存' });
+      lowStockItems.slice(0, 3).forEach(i => {
+        notes.push({ icon: '⚠️', title: `${i.name} — 現有 ${i.stock}${i.unit}（最低 ${i.minStock}${i.unit}）`, time: '低庫存' });
+      });
+    }
 
     return notes;
   }, [data]);
@@ -294,7 +307,7 @@ export default function App() {
 function MainApp() {
   const [user, setUser] = useState(() => getCurrentUser());
   const [page, setPage] = useState('');
-  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [] });
+  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [], queue: [] });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -355,7 +368,7 @@ function MainApp() {
     try {
       const d = await loadAllData();
       if (d && (d.revenue?.length || d.expenses?.length || d.patients?.length)) {
-        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[] });
+        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[], queue: d.queue||[] });
       } else {
         setData(SEED_DATA);
         saveAllLocal(SEED_DATA);
@@ -483,10 +496,12 @@ function MainApp() {
           {page === 'arap' && <ARAP data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'patient' && <PatientPage data={filteredData} setData={updateData} showToast={showToast} allData={data} onNavigate={setPage} />}
           {page === 'booking' && <BookingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+          {page === 'queue' && <QueuePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
           {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
+          {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
           {page === 'report' && <Reports data={filteredData} />}

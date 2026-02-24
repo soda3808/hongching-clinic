@@ -202,4 +202,5 @@ export const SEED_DATA = {
   enrollments: [],
   conversations: [],
   inventory: [],
+  queue: [],
 };

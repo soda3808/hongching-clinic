@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { saveInventory, deleteInventory } from '../api';
 import { uid, fmtM, TCM_HERBS } from '../data';
+import { exportCSV } from '../utils/export';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -11,6 +12,7 @@ const STORES = ['宋皇臺', '太子', '兩店共用'];
 const EMPTY_FORM = {
   name: '', category: '中藥', unit: 'g', stock: 0, minStock: 100,
   costPerUnit: 0, supplier: '', store: '宋皇臺', lastRestocked: '', active: true,
+  medicineCode: '',
 };
 
 export default function InventoryPage({ data, setData, showToast }) {
@@ -28,6 +30,10 @@ export default function InventoryPage({ data, setData, showToast }) {
   const [restockCost, setRestockCost] = useState('');
   const [herbSuggestions, setHerbSuggestions] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [batchSelected, setBatchSelected] = useState([]);
+  const [showBatchRestock, setShowBatchRestock] = useState(false);
+  const [batchRestockQty, setBatchRestockQty] = useState('');
+  const [showReport, setShowReport] = useState(false);
 
   const modalRef = useRef(null);
   const restockRef = useRef(null);
@@ -157,6 +163,70 @@ export default function InventoryPage({ data, setData, showToast }) {
     setRestockItem(null);
   };
 
+  // ── Batch toggle ──
+  const toggleBatch = (id) => {
+    setBatchSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleBatchAll = () => {
+    if (batchSelected.length === list.length) setBatchSelected([]);
+    else setBatchSelected(list.map(r => r.id));
+  };
+
+  // ── Batch restock ──
+  const handleBatchRestock = async () => {
+    const qty = parseFloat(batchRestockQty) || 0;
+    if (qty <= 0 || !batchSelected.length) return showToast('請輸入有效數量');
+    const today = new Date().toISOString().split('T')[0];
+    let updated = [...inventory];
+    for (const id of batchSelected) {
+      const idx = updated.findIndex(r => r.id === id);
+      if (idx >= 0) {
+        const item = { ...updated[idx], stock: Number(updated[idx].stock) + qty, lastRestocked: today };
+        updated[idx] = item;
+        await saveInventory(item);
+      }
+    }
+    setData({ ...data, inventory: updated });
+    showToast(`已批量入貨 ${batchSelected.length} 項，每項 +${qty}`);
+    setShowBatchRestock(false);
+    setBatchSelected([]);
+    setBatchRestockQty('');
+  };
+
+  // ── Export CSV ──
+  const handleExport = () => {
+    const cols = [
+      { key: 'medicineCode', label: '藥材編號' },
+      { key: 'name', label: '品名' },
+      { key: 'category', label: '分類' },
+      { key: 'stock', label: '庫存' },
+      { key: 'unit', label: '單位' },
+      { key: 'minStock', label: '最低庫存' },
+      { key: 'costPerUnit', label: '單位成本' },
+      { key: 'value', label: '存貨價值' },
+      { key: 'supplier', label: '供應商' },
+      { key: 'store', label: '店舖' },
+      { key: 'lastRestocked', label: '最後入貨' },
+    ];
+    const rows = list.map(r => ({ ...r, value: Number(r.stock) * Number(r.costPerUnit) }));
+    exportCSV(rows, cols, `inventory_${new Date().toISOString().substring(0, 10)}.csv`);
+    showToast('存貨清單已匯出');
+  };
+
+  // ── Category report ──
+  const categoryReport = useMemo(() => {
+    const map = {};
+    inventory.forEach(r => {
+      const cat = r.category || '其他';
+      if (!map[cat]) map[cat] = { count: 0, value: 0, lowStock: 0 };
+      map[cat].count++;
+      map[cat].value += Number(r.stock) * Number(r.costPerUnit);
+      if (Number(r.stock) < Number(r.minStock)) map[cat].lowStock++;
+    });
+    return Object.entries(map).sort((a, b) => b[1].value - a[1].value);
+  }, [inventory]);
+
   // ══════════════════════════════════
   // Render
   // ══════════════════════════════════
@@ -183,7 +253,42 @@ export default function InventoryPage({ data, setData, showToast }) {
           <option value="normal">充足</option>
         </select>
         <button className="btn btn-teal" onClick={openAdd}>+ 新增存貨</button>
+        <button className="btn btn-outline" onClick={handleExport}>匯出CSV</button>
+        {batchSelected.length > 0 && (
+          <button className="btn btn-green" onClick={() => setShowBatchRestock(true)}>批量入貨 ({batchSelected.length})</button>
+        )}
+        <button className="btn btn-outline" onClick={() => setShowReport(!showReport)}>{showReport ? '隱藏報表' : '庫存報表'}</button>
       </div>
+
+      {/* Category Report */}
+      {showReport && (
+        <div className="card">
+          <div className="card-header"><h3>庫存分類報表</h3></div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>分類</th><th>品項數</th><th style={{ textAlign: 'right' }}>存貨價值</th><th>低庫存</th></tr>
+              </thead>
+              <tbody>
+                {categoryReport.map(([cat, info]) => (
+                  <tr key={cat}>
+                    <td style={{ fontWeight: 600 }}>{cat}</td>
+                    <td>{info.count}</td>
+                    <td className="money">{fmtM(info.value)}</td>
+                    <td>{info.lowStock > 0 ? <span className="tag tag-overdue">{info.lowStock} 項</span> : <span className="tag tag-paid">正常</span>}</td>
+                  </tr>
+                ))}
+                <tr style={{ fontWeight: 700, background: 'var(--gray-50)' }}>
+                  <td>合計</td>
+                  <td>{categoryReport.reduce((s, [, i]) => s + i.count, 0)}</td>
+                  <td className="money">{fmtM(categoryReport.reduce((s, [, i]) => s + i.value, 0))}</td>
+                  <td>{categoryReport.reduce((s, [, i]) => s + i.lowStock, 0)} 項低庫存</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Inventory Table */}
       <div className="card" style={{ padding: 0 }}>
@@ -194,6 +299,8 @@ export default function InventoryPage({ data, setData, showToast }) {
           <table>
             <thead>
               <tr>
+                <th style={{ width: 32 }}><input type="checkbox" checked={batchSelected.length === list.length && list.length > 0} onChange={toggleBatchAll} /></th>
+                <th>編號</th>
                 <th className="sortable-th" onClick={() => toggleSort('name')}>品名{sortIcon('name')}</th>
                 <th>分類</th>
                 <th>庫存</th>
@@ -208,13 +315,15 @@ export default function InventoryPage({ data, setData, showToast }) {
             </thead>
             <tbody>
               {!list.length && (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有存貨紀錄</td></tr>
+                <tr><td colSpan={12} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有存貨紀錄</td></tr>
               )}
               {list.map(r => {
                 const isLow = Number(r.stock) < Number(r.minStock);
                 const value = Number(r.stock) * Number(r.costPerUnit);
                 return (
                   <tr key={r.id}>
+                    <td><input type="checkbox" checked={batchSelected.includes(r.id)} onChange={() => toggleBatch(r.id)} /></td>
+                    <td style={{ fontSize: 11, color: 'var(--gray-400)' }}>{r.medicineCode || '-'}</td>
                     <td style={{ fontWeight: 600 }}>{r.name}</td>
                     <td>
                       <span style={{ background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600 }}>
@@ -258,6 +367,10 @@ export default function InventoryPage({ data, setData, showToast }) {
               <button className="btn btn-outline btn-sm" onClick={() => setShowModal(false)} aria-label="關閉">✕</button>
             </div>
             <form onSubmit={handleSave}>
+              <div style={{ marginBottom: 12 }}>
+                <label>藥材編號</label>
+                <input value={form.medicineCode || ''} onChange={e => setForm({ ...form, medicineCode: e.target.value })} placeholder="例: H001" />
+              </div>
               <div className="grid-2" style={{ marginBottom: 12 }}>
                 <div style={{ position: 'relative' }}>
                   <label>品名 *</label>
@@ -365,6 +478,29 @@ export default function InventoryPage({ data, setData, showToast }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-green" onClick={handleRestock}>確認入貨</button>
               <button className="btn btn-outline" onClick={() => setRestockItem(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Restock Modal */}
+      {showBatchRestock && (
+        <div className="modal-overlay" onClick={() => setShowBatchRestock(false)} role="dialog" aria-modal="true" aria-label="批量入貨">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>批量入貨 ({batchSelected.length} 項)</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowBatchRestock(false)} aria-label="關閉">✕</button>
+            </div>
+            <div style={{ background: 'var(--gray-50)', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+              已選品項：{batchSelected.map(id => inventory.find(r => r.id === id)?.name).filter(Boolean).join('、')}
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label>每項增加數量 *</label>
+              <input type="number" min="1" step="any" value={batchRestockQty} onChange={e => setBatchRestockQty(e.target.value)} placeholder="輸入數量" autoFocus />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-green" onClick={handleBatchRestock}>確認批量入貨</button>
+              <button className="btn btn-outline" onClick={() => setShowBatchRestock(false)}>取消</button>
             </div>
           </div>
         </div>
