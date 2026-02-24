@@ -16,6 +16,7 @@ import BookingPage from './components/BookingPage';
 import EMRPage from './components/EMRPage';
 import PackagePage from './components/PackagePage';
 import CRMPage from './components/CRMPage';
+import InventoryPage from './components/InventoryPage';
 import SettingsPage from './components/SettingsPage';
 import ReceiptScanner from './components/ReceiptScanner';
 import PublicBooking from './components/PublicBooking';
@@ -31,6 +32,7 @@ const ALL_PAGES = [
   { id: 'emr', icon: '🏥', label: '電子病歷', section: '病人', perm: 'viewEMR' },
   { id: 'package', icon: '🎫', label: '套餐/會員', section: '病人', perm: 'viewPackages' },
   { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
+  { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
   { id: 'pay', icon: '📋', label: '糧單', section: '人事', perm: 'viewPayroll' },
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
@@ -293,7 +295,7 @@ export default function App() {
 function MainApp() {
   const [user, setUser] = useState(() => getCurrentUser());
   const [page, setPage] = useState('');
-  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [] });
+  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [] });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -354,7 +356,7 @@ function MainApp() {
     try {
       const d = await loadAllData();
       if (d && (d.revenue?.length || d.expenses?.length || d.patients?.length)) {
-        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[] });
+        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[] });
       } else {
         setData(SEED_DATA);
         saveAllLocal(SEED_DATA);
@@ -486,6 +488,7 @@ function MainApp() {
           {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
+          {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
           {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
           {page === 'report' && <Reports data={filteredData} />}
