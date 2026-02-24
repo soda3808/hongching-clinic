@@ -30,6 +30,7 @@ body {
 .sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid rgba(255,255,255,.12); }
 .sidebar-logo h1 { font-size: 16px; font-weight: 800; letter-spacing: .5px; }
 .sidebar-logo small { font-size: 10px; opacity: .6; display: block; margin-top: 2px; font-weight: 400; }
+.sidebar-logo-img { height: 36px; filter: brightness(0) invert(1); }
 .sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
 .nav-item {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px;
@@ -241,6 +242,7 @@ tr:hover { background: var(--gray-50); }
 }
 .login-brand h1 { font-size: 22px; font-weight: 800; color: var(--teal-800); letter-spacing: .5px; }
 .login-brand small { font-size: 11px; color: var(--gray-400); letter-spacing: 2px; display: block; margin-top: 4px; }
+.login-logo { height: 64px; margin-bottom: 8px; }
 .login-divider { height: 3px; background: linear-gradient(90deg, var(--teal-500), var(--gold-500)); border-radius: 2px; margin: 20px 0; }
 .login-card label { text-align: left; margin-bottom: 6px; }
 .login-card input { margin-bottom: 12px; text-align: left; }
@@ -561,4 +563,6 @@ tr:hover { background: var(--gray-50); }
   /* EMR print */
   .emr-print { padding: 0 !important; }
   .emr-print .soap-section { border-left-color: #333 !important; }
+  .print-only { display: block !important; }
 }
+.print-only { display: none; }

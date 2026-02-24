@@ -75,8 +75,7 @@ function LoginPage({ onLogin }) {
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-brand">
-          <h1>康晴綜合醫療中心</h1>
-          <small>HONG CHING MEDICAL CENTRE</small>
+          <img src="/logo.jpg" alt="康晴綜合醫療中心" className="login-logo" />
         </div>
         <div className="login-divider" />
         <label htmlFor="username">用戶名</label>
@@ -404,8 +403,7 @@ function MainApp() {
       {/* SIDEBAR (desktop) */}
       <div className="sidebar">
         <div className="sidebar-logo">
-          <h1>康晴醫療中心</h1>
-          <small>HONG CHING MEDICAL</small>
+          <img src="/logo.jpg" alt="康晴醫療中心" className="sidebar-logo-img" />
         </div>
         <nav className="sidebar-nav">
           {Object.entries(sections).map(([section, items]) => (

@@ -396,6 +396,9 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
       {detail && (
         <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="診症詳情">
           <div className="modal emr-print" onClick={e => e.stopPropagation()} ref={detailRef} style={{ maxWidth: 750, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: 12 }} className="print-only">
+              <img src="/logo.jpg" alt="康晴醫療中心" style={{ height: 48 }} />
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>診症詳情 -- {detail.patientName}</h3>
               <div style={{ display: 'flex', gap: 6 }}>

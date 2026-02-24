@@ -196,9 +196,8 @@ export default function SettingsPage({ data, setData, showToast, user }) {
             <div className="card-header"><h3>🖨️ 宣傳單張預覽</h3></div>
             <div className="promo-flyer" id="promo-flyer">
               <div style={{ textAlign: 'center', borderBottom: '3px solid var(--teal-700)', paddingBottom: 16, marginBottom: 16 }}>
-                <h2 style={{ color: 'var(--teal-700)', fontSize: 22, marginBottom: 4 }}>康晴綜合醫療中心</h2>
-                <div style={{ fontSize: 11, color: 'var(--gray-400)', letterSpacing: 2 }}>HONG CHING MEDICAL CENTRE</div>
-                <div style={{ fontSize: 13, color: 'var(--gray-600)', marginTop: 8 }}>專業中醫診療服務</div>
+                <img src="/logo.jpg" alt="康晴綜合醫療中心" style={{ height: 56, marginBottom: 8 }} />
+                <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>專業中醫診療服務</div>
               </div>
               <div style={{ background: 'var(--gold-100)', padding: '10px 16px', borderRadius: 8, textAlign: 'center', fontWeight: 700, color: '#92400e', marginBottom: 16, fontSize: 14 }}>
                 🎉 新客優惠：首次免診金 + 療程套餐9折
