@@ -182,16 +182,13 @@ export async function exportData(sheet, month) {
   return await gasCall('export', null) || [];
 }
 
-// ── WhatsApp API ──
-export async function sendWhatsApp(phone, message, type = 'text', store = '宋皇臺') {
-  try {
-    const res = await fetch('/api/send-whatsapp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, message, type, store }),
-    });
-    return await res.json();
-  } catch (err) { console.error('WhatsApp API Error:', err); return { success: false, error: err.message }; }
+// ── WhatsApp (wa.me direct link) ──
+export function openWhatsApp(phone, message) {
+  let formatted = (phone || '').replace(/[\s\-()]/g, '');
+  if (formatted.length === 8) formatted = '852' + formatted;
+  const url = `https://wa.me/${formatted}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank');
+  return { success: true };
 }
 
 // ── AI Chatbot ──

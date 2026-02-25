@@ -1,18 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { saveConversation, sendWhatsApp } from '../api';
+import { saveConversation, openWhatsApp } from '../api';
 import { uid, DOCTORS, CLINIC_PRICING } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 
-const WA_SETTINGS_KEY = 'hcmc_wa_settings';
-const defaultSettings = { autoConfirm: false, autoReminder: false, autoMedReminder: false, tkwPhone: '', pePhone: '' };
-
-function loadWASettings() {
-  try { return { ...defaultSettings, ...JSON.parse(localStorage.getItem(WA_SETTINGS_KEY) || '{}') }; }
-  catch { return { ...defaultSettings }; }
-}
-function saveWASettings(s) {
-  try { localStorage.setItem(WA_SETTINGS_KEY, JSON.stringify(s)); } catch {}
-}
 
 const QUICK_REPLIES = [
   { label: '收費表', text: Object.entries(CLINIC_PRICING).map(([k, v]) => `${k}：$${v.price}`).join('\n') },
@@ -43,9 +33,6 @@ export default function CRMPage({ data, setData, showToast }) {
   const [msgInput, setMsgInput] = useState('');
   const [medPatient, setMedPatient] = useState('');
   const [medMsg, setMedMsg] = useState('');
-  const [followSending, setFollowSending] = useState({});
-  const [reminderSending, setReminderSending] = useState({});
-  const [waSettings, setWaSettings] = useState(loadWASettings);
   const chatEndRef = useRef(null);
 
   const conversations = data.conversations || [];
@@ -90,15 +77,11 @@ export default function CRMPage({ data, setData, showToast }) {
     setMsgInput('');
   }
 
-  async function handleSendWhatsApp() {
+  function handleSendWhatsApp() {
     if (!msgInput.trim() || !selectedConv) return;
     handleSendMessage(msgInput, 'text');
-    const res = await sendWhatsApp(selectedConv.patientPhone, msgInput.trim(), 'text', selectedConv.store || '宋皇臺');
-    if (res?.success) {
-      showToast('WhatsApp 已發送');
-    } else {
-      showToast('WhatsApp 發送失敗：' + (res?.error || '未知錯誤'));
-    }
+    openWhatsApp(selectedConv.patientPhone, msgInput.trim());
+    showToast('已開啟 WhatsApp');
   }
 
   function handleQuickReply(qr) {
@@ -142,55 +125,44 @@ export default function CRMPage({ data, setData, showToast }) {
     return conv;
   }
 
-  async function handleSendMedReminder(patient, message) {
+  function handleSendMedReminder(patient, message) {
     const text = message.replace('{name}', patient.name);
     const conv = getOrCreateConv(patient);
     const msg = { id: uid(), text, sender: 'clinic', timestamp: nowTimestamp(), status: 'sent', type: 'reminder' };
     const updated = { ...conv, messages: [...(conv.messages || []), msg], lastMessage: text.substring(0, 50), lastTimestamp: nowTimestamp() };
     updateConversation(updated);
-    const res = await sendWhatsApp(patient.phone, text, 'reminder', patient.store || '宋皇臺');
-    if (res?.success) showToast(`已發送藥物提醒給 ${patient.name}`);
-    else showToast('發送失敗：' + (res?.error || '未知錯誤'));
+    openWhatsApp(patient.phone, text);
+    showToast(`已開啟 WhatsApp — ${patient.name}`);
   }
 
-  async function handleSendBookingReminder(bk) {
-    setReminderSending(prev => ({ ...prev, [bk.id]: true }));
+  function handleSendBookingReminder(bk) {
     const patient = patients.find(p => p.phone === bk.patientPhone) || { id: '', name: bk.patientName, phone: bk.patientPhone, store: bk.store };
     const text = `【康晴醫療中心】${bk.patientName}你好！提醒你明天 ${bk.time} 有預約（${bk.doctor}，${bk.store}）。請準時到達，謝謝！`;
     const conv = getOrCreateConv(patient);
     const msg = { id: uid(), text, sender: 'clinic', timestamp: nowTimestamp(), status: 'sent', type: 'booking' };
     const updated = { ...conv, messages: [...(conv.messages || []), msg], lastMessage: text.substring(0, 50), lastTimestamp: nowTimestamp() };
     updateConversation(updated);
-    await sendWhatsApp(bk.patientPhone, text, 'booking', bk.store);
-    setReminderSending(prev => ({ ...prev, [bk.id]: false }));
-    showToast(`已發送預約提醒給 ${bk.patientName}`);
+    openWhatsApp(bk.patientPhone, text);
+    showToast(`已開啟 WhatsApp — ${bk.patientName}`);
   }
 
-  async function handleSendAllReminders() {
+  function handleSendAllReminders() {
     for (const bk of tomorrowBookings) {
-      await handleSendBookingReminder(bk);
+      handleSendBookingReminder(bk);
     }
-    showToast(`已發送全部 ${tomorrowBookings.length} 個預約提醒`);
+    showToast(`已逐個開啟 WhatsApp（共 ${tomorrowBookings.length} 個）`);
   }
 
-  async function handleSendFollowUp(patient) {
-    setFollowSending(prev => ({ ...prev, [patient.id]: true }));
+  function handleSendFollowUp(patient) {
     const text = `【康晴醫療中心】${patient.name}你好！希望你身體漸有好轉。如有任何不適，歡迎預約覆診。`;
     const conv = getOrCreateConv(patient);
     const msg = { id: uid(), text, sender: 'clinic', timestamp: nowTimestamp(), status: 'sent', type: 'reminder' };
     const updated = { ...conv, messages: [...(conv.messages || []), msg], lastMessage: text.substring(0, 50), lastTimestamp: nowTimestamp() };
     updateConversation(updated);
-    await sendWhatsApp(patient.phone, text, 'reminder', patient.store || '宋皇臺');
-    setFollowSending(prev => ({ ...prev, [patient.id]: false }));
-    showToast(`已發送覆診提醒給 ${patient.name}`);
+    openWhatsApp(patient.phone, text);
+    showToast(`已開啟 WhatsApp — ${patient.name}`);
   }
 
-  // --- Settings helpers ---
-  function updateSetting(key, value) {
-    const next = { ...waSettings, [key]: value };
-    setWaSettings(next);
-    saveWASettings(next);
-  }
 
   // ═══════════════════════════════
   // RENDER
@@ -405,10 +377,9 @@ export default function CRMPage({ data, setData, showToast }) {
                           <td>
                             <button
                               className="btn btn-sm btn-green"
-                              disabled={reminderSending[bk.id]}
                               onClick={() => handleSendBookingReminder(bk)}
                             >
-                              {reminderSending[bk.id] ? '發送中...' : '發送提醒'}
+                              發送提醒
                             </button>
                           </td>
                         </tr>
@@ -451,10 +422,9 @@ export default function CRMPage({ data, setData, showToast }) {
                         <td>
                           <button
                             className="btn btn-sm btn-teal"
-                            disabled={followSending[pt.id]}
                             onClick={() => handleSendFollowUp(pt)}
                           >
-                            {followSending[pt.id] ? '發送中...' : '發送跟進'}
+                            發送跟進
                           </button>
                         </td>
                       </tr>
@@ -471,124 +441,36 @@ export default function CRMPage({ data, setData, showToast }) {
       {tab === 'settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Connection status */}
+          {/* How it works */}
           <div className="card" style={{ padding: 16 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>WhatsApp Business 連接狀態</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 12 }}>使用說明</h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: waSettings.tkwPhone || waSettings.pePhone ? '#22c55e' : '#ef4444', display: 'inline-block' }} />
-              <span style={{ fontSize: 13 }}>{waSettings.tkwPhone || waSettings.pePhone ? '已配置電話號碼' : '未連接'}</span>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>即時可用 — 無需額外設定</span>
             </div>
-            <div className="grid-2" style={{ gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 4, display: 'block' }}>宋皇臺店電話號碼</label>
-                <input
-                  type="tel" value={waSettings.tkwPhone} placeholder="例：852XXXXXXXX"
-                  onChange={e => updateSetting('tkwPhone', e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--gray-200)', borderRadius: 6, fontSize: 13 }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 4, display: 'block' }}>太子店電話號碼</label>
-                <input
-                  type="tel" value={waSettings.pePhone} placeholder="例：852XXXXXXXX"
-                  onChange={e => updateSetting('pePhone', e.target.value)}
-                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--gray-200)', borderRadius: 6, fontSize: 13 }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Auto-send toggles */}
-          <div className="card" style={{ padding: 16 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>自動發送設定</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input
-                  type="checkbox" checked={waSettings.autoConfirm}
-                  onChange={e => updateSetting('autoConfirm', e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: 'var(--teal-600)' }}
-                />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>自動發送預約確認</div>
-                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>新預約建立時自動發送 WhatsApp 確認訊息</div>
-                </div>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input
-                  type="checkbox" checked={waSettings.autoReminder}
-                  onChange={e => updateSetting('autoReminder', e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: 'var(--teal-600)' }}
-                />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>自動發送 24 小時預約提醒</div>
-                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>預約前 24 小時自動發送提醒訊息</div>
-                </div>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input
-                  type="checkbox" checked={waSettings.autoMedReminder}
-                  onChange={e => updateSetting('autoMedReminder', e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: 'var(--teal-600)' }}
-                />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>自動發送服藥提醒</div>
-                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>診症後自動發送服藥提醒訊息</div>
-                </div>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                <input
-                  type="checkbox" checked={waSettings.autoFollowUp || false}
-                  onChange={e => updateSetting('autoFollowUp', e.target.checked)}
-                  style={{ width: 18, height: 18, accentColor: 'var(--teal-600)' }}
-                />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>自動發送診後跟進</div>
-                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>診症後 3 天自動發送 WhatsApp 跟進關懷訊息</div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {/* Meta Business note */}
-          <div className="card" style={{ padding: 16, background: 'var(--gray-50)', border: '1px dashed var(--gray-300)' }}>
-            <h3 style={{ fontSize: 15, marginBottom: 8 }}>設定須知</h3>
-            <p style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.6, marginBottom: 12 }}>
-              需要設定 Meta Business 帳戶及 WhatsApp Cloud API 才能使用自動發送功能。
-              請確保已完成以下步驟：
+            <p style={{ fontSize: 13, color: 'var(--gray-600)', lineHeight: 1.7, marginBottom: 12 }}>
+              所有 WhatsApp 功能透過 <strong>wa.me 直接連結</strong> 運作：
             </p>
-            <ul style={{ fontSize: 12, color: 'var(--gray-500)', paddingLeft: 20, lineHeight: 1.8 }}>
-              <li>建立 Meta Business 帳戶</li>
-              <li>申請 WhatsApp Business API 存取權</li>
-              <li>驗證商業電話號碼</li>
-              <li>設定訊息範本（Message Templates）</li>
-              <li>配置 Webhook 接收回覆訊息</li>
+            <ul style={{ fontSize: 13, color: 'var(--gray-600)', paddingLeft: 20, lineHeight: 2 }}>
+              <li>撳「WhatsApp」或「發送提醒」→ 自動開啟 WhatsApp 並預填訊息</li>
+              <li>你只需要撳「發送」就完成</li>
+              <li>支援手機 WhatsApp 同 WhatsApp Web</li>
+              <li>所有發送紀錄會自動保存喺對話 Tab</li>
             </ul>
           </div>
 
-          {/* Pricing info */}
+          {/* Quick reply templates */}
           <div className="card" style={{ padding: 16 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>WhatsApp Business API 收費參考</h3>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>訊息類型</th>
-                    <th>說明</th>
-                    <th>費用 (HKD)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr><td>Business-initiated</td><td>由商家主動發送</td><td>~$0.46/條</td></tr>
-                  <tr><td>User-initiated</td><td>由用戶先發起的 24 小時對話</td><td>~$0.27/對話</td></tr>
-                  <tr><td>Utility</td><td>預約確認、付款通知等</td><td>~$0.20/條</td></tr>
-                  <tr><td>Authentication</td><td>驗證碼</td><td>~$0.18/條</td></tr>
-                  <tr><td>Marketing</td><td>推廣訊息</td><td>~$0.73/條</td></tr>
-                </tbody>
-              </table>
+            <h3 style={{ fontSize: 15, marginBottom: 12 }}>快速回覆範本</h3>
+            <p style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 12 }}>喺對話區可以直接選用以下範本：</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {QUICK_REPLIES.map(qr => (
+                <div key={qr.label} style={{ padding: 10, background: 'var(--gray-50)', borderRadius: 6, fontSize: 12 }}>
+                  <strong style={{ color: 'var(--teal-700)' }}>{qr.label}</strong>
+                  <pre style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap', color: 'var(--gray-600)', fontSize: 11 }}>{qr.text}</pre>
+                </div>
+              ))}
             </div>
-            <p style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 8 }}>
-              * 價格僅供參考，實際收費以 Meta 官方為準。每月首 1,000 個 user-initiated 對話免費。
-            </p>
           </div>
         </div>
       )}
