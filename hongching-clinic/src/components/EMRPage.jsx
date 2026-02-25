@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
-import { saveConsultation, deleteConsultation } from '../api';
+import { saveConsultation, deleteConsultation, openWhatsApp } from '../api';
 import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
@@ -170,6 +170,20 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
 
   // ── Print ──
   const handlePrint = () => { window.print(); };
+
+  // ── WhatsApp med reminder ──
+  const sendMedReminder = (item) => {
+    const rxList = (item.prescription || []).map(r => r.herb).filter(Boolean).join('、');
+    const text = `【康晴醫療中心】${item.patientName}你好！提醒你按時服藥。\n` +
+      (item.formulaName ? `處方：${item.formulaName}\n` : '') +
+      (rxList ? `藥材：${rxList}\n` : '') +
+      (item.formulaDays ? `共 ${item.formulaDays} 天\n` : '') +
+      `服法：${item.formulaInstructions || '每日一劑，水煎服'}\n` +
+      (item.followUpDate ? `覆診日期：${item.followUpDate}\n` : '') +
+      `如有不適請聯絡我們，祝早日康復！`;
+    openWhatsApp(item.patientPhone, text);
+    showToast('已開啟 WhatsApp');
+  };
 
   // ── Drug Interaction Check ──
   const rxWarnings = useMemo(() => {
@@ -565,6 +579,7 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn btn-teal btn-sm" onClick={handlePrint}>列印處方</button>
                 <button className="btn btn-green btn-sm" onClick={() => handleReferral(detail)}>轉介信</button>
+                {detail.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }} onClick={() => sendMedReminder(detail)}>💊 WhatsApp 服藥提醒</button>}
                 <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
               </div>
             </div>

@@ -33,6 +33,8 @@ export default function CRMPage({ data, setData, showToast }) {
   const [msgInput, setMsgInput] = useState('');
   const [medPatient, setMedPatient] = useState('');
   const [medMsg, setMedMsg] = useState('');
+  const [showNewConv, setShowNewConv] = useState(false);
+  const [newConvSearch, setNewConvSearch] = useState('');
   const chatEndRef = useRef(null);
 
   const conversations = data.conversations || [];
@@ -114,6 +116,33 @@ export default function CRMPage({ data, setData, showToast }) {
     return patients.filter(p => (p.name || '').toLowerCase().includes(q) || (p.phone || '').includes(q)).slice(0, 8);
   }, [patients, medPatient]);
 
+  // New conversation patient search
+  const newConvMatches = useMemo(() => {
+    if (!newConvSearch.trim()) return [];
+    const q = newConvSearch.toLowerCase();
+    return patients.filter(p => (p.name || '').toLowerCase().includes(q) || (p.phone || '').includes(q)).slice(0, 8);
+  }, [patients, newConvSearch]);
+
+  function startNewConversation(patient) {
+    const conv = getOrCreateConv(patient);
+    updateConversation(conv);
+    setSelectedConvId(conv.id);
+    setShowNewConv(false);
+    setNewConvSearch('');
+  }
+
+  function handleLogReceived(text) {
+    if (!text.trim() || !selectedConv) return;
+    const msg = { id: uid(), text: text.trim(), sender: 'patient', timestamp: nowTimestamp(), type: 'text' };
+    const updated = {
+      ...selectedConv,
+      messages: [...(selectedConv.messages || []), msg],
+      lastMessage: text.trim().substring(0, 50),
+      lastTimestamp: nowTimestamp(),
+    };
+    updateConversation(updated);
+  }
+
   function getOrCreateConv(patient) {
     const existing = conversations.find(c => c.patientId === patient.id);
     if (existing) return existing;
@@ -184,16 +213,36 @@ export default function CRMPage({ data, setData, showToast }) {
         <div style={{ display: 'flex', gap: 0, border: '1px solid var(--gray-200)', borderRadius: 8, overflow: 'hidden', minHeight: 520 }}>
           {/* Left panel - conversation list */}
           <div style={{ width: '30%', borderRight: '1px solid var(--gray-200)', background: '#fff', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: 8, borderBottom: '1px solid var(--gray-100)' }}>
+            <div style={{ padding: 8, borderBottom: '1px solid var(--gray-100)', display: 'flex', gap: 6 }}>
               <input
-                type="text" placeholder="搜尋病人姓名/電話..." value={searchQ}
+                type="text" placeholder="搜尋..." value={searchQ}
                 onChange={e => setSearchQ(e.target.value)}
-                style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--gray-200)', borderRadius: 6, fontSize: 13 }}
+                style={{ flex: 1, padding: '6px 10px', border: '1px solid var(--gray-200)', borderRadius: 6, fontSize: 13 }}
               />
+              <button className="btn btn-teal btn-sm" style={{ fontSize: 11, whiteSpace: 'nowrap', padding: '4px 8px' }} onClick={() => setShowNewConv(true)}>+ 新增</button>
             </div>
+            {/* New conversation search dropdown */}
+            {showNewConv && (
+              <div style={{ padding: 8, borderBottom: '1px solid var(--gray-200)', background: 'var(--teal-50)' }}>
+                <div style={{ fontSize: 11, color: 'var(--teal-700)', fontWeight: 600, marginBottom: 4 }}>選擇病人開始對話</div>
+                <input
+                  type="text" placeholder="輸入姓名或電話..." value={newConvSearch} autoFocus
+                  onChange={e => setNewConvSearch(e.target.value)}
+                  style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--teal-200)', borderRadius: 6, fontSize: 13, marginBottom: 4 }}
+                />
+                {newConvMatches.map(p => (
+                  <div key={p.id} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 12, borderRadius: 4, background: '#fff', marginBottom: 2 }}
+                    onClick={() => startNewConversation(p)}>
+                    <strong>{p.name}</strong> <span style={{ color: 'var(--gray-400)' }}>{p.phone}</span>
+                  </div>
+                ))}
+                {newConvSearch && newConvMatches.length === 0 && <div style={{ fontSize: 11, color: 'var(--gray-400)', padding: 4 }}>搵唔到病人</div>}
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 10, marginTop: 4 }} onClick={() => { setShowNewConv(false); setNewConvSearch(''); }}>取消</button>
+              </div>
+            )}
             <div style={{ flex: 1, overflowY: 'auto' }}>
-              {filteredConvs.length === 0 && (
-                <div style={{ padding: 20, textAlign: 'center', color: 'var(--gray-400)', fontSize: 13 }}>暫無對話</div>
+              {filteredConvs.length === 0 && !showNewConv && (
+                <div style={{ padding: 20, textAlign: 'center', color: 'var(--gray-400)', fontSize: 13 }}>暫無對話<br/><span style={{ fontSize: 11 }}>撳「+ 新增」開始</span></div>
               )}
               {filteredConvs.map(conv => (
                 <div
@@ -277,17 +326,20 @@ export default function CRMPage({ data, setData, showToast }) {
                 </div>
 
                 {/* Message input */}
-                <div style={{ padding: '8px 12px', borderTop: '1px solid var(--gray-200)', background: '#fff', display: 'flex', gap: 8 }}>
-                  <textarea
-                    value={msgInput} onChange={e => setMsgInput(e.target.value)} placeholder="輸入訊息..."
-                    rows={2}
-                    style={{ flex: 1, padding: '6px 10px', border: '1px solid var(--gray-200)', borderRadius: 8, fontSize: 13, resize: 'none' }}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(msgInput); } }}
-                  />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <button className="btn btn-teal btn-sm" onClick={() => handleSendMessage(msgInput)} style={{ fontSize: 12 }}>發送</button>
-                    <button className="btn btn-green btn-sm" onClick={handleSendWhatsApp} style={{ fontSize: 11, whiteSpace: 'nowrap' }}>WhatsApp</button>
+                <div style={{ padding: '8px 12px', borderTop: '1px solid var(--gray-200)', background: '#fff' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <textarea
+                      value={msgInput} onChange={e => setMsgInput(e.target.value)} placeholder="輸入訊息..."
+                      rows={2}
+                      style={{ flex: 1, padding: '6px 10px', border: '1px solid var(--gray-200)', borderRadius: 8, fontSize: 13, resize: 'none' }}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendWhatsApp(); } }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 12 }} onClick={handleSendWhatsApp}>WhatsApp</button>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => { handleLogReceived(msgInput); setMsgInput(''); }}>記錄收到</button>
+                    </div>
                   </div>
+                  <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 4 }}>Enter = 開 WhatsApp 發送 ｜「記錄收到」= 記低客人回覆</div>
                 </div>
               </>
             )}

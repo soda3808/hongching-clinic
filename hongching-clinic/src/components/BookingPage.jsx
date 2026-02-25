@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { saveBooking, updateBookingStatus } from '../api';
+import { saveBooking, updateBookingStatus, openWhatsApp } from '../api';
 import { uid, DOCTORS } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 
@@ -96,6 +96,7 @@ export default function BookingPage({ data, setData, showToast }) {
     await saveBooking(record);
     setData({ ...data, bookings: [...bookings, record] });
     setShowModal(false);
+    if (form.patientPhone) sendBookingWA(record);
     setForm({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:'宋皇臺', type:'覆診', notes:'' });
     showToast('已新增預約');
   };
@@ -105,6 +106,12 @@ export default function BookingPage({ data, setData, showToast }) {
     const updated = bookings.map(b => b.id === id ? { ...b, status } : b);
     setData({ ...data, bookings: updated });
     showToast(`已更新為${STATUS_LABELS[status]}`);
+  };
+
+  const sendBookingWA = (b) => {
+    const text = `【康晴醫療中心】${b.patientName}你好！你嘅預約已確認：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
+    openWhatsApp(b.patientPhone, text);
+    showToast('已開啟 WhatsApp');
   };
 
   const shiftWeek = (dir) => {
@@ -183,6 +190,7 @@ export default function BookingPage({ data, setData, showToast }) {
                         {b.status === 'confirmed' && (
                           <div style={{ display: 'flex', gap: 4 }}>
                             <button className="btn btn-green btn-sm" onClick={() => handleUpdateStatus(b.id, 'completed')}>✓</button>
+                            {b.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => sendBookingWA(b)}>WA</button>}
                             <button className="btn btn-outline btn-sm" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>✕</button>
                             <button className="btn btn-red btn-sm" onClick={() => handleUpdateStatus(b.id, 'no-show')}>NS</button>
                           </div>
