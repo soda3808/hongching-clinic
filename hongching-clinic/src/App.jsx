@@ -25,6 +25,7 @@ import LeavePage from './components/LeavePage';
 import ProductPage from './components/ProductPage';
 import SettingsPage from './components/SettingsPage';
 import ReceiptScanner from './components/ReceiptScanner';
+import AIChatPage from './components/AIChatPage';
 import PublicBooking from './components/PublicBooking';
 import { logAction } from './utils/audit';
 
@@ -49,6 +50,7 @@ const ALL_PAGES = [
   { id: 'leave', icon: '🏖️', label: '假期管理', section: '人事', perm: 'viewLeave' },
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
+  { id: 'ai', icon: '🤖', label: 'AI 助手', section: '分析', perm: 'viewDashboard' },
 ];
 
 // Mobile bottom tab config
@@ -519,6 +521,7 @@ function MainApp() {
           {page === 'leave' && <LeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
           {page === 'report' && <Reports data={filteredData} />}
+          {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
         </div>
       </div>

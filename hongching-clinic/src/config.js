@@ -76,6 +76,7 @@ export const PAGE_PERMISSIONS = {
   schedule: 'viewDoctorAnalytics',
   leave: 'viewLeave',
   products: 'editExpenses',
+  ai: 'viewDashboard',
 };
 
 // ══════════════════════════════════
