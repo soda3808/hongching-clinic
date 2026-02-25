@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { saveConversation, openWhatsApp } from '../api';
+import { saveConversation, openWhatsApp, saveInquiry } from '../api';
 import { uid, DOCTORS, CLINIC_PRICING } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 
@@ -27,7 +27,7 @@ function nowTimestamp() {
 }
 
 export default function CRMPage({ data, setData, showToast }) {
-  const [tab, setTab] = useState('chat');
+  const [tab, setTab] = useState('inquiries');
   const [selectedConvId, setSelectedConvId] = useState(null);
   const [searchQ, setSearchQ] = useState('');
   const [msgInput, setMsgInput] = useState('');
@@ -37,9 +37,58 @@ export default function CRMPage({ data, setData, showToast }) {
   const [newConvSearch, setNewConvSearch] = useState('');
   const chatEndRef = useRef(null);
 
+  const [aiReplying, setAiReplying] = useState({});
+  const [aiReplies, setAiReplies] = useState({});
+
   const conversations = data.conversations || [];
   const patients = data.patients || [];
   const bookings = data.bookings || [];
+  const inquiries = data.inquiries || [];
+
+  const newInquiries = useMemo(() => inquiries.filter(i => i.status === 'new').sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')), [inquiries]);
+  const repliedInquiries = useMemo(() => inquiries.filter(i => i.status === 'replied').sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')), [inquiries]);
+
+  // AI suggested reply
+  async function getAiReply(inquiry) {
+    setAiReplying(prev => ({ ...prev, [inquiry.id]: true }));
+    try {
+      const res = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `客人「${inquiry.name}」查詢（類型：${inquiry.type}）：「${inquiry.message}」\n\n請用廣東話（繁體中文）幫我草擬一個專業友善嘅 WhatsApp 回覆，2-3句就夠。直接寫回覆內容，唔好加引號或者前綴。`,
+          context: { pricing: Object.entries(CLINIC_PRICING).map(([k, v]) => `${k}：$${v.price}`).join(', ') },
+          history: [],
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setAiReplies(prev => ({ ...prev, [inquiry.id]: result.reply }));
+      }
+    } catch {}
+    setAiReplying(prev => ({ ...prev, [inquiry.id]: false }));
+  }
+
+  function handleReplyInquiry(inquiry, replyText) {
+    const text = `【康晴醫療中心】${inquiry.name}你好！\n${replyText}`;
+    openWhatsApp(inquiry.phone, text);
+    // Mark as replied
+    const updated = { ...inquiry, status: 'replied', repliedAt: new Date().toISOString() };
+    saveInquiry(updated);
+    setData(prev => ({ ...prev, inquiries: (prev.inquiries || []).map(i => i.id === inquiry.id ? updated : i) }));
+    // Also create conversation record
+    const conv = {
+      id: uid(), patientId: '', patientName: inquiry.name, patientPhone: inquiry.phone,
+      store: '宋皇臺', messages: [
+        { id: uid(), text: `[查詢] ${inquiry.message}`, sender: 'patient', timestamp: inquiry.createdAt, type: 'text' },
+        { id: uid(), text: replyText, sender: 'clinic', timestamp: new Date().toISOString().substring(0, 16).replace('T', ' '), status: 'sent', type: 'text' },
+      ],
+      lastMessage: replyText.substring(0, 50), lastTimestamp: new Date().toISOString().substring(0, 16).replace('T', ' '),
+      unread: 0, status: 'active',
+    };
+    updateConversation(conv);
+    showToast(`已開啟 WhatsApp 回覆 ${inquiry.name}`);
+  }
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -203,10 +252,80 @@ export default function CRMPage({ data, setData, showToast }) {
 
       {/* Tab bar */}
       <div className="tab-bar" style={{ marginBottom: 16 }}>
+        <button className={`tab-btn${tab === 'inquiries' ? ' active' : ''}`} onClick={() => setTab('inquiries')}>
+          客人查詢{newInquiries.length > 0 ? ` (${newInquiries.length})` : ''}
+        </button>
         <button className={`tab-btn${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>對話</button>
         <button className={`tab-btn${tab === 'quick' ? ' active' : ''}`} onClick={() => setTab('quick')}>快速操作</button>
         <button className={`tab-btn${tab === 'settings' ? ' active' : ''}`} onClick={() => setTab('settings')}>設定</button>
       </div>
+
+      {/* ── Tab 0: Inquiries ── */}
+      {tab === 'inquiries' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Public link */}
+          <div className="card" style={{ padding: '10px 16px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--teal-700)' }}>客人查詢連結：</span>
+            <code style={{ fontSize: 12, background: '#fff', padding: '4px 8px', borderRadius: 4, flex: 1, wordBreak: 'break-all' }}>{window.location.origin}/inquiry</code>
+            <button className="btn btn-teal btn-sm" style={{ fontSize: 11 }} onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/inquiry`); showToast('已複製連結'); }}>複製</button>
+          </div>
+
+          {/* New inquiries */}
+          <div className="card" style={{ padding: 16 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 12 }}>新查詢 ({newInquiries.length})</h3>
+            {newInquiries.length === 0 && <div style={{ color: 'var(--gray-400)', fontSize: 13, padding: 12 }}>暫無新查詢</div>}
+            {newInquiries.map(inq => (
+              <div key={inq.id} style={{ border: '1px solid var(--gray-200)', borderRadius: 8, padding: 12, marginBottom: 10, background: '#fff' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <div>
+                    <strong style={{ fontSize: 14 }}>{inq.name}</strong>
+                    <span style={{ fontSize: 12, color: 'var(--gray-500)', marginLeft: 8 }}>{inq.phone}</span>
+                    <span className="tag" style={{ marginLeft: 8, fontSize: 10 }}>{inq.type}</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>{inq.createdAt ? new Date(inq.createdAt).toLocaleString('zh-HK') : ''}</span>
+                </div>
+                <div style={{ fontSize: 13, padding: 10, background: 'var(--gray-50)', borderRadius: 6, marginBottom: 10, lineHeight: 1.6 }}>{inq.message}</div>
+                {/* AI reply */}
+                {aiReplies[inq.id] && (
+                  <div style={{ fontSize: 12, padding: 10, background: 'var(--teal-50)', borderRadius: 6, marginBottom: 10, border: '1px solid var(--teal-200)' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--teal-700)', marginBottom: 4 }}>🤖 AI 建議回覆：</div>
+                    <div style={{ lineHeight: 1.6 }}>{aiReplies[inq.id]}</div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }}
+                    onClick={() => handleReplyInquiry(inq, aiReplies[inq.id] || `多謝你嘅查詢！關於你問嘅問題，`)}>
+                    WhatsApp 回覆
+                  </button>
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => getAiReply(inq)} disabled={aiReplying[inq.id]}>
+                    {aiReplying[inq.id] ? '生成中...' : '🤖 AI 建議'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Replied */}
+          {repliedInquiries.length > 0 && (
+            <div className="card" style={{ padding: 16 }}>
+              <h3 style={{ fontSize: 15, marginBottom: 12, color: 'var(--gray-500)' }}>已回覆 ({repliedInquiries.length})</h3>
+              {repliedInquiries.slice(0, 10).map(inq => (
+                <div key={inq.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--gray-100)', fontSize: 13 }}>
+                  <div>
+                    <strong>{inq.name}</strong>
+                    <span style={{ color: 'var(--gray-400)', marginLeft: 8 }}>{inq.phone}</span>
+                    <span style={{ color: 'var(--gray-400)', marginLeft: 8, fontSize: 11 }}>{inq.type}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>{inq.repliedAt ? new Date(inq.repliedAt).toLocaleString('zh-HK') : ''}</span>
+                    <span className="tag tag-paid" style={{ fontSize: 10 }}>已回覆</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Tab 1: Conversations ── */}
       {tab === 'chat' && (

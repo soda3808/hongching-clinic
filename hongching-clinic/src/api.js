@@ -54,7 +54,7 @@ async function gasCall(action, payload = null) {
 }
 
 // ── Load All ──
-const COLLECTIONS = ['revenue', 'expenses', 'arap', 'patients', 'bookings', 'payslips', 'consultations', 'packages', 'enrollments', 'conversations', 'inventory', 'queue', 'sickleaves', 'leaves', 'products', 'productSales'];
+const COLLECTIONS = ['revenue', 'expenses', 'arap', 'patients', 'bookings', 'payslips', 'consultations', 'packages', 'enrollments', 'conversations', 'inventory', 'queue', 'sickleaves', 'leaves', 'products', 'productSales', 'inquiries'];
 
 export async function loadAllData() {
   // Try Supabase first
@@ -127,6 +127,9 @@ export async function saveLeave(record) { return saveRecord('leaves', record, nu
 export async function saveProduct(record) { return saveRecord('products', record, null); }
 // ── Product Sales ──
 export async function saveProductSale(record) { return saveRecord('productSales', record, null); }
+// ── Inquiries ──
+export async function saveInquiry(record) { return saveRecord('inquiries', record, null); }
+export async function deleteInquiry(id) { return deleteRecord('inquiries', id); }
 
 export async function deleteBooking(id) { return deleteRecord('bookings', id); }
 export async function deleteConsultation(id) { return deleteRecord('consultations', id); }

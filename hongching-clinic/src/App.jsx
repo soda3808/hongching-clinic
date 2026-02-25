@@ -30,6 +30,7 @@ import StoreComparePage from './components/StoreComparePage';
 import SurveyPage from './components/SurveyPage';
 import PublicBooking from './components/PublicBooking';
 import PublicCheckin from './components/PublicCheckin';
+import PublicInquiry from './components/PublicInquiry';
 import { logAction } from './utils/audit';
 
 const ALL_PAGES = [
@@ -137,6 +138,10 @@ function useNotifications(data) {
     // Pending online bookings
     const pendingBookings = (data.bookings || []).filter(b => b.status === 'pending');
     if (pendingBookings.length) notes.push({ icon: '🔔', title: `${pendingBookings.length} 個新預約待確認`, time: '待處理' });
+
+    // New inquiries
+    const newInquiries = (data.inquiries || []).filter(i => i.status === 'new');
+    if (newInquiries.length) notes.push({ icon: '💬', title: `${newInquiries.length} 個新客人查詢待回覆`, time: '待處理' });
 
     (data.arap || []).filter(a => a.type === 'receivable' && a.status === 'pending' && a.dueDate < today)
       .forEach(a => notes.push({ icon: '🔴', title: `逾期應收：${a.party} ${fmtM(a.amount)}`, time: a.dueDate }));
@@ -315,6 +320,7 @@ export default function App() {
   const path = window.location.pathname;
   if (path === '/booking') return <PublicBooking />;
   if (path === '/checkin') return <PublicCheckin />;
+  if (path === '/inquiry') return <PublicInquiry />;
 
   return <MainApp />;
 }
@@ -322,7 +328,7 @@ export default function App() {
 function MainApp() {
   const [user, setUser] = useState(() => getCurrentUser());
   const [page, setPage] = useState('');
-  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [], queue: [], sickleaves: [], leaves: [], products: [], productSales: [] });
+  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [], queue: [], sickleaves: [], leaves: [], products: [], productSales: [], inquiries: [] });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -358,7 +364,7 @@ function MainApp() {
   // Supabase Realtime — auto-sync across devices
   useEffect(() => {
     if (!user) return;
-    const REALTIME_TABLES = ['revenue', 'expenses', 'patients', 'bookings', 'consultations', 'inventory', 'queue'];
+    const REALTIME_TABLES = ['revenue', 'expenses', 'patients', 'bookings', 'consultations', 'inventory', 'queue', 'inquiries'];
     const subs = REALTIME_TABLES.map(table =>
       subscribeToChanges(table, (payload) => {
         const { eventType, new: newRec, old: oldRec } = payload;
@@ -407,7 +413,7 @@ function MainApp() {
     try {
       const d = await loadAllData();
       if (d && (d.revenue?.length || d.expenses?.length || d.patients?.length)) {
-        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[], queue: d.queue||[], sickleaves: d.sickleaves||[], leaves: d.leaves||[], products: d.products||[], productSales: d.productSales||[] });
+        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[], queue: d.queue||[], sickleaves: d.sickleaves||[], leaves: d.leaves||[], products: d.products||[], productSales: d.productSales||[], inquiries: d.inquiries||[] });
       } else {
         setData(SEED_DATA);
         saveAllLocal(SEED_DATA);
