@@ -16,6 +16,9 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const thisMonth = new Date().toISOString().substring(0, 7);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().substring(0, 10);
 
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString().substring(0, 10);
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 86400000).toISOString().substring(0, 10);
+
   const stats = useMemo(() => {
     const total = patients.length;
     const newThisMonth = patients.filter(p => getMonth(p.createdAt) === thisMonth).length;
@@ -23,6 +26,19 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
     const avgSpent = total ? patients.reduce((s, p) => s + Number(p.totalSpent || 0), 0) / total : 0;
     return { total, newThisMonth, active, avgSpent };
   }, [patients, thisMonth, thirtyDaysAgo]);
+
+  // Churn prediction: patients who visited before but haven't in 60+ days
+  const churnRisk = useMemo(() => {
+    return patients
+      .filter(p => p.lastVisit && p.lastVisit < sixtyDaysAgo && p.lastVisit >= ninetyDaysAgo && (p.totalVisits || 0) >= 2)
+      .sort((a, b) => (a.lastVisit || '').localeCompare(b.lastVisit || ''));
+  }, [patients, sixtyDaysAgo, ninetyDaysAgo]);
+
+  const churned = useMemo(() => {
+    return patients
+      .filter(p => p.lastVisit && p.lastVisit < ninetyDaysAgo && (p.totalVisits || 0) >= 2)
+      .length;
+  }, [patients, ninetyDaysAgo]);
 
   const filtered = useMemo(() => {
     let list = [...patients];
@@ -70,8 +86,30 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         <div className="stat-card teal"><div className="stat-label">總病人數</div><div className="stat-value teal">{stats.total}</div></div>
         <div className="stat-card green"><div className="stat-label">本月新病人</div><div className="stat-value green">{stats.newThisMonth}</div></div>
         <div className="stat-card gold"><div className="stat-label">活躍病人 (30天)</div><div className="stat-value gold">{stats.active}</div></div>
-        <div className="stat-card"><div className="stat-label">平均消費</div><div className="stat-value teal">{fmtM(stats.avgSpent)}</div></div>
+        <div className="stat-card red"><div className="stat-label">流失風險</div><div className="stat-value red">{churnRisk.length}</div></div>
       </div>
+
+      {/* Churn Risk Alert */}
+      {churnRisk.length > 0 && (
+        <div className="card" style={{ background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 16 }}>
+          <div className="card-header" style={{ borderBottom: 'none' }}>
+            <h3 style={{ color: '#991b1b', fontSize: 14 }}>⚠️ 流失風險病人 ({churnRisk.length})</h3>
+            <span style={{ fontSize: 11, color: '#991b1b' }}>60-90天未覆診 | 已流失(&gt;90天): {churned}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '0 16px 12px' }}>
+            {churnRisk.slice(0, 8).map(p => (
+              <div key={p.id} onClick={() => setDetail(p)} style={{
+                padding: '6px 12px', borderRadius: 8, background: '#fff', border: '1px solid #fecaca',
+                cursor: 'pointer', fontSize: 12,
+              }}>
+                <strong>{p.name}</strong>
+                <div style={{ color: '#991b1b', fontSize: 10 }}>最後到訪: {p.lastVisit} | {p.totalVisits}次 | {fmtM(p.totalSpent || 0)}</div>
+              </div>
+            ))}
+            {churnRisk.length > 8 && <div style={{ padding: '6px 12px', fontSize: 12, color: '#991b1b' }}>+{churnRisk.length - 8} 更多...</div>}
+          </div>
+        </div>
+      )}
 
       {/* Add Form */}
       <div className="card">

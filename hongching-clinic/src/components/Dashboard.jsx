@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
 
@@ -6,6 +6,57 @@ const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#02
 
 export default function Dashboard({ data, onNavigate }) {
   const [store, setStore] = useState('all');
+  const [briefing, setBriefing] = useState(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
+
+  // AI Daily Briefing - load once per day
+  const todayKey = new Date().toISOString().substring(0, 10);
+  useEffect(() => {
+    const cached = localStorage.getItem('hcmc_briefing');
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed.date === todayKey) { setBriefing(parsed.text); return; }
+      } catch {}
+    }
+  }, [todayKey]);
+
+  const loadBriefing = async () => {
+    setBriefingLoading(true);
+    const today = new Date().toISOString().substring(0, 10);
+    const thisMonth = today.substring(0, 7);
+    const rev = data.revenue || [];
+    const exp = data.expenses || [];
+    const patients = data.patients || [];
+    const bookings = data.bookings || [];
+    const inventory = data.inventory || [];
+
+    const monthRev = rev.filter(r => (r.date || '').substring(0, 7) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
+    const monthExp = exp.filter(r => (r.date || '').substring(0, 7) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
+    const todayBookings = bookings.filter(b => b.date === today && b.status !== 'cancelled').length;
+    const lowStock = inventory.filter(i => i.stock <= (i.minStock || 10)).length;
+    const newPatients = patients.filter(p => (p.createdAt || '').substring(0, 7) === thisMonth).length;
+
+    const context = { period: thisMonth, today, revenue: { monthTotal: monthRev }, expenses: { monthTotal: monthExp }, patients: { total: patients.length, newThisMonth: newPatients }, bookings: { todayCount: todayBookings }, inventory: { lowStockCount: lowStock } };
+
+    try {
+      const res = await fetch('/api/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: '請生成今日診所智能簡報，包括：1)今日重點數據 2)需要關注的事項 3)一句鼓勵或建議。簡短精煉，5-8行即可。',
+          context,
+          history: [],
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setBriefing(result.reply);
+        localStorage.setItem('hcmc_briefing', JSON.stringify({ date: todayKey, text: result.reply }));
+      }
+    } catch {}
+    setBriefingLoading(false);
+  };
 
   const filtered = useMemo(() => {
     const rev = store === 'all' ? data.revenue : data.revenue.filter(r => r.store === store);
@@ -75,6 +126,29 @@ export default function Dashboard({ data, onNavigate }) {
 
   return (
     <>
+      {/* AI Daily Briefing */}
+      <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)', border: '1px solid var(--teal-200)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: briefing ? 8 : 0 }}>
+          <h3 style={{ margin: 0, fontSize: 14, color: 'var(--teal-700)' }}>🤖 今日智能簡報</h3>
+          {!briefing && (
+            <button className="btn btn-teal btn-sm" onClick={loadBriefing} disabled={briefingLoading} style={{ fontSize: 11 }}>
+              {briefingLoading ? '生成中...' : '生成簡報'}
+            </button>
+          )}
+          {briefing && (
+            <button className="btn btn-outline btn-sm" onClick={() => { setBriefing(null); localStorage.removeItem('hcmc_briefing'); }} style={{ fontSize: 11 }}>
+              刷新
+            </button>
+          )}
+        </div>
+        {briefing && (
+          <div style={{ fontSize: 13, lineHeight: 1.8, whiteSpace: 'pre-wrap', color: 'var(--gray-700)' }}>{briefing}</div>
+        )}
+        {!briefing && !briefingLoading && (
+          <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>撳「生成簡報」獲取今日 AI 分析</div>
+        )}
+      </div>
+
       {/* Quick Actions */}
       {onNavigate && (
         <div className="quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>

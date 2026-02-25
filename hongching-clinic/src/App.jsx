@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { loadAllData, saveAllLocal } from './api';
+import { loadAllData, saveAllLocal, subscribeToChanges, unsubscribe } from './api';
 import { SEED_DATA, fmtM, getMonth } from './data';
 import { exportCSV, exportJSON, importJSON } from './utils/export';
 import { PERMISSIONS, PAGE_PERMISSIONS, ROLE_LABELS, ROLE_TAGS } from './config';
@@ -29,6 +29,7 @@ import AIChatPage from './components/AIChatPage';
 import StoreComparePage from './components/StoreComparePage';
 import SurveyPage from './components/SurveyPage';
 import PublicBooking from './components/PublicBooking';
+import PublicCheckin from './components/PublicCheckin';
 import { logAction } from './utils/audit';
 
 const ALL_PAGES = [
@@ -311,11 +312,9 @@ function MobileMoreMenu({ pages, page, setPage, onClose, user, onLogout }) {
 
 // ── Main App ──
 export default function App() {
-  // Check for public booking route
   const path = window.location.pathname;
-  if (path === '/booking') {
-    return <PublicBooking />;
-  }
+  if (path === '/booking') return <PublicBooking />;
+  if (path === '/checkin') return <PublicCheckin />;
 
   return <MainApp />;
 }
@@ -355,6 +354,30 @@ function MainApp() {
     window.addEventListener('offline', goOffline);
     return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
   }, []);
+
+  // Supabase Realtime — auto-sync across devices
+  useEffect(() => {
+    if (!user) return;
+    const REALTIME_TABLES = ['revenue', 'expenses', 'patients', 'bookings', 'consultations', 'inventory', 'queue'];
+    const subs = REALTIME_TABLES.map(table =>
+      subscribeToChanges(table, (payload) => {
+        const { eventType, new: newRec, old: oldRec } = payload;
+        setData(prev => {
+          const arr = [...(prev[table] || [])];
+          if (eventType === 'INSERT') {
+            if (!arr.find(r => r.id === newRec.id)) arr.push(newRec);
+          } else if (eventType === 'UPDATE') {
+            const idx = arr.findIndex(r => r.id === newRec.id);
+            if (idx >= 0) arr[idx] = newRec; else arr.push(newRec);
+          } else if (eventType === 'DELETE' && oldRec) {
+            return { ...prev, [table]: arr.filter(r => r.id !== oldRec.id) };
+          }
+          return { ...prev, [table]: arr };
+        });
+      })
+    ).filter(Boolean);
+    return () => subs.forEach(s => unsubscribe(s));
+  }, [user]);
 
   // Set default page based on role
   useEffect(() => {

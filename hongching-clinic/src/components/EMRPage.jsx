@@ -4,6 +4,7 @@ import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS 
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { checkInteractions } from '../utils/drugInteractions';
+import VoiceButton from './VoiceButton';
 
 const EMPTY_RX = { herb: '', dosage: '' };
 const EMPTY_FORM = {
@@ -381,14 +382,41 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               </div>
 
               {/* SOAP Notes */}
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>SOAP 病歷</h4></div>
+              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
+                <h4 style={{ margin: 0, fontSize: 13 }}>SOAP 病歷</h4>
+                <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>🎙 撳 mic 可語音輸入</span>
+              </div>
               <div className="grid-2" style={{ marginBottom: 8 }}>
-                <div><label>Subjective 主訴</label><textarea rows={2} value={form.subjective} onChange={e => setForm(f => ({ ...f, subjective: e.target.value }))} placeholder="主訴、病史..." /></div>
-                <div><label>Objective 客觀</label><textarea rows={2} value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))} placeholder="望聞問切、檢查結果..." /></div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <label style={{ flex: 1 }}>Subjective 主訴</label>
+                    <VoiceButton onTranscript={t => setForm(f => ({ ...f, subjective: f.subjective + t }))} />
+                  </div>
+                  <textarea rows={2} value={form.subjective} onChange={e => setForm(f => ({ ...f, subjective: e.target.value }))} placeholder="主訴、病史..." />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <label style={{ flex: 1 }}>Objective 客觀</label>
+                    <VoiceButton onTranscript={t => setForm(f => ({ ...f, objective: f.objective + t }))} />
+                  </div>
+                  <textarea rows={2} value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))} placeholder="望聞問切、檢查結果..." />
+                </div>
               </div>
               <div className="grid-2" style={{ marginBottom: 16 }}>
-                <div><label>Assessment 評估</label><textarea rows={2} value={form.assessment} onChange={e => setForm(f => ({ ...f, assessment: e.target.value }))} placeholder="中醫診斷..." /></div>
-                <div><label>Plan 計劃</label><textarea rows={2} value={form.plan} onChange={e => setForm(f => ({ ...f, plan: e.target.value }))} placeholder="治療方案..." /></div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <label style={{ flex: 1 }}>Assessment 評估</label>
+                    <VoiceButton onTranscript={t => setForm(f => ({ ...f, assessment: f.assessment + t }))} />
+                  </div>
+                  <textarea rows={2} value={form.assessment} onChange={e => setForm(f => ({ ...f, assessment: e.target.value }))} placeholder="中醫診斷..." />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <label style={{ flex: 1 }}>Plan 計劃</label>
+                    <VoiceButton onTranscript={t => setForm(f => ({ ...f, plan: f.plan + t }))} />
+                  </div>
+                  <textarea rows={2} value={form.plan} onChange={e => setForm(f => ({ ...f, plan: e.target.value }))} placeholder="治療方案..." />
+                </div>
               </div>
 
               {/* TCM Specific */}

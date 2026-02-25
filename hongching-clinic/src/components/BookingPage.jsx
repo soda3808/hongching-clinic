@@ -46,6 +46,26 @@ export default function BookingPage({ data, setData, showToast }) {
     noshow: todayBookings.filter(b => b.status === 'no-show').length,
   }), [todayBookings]);
 
+  // Smart scheduling: analyze busiest hours
+  const smartHints = useMemo(() => {
+    const hourCounts = {};
+    const dayCounts = {};
+    bookings.filter(b => b.status !== 'cancelled').forEach(b => {
+      if (b.time) { const h = b.time.substring(0, 2); hourCounts[h] = (hourCounts[h] || 0) + 1; }
+      if (b.date) { const d = new Date(b.date).getDay(); dayCounts[d] = (dayCounts[d] || 0) + 1; }
+    });
+    const busiestHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];
+    const quietestHour = Object.entries(hourCounts).sort((a, b) => a[1] - b[1])[0];
+    const busiestDay = Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0];
+    const dayNames = ['日','一','二','三','四','五','六'];
+    return {
+      busiestHour: busiestHour ? `${busiestHour[0]}:00` : '-',
+      quietestHour: quietestHour ? `${quietestHour[0]}:00` : '-',
+      busiestDay: busiestDay ? `星期${dayNames[busiestDay[0]]}` : '-',
+      avgDaily: bookings.length > 0 ? (bookings.length / 30).toFixed(1) : '0',
+    };
+  }, [bookings]);
+
   const getDateRange = () => {
     if (filterDate === 'today') return [today, today];
     if (filterDate === 'tomorrow') return [tomorrow, tomorrow];
@@ -101,6 +121,15 @@ export default function BookingPage({ data, setData, showToast }) {
         <div className="stat-card green"><div className="stat-label">已完成</div><div className="stat-value green">{stats.completed}</div></div>
         <div className="stat-card gold"><div className="stat-label">待到</div><div className="stat-value gold">{stats.pending}</div></div>
         <div className="stat-card red"><div className="stat-label">未到 No-show</div><div className="stat-value red">{stats.noshow}</div></div>
+      </div>
+
+      {/* Smart Scheduling Hints */}
+      <div className="card" style={{ padding: '10px 16px', display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, alignItems: 'center', background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
+        <span style={{ fontWeight: 700, color: 'var(--teal-700)' }}>📊 智能排程</span>
+        <span>最繁忙時段：<strong>{smartHints.busiestHour}</strong></span>
+        <span>建議預約：<strong>{smartHints.quietestHour}</strong></span>
+        <span>最繁忙日：<strong>{smartHints.busiestDay}</strong></span>
+        <span>日均預約：<strong>{smartHints.avgDaily}</strong></span>
       </div>
 
       {/* View Toggle + Add */}

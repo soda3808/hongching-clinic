@@ -314,6 +314,7 @@ tr:hover { background: var(--gray-50); }
   animation: pulse-offline 2s ease-in-out infinite;
 }
 @keyframes pulse-offline { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
 
 /* ── PWA INSTALL BANNER ── */
 .install-banner {
