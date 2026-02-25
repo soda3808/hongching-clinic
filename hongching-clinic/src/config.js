@@ -5,11 +5,11 @@
 // Bcrypt hashes — original passwords removed for security
 // To update, use: node -e "require('bcryptjs').hash('newpass',10).then(h=>console.log(h))"
 export const DEFAULT_USERS = [
-  { id: 'admin1', username: 'steven', passwordHash: '$2b$10$kI4qR12wGonUs58zOylbKudsSCZC.NN5yub0uX/QE3LTPMXglvRu6', name: '林先生', role: 'admin', stores: ['all'], email: '', active: true },
-  { id: 'mgr1', username: 'kaishing', passwordHash: '$2b$10$qgcVH8CLVitleWL7rgFyoemLpmep43LaojojcsuJs7VGDLElAz6we', name: '常凱晴', role: 'manager', stores: ['宋皇臺', '太子'], email: '', active: true },
-  { id: 'doc1', username: 'drhu', passwordHash: '$2b$10$P/2pTKGetrr2KPnjReGnr.UcdSfpXKOL3CTbYqXk1q/OJOeLWQFq2', name: '許植輝', role: 'doctor', stores: ['宋皇臺'], email: '', active: true },
-  { id: 'doc2', username: 'drtsang', passwordHash: '$2b$10$YThHuXkY2osQVWeiALOti.5s1bBE8S.z2KVf87Nqv.IF4t7oylTmu', name: '曾其方', role: 'doctor', stores: ['太子'], email: '', active: true },
-  { id: 'staff1', username: 'yp', passwordHash: '$2b$10$qxM1sJg7K.AEJZetmWMGN.ijubEhlgekOnqHbdrB93gxNTl5AOEG6', name: '譚玉冰', role: 'staff', stores: ['宋皇臺'], email: '', active: true },
+  { id: 'admin1', username: 'steven', passwordHash: '$2b$10$zQcoKwrA6nVPj5i.oQ2uk.scfm79UaLOsRYC37fS6cESMAECb1b0m', name: '林先生', role: 'admin', stores: ['all'], email: '', active: true },
+  { id: 'mgr1', username: 'kaishing', passwordHash: '$2b$10$euZLNph3B44vWZCDj/SpbekAceKqyDrV0JcjSi053KZgSFgTiFjve', name: '常凱晴', role: 'manager', stores: ['宋皇臺', '太子'], email: '', active: true },
+  { id: 'doc1', username: 'drhu', passwordHash: '$2b$10$euZLNph3B44vWZCDj/SpbekAceKqyDrV0JcjSi053KZgSFgTiFjve', name: '許植輝', role: 'doctor', stores: ['宋皇臺'], email: '', active: true },
+  { id: 'doc2', username: 'drtsang', passwordHash: '$2b$10$euZLNph3B44vWZCDj/SpbekAceKqyDrV0JcjSi053KZgSFgTiFjve', name: '曾其方', role: 'doctor', stores: ['太子'], email: '', active: true },
+  { id: 'staff1', username: 'yp', passwordHash: '$2b$10$euZLNph3B44vWZCDj/SpbekAceKqyDrV0JcjSi053KZgSFgTiFjve', name: '譚玉冰', role: 'staff', stores: ['宋皇臺'], email: '', active: true },
 ];
 
 export const DEFAULT_STORES = [
