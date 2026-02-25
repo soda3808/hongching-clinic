@@ -30,7 +30,7 @@ body {
 .sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid rgba(255,255,255,.12); }
 .sidebar-logo h1 { font-size: 16px; font-weight: 800; letter-spacing: .5px; }
 .sidebar-logo small { font-size: 10px; opacity: .6; display: block; margin-top: 2px; font-weight: 400; }
-.sidebar-logo-img { height: 36px; filter: brightness(0) invert(1); }
+.sidebar-logo-img { height: 36px; background: #fff; padding: 4px 8px; border-radius: 6px; }
 .sidebar-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
 .nav-item {
   display: flex; align-items: center; gap: 10px; padding: 10px 14px;
