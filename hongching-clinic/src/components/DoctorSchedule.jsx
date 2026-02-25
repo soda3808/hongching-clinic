@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { getDoctorSchedule, saveDoctorSchedule } from '../config';
 import { DOCTORS } from '../data';
 
@@ -19,6 +19,9 @@ export default function DoctorSchedule({ data, setData, showToast, user }) {
   const [selectedDoctor, setSelectedDoctor] = useState('all');
   const [editing, setEditing] = useState(false);
   const [editCell, setEditCell] = useState(null);
+
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiTip, setAiTip] = useState(null);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
@@ -93,6 +96,28 @@ export default function DoctorSchedule({ data, setData, showToast, user }) {
           {DOCTORS.map(d => <option key={d}>{d}</option>)}
         </select>
         {isAdmin && !editing && <button className="btn btn-teal" onClick={() => setEditing(true)}>編輯排班</button>}
+        {isAdmin && !editing && (
+          <button className="btn btn-outline" onClick={async () => {
+            setAiLoading(true); setAiTip(null);
+            try {
+              const scheduleStr = JSON.stringify(schedule);
+              const res = await fetch('/api/ai-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  message: `分析以下醫師排班表，提供優化建議（例如：是否平均分配、有無時段無人值班、建議調整等）：\n${scheduleStr}`,
+                  context: { schedule, doctors: DOCTORS },
+                  history: [],
+                }),
+              });
+              const result = await res.json();
+              setAiTip(result.success ? result.reply : '無法取得建議');
+            } catch { setAiTip('網絡錯誤'); }
+            setAiLoading(false);
+          }} disabled={aiLoading} style={{ fontSize: 12 }}>
+            {aiLoading ? '分析中...' : '🤖 AI 排班建議'}
+          </button>
+        )}
         {editing && (
           <>
             <button className="btn btn-green" onClick={handleSave}>儲存</button>
@@ -100,6 +125,17 @@ export default function DoctorSchedule({ data, setData, showToast, user }) {
           </>
         )}
       </div>
+
+      {/* AI Suggestion */}
+      {aiTip && (
+        <div className="card" style={{ padding: 12, background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <strong style={{ fontSize: 13, color: 'var(--teal-700)' }}>🤖 AI 排班建議</strong>
+            <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setAiTip(null)}>關閉</button>
+          </div>
+          <div style={{ fontSize: 12, lineHeight: 1.8, whiteSpace: 'pre-wrap', color: 'var(--gray-700)' }}>{aiTip}</div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="card" style={{ padding: '8px 16px', display: 'flex', gap: 16, alignItems: 'center', fontSize: 12 }}>

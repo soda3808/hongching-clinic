@@ -77,6 +77,8 @@ export const PAGE_PERMISSIONS = {
   leave: 'viewLeave',
   products: 'editExpenses',
   ai: 'viewDashboard',
+  compare: 'viewDashboard',
+  survey: 'viewDashboard',
 };
 
 // ══════════════════════════════════

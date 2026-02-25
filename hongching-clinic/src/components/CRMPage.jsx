@@ -535,6 +535,17 @@ export default function CRMPage({ data, setData, showToast }) {
                   <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>診症後自動發送服藥提醒訊息</div>
                 </div>
               </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                <input
+                  type="checkbox" checked={waSettings.autoFollowUp || false}
+                  onChange={e => updateSetting('autoFollowUp', e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: 'var(--teal-600)' }}
+                />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>自動發送診後跟進</div>
+                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>診症後 3 天自動發送 WhatsApp 跟進關懷訊息</div>
+                </div>
+              </label>
             </div>
           </div>
 

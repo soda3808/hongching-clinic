@@ -26,6 +26,8 @@ import ProductPage from './components/ProductPage';
 import SettingsPage from './components/SettingsPage';
 import ReceiptScanner from './components/ReceiptScanner';
 import AIChatPage from './components/AIChatPage';
+import StoreComparePage from './components/StoreComparePage';
+import SurveyPage from './components/SurveyPage';
 import PublicBooking from './components/PublicBooking';
 import { logAction } from './utils/audit';
 
@@ -51,6 +53,8 @@ const ALL_PAGES = [
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
   { id: 'ai', icon: '🤖', label: 'AI 助手', section: '分析', perm: 'viewDashboard' },
+  { id: 'compare', icon: '🏢', label: '分店對比', section: '分析', perm: 'viewDashboard' },
+  { id: 'survey', icon: '📋', label: '滿意度調查', section: '分析', perm: 'viewDashboard' },
 ];
 
 // Mobile bottom tab config
@@ -522,6 +526,8 @@ function MainApp() {
           {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
           {page === 'report' && <Reports data={filteredData} />}
           {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+          {page === 'compare' && <StoreComparePage data={filteredData} allData={data} />}
+          {page === 'survey' && <SurveyPage data={filteredData} showToast={showToast} user={user} />}
           {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
         </div>
       </div>

@@ -3,6 +3,7 @@ import { saveConsultation, deleteConsultation } from '../api';
 import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
+import { checkInteractions } from '../utils/drugInteractions';
 
 const EMPTY_RX = { herb: '', dosage: '' };
 const EMPTY_FORM = {
@@ -29,6 +30,8 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
   const [showPatientDD, setShowPatientDD] = useState(false);
   const [herbSearch, setHerbSearch] = useState({});
   const [activeHerbIdx, setActiveHerbIdx] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState(null);
 
   const addRef = useRef(null);
   const detailRef = useRef(null);
@@ -166,6 +169,97 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
 
   // ── Print ──
   const handlePrint = () => { window.print(); };
+
+  // ── Drug Interaction Check ──
+  const rxWarnings = useMemo(() => {
+    return checkInteractions(form.prescription);
+  }, [form.prescription]);
+
+  // ── AI Prescription Suggestion ──
+  const handleAiSuggest = async () => {
+    if (!form.tcmDiagnosis && !form.subjective) return showToast('請先填寫診斷或主訴');
+    setAiLoading(true);
+    setAiSuggestion(null);
+    try {
+      const res = await fetch('/api/ai-prescription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diagnosis: form.tcmDiagnosis,
+          pattern: form.tcmPattern,
+          tongue: form.tongue,
+          pulse: form.pulse,
+          subjective: form.subjective,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setAiSuggestion(result);
+      } else {
+        showToast(result.error || 'AI 建議失敗');
+      }
+    } catch { showToast('網絡錯誤'); }
+    setAiLoading(false);
+  };
+
+  const applyAiSuggestion = () => {
+    if (!aiSuggestion) return;
+    if (aiSuggestion.herbs) {
+      setForm(f => ({ ...f, prescription: aiSuggestion.herbs, formulaName: aiSuggestion.formulaName || '' }));
+    }
+    if (aiSuggestion.acupoints) {
+      setForm(f => ({ ...f, acupuncturePoints: aiSuggestion.acupoints.join('、') }));
+    }
+    setAiSuggestion(null);
+    showToast('已套用 AI 建議');
+  };
+
+  // ── Referral Letter ──
+  const handleReferral = (item) => {
+    const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
+    const w = window.open('', '_blank');
+    if (!w) return showToast('請允許彈出視窗');
+    w.document.write(`<!DOCTYPE html><html><head><title>轉介信</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:40px 50px;max-width:700px;margin:0 auto;color:#333}
+      .header{text-align:center;border-bottom:3px solid #0e7490;padding-bottom:16px;margin-bottom:24px}
+      .header h1{font-size:18px;color:#0e7490;margin:0}
+      .header p{font-size:12px;color:#888;margin:4px 0}
+      .title{text-align:center;font-size:20px;font-weight:800;margin:24px 0;color:#0e7490}
+      .field{margin:12px 0;font-size:14px;line-height:1.8}
+      .field .label{font-weight:700;color:#555}
+      .body-text{margin:24px 0;font-size:14px;line-height:2}
+      .sig{margin-top:60px;display:flex;justify-content:space-between}
+      .sig-box{text-align:center;width:200px}
+      .sig-line{border-top:1px solid #333;margin-top:60px;padding-top:4px;font-size:12px}
+      .footer{margin-top:40px;text-align:center;font-size:10px;color:#aaa}
+    </style></head><body>
+      <div class="header">
+        <h1>${clinic.name || '康晴綜合醫療中心'}</h1>
+        <p>${clinic.nameEn || 'Hong Ching International Medical Centre'}</p>
+        <p>${item.store === '太子' ? (clinic.addr2 || '長沙灣道28號長康大廈地下') : (clinic.addr1 || '馬頭涌道97號美誠大廈地下')}</p>
+      </div>
+      <div class="title">轉介信 Referral Letter</div>
+      <div class="field"><span class="label">日期：</span>${new Date().toISOString().substring(0, 10)}</div>
+      <div class="field"><span class="label">病人姓名：</span>${item.patientName}</div>
+      <div class="field"><span class="label">聯絡電話：</span>${item.patientPhone || '-'}</div>
+      <div class="body-text">
+        <p>致有關醫生：</p>
+        <p>上述病人因 <strong>${item.tcmDiagnosis || item.assessment || '（請填寫）'}</strong> 於本中心就診。</p>
+        <p><strong>證型：</strong>${item.tcmPattern || '-'}</p>
+        <p><strong>舌象：</strong>${item.tongue || '-'} ｜ <strong>脈象：</strong>${item.pulse || '-'}</p>
+        <p><strong>治療紀錄：</strong>${(item.treatments || []).join('、') || '-'}</p>
+        ${item.prescription?.length ? `<p><strong>處方：</strong>${item.prescription.map(r => r.herb + ' ' + r.dosage).join('、')}</p>` : ''}
+        <p>現轉介 閣下跟進診治，煩請惠予診療。如有查詢，歡迎致電本中心。</p>
+      </div>
+      <div class="sig">
+        <div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div>
+        <div class="sig-box"><div class="sig-line">診所蓋章</div></div>
+      </div>
+      <div class="footer">此轉介信由 ${clinic.name || '康晴綜合醫療中心'} 簽發</div>
+    </body></html>`);
+    w.document.close();
+    w.print();
+  };
 
   return (
     <>
@@ -330,11 +424,33 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               {/* Prescription Builder */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
                 <h4 style={{ margin: 0, fontSize: 13 }}>處方</h4>
-                <select style={{ width: 'auto', fontSize: 12, padding: '4px 8px' }} value="" onChange={e => { if (e.target.value) loadFormula(e.target.value); }}>
-                  <option value="">從模板載入...</option>
-                  {TCM_FORMULAS.map(f => <option key={f.name} value={f.name}>{f.name} ({f.indication})</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select style={{ width: 'auto', fontSize: 12, padding: '4px 8px' }} value="" onChange={e => { if (e.target.value) loadFormula(e.target.value); }}>
+                    <option value="">從模板載入...</option>
+                    {TCM_FORMULAS.map(f => <option key={f.name} value={f.name}>{f.name} ({f.indication})</option>)}
+                  </select>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={handleAiSuggest} disabled={aiLoading} style={{ fontSize: 11 }}>
+                    {aiLoading ? '分析中...' : '🤖 AI 處方建議'}
+                  </button>
+                </div>
               </div>
+              {/* AI Suggestion Panel */}
+              {aiSuggestion && (
+                <div style={{ background: 'var(--teal-50)', border: '1px solid var(--teal-200)', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <strong style={{ color: 'var(--teal-700)' }}>🤖 AI 建議</strong>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button type="button" className="btn btn-teal btn-sm" style={{ fontSize: 11 }} onClick={applyAiSuggestion}>套用建議</button>
+                      <button type="button" className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setAiSuggestion(null)}>關閉</button>
+                    </div>
+                  </div>
+                  {aiSuggestion.formulaName && <div><strong>方劑：</strong>{aiSuggestion.formulaName}</div>}
+                  {aiSuggestion.herbs && <div style={{ marginTop: 4 }}><strong>處方：</strong>{aiSuggestion.herbs.map(h => `${h.herb} ${h.dosage}`).join('、')}</div>}
+                  {aiSuggestion.acupoints && <div style={{ marginTop: 4 }}><strong>穴位：</strong>{aiSuggestion.acupoints.join('、')}</div>}
+                  {aiSuggestion.explanation && <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>{aiSuggestion.explanation}</div>}
+                  {aiSuggestion.caution && <div style={{ marginTop: 4, color: 'var(--red-600)' }}>⚠️ {aiSuggestion.caution}</div>}
+                </div>
+              )}
               <div className="grid-3" style={{ marginBottom: 8 }}>
                 <div><label>方名</label><input value={form.formulaName} onChange={e => setForm(f => ({ ...f, formulaName: e.target.value }))} placeholder="處方名稱" /></div>
                 <div><label>天數</label><input type="number" min="1" value={form.formulaDays} onChange={e => setForm(f => ({ ...f, formulaDays: e.target.value }))} /></div>
@@ -373,7 +489,24 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
                   </tbody>
                 </table>
               </div>
-              <button type="button" className="btn btn-outline btn-sm" onClick={addRxRow} style={{ marginBottom: 16 }}>+ 加藥材</button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <button type="button" className="btn btn-outline btn-sm" onClick={addRxRow}>+ 加藥材</button>
+              </div>
+              {/* Drug Interaction Warnings */}
+              {rxWarnings.length > 0 && (
+                <div style={{ marginBottom: 16 }}>
+                  {rxWarnings.map((w, i) => (
+                    <div key={i} style={{
+                      padding: '8px 12px', borderRadius: 6, marginBottom: 4, fontSize: 12, fontWeight: 600,
+                      background: w.level === 'danger' ? '#fef2f2' : w.level === 'warning' ? '#fffbeb' : '#f0f9ff',
+                      color: w.level === 'danger' ? '#991b1b' : w.level === 'warning' ? '#92400e' : '#1e40af',
+                      border: `1px solid ${w.level === 'danger' ? '#fecaca' : w.level === 'warning' ? '#fed7aa' : '#bfdbfe'}`,
+                    }}>
+                      {w.level === 'danger' ? '🚫' : w.level === 'warning' ? '⚠️' : 'ℹ️'} {w.message}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Follow-up */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>覆診安排</h4></div>
@@ -403,6 +536,7 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               <h3 style={{ margin: 0 }}>診症詳情 -- {detail.patientName}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn btn-teal btn-sm" onClick={handlePrint}>列印處方</button>
+                <button className="btn btn-green btn-sm" onClick={() => handleReferral(detail)}>轉介信</button>
                 <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
               </div>
             </div>

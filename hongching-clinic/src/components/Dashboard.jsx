@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
-import { fmtM, fmt, getMonth, monthLabel } from '../data';
+import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
@@ -221,6 +221,76 @@ export default function Dashboard({ data, onNavigate }) {
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Financial Forecast */}
+      {months.length >= 2 && (() => {
+        const points = months.map((m, i) => [i, filtered.rev.filter(r => getMonth(r.date) === m).reduce((s, r) => s + Number(r.amount), 0)]);
+        const { slope, intercept } = linearRegression(points);
+        const forecastData = months.slice(-4).map((m, i) => ({
+          month: monthLabel(m).split(' ')[0],
+          實際: filtered.rev.filter(r => getMonth(r.date) === m).reduce((s, r) => s + Number(r.amount), 0),
+        }));
+        // Add 2 forecast months
+        for (let f = 1; f <= 2; f++) {
+          const idx = months.length - 1 + f;
+          const val = Math.max(0, Math.round(slope * idx + intercept));
+          const d = new Date(); d.setMonth(d.getMonth() + f);
+          forecastData.push({ month: monthLabel(d.toISOString().substring(0, 7)).split(' ')[0] + '(預)', 預測: val });
+        }
+        const nextMonthForecast = Math.max(0, Math.round(slope * months.length + intercept));
+        const trend = slope > 0 ? '上升' : slope < 0 ? '下降' : '持平';
+
+        return (
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="card-header"><h3>🔮 營業額預測</h3></div>
+            <div style={{ padding: '12px 16px', display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
+              <div><strong>下月預測：</strong><span style={{ color: 'var(--teal-700)', fontWeight: 700 }}>{fmtM(nextMonthForecast)}</span></div>
+              <div><strong>趨勢：</strong><span style={{ color: slope > 0 ? 'var(--green-600)' : 'var(--red-500)', fontWeight: 600 }}>{trend} ({slope > 0 ? '+' : ''}{fmtM(slope)}/月)</span></div>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={forecastData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" fontSize={11} />
+                <YAxis fontSize={11} tickFormatter={v => `${(v/1000).toFixed(0)}K`} />
+                <Tooltip formatter={v => fmtM(v)} />
+                <Legend />
+                <Bar dataKey="實際" fill="#8B6914" radius={[4,4,0,0]} />
+                <Bar dataKey="預測" fill="#0e7490" radius={[4,4,0,0]} opacity={0.6} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        );
+      })()}
+
+      {/* Store Comparison Mini */}
+      {(() => {
+        const tkwRev = filtered.rev.filter(r => r.store === '宋皇臺' && getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
+        const peRev = filtered.rev.filter(r => r.store === '太子' && getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
+        const total = tkwRev + peRev || 1;
+        return (
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="card-header"><h3>🏢 分店本月對比</h3></div>
+            <div style={{ padding: 16 }}>
+              <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 12, color: '#0e7490', fontWeight: 600 }}>宋皇臺</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0e7490' }}>{fmtM(tkwRev)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>{(tkwRev/total*100).toFixed(0)}%</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>太子</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: '#8B6914' }}>{fmtM(peRev)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>{(peRev/total*100).toFixed(0)}%</div>
+                </div>
+              </div>
+              <div style={{ height: 12, borderRadius: 6, overflow: 'hidden', display: 'flex', background: 'var(--gray-100)' }}>
+                <div style={{ width: `${tkwRev/total*100}%`, background: '#0e7490', transition: 'width 0.5s' }} />
+                <div style={{ width: `${peRev/total*100}%`, background: '#8B6914', transition: 'width 0.5s' }} />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Recent Activity */}
       <div className="card" style={{ marginTop: 16 }}>
