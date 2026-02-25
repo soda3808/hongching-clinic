@@ -1,8 +1,47 @@
 import { useState, useMemo } from 'react';
 import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, DOCTORS, linearRegression } from '../data';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import DoctorConsultRate from './reports/DoctorConsultRate';
+import PrescriptionStats from './reports/PrescriptionStats';
+import PatientAgeReport from './reports/PatientAgeReport';
+import RegistrationStats from './reports/RegistrationStats';
+import TreatmentReport from './reports/TreatmentReport';
+import PatientRxSummary from './reports/PatientRxSummary';
+import ServiceUsageReport from './reports/ServiceUsageReport';
+import PaymentMethodReport from './reports/PaymentMethodReport';
+import PackageReport from './reports/PackageReport';
+import KPIDashboard from './reports/KPIDashboard';
+import DrugSafetyReport from './reports/DrugSafetyReport';
 
 const COLORS = ['#0e7490', '#16a34a', '#DAA520', '#dc2626', '#7C3AED', '#0284c7'];
+
+const REPORT_GROUPS = [
+  { label: '財務', tabs: [
+    { id: 'monthly', icon: '📅', label: '月結報表' },
+    { id: 'tax', icon: '🏛️', label: '稅務/年結' },
+    { id: 'yoy', icon: '📊', label: '按年比較' },
+    { id: 'forecast', icon: '📈', label: '營業預測' },
+    { id: 'paymethod', icon: '💳', label: '付款方式' },
+    { id: 'kpi', icon: '🎯', label: '系統KPI' },
+  ]},
+  { label: '醫師', tabs: [
+    { id: 'doctor', icon: '👨‍⚕️', label: '醫師績效' },
+    { id: 'consultrate', icon: '📋', label: '診症率' },
+  ]},
+  { label: '病人', tabs: [
+    { id: 'patient', icon: '👥', label: '病人分析' },
+    { id: 'age', icon: '📊', label: '年齡統計' },
+    { id: 'regstats', icon: '🎫', label: '掛號統計' },
+    { id: 'treatment', icon: '💉', label: '治療項目' },
+    { id: 'rxsummary', icon: '📜', label: '處方報表' },
+  ]},
+  { label: '營運', tabs: [
+    { id: 'rxstats', icon: '💊', label: '藥物處方' },
+    { id: 'drugsafety', icon: '⚠️', label: '藥物安全量' },
+    { id: 'serviceusage', icon: '🔧', label: '服務頻率' },
+    { id: 'packagereport', icon: '🎫', label: '醫療計劃' },
+  ]},
+];
 
 export default function Reports({ data }) {
   const [reportType, setReportType] = useState('monthly');
@@ -552,19 +591,23 @@ export default function Reports({ data }) {
 
   const handlePrint = () => window.print();
 
-  const showMonthFilter = reportType === 'monthly' || reportType === 'doctor' || reportType === 'patient';
+  const showMonthFilter = ['monthly', 'doctor', 'patient', 'consultrate', 'regstats', 'treatment', 'serviceusage', 'paymethod'].includes(reportType);
 
   return (
     <>
-      {/* Report Type Tabs */}
-      <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
-        <button className={`tab-btn ${reportType === 'monthly' ? 'active' : ''}`} onClick={() => setReportType('monthly')}>📅 月結報表</button>
-        <button className={`tab-btn ${reportType === 'tax' ? 'active' : ''}`} onClick={() => setReportType('tax')}>🏛️ 稅務/年結</button>
-        <button className={`tab-btn ${reportType === 'yoy' ? 'active' : ''}`} onClick={() => setReportType('yoy')}>📊 按年比較</button>
-        <button className={`tab-btn ${reportType === 'doctor' ? 'active' : ''}`} onClick={() => setReportType('doctor')}>👨‍⚕️ 醫師績效</button>
-        <button className={`tab-btn ${reportType === 'patient' ? 'active' : ''}`} onClick={() => setReportType('patient')}>👥 病人分析</button>
-        <button className={`tab-btn ${reportType === 'forecast' ? 'active' : ''}`} onClick={() => setReportType('forecast')}>📈 營業預測</button>
-      </div>
+      {/* Report Type Tabs — Grouped */}
+      {REPORT_GROUPS.map(group => (
+        <div key={group.label} style={{ marginBottom: 2 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gray-400)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1 }}>{group.label}</div>
+          <div className="tab-bar" style={{ flexWrap: 'wrap', marginBottom: 0 }}>
+            {group.tabs.map(tab => (
+              <button key={tab.id} className={`tab-btn ${reportType === tab.id ? 'active' : ''}`} onClick={() => setReportType(tab.id)}>
+                {tab.icon} {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
 
       {/* Filters */}
       <div className="card" style={{ padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -587,13 +630,26 @@ export default function Reports({ data }) {
         </div>
       </div>
 
-      {/* Report Content */}
+      {/* Report Content — Original 6 */}
       {reportType === 'monthly' && <MonthlyReport />}
       {reportType === 'tax' && <TaxReport />}
       {reportType === 'yoy' && <YoYReport />}
       {reportType === 'doctor' && <DoctorReport />}
       {reportType === 'patient' && <PatientReport />}
       {reportType === 'forecast' && <ForecastReport />}
+
+      {/* Report Content — New 11 */}
+      {reportType === 'consultrate' && <DoctorConsultRate data={data} />}
+      {reportType === 'rxstats' && <PrescriptionStats data={data} />}
+      {reportType === 'age' && <PatientAgeReport data={data} />}
+      {reportType === 'regstats' && <RegistrationStats data={data} />}
+      {reportType === 'treatment' && <TreatmentReport data={data} />}
+      {reportType === 'rxsummary' && <PatientRxSummary data={data} />}
+      {reportType === 'serviceusage' && <ServiceUsageReport data={data} />}
+      {reportType === 'paymethod' && <PaymentMethodReport data={data} />}
+      {reportType === 'packagereport' && <PackageReport data={data} />}
+      {reportType === 'kpi' && <KPIDashboard data={data} />}
+      {reportType === 'drugsafety' && <DrugSafetyReport data={data} />}
     </>
   );
 }

@@ -54,7 +54,7 @@ async function gasCall(action, payload = null) {
 }
 
 // ── Load All ──
-const COLLECTIONS = ['revenue', 'expenses', 'arap', 'patients', 'bookings', 'payslips', 'consultations', 'packages', 'enrollments', 'conversations', 'inventory', 'queue'];
+const COLLECTIONS = ['revenue', 'expenses', 'arap', 'patients', 'bookings', 'payslips', 'consultations', 'packages', 'enrollments', 'conversations', 'inventory', 'queue', 'sickleaves', 'leaves', 'products', 'productSales'];
 
 export async function loadAllData() {
   // Try Supabase first
@@ -119,11 +119,22 @@ export async function saveConversation(record) { return saveRecord('conversation
 export async function saveInventory(record) { return saveRecord('inventory', record, null); }
 // ── Queue ──
 export async function saveQueue(record) { return saveRecord('queue', record, null); }
+// ── Sick Leaves ──
+export async function saveSickLeave(record) { return saveRecord('sickleaves', record, null); }
+// ── Leaves ──
+export async function saveLeave(record) { return saveRecord('leaves', record, null); }
+// ── Products ──
+export async function saveProduct(record) { return saveRecord('products', record, null); }
+// ── Product Sales ──
+export async function saveProductSale(record) { return saveRecord('productSales', record, null); }
 
 export async function deleteBooking(id) { return deleteRecord('bookings', id); }
 export async function deleteConsultation(id) { return deleteRecord('consultations', id); }
 export async function deleteInventory(id) { return deleteRecord('inventory', id); }
 export async function deleteQueue(id) { return deleteRecord('queue', id); }
+export async function deleteSickLeave(id) { return deleteRecord('sickleaves', id); }
+export async function deleteLeave(id) { return deleteRecord('leaves', id); }
+export async function deleteProduct(id) { return deleteRecord('products', id); }
 
 export async function updateBookingStatus(id, status) {
   try {

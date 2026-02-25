@@ -19,9 +19,14 @@ import CRMPage from './components/CRMPage';
 import InventoryPage from './components/InventoryPage';
 import QueuePage from './components/QueuePage';
 import BillingPage from './components/BillingPage';
+import SickLeavePage from './components/SickLeavePage';
+import DoctorSchedule from './components/DoctorSchedule';
+import LeavePage from './components/LeavePage';
+import ProductPage from './components/ProductPage';
 import SettingsPage from './components/SettingsPage';
 import ReceiptScanner from './components/ReceiptScanner';
 import PublicBooking from './components/PublicBooking';
+import { logAction } from './utils/audit';
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -37,7 +42,11 @@ const ALL_PAGES = [
   { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
   { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
   { id: 'billing', icon: '💵', label: '配藥/收費', section: '營運', perm: 'viewBilling' },
+  { id: 'products', icon: '🛍️', label: '商品管理', section: '營運', perm: 'editExpenses' },
+  { id: 'sickleave', icon: '📄', label: '假紙記錄', section: '病人', perm: 'viewEMR' },
   { id: 'pay', icon: '📋', label: '糧單', section: '人事', perm: 'viewPayroll' },
+  { id: 'schedule', icon: '🕐', label: '醫師排班', section: '人事', perm: 'viewDoctorAnalytics' },
+  { id: 'leave', icon: '🏖️', label: '假期管理', section: '人事', perm: 'viewLeave' },
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
 ];
@@ -64,6 +73,7 @@ function LoginPage({ onLogin }) {
     try {
       const session = await login(username, password);
       if (session) {
+        logAction(session, 'login', 'auth', `${session.name} 登入`);
         onLogin(session);
       } else {
         setError('用戶名或密碼錯誤');
@@ -307,7 +317,7 @@ export default function App() {
 function MainApp() {
   const [user, setUser] = useState(() => getCurrentUser());
   const [page, setPage] = useState('');
-  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [], queue: [] });
+  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [], queue: [], sickleaves: [], leaves: [], products: [], productSales: [] });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -356,7 +366,7 @@ function MainApp() {
   const notifications = useNotifications(filteredData);
   const unreadCount = notifications.filter((_, i) => !readNotifs.includes(i)).length;
 
-  const handleLogout = useCallback(() => { logout(); setUser(null); }, []);
+  const handleLogout = useCallback(() => { logAction(user, 'logout', 'auth', '用戶登出'); logout(); setUser(null); }, [user]);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -368,7 +378,7 @@ function MainApp() {
     try {
       const d = await loadAllData();
       if (d && (d.revenue?.length || d.expenses?.length || d.patients?.length)) {
-        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[], queue: d.queue||[] });
+        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[], queue: d.queue||[], sickleaves: d.sickleaves||[], leaves: d.leaves||[], products: d.products||[], productSales: d.productSales||[] });
       } else {
         setData(SEED_DATA);
         saveAllLocal(SEED_DATA);
@@ -502,7 +512,11 @@ function MainApp() {
           {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
           {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
           {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+          {page === 'products' && <ProductPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+          {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+          {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+          {page === 'leave' && <LeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
           {page === 'report' && <Reports data={filteredData} />}
           {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}

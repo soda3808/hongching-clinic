@@ -1,9 +1,12 @@
 import { useState, useRef } from 'react';
 import { saveAllLocal } from '../api';
 import { exportJSON, importJSON } from '../utils/export';
-import { DEFAULT_USERS, DEFAULT_STORES, ROLE_LABELS, ROLE_TAGS } from '../config';
+import { DEFAULT_USERS, DEFAULT_STORES, ROLE_LABELS, ROLE_TAGS, DEFAULT_SERVICES, getServices, saveServices } from '../config';
 import { getUsers, saveUsers, getStores, saveStores } from '../auth';
+import { getAuditLog, clearAuditLog } from '../utils/audit';
 import { useFocusTrap, nullRef } from './ConfirmModal';
+import { MEMBERSHIP_TIERS } from '../data';
+import { supabase } from '../supabase';
 
 export default function SettingsPage({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('clinic');
@@ -23,6 +26,11 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   const [stores, setStoresState] = useState(getStores);
   const [editStore, setEditStore] = useState(null);
   const [newStore, setNewStore] = useState({ name:'', address:'', phone:'', active:true });
+
+  // Service management
+  const [services, setServicesState] = useState(getServices);
+  const [editService, setEditService] = useState(null);
+  const [newService, setNewService] = useState({ label:'', fee:'', category:'治療', active:true });
 
   const isAdmin = user?.role === 'admin';
   const editUserRef = useRef(null);
@@ -102,11 +110,16 @@ export default function SettingsPage({ data, setData, showToast, user }) {
       {/* Tabs */}
       <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
         <button className={`tab-btn ${tab==='clinic'?'active':''}`} onClick={()=>setTab('clinic')}>🏥 診所資料</button>
+        <button className={`tab-btn ${tab==='services'?'active':''}`} onClick={()=>setTab('services')}>💊 服務管理</button>
         <button className={`tab-btn ${tab==='system'?'active':''}`} onClick={()=>setTab('system')}>⚙️ 系統設定</button>
         <button className={`tab-btn ${tab==='data'?'active':''}`} onClick={()=>setTab('data')}>💾 數據管理</button>
+        <button className={`tab-btn ${tab==='backup'?'active':''}`} onClick={()=>setTab('backup')}>🔄 備份中心</button>
+        <button className={`tab-btn ${tab==='health'?'active':''}`} onClick={()=>setTab('health')}>🩺 系統健康</button>
         <button className={`tab-btn ${tab==='promo'?'active':''}`} onClick={()=>setTab('promo')}>📱 推廣工具</button>
         {isAdmin && <button className={`tab-btn ${tab==='users'?'active':''}`} onClick={()=>setTab('users')}>👥 用戶管理</button>}
         {isAdmin && <button className={`tab-btn ${tab==='stores'?'active':''}`} onClick={()=>setTab('stores')}>🏢 分店管理</button>}
+        {isAdmin && <button className={`tab-btn ${tab==='audit'?'active':''}`} onClick={()=>setTab('audit')}>📋 操作記錄</button>}
+        {isAdmin && <button className={`tab-btn ${tab==='discounts'?'active':''}`} onClick={()=>setTab('discounts')}>🏷️ 折扣設定</button>}
       </div>
 
       {/* Clinic Info */}
@@ -313,6 +326,230 @@ export default function SettingsPage({ data, setData, showToast, user }) {
             </div>
           </div>
         </>
+      )}
+
+      {/* Service Management */}
+      {tab === 'services' && (
+        <>
+          <div className="card">
+            <div className="card-header"><h3>新增服務</h3></div>
+            <div className="grid-3" style={{ marginBottom:12 }}>
+              <div><label>服務名稱 *</label><input value={newService.label} onChange={e => setNewService({...newService, label:e.target.value})} placeholder="例：針灸治療" /></div>
+              <div><label>費用 *</label><input type="number" value={newService.fee} onChange={e => setNewService({...newService, fee:e.target.value})} placeholder="350" /></div>
+              <div><label>類別</label>
+                <select value={newService.category} onChange={e => setNewService({...newService, category:e.target.value})}>
+                  <option>診症</option><option>治療</option><option>其他</option>
+                </select>
+              </div>
+            </div>
+            <button className="btn btn-teal" onClick={() => {
+              if (!newService.label || !newService.fee) return showToast('請填寫服務名稱和費用');
+              const svc = { id: 's' + Date.now(), label: newService.label, fee: Number(newService.fee), category: newService.category, active: true, sortOrder: services.length + 1 };
+              const updated = [...services, svc]; setServicesState(updated); saveServices(updated);
+              setNewService({ label:'', fee:'', category:'治療', active:true }); showToast('服務已新增');
+            }}>新增服務</button>
+          </div>
+          <div className="card" style={{ padding:0 }}>
+            <div className="card-header"><h3>服務列表 ({services.length})</h3></div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>服務名稱</th><th>類別</th><th style={{textAlign:'right'}}>費用</th><th>狀態</th><th>操作</th></tr></thead>
+                <tbody>
+                  {services.map(s => (
+                    <tr key={s.id} style={{ opacity: s.active ? 1 : 0.5 }}>
+                      <td style={{ fontWeight:600 }}>{s.label}</td>
+                      <td><span className="tag tag-other">{s.category}</span></td>
+                      <td className="money">${s.fee}</td>
+                      <td><span className={`tag ${s.active?'tag-paid':'tag-overdue'}`}>{s.active?'啟用':'停用'}</span></td>
+                      <td>
+                        <div style={{ display:'flex', gap:4 }}>
+                          <button className="btn btn-outline btn-sm" onClick={() => setEditService({...s})}>編輯</button>
+                          <button className="btn btn-outline btn-sm" onClick={() => {
+                            const updated = services.map(x => x.id === s.id ? {...x, active:!x.active} : x);
+                            setServicesState(updated); saveServices(updated); showToast(s.active ? '已停用' : '已啟用');
+                          }}>{s.active ? '停用' : '啟用'}</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Audit Trail */}
+      {tab === 'audit' && isAdmin && (() => {
+        const logs = getAuditLog();
+        return (
+          <div className="card" style={{ padding:0 }}>
+            <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h3>操作記錄 ({logs.length})</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => { clearAuditLog(); showToast('記錄已清除'); }}>清除記錄</button>
+            </div>
+            <div className="table-wrap" style={{ maxHeight:500, overflowY:'auto' }}>
+              <table>
+                <thead><tr><th>時間</th><th>用戶</th><th>操作</th><th>目標</th><th>詳情</th></tr></thead>
+                <tbody>
+                  {!logs.length && <tr><td colSpan={5} style={{textAlign:'center',padding:40,color:'#aaa'}}>暫無記錄</td></tr>}
+                  {logs.map((log, i) => (
+                    <tr key={i}>
+                      <td style={{ fontSize:11, color:'var(--gray-500)', whiteSpace:'nowrap' }}>{new Date(log.ts).toLocaleString('zh-HK')}</td>
+                      <td style={{ fontWeight:600 }}>{log.userName}</td>
+                      <td><span className={`tag ${log.action==='delete'?'tag-overdue':log.action==='create'?'tag-paid':'tag-other'}`}>{log.action}</span></td>
+                      <td>{log.target}</td>
+                      <td style={{ fontSize:11, color:'var(--gray-500)', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis' }}>{log.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Discount Settings */}
+      {tab === 'discounts' && isAdmin && (
+        <div className="card">
+          <div className="card-header"><h3>會員折扣等級</h3></div>
+          <p style={{ fontSize:12, color:'var(--gray-500)', marginBottom:12 }}>會員等級根據累計消費自動計算，以下為各等級折扣設定：</p>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>等級</th><th style={{textAlign:'right'}}>最低消費</th><th style={{textAlign:'right'}}>折扣</th><th>說明</th></tr></thead>
+              <tbody>
+                {(MEMBERSHIP_TIERS || [
+                  { name:'普通', minSpent:0, discount:0 },
+                  { name:'銅卡', minSpent:3000, discount:5 },
+                  { name:'銀卡', minSpent:8000, discount:10 },
+                  { name:'金卡', minSpent:20000, discount:15 },
+                ]).map(t => (
+                  <tr key={t.name}>
+                    <td style={{ fontWeight:700 }}><span className="tag tag-paid">{t.name}</span></td>
+                    <td className="money">${(t.minSpent||0).toLocaleString()}</td>
+                    <td className="money" style={{ color:'var(--green-700)' }}>{t.discount}%</td>
+                    <td style={{ fontSize:11, color:'var(--gray-500)' }}>累計消費滿 ${(t.minSpent||0).toLocaleString()} 自動升級</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Backup Center */}
+      {tab === 'backup' && (
+        <div className="card">
+          <div className="card-header"><h3>備份中心</h3></div>
+          <div className="stats-grid" style={{ marginBottom:16 }}>
+            <div className="stat-card teal">
+              <div className="stat-label">上次備份</div>
+              <div className="stat-value teal" style={{ fontSize:13 }}>{localStorage.getItem('hcmc_last_backup') ? new Date(localStorage.getItem('hcmc_last_backup')).toLocaleString('zh-HK') : '從未備份'}</div>
+            </div>
+            <div className="stat-card gold">
+              <div className="stat-label">數據量</div>
+              <div className="stat-value gold" style={{ fontSize:13 }}>{((JSON.stringify(data).length / 1024).toFixed(1))} KB</div>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button className="btn btn-teal" onClick={() => {
+              const fullBackup = { data, config: { clinic: JSON.parse(localStorage.getItem('hcmc_clinic')||'{}'), services: getServices(), users: getUsers(), stores: getStores() }, backupAt: new Date().toISOString() };
+              const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type:'application/json' });
+              const url = URL.createObjectURL(blob); const a = document.createElement('a');
+              a.href = url; a.download = `hcmc_full_backup_${new Date().toISOString().substring(0,10)}.json`; a.click(); URL.revokeObjectURL(url);
+              localStorage.setItem('hcmc_last_backup', new Date().toISOString()); showToast('完整備份已下載');
+            }}>📥 完整備份（數據+設定）</button>
+            <button className="btn btn-gold" onClick={() => {
+              const input = document.createElement('input'); input.type='file'; input.accept='.json';
+              input.onchange = async (e) => {
+                try {
+                  const text = await e.target.files[0].text();
+                  const backup = JSON.parse(text);
+                  if (backup.data) { setData(backup.data); saveAllLocal(backup.data); }
+                  if (backup.config?.clinic) localStorage.setItem('hcmc_clinic', JSON.stringify(backup.config.clinic));
+                  if (backup.config?.services) saveServices(backup.config.services);
+                  if (backup.config?.users) saveUsers(backup.config.users);
+                  if (backup.config?.stores) saveStores(backup.config.stores);
+                  showToast('備份已還原，頁面將重新載入'); setTimeout(() => window.location.reload(), 1000);
+                } catch (err) { showToast('還原失敗：' + err.message); }
+              };
+              input.click();
+            }}>📤 還原備份</button>
+            <button className="btn btn-outline" onClick={handleExport}>📄 僅匯出數據 (JSON)</button>
+          </div>
+        </div>
+      )}
+
+      {/* System Health */}
+      {tab === 'health' && (() => {
+        const lsSize = (() => { try { let t=0; for(let k in localStorage) { if(localStorage.hasOwnProperty(k)) t += localStorage[k].length; } return t; } catch { return 0; } })();
+        const lsPercent = Math.min((lsSize / (5 * 1024 * 1024)) * 100, 100);
+        const sbConfigured = !!supabase;
+        const gasConfigured = !!localStorage.getItem('hcmc_gas_url');
+        const collections = ['revenue','expenses','arap','patients','bookings','payslips','consultations','packages','enrollments','conversations','inventory','queue','sickleaves','leaves','products','productSales'];
+        return (
+          <div className="card">
+            <div className="card-header"><h3>系統健康檢查</h3></div>
+            <div className="stats-grid" style={{ marginBottom:16 }}>
+              <div className={`stat-card ${sbConfigured?'green':'red'}`}>
+                <div className="stat-label">Supabase</div>
+                <div className={`stat-value ${sbConfigured?'green':'red'}`} style={{ fontSize:14 }}>{sbConfigured?'已連接':'未設定'}</div>
+              </div>
+              <div className={`stat-card ${gasConfigured?'green':'gold'}`}>
+                <div className="stat-label">Google Sheets</div>
+                <div className={`stat-value ${gasConfigured?'green':'gold'}`} style={{ fontSize:14 }}>{gasConfigured?'已設定':'未設定'}</div>
+              </div>
+              <div className="stat-card teal">
+                <div className="stat-label">localStorage</div>
+                <div className="stat-value teal" style={{ fontSize:14 }}>{(lsSize/1024).toFixed(0)} KB</div>
+                <div className="stat-sub">{lsPercent.toFixed(1)}% of 5MB</div>
+              </div>
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <label style={{ fontWeight:600 }}>localStorage 使用量</label>
+              <div style={{ height:12, background:'var(--gray-200)', borderRadius:6, overflow:'hidden', marginTop:4 }}>
+                <div style={{ height:'100%', width:`${lsPercent}%`, background: lsPercent > 80 ? 'var(--red-500)' : lsPercent > 50 ? 'var(--gold-600)' : 'var(--green-600)', borderRadius:6, transition:'width .3s' }} />
+              </div>
+            </div>
+            <h4 style={{ fontSize:13, fontWeight:700, color:'var(--gray-600)', marginBottom:8 }}>數據完整性</h4>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>資料集</th><th style={{textAlign:'right'}}>記錄數</th><th>狀態</th></tr></thead>
+                <tbody>
+                  {collections.map(c => {
+                    const count = (data[c]||[]).length;
+                    return <tr key={c}><td style={{ fontWeight:600 }}>{c}</td><td className="money">{count}</td><td><span className={`tag ${count>0?'tag-paid':'tag-other'}`}>{count>0?'有數據':'空'}</span></td></tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Edit Service Modal */}
+      {editService && (
+        <div className="modal-overlay" onClick={() => setEditService(null)} role="dialog" aria-modal="true" aria-label="編輯服務">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth:400 }}>
+            <h3>編輯服務</h3>
+            <div style={{ marginBottom:12 }}><label>服務名稱</label><input value={editService.label} onChange={e => setEditService({...editService, label:e.target.value})} /></div>
+            <div className="grid-2" style={{ marginBottom:12 }}>
+              <div><label>費用</label><input type="number" value={editService.fee} onChange={e => setEditService({...editService, fee:Number(e.target.value)})} /></div>
+              <div><label>類別</label>
+                <select value={editService.category} onChange={e => setEditService({...editService, category:e.target.value})}>
+                  <option>診症</option><option>治療</option><option>其他</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button className="btn btn-teal" onClick={() => {
+                const updated = services.map(x => x.id === editService.id ? editService : x);
+                setServicesState(updated); saveServices(updated); setEditService(null); showToast('服務已更新');
+              }}>儲存</button>
+              <button className="btn btn-outline" onClick={() => setEditService(null)}>取消</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Edit User Modal */}

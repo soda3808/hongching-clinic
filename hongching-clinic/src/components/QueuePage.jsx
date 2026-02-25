@@ -1,17 +1,9 @@
 import { useState, useMemo, useRef } from 'react';
 import { saveQueue, deleteQueue } from '../api';
 import { uid, DOCTORS, fmtM } from '../data';
+import { getServices } from '../config';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
-
-const SERVICES = [
-  { label: '診金', fee: 350 },
-  { label: '針灸治療', fee: 450 },
-  { label: '推拿治療', fee: 350 },
-  { label: '天灸', fee: 388 },
-  { label: '拔罐', fee: 250 },
-  { label: '刮痧', fee: 300 },
-];
 
 const STATUS_LABELS = {
   waiting: '等候中',
@@ -62,6 +54,7 @@ export default function QueuePage({ data, setData, showToast, allData, user }) {
   const modalRef = useRef(null);
   useFocusTrap(showModal ? modalRef : nullRef);
 
+  const SERVICES = getServices().filter(s => s.active);
   const queue = data.queue || [];
   const patients = allData?.patients || data.patients || [];
 
