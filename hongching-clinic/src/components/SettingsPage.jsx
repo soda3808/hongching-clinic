@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { saveAllLocal } from '../api';
 import { exportJSON, importJSON } from '../utils/export';
 import { DEFAULT_USERS, DEFAULT_STORES, ROLE_LABELS, ROLE_TAGS, DEFAULT_SERVICES, getServices, saveServices } from '../config';
@@ -64,6 +64,50 @@ export default function SettingsPage({ data, setData, showToast, user }) {
     input.click();
   };
   const handleReset = () => { localStorage.removeItem('hc_data'); localStorage.removeItem('hcmc_clinic'); localStorage.removeItem('hc_users'); localStorage.removeItem('hc_stores'); window.location.reload(); };
+
+  // ── Auto-backup system ──
+  const createAutoBackup = () => {
+    try {
+      const backupData = JSON.stringify(data);
+      const ts = new Date().toISOString();
+      const backups = JSON.parse(localStorage.getItem('hcmc_backups') || '[]');
+      backups.unshift({ ts, size: backupData.length, collections: Object.keys(data).length, records: Object.values(data).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0) });
+      // Keep max 10 backups
+      while (backups.length > 10) backups.pop();
+      localStorage.setItem('hcmc_backups', JSON.stringify(backups));
+      localStorage.setItem(`hcmc_backup_${ts.substring(0, 10)}`, backupData);
+      showToast('自動備份已完成');
+    } catch (err) {
+      showToast('備份失敗：' + err.message);
+    }
+  };
+
+  const restoreFromBackup = (ts) => {
+    const key = `hcmc_backup_${ts.substring(0, 10)}`;
+    const backup = localStorage.getItem(key);
+    if (!backup) return showToast('備份數據已被清除');
+    try {
+      const restored = JSON.parse(backup);
+      setData(restored);
+      saveAllLocal(restored);
+      showToast('已恢復備份');
+    } catch { showToast('恢復失敗'); }
+  };
+
+  const backupHistory = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_backups') || '[]'); } catch { return []; }
+  }, [tab]);
+
+  const dataSize = useMemo(() => {
+    try {
+      const str = JSON.stringify(data);
+      const bytes = new Blob([str]).size;
+      return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    } catch { return '?'; }
+  }, [data]);
+
+  const lastBackup = backupHistory.length > 0 ? backupHistory[0].ts : null;
+  const daysSinceBackup = lastBackup ? Math.floor((Date.now() - new Date(lastBackup).getTime()) / 86400000) : 999;
 
   // ── Users ──
   const handleSaveUser = async (u) => {
@@ -172,15 +216,81 @@ export default function SettingsPage({ data, setData, showToast, user }) {
 
       {/* Data */}
       {tab === 'data' && (
-        <div className="card">
-          <div className="card-header"><h3>數據管理</h3></div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <button className="btn btn-teal" onClick={handleExport}>📥 匯出所有數據</button>
-            <button className="btn btn-gold" onClick={handleImport}>📤 匯入數據</button>
-            <button className="btn btn-outline" onClick={() => { localStorage.removeItem('hc_data'); showToast('已清除'); }}>🗑️ 清除緩存</button>
-            <button className="btn btn-red" onClick={() => setShowReset(true)}>⚠️ 重置所有數據</button>
+        <>
+          {/* Backup Alert */}
+          {daysSinceBackup >= 3 && (
+            <div className="card" style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 700, color: '#dc2626', fontSize: 13 }}>⚠️ 備份提醒</div>
+                <div style={{ fontSize: 12, color: '#991b1b' }}>距上次備份已 {daysSinceBackup === 999 ? '從未備份' : `${daysSinceBackup} 天`}，建議立即備份</div>
+              </div>
+              <button className="btn btn-teal btn-sm" onClick={createAutoBackup}>立即備份</button>
+            </div>
+          )}
+
+          {/* Data Overview */}
+          <div className="stats-grid">
+            <div className="stat-card teal">
+              <div className="stat-label">數據大小</div>
+              <div className="stat-value teal">{dataSize}</div>
+            </div>
+            <div className="stat-card green">
+              <div className="stat-label">資料表</div>
+              <div className="stat-value green">{Object.keys(data).length}</div>
+            </div>
+            <div className="stat-card gold">
+              <div className="stat-label">總記錄數</div>
+              <div className="stat-value gold">{Object.values(data).reduce((s, arr) => s + (Array.isArray(arr) ? arr.length : 0), 0)}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">上次備份</div>
+              <div className="stat-value" style={{ fontSize: 14, color: daysSinceBackup >= 3 ? '#dc2626' : '#16a34a' }}>
+                {lastBackup ? new Date(lastBackup).toLocaleDateString('zh-HK') : '從未'}
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Actions */}
+          <div className="card">
+            <div className="card-header"><h3>數據操作</h3></div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              <button className="btn btn-green" onClick={createAutoBackup}>💾 建立備份</button>
+              <button className="btn btn-teal" onClick={handleExport}>📥 匯出 JSON</button>
+              <button className="btn btn-gold" onClick={handleImport}>📤 匯入數據</button>
+              <button className="btn btn-outline" onClick={() => { localStorage.removeItem('hc_data'); showToast('已清除'); }}>🗑️ 清除緩存</button>
+              <button className="btn btn-red" onClick={() => setShowReset(true)}>⚠️ 重置所有</button>
+            </div>
+          </div>
+
+          {/* Backup History */}
+          {backupHistory.length > 0 && (
+            <div className="card">
+              <div className="card-header"><h3>💾 備份歷史 ({backupHistory.length})</h3></div>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>備份時間</th><th style={{ textAlign: 'right' }}>記錄數</th><th style={{ textAlign: 'right' }}>大小</th><th>操作</th></tr></thead>
+                  <tbody>
+                    {backupHistory.map((b, i) => (
+                      <tr key={b.ts}>
+                        <td style={{ fontWeight: i === 0 ? 700 : 400 }}>
+                          {new Date(b.ts).toLocaleString('zh-HK')}
+                          {i === 0 && <span style={{ marginLeft: 6, fontSize: 10, padding: '1px 6px', borderRadius: 8, background: '#dcfce7', color: '#16a34a', fontWeight: 600 }}>最新</span>}
+                        </td>
+                        <td style={{ textAlign: 'right' }}>{b.records}</td>
+                        <td style={{ textAlign: 'right', fontSize: 12, color: 'var(--gray-500)' }}>{(b.size / 1024).toFixed(0)} KB</td>
+                        <td>
+                          <button className="btn btn-outline btn-sm" onClick={() => {
+                            if (window.confirm(`確定要恢復 ${new Date(b.ts).toLocaleString('zh-HK')} 的備份嗎？現有數據將被覆蓋。`)) restoreFromBackup(b.ts);
+                          }}>恢復</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Promo Tools */}

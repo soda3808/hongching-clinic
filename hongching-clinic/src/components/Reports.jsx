@@ -1,18 +1,26 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, DOCTORS, linearRegression } from '../data';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import DoctorConsultRate from './reports/DoctorConsultRate';
-import PrescriptionStats from './reports/PrescriptionStats';
-import PatientAgeReport from './reports/PatientAgeReport';
-import RegistrationStats from './reports/RegistrationStats';
-import TreatmentReport from './reports/TreatmentReport';
-import PatientRxSummary from './reports/PatientRxSummary';
-import ServiceUsageReport from './reports/ServiceUsageReport';
-import PaymentMethodReport from './reports/PaymentMethodReport';
-import PackageReport from './reports/PackageReport';
-import KPIDashboard from './reports/KPIDashboard';
-import DrugSafetyReport from './reports/DrugSafetyReport';
-import ClinicalAnalytics from './reports/ClinicalAnalytics';
+
+// Lazy-loaded sub-reports for code splitting
+const DoctorConsultRate = lazy(() => import('./reports/DoctorConsultRate'));
+const PrescriptionStats = lazy(() => import('./reports/PrescriptionStats'));
+const PatientAgeReport = lazy(() => import('./reports/PatientAgeReport'));
+const RegistrationStats = lazy(() => import('./reports/RegistrationStats'));
+const TreatmentReport = lazy(() => import('./reports/TreatmentReport'));
+const PatientRxSummary = lazy(() => import('./reports/PatientRxSummary'));
+const ServiceUsageReport = lazy(() => import('./reports/ServiceUsageReport'));
+const PaymentMethodReport = lazy(() => import('./reports/PaymentMethodReport'));
+const PackageReport = lazy(() => import('./reports/PackageReport'));
+const KPIDashboard = lazy(() => import('./reports/KPIDashboard'));
+const DrugSafetyReport = lazy(() => import('./reports/DrugSafetyReport'));
+const ClinicalAnalytics = lazy(() => import('./reports/ClinicalAnalytics'));
+
+const ReportLoader = () => (
+  <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
+    <div style={{ fontSize: 24, marginBottom: 8 }}>載入中...</div>
+  </div>
+);
 
 const COLORS = ['#0e7490', '#16a34a', '#DAA520', '#dc2626', '#7C3AED', '#0284c7'];
 
@@ -771,19 +779,21 @@ export default function Reports({ data }) {
       {reportType === 'patient' && <PatientReport />}
       {reportType === 'forecast' && <ForecastReport />}
 
-      {/* Report Content — New 11 */}
-      {reportType === 'consultrate' && <DoctorConsultRate data={data} />}
-      {reportType === 'rxstats' && <PrescriptionStats data={data} />}
-      {reportType === 'age' && <PatientAgeReport data={data} />}
-      {reportType === 'regstats' && <RegistrationStats data={data} />}
-      {reportType === 'treatment' && <TreatmentReport data={data} />}
-      {reportType === 'rxsummary' && <PatientRxSummary data={data} />}
-      {reportType === 'serviceusage' && <ServiceUsageReport data={data} />}
-      {reportType === 'paymethod' && <PaymentMethodReport data={data} />}
-      {reportType === 'packagereport' && <PackageReport data={data} />}
-      {reportType === 'kpi' && <KPIDashboard data={data} />}
-      {reportType === 'drugsafety' && <DrugSafetyReport data={data} />}
-      {reportType === 'clinical' && <ClinicalAnalytics data={data} />}
+      {/* Report Content — Lazy-loaded sub-reports */}
+      <Suspense fallback={<ReportLoader />}>
+        {reportType === 'consultrate' && <DoctorConsultRate data={data} />}
+        {reportType === 'rxstats' && <PrescriptionStats data={data} />}
+        {reportType === 'age' && <PatientAgeReport data={data} />}
+        {reportType === 'regstats' && <RegistrationStats data={data} />}
+        {reportType === 'treatment' && <TreatmentReport data={data} />}
+        {reportType === 'rxsummary' && <PatientRxSummary data={data} />}
+        {reportType === 'serviceusage' && <ServiceUsageReport data={data} />}
+        {reportType === 'paymethod' && <PaymentMethodReport data={data} />}
+        {reportType === 'packagereport' && <PackageReport data={data} />}
+        {reportType === 'kpi' && <KPIDashboard data={data} />}
+        {reportType === 'drugsafety' && <DrugSafetyReport data={data} />}
+        {reportType === 'clinical' && <ClinicalAnalytics data={data} />}
+      </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>
   );

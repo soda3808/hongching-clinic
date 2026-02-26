@@ -115,6 +115,121 @@ export default function Dashboard({ data, onNavigate }) {
     });
   });
 
+  // ── Comprehensive Daily Closing Report ──
+  const printDailyClose = () => {
+    const today = new Date().toISOString().substring(0, 10);
+    const rev = (data.revenue || []).filter(r => r.date === today);
+    const exp = (data.expenses || []).filter(r => r.date === today);
+    const queue = (data.queue || []).filter(r => r.date === today);
+    const bookings = (data.bookings || []).filter(b => b.date === today);
+    const arap = data.arap || [];
+    const inventory = data.inventory || [];
+    const patients = data.patients || [];
+
+    const totalRev = rev.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const totalExp = exp.reduce((s, r) => s + Number(r.amount || 0), 0);
+    const net = totalRev - totalExp;
+
+    // Revenue by store
+    const revByStore = {};
+    rev.forEach(r => { const st = r.store || '未知'; revByStore[st] = (revByStore[st] || 0) + Number(r.amount || 0); });
+    // Revenue by doctor
+    const revByDoc = {};
+    rev.forEach(r => { if (r.doctor) { if (!revByDoc[r.doctor]) revByDoc[r.doctor] = { amt: 0, count: 0 }; revByDoc[r.doctor].amt += Number(r.amount || 0); revByDoc[r.doctor].count++; } });
+    // Revenue by payment method
+    const revByPay = {};
+    rev.forEach(r => { const m = r.payment || 'FPS'; revByPay[m] = (revByPay[m] || 0) + Number(r.amount || 0); });
+    // Expense by category
+    const expByCat = {};
+    exp.forEach(r => { expByCat[r.category || '其他'] = (expByCat[r.category || '其他'] || 0) + Number(r.amount || 0); });
+    // Queue stats
+    const qCompleted = queue.filter(q => q.status === 'completed').length;
+    const qWaiting = queue.filter(q => q.status === 'waiting').length;
+    const qNoShow = queue.filter(q => q.status === 'no-show').length;
+    // Bookings
+    const bConfirmed = bookings.filter(b => b.status === 'confirmed').length;
+    const bCompleted = bookings.filter(b => b.status === 'completed').length;
+    const bCancelled = bookings.filter(b => b.status === 'cancelled').length;
+    // ARAP overdue
+    const overdueAR = arap.filter(r => r.type === 'receivable' && r.status !== '已收' && r.dueDate && r.dueDate < today);
+    const overdueTotal = overdueAR.reduce((s, r) => s + Number(r.amount || 0), 0);
+    // Inventory alerts
+    const lowStock = inventory.filter(i => Number(i.stock || 0) <= Number(i.minStock || 10));
+    // New patients today
+    const newPatients = patients.filter(p => (p.createdAt || '').substring(0, 10) === today);
+
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>日結總報告 ${today}</title>
+      <style>
+        @page{size:A4;margin:12mm}body{font-family:'Microsoft YaHei',sans-serif;font-size:12px;color:#333;max-width:750px;margin:0 auto;padding:20px}
+        h1{font-size:18px;text-align:center;color:#0e7490;margin-bottom:4px}
+        .sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}
+        h2{font-size:13px;color:#0e7490;border-bottom:2px solid #0e7490;padding-bottom:4px;margin-top:18px}
+        .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+        .box{border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center}
+        .box .n{font-size:20px;font-weight:800}.box .l{font-size:9px;color:#888}
+        table{width:100%;border-collapse:collapse;margin:8px 0}
+        th{background:#f8f8f8;font-weight:700;font-size:11px;padding:5px 8px;text-align:left}
+        td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px}
+        .r{text-align:right}.b{font-weight:700}
+        .alert{background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;margin:8px 0;font-size:11px;color:#dc2626}
+        .sign{display:flex;justify-content:space-between;margin-top:40px}
+        .sign-box{border-top:1px solid #333;width:180px;text-align:center;padding-top:6px;font-size:10px;color:#888}
+        .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
+      </style></head><body>
+      <h1>康晴綜合醫療中心 — 日結總報告</h1>
+      <div class="sub">DAILY CLOSING REPORT | ${today} | 列印: ${new Date().toLocaleString('zh-HK')}</div>
+
+      <div class="grid">
+        <div class="box"><div class="n" style="color:#16a34a">${fmtM(totalRev)}</div><div class="l">今日營業額</div></div>
+        <div class="box"><div class="n" style="color:#dc2626">${fmtM(totalExp)}</div><div class="l">今日開支</div></div>
+        <div class="box"><div class="n" style="color:${net >= 0 ? '#0e7490' : '#dc2626'}">${fmtM(net)}</div><div class="l">淨收入</div></div>
+        <div class="box"><div class="n" style="color:#0e7490">${queue.length}</div><div class="l">今日掛號</div></div>
+      </div>
+
+      <h2>營業額明細</h2>
+      <table>
+        <thead><tr><th>店舖</th><th class="r">金額</th><th class="r">佔比</th></tr></thead>
+        <tbody>${Object.entries(revByStore).map(([st, amt]) => `<tr><td class="b">${st}</td><td class="r">${fmtM(amt)}</td><td class="r">${totalRev ? (amt / totalRev * 100).toFixed(0) : 0}%</td></tr>`).join('')}
+        <tr class="b" style="background:#f0fdfa"><td>合計</td><td class="r">${fmtM(totalRev)}</td><td class="r">100%</td></tr></tbody>
+      </table>
+
+      <h2>醫師業績</h2>
+      <table>
+        <thead><tr><th>醫師</th><th class="r">人次</th><th class="r">金額</th></tr></thead>
+        <tbody>${Object.entries(revByDoc).map(([doc, d]) => `<tr><td>${doc}</td><td class="r">${d.count}</td><td class="r">${fmtM(d.amt)}</td></tr>`).join('') || '<tr><td colspan="3" style="color:#aaa;text-align:center">無紀錄</td></tr>'}</tbody>
+      </table>
+
+      <h2>收款方式</h2>
+      <table>
+        <thead><tr><th>方式</th><th class="r">金額</th></tr></thead>
+        <tbody>${Object.entries(revByPay).map(([m, amt]) => `<tr><td>${m}</td><td class="r">${fmtM(amt)}</td></tr>`).join('') || '<tr><td colspan="2" style="color:#aaa;text-align:center">無紀錄</td></tr>'}</tbody>
+      </table>
+
+      ${exp.length > 0 ? `<h2>今日開支</h2><table><thead><tr><th>類別</th><th class="r">金額</th></tr></thead><tbody>${Object.entries(expByCat).map(([c, amt]) => `<tr><td>${c}</td><td class="r">${fmtM(amt)}</td></tr>`).join('')}<tr class="b" style="background:#fef2f2"><td>合計</td><td class="r">${fmtM(totalExp)}</td></tr></tbody></table>` : ''}
+
+      <h2>掛號/預約統計</h2>
+      <div class="grid">
+        <div class="box"><div class="n">${qCompleted}</div><div class="l">已完成</div></div>
+        <div class="box"><div class="n">${qWaiting}</div><div class="l">等候中</div></div>
+        <div class="box"><div class="n">${qNoShow}</div><div class="l">未到</div></div>
+        <div class="box"><div class="n">${newPatients.length}</div><div class="l">新病人</div></div>
+      </div>
+
+      ${overdueAR.length > 0 ? `<div class="alert">⚠️ 逾期應收帳 ${overdueAR.length} 筆，共 ${fmtM(overdueTotal)}</div>` : ''}
+      ${lowStock.length > 0 ? `<div class="alert">⚠️ 低庫存警報 ${lowStock.length} 項：${lowStock.slice(0, 5).map(i => i.name).join('、')}${lowStock.length > 5 ? '...' : ''}</div>` : ''}
+
+      <div class="sign">
+        <div class="sign-box">經手人簽名</div>
+        <div class="sign-box">管理人核實</div>
+      </div>
+      <div class="footer">此報告由系統自動生成 | 康晴綜合醫療中心</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
   // Recent activity
   const recentActivity = useMemo(() => {
     const items = [];
@@ -162,6 +277,9 @@ export default function Dashboard({ data, onNavigate }) {
               <span style={{ fontSize: 18 }}>{a.icon}</span> {a.label}
             </button>
           ))}
+          <button className="btn btn-gold" style={{ padding: '14px 12px', fontSize: 13, justifyContent: 'center', gridColumn: '1 / -1' }} onClick={printDailyClose}>
+            📊 日結總報告 — 列印今日全面結算
+          </button>
         </div>
       )}
 

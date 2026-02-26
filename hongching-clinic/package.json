@@ -1,7 +1,7 @@
 {
   "name": "hongching-clinic",
   "private": true,
-  "version": "4.0.0",
+  "version": "5.10.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

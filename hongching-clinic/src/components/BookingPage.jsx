@@ -31,6 +31,10 @@ export default function BookingPage({ data, setData, showToast }) {
   const [filterDoc, setFilterDoc] = useState('all');
   const [calWeek, setCalWeek] = useState(new Date().toISOString().substring(0, 10));
   const [form, setForm] = useState({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:'宋皇臺', type:'覆診', notes:'' });
+  const [showReminderPanel, setShowReminderPanel] = useState(false);
+  const [remindersSent, setRemindersSent] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_reminders_sent') || '{}'); } catch { return {}; }
+  });
   const addModalRef = useRef(null);
   useFocusTrap(showModal ? addModalRef : nullRef);
 
@@ -124,16 +128,46 @@ export default function BookingPage({ data, setData, showToast }) {
     bookings.filter(b => b.date === tomorrow && (b.status === 'confirmed' || b.status === 'pending'))
   , [bookings, tomorrow]);
 
+  // ── Upcoming bookings (next 3 days) for reminder panel ──
+  const upcomingBookings = useMemo(() => {
+    const d1 = tomorrow;
+    const d2 = (() => { const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().substring(0, 10); })();
+    const d3 = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().substring(0, 10); })();
+    return bookings.filter(b => [d1, d2, d3].includes(b.date) && (b.status === 'confirmed' || b.status === 'pending'));
+  }, [bookings, tomorrow]);
+
+  const isReminderSent = (bookingId) => !!remindersSent[bookingId];
+
+  const markReminderSent = (ids) => {
+    const updated = { ...remindersSent };
+    ids.forEach(id => { updated[id] = new Date().toISOString(); });
+    setRemindersSent(updated);
+    localStorage.setItem('hcmc_reminders_sent', JSON.stringify(updated));
+  };
+
   const sendBatchReminders = () => {
     const withPhone = tomorrowBookings.filter(b => b.patientPhone);
     if (!withPhone.length) return showToast('明日預約暫無電話記錄');
-    withPhone.forEach((b, i) => {
+    const unsent = withPhone.filter(b => !isReminderSent(b.id));
+    if (!unsent.length) return showToast('明日預約已全部發送提醒');
+    unsent.forEach((b, i) => {
       setTimeout(() => {
         const text = `【康晴醫療中心】${b.patientName}你好！提醒你明日預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
         openWhatsApp(b.patientPhone, text);
       }, i * 1500);
     });
-    showToast(`已逐一開啟 ${withPhone.length} 位病人的 WhatsApp 提醒`);
+    markReminderSent(unsent.map(b => b.id));
+    showToast(`已逐一開啟 ${unsent.length} 位病人的 WhatsApp 提醒`);
+  };
+
+  const sendSingleReminder = (b) => {
+    if (!b.patientPhone) return showToast('此預約沒有電話號碼');
+    const daysUntil = Math.ceil((new Date(b.date) - new Date()) / 86400000);
+    const dayText = daysUntil === 1 ? '明日' : daysUntil === 2 ? '後日' : `${b.date}`;
+    const text = `【康晴醫療中心】${b.patientName}你好！提醒你${dayText}預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
+    openWhatsApp(b.patientPhone, text);
+    markReminderSent([b.id]);
+    showToast('已開啟 WhatsApp 提醒');
   };
 
   const handleAdd = async (e) => {
@@ -298,14 +332,69 @@ export default function BookingPage({ data, setData, showToast }) {
           <button className={`tab-btn ${view === 'calendar' ? 'active' : ''}`} onClick={() => setView('calendar')}>📅 日曆視圖</button>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {upcomingBookings.length > 0 && (
+            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 12 }} onClick={() => setShowReminderPanel(!showReminderPanel)}>
+              📱 提醒中心 ({upcomingBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
+            </button>
+          )}
           {tomorrowBookings.length > 0 && (
-            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 12 }} onClick={sendBatchReminders}>
-              📱 明日提醒 ({tomorrowBookings.length})
+            <button className="btn btn-sm btn-outline" style={{ fontSize: 12 }} onClick={sendBatchReminders}>
+              批量提醒明日 ({tomorrowBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
             </button>
           )}
           <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 新增預約</button>
         </div>
       </div>
+
+      {/* Reminder Panel */}
+      {showReminderPanel && upcomingBookings.length > 0 && (
+        <div className="card" style={{ border: '1px solid #25D366', background: '#f0fdf4' }}>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: 14, color: '#16a34a' }}>📱 預約提醒中心</h3>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowReminderPanel(false)}>✕</button>
+          </div>
+          <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
+            <table>
+              <thead>
+                <tr><th>日期</th><th>時間</th><th>病人</th><th>電話</th><th>醫師</th><th>店舖</th><th>提醒狀態</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                {upcomingBookings.map(b => {
+                  const sent = isReminderSent(b.id);
+                  const daysUntil = Math.ceil((new Date(b.date) - new Date()) / 86400000);
+                  return (
+                    <tr key={b.id} style={sent ? { opacity: 0.5 } : {}}>
+                      <td>{b.date}</td>
+                      <td>{b.time}</td>
+                      <td style={{ fontWeight: 600 }}>{b.patientName}</td>
+                      <td>{b.patientPhone || <span style={{ color: '#dc2626', fontSize: 11 }}>無電話</span>}</td>
+                      <td>{b.doctor}</td>
+                      <td>{b.store}</td>
+                      <td>
+                        {sent ? (
+                          <span style={{ color: '#16a34a', fontSize: 11, fontWeight: 600 }}>✓ 已提醒</span>
+                        ) : daysUntil <= 1 ? (
+                          <span style={{ color: '#dc2626', fontSize: 11, fontWeight: 600 }}>待提醒</span>
+                        ) : (
+                          <span style={{ color: '#d97706', fontSize: 11 }}>{daysUntil}天後</span>
+                        )}
+                      </td>
+                      <td>
+                        {!sent && b.patientPhone && (
+                          <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => sendSingleReminder(b)}>發送</button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--gray-500)' }}>
+            共 {upcomingBookings.length} 個預約 | 已提醒 {upcomingBookings.filter(b => isReminderSent(b.id)).length} | 待提醒 {upcomingBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length} | 無電話 {upcomingBookings.filter(b => !b.patientPhone).length}
+          </div>
+        </div>
+      )}
 
       {/* List View */}
       {view === 'list' && (

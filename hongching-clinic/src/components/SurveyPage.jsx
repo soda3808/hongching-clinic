@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { uid, DOCTORS } from '../data';
+import { saveSurvey, deleteSurvey as deleteSurveyApi } from '../api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const QUESTIONS = [
@@ -12,13 +13,8 @@ const QUESTIONS = [
 
 const STAR_LABELS = ['', '非常差', '差', '一般', '好', '非常好'];
 
-function getSurveys() {
-  try { return JSON.parse(localStorage.getItem('hcmc_surveys')) || []; } catch { return []; }
-}
-function saveSurveys(list) { localStorage.setItem('hcmc_surveys', JSON.stringify(list)); }
-
-export default function SurveyPage({ data, showToast, user }) {
-  const [surveys, setSurveys] = useState(getSurveys);
+export default function SurveyPage({ data, setData, showToast, user }) {
+  const surveys = data.surveys || [];
   const [tab, setTab] = useState('results');
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ patientName: '', doctor: DOCTORS[0], store: '宋皇臺', ratings: {}, comment: '' });
@@ -80,7 +76,7 @@ export default function SurveyPage({ data, showToast, user }) {
     });
   }, [surveys]);
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!form.patientName) return showToast('請填寫病人姓名');
     const hasRating = Object.values(form.ratings).some(v => v > 0);
@@ -92,18 +88,16 @@ export default function SurveyPage({ data, showToast, user }) {
       date: new Date().toISOString().substring(0, 10),
       createdAt: new Date().toISOString(),
     };
-    const updated = [...surveys, record];
-    setSurveys(updated);
-    saveSurveys(updated);
+    await saveSurvey(record);
+    setData({ ...data, surveys: [...surveys, record] });
     setShowAdd(false);
     setForm({ patientName: '', doctor: DOCTORS[0], store: '宋皇臺', ratings: {}, comment: '' });
     showToast('問卷已儲存');
   };
 
-  const handleDelete = (id) => {
-    const updated = surveys.filter(s => s.id !== id);
-    setSurveys(updated);
-    saveSurveys(updated);
+  const handleDelete = async (id) => {
+    await deleteSurveyApi(id);
+    setData({ ...data, surveys: surveys.filter(s => s.id !== id) });
     showToast('已刪除');
   };
 

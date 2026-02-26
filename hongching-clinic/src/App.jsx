@@ -433,7 +433,7 @@ function MainApp() {
   // Supabase Realtime — auto-sync across devices
   useEffect(() => {
     if (!user) return;
-    const REALTIME_TABLES = ['revenue', 'expenses', 'patients', 'bookings', 'consultations', 'inventory', 'queue', 'inquiries'];
+    const REALTIME_TABLES = ['revenue', 'expenses', 'patients', 'bookings', 'consultations', 'inventory', 'queue', 'inquiries', 'arap', 'leaves', 'products', 'productSales', 'packages', 'enrollments', 'sickleaves', 'payslips', 'surveys'];
     const subs = REALTIME_TABLES.map(table =>
       subscribeToChanges(table, (payload) => {
         const { eventType, new: newRec, old: oldRec } = payload;
@@ -557,7 +557,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v5.5 • {new Date().getFullYear()}</span>
+          <span>v5.10 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -656,7 +656,7 @@ function MainApp() {
           {page === 'report' && <Reports data={filteredData} />}
           {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'compare' && <StoreComparePage data={filteredData} allData={data} showToast={showToast} />}
-          {page === 'survey' && <SurveyPage data={filteredData} showToast={showToast} user={user} />}
+          {page === 'survey' && <SurveyPage data={filteredData} setData={setData} showToast={showToast} user={user} />}
           {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
         </div>
       </div>
