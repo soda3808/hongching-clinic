@@ -7,6 +7,7 @@ import ConfirmModal from './ConfirmModal';
 import { checkInteractions, getHerbSafetyInfo, checkDosage, getSafetyBadges } from '../utils/drugInteractions';
 import VoiceButton from './VoiceButton';
 import MedicineLabel from './MedicineLabel';
+import SignaturePad, { SignaturePreview } from './SignaturePad';
 
 const EMPTY_RX = { herb: '', dosage: '' };
 function makeEmptyForm() {
@@ -51,6 +52,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   const [customFormulas, setCustomFormulas] = useState(() => {
     try { return JSON.parse(localStorage.getItem('hcmc_custom_formulas') || '[]'); } catch { return []; }
   });
+  const [showSigPad, setShowSigPad] = useState(false);
+  const [doctorSig, setDoctorSig] = useState(() => sessionStorage.getItem(`hcmc_sig_doctor_${user?.name || ''}`) || '');
 
   const addRef = useRef(null);
   const detailRef = useRef(null);
@@ -309,6 +312,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       ...form, id: uid(),
       prescription: form.prescription.filter(r => r.herb),
       fee: Number(form.fee) || 0,
+      doctorSignature: doctorSig || '',
       createdAt: new Date().toISOString().substring(0, 10),
     };
     await saveConsultation(record);
@@ -387,8 +391,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       ${(item.treatments || []).length ? `<div style="font-size:11px;margin:8px 0"><strong>治療：</strong>${item.treatments.join('、')}</div>` : ''}
       ${item.acupuncturePoints ? `<div style="font-size:11px;margin:8px 0"><strong>穴位：</strong>${item.acupuncturePoints}</div>` : ''}
       ${item.followUpDate ? `<div style="font-size:12px;margin:8px 0;padding:6px;background:#f0fdfa;border-radius:4px"><strong>覆診：</strong>${item.followUpDate}${item.followUpNotes ? ` — ${item.followUpNotes}` : ''}</div>` : ''}
-      <div class="sig"><div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div class="sig-line">診所蓋章</div></div></div>
-      <div class="footer">此處方箋由系統生成 | ${clinic.name || clinicName}</div>
+      <div class="sig"><div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}<div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div style="margin-top:50px"></div><div class="sig-line">診所蓋章</div></div></div>
+      <div class="footer">此處方箋由系統生成 | ${clinic.name || clinicName}${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -431,8 +435,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       ${item.acupuncturePoints ? `<div class="section"><h4>穴位</h4><div>${item.acupuncturePoints}</div></div>` : ''}
       ${rxRows ? `<div class="section"><h4>處方${item.formulaName ? ' — ' + item.formulaName : ''}${item.formulaDays ? ' (' + item.formulaDays + '天)' : ''}</h4><table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rxRows}</tbody></table><div>服法：${item.formulaInstructions || '每日一劑，水煎服'}</div></div>` : ''}
       ${item.followUpDate ? `<div class="section" style="padding:8px;background:#f0fdfa;border-radius:6px"><h4>覆診安排</h4><div>${item.followUpDate}${item.followUpNotes ? ' — ' + item.followUpNotes : ''}</div></div>` : ''}
-      <div class="sig"><div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div class="sig-line">診所蓋章</div></div></div>
-      <div class="footer">此病歷由系統生成 | ${clinic.name || clinicName} | ${new Date().toLocaleString('zh-HK')}</div>
+      <div class="sig"><div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}<div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div style="margin-top:50px"></div><div class="sig-line">診所蓋章</div></div></div>
+      <div class="footer">此病歷由系統生成 | ${clinic.name || clinicName} | ${new Date().toLocaleString('zh-HK')}${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -536,10 +540,10 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         <p>現轉介 閣下跟進診治，煩請惠予診療。如有查詢，歡迎致電本中心。</p>
       </div>
       <div class="sig">
-        <div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div>
-        <div class="sig-box"><div class="sig-line">診所蓋章</div></div>
+        <div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:60px"></div>'}<div class="sig-line">主診醫師：${item.doctor}</div></div>
+        <div class="sig-box"><div style="margin-top:60px"></div><div class="sig-line">診所蓋章</div></div>
       </div>
-      <div class="footer">此轉介信由 ${clinic.name || clinicName} 簽發</div>
+      <div class="footer">此轉介信由 ${clinic.name || clinicName} 簽發${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
     </body></html>`);
     w.document.close();
     w.print();
@@ -926,6 +930,23 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 <div><label>覆診備註</label><input value={form.followUpNotes} onChange={e => setForm(f => ({ ...f, followUpNotes: e.target.value }))} placeholder="覆診注意事項" /></div>
               </div>
 
+              {/* Doctor Signature */}
+              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>醫師簽名</h4></div>
+              <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                {doctorSig ? (
+                  <>
+                    <SignaturePreview src={doctorSig} label={form.doctor} height={50} />
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)}>重新簽名</button>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => { setDoctorSig(''); sessionStorage.removeItem(`hcmc_sig_doctor_${user?.name || ''}`); }}>清除</button>
+                  </>
+                ) : (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)} style={{ padding: '8px 16px' }}>
+                    簽名 Sign
+                  </button>
+                )}
+                <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>簽名將自動記住至此登入期間</span>
+              </div>
+
               {/* Submit */}
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="submit" className="btn btn-teal">儲存診症紀錄</button>
@@ -1037,6 +1058,15 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 {detail.followUpNotes && <span> | {detail.followUpNotes}</span>}
               </div>
             )}
+
+            {/* Doctor Signature */}
+            {detail.doctorSignature && (
+              <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <strong style={{ fontSize: 13 }}>醫師簽名：</strong>
+                <SignaturePreview src={detail.doctorSignature} label={detail.doctor} height={50} />
+                <span style={{ fontSize: 10, color: 'var(--green-600)', fontWeight: 600 }}>已電子簽署</span>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1046,6 +1076,17 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
       {/* Medicine Label */}
       {showLabel && <MedicineLabel consultation={showLabel} onClose={() => setShowLabel(null)} showToast={showToast} />}
+
+      {/* Signature Pad */}
+      {showSigPad && (
+        <SignaturePad
+          title="醫師簽名"
+          label={`${form.doctor || user?.name || '醫師'} — 請在下方簽名`}
+          cacheKey={`doctor_${user?.name || ''}`}
+          onConfirm={(sig) => { setDoctorSig(sig); setShowSigPad(false); showToast('簽名已記錄'); }}
+          onCancel={() => setShowSigPad(false)}
+        />
+      )}
     </>
   );
 }

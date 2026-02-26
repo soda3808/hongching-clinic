@@ -5,6 +5,7 @@ import { getServices } from '../config';
 import { getTenantStoreNames, getClinicName, getClinicNameEn } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
+import SignaturePad, { SignaturePreview } from './SignaturePad';
 
 const STATUS_LABELS = {
   waiting: '等候中',
@@ -51,6 +52,10 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
   const [patientSuggestions, setPatientSuggestions] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [consentItem, setConsentItem] = useState(null);
+  const [consentStep, setConsentStep] = useState('patient'); // 'patient' | 'doctor'
+  const [patientSig, setPatientSig] = useState('');
+  const [doctorSigForConsent, setDoctorSigForConsent] = useState(() => sessionStorage.getItem(`hcmc_sig_doctor_${user?.name || ''}`) || '');
 
   const modalRef = useRef(null);
   useFocusTrap(showModal ? modalRef : nullRef);
@@ -308,8 +313,21 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     setDeleteId(null);
   };
 
+  // ── Consent Signing Flow ──
+  const startConsentSign = (item) => {
+    setConsentItem(item);
+    setConsentStep('patient');
+    setPatientSig('');
+  };
+
+  const finishConsent = () => {
+    if (consentItem) printConsentForm(consentItem, patientSig, doctorSigForConsent);
+    setConsentItem(null);
+    setPatientSig('');
+  };
+
   // ── Treatment Consent Form Printing (#56) ──
-  const printConsentForm = (item) => {
+  const printConsentForm = (item, pSig = '', dSig = '') => {
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>治療同意書</title>
@@ -377,14 +395,16 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
 
       <div class="sign-area">
         <div>
+          ${pSig ? `<img src="${pSig}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}
           <div class="sign-box">病人簽名 Patient Signature</div>
         </div>
         <div>
-          <div class="sign-box">醫師簽名 Doctor Signature</div>
+          ${dSig ? `<img src="${dSig}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}
+          <div class="sign-box">醫師簽名 Doctor Signature<br/>${item.doctor}</div>
         </div>
       </div>
       <div style="text-align:center; margin-top:20px; font-size:11px; color:#aaa">
-        日期：________________
+        日期：${item.date}${(pSig || dSig) ? ' | 已電子簽署 Digitally Signed' : ''}
       </div>
     </body></html>`);
     w.document.close();
@@ -487,7 +507,7 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                       {r.status === 'completed' && r.patientPhone && (
                         <button className="btn btn-outline btn-sm" onClick={() => notifyPatient(r, 'completed')} title="WhatsApp 感謝通知" style={isNotified(r.id, 'completed') ? { background: '#dcfce7' } : {}}>📱{isNotified(r.id, 'completed') ? '✓' : ''}</button>
                       )}
-                      <button className="btn btn-outline btn-sm" onClick={() => printConsentForm(r)} title="同意書">📄</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => startConsentSign(r)} title="同意書(簽名)">📄</button>
                       {r.status !== 'completed' && (
                         <button className="btn btn-outline btn-sm" onClick={() => setDeleteId(r.id)}>刪除</button>
                       )}
@@ -618,6 +638,45 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
             </form>
           </div>
         </div>
+      )}
+
+      {/* Treatment Consent Signing Flow */}
+      {consentItem && consentStep === 'patient' && (
+        <SignaturePad
+          title="治療同意書 — 病人簽名"
+          label={`${consentItem.patientName} — 請病人在下方簽名確認同意`}
+          onConfirm={(sig) => {
+            setPatientSig(sig);
+            // Check if doctor sig is cached
+            const cachedDocSig = sessionStorage.getItem(`hcmc_sig_doctor_${user?.name || ''}`);
+            if (cachedDocSig) {
+              setDoctorSigForConsent(cachedDocSig);
+              // Both signatures ready, print directly
+              printConsentForm(consentItem, sig, cachedDocSig);
+              setConsentItem(null);
+              setPatientSig('');
+              showToast('已列印已簽署同意書');
+            } else {
+              setConsentStep('doctor');
+            }
+          }}
+          onCancel={() => { setConsentItem(null); setPatientSig(''); }}
+        />
+      )}
+      {consentItem && consentStep === 'doctor' && (
+        <SignaturePad
+          title="治療同意書 — 醫師簽名"
+          label={`${consentItem.doctor} — 醫師請簽名`}
+          cacheKey={`doctor_${user?.name || ''}`}
+          onConfirm={(sig) => {
+            setDoctorSigForConsent(sig);
+            printConsentForm(consentItem, patientSig, sig);
+            setConsentItem(null);
+            setPatientSig('');
+            showToast('已列印已簽署同意書');
+          }}
+          onCancel={() => { setConsentItem(null); setPatientSig(''); }}
+        />
       )}
 
       {/* Delete Confirm */}

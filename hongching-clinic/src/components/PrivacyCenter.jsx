@@ -1,11 +1,18 @@
 import { useState, useMemo } from 'react';
 import { uid } from '../data';
-import { getClinicName } from '../tenant';
+import { getClinicName, getClinicNameEn } from '../tenant';
+import SignaturePad, { SignaturePreview } from './SignaturePad';
 
 // PDPO Privacy Center — Consent Management, DSAR, Data Retention
 export default function PrivacyCenter({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('consent');
   const [dsarForm, setDsarForm] = useState({ patientName: '', patientPhone: '', requestType: 'access', notes: '' });
+  const [showConsentSign, setShowConsentSign] = useState(false);
+  const [consentPatient, setConsentPatient] = useState('');
+  const [consentPatientPhone, setConsentPatientPhone] = useState('');
+  const [consentTypes, setConsentTypes] = useState({ data_collection: true, treatment: true, marketing: false, whatsapp: false });
+  const [patientConsentSig, setPatientConsentSig] = useState('');
+  const [showSigPad, setShowSigPad] = useState(false);
 
   const patients = data.patients || [];
   const consents = data.consents || [];
@@ -106,6 +113,66 @@ export default function PrivacyCenter({ data, setData, showToast, user }) {
   };
 
   const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+
+  // ── Save Signed Consent ──
+  const handleConsentSign = () => {
+    if (!consentPatient) return showToast('請填寫病人姓名');
+    if (!patientConsentSig) return showToast('請先簽名');
+    const now = new Date().toISOString();
+    const newConsents = Object.entries(consentTypes)
+      .filter(([, v]) => v)
+      .map(([type]) => ({
+        id: uid(),
+        patient_id: (patients.find(p => p.name === consentPatient) || {}).id || '',
+        patientName: consentPatient,
+        consent_type: type,
+        granted: true,
+        version: '1.0',
+        granted_at: now,
+        method: 'digital',
+        signature: patientConsentSig,
+      }));
+    setData(prev => ({ ...prev, consents: [...(prev.consents || []), ...newConsents] }));
+    // Print consent record
+    printConsentDoc(consentPatient, consentTypes, patientConsentSig);
+    setShowConsentSign(false);
+    setConsentPatient('');
+    setConsentPatientPhone('');
+    setPatientConsentSig('');
+    setConsentTypes({ data_collection: true, treatment: true, marketing: false, whatsapp: false });
+    showToast(`已記錄 ${consentPatient} 的同意授權（${newConsents.length} 項）`);
+  };
+
+  const printConsentDoc = (name, types, sig) => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const items = Object.entries(types).filter(([, v]) => v).map(([k]) => CONSENT_LABELS[k] || k);
+    w.document.write(`<!DOCTYPE html><html><head><title>個人資料收集聲明</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:40px 50px;max-width:650px;margin:0 auto;color:#333;line-height:1.8}
+      h1{text-align:center;font-size:18px;color:#0e7490;margin-bottom:2px}
+      .en{text-align:center;font-size:11px;color:#888;margin-bottom:16px}
+      h2{text-align:center;font-size:16px;border-bottom:2px solid #0e7490;padding-bottom:8px;color:#0e7490}
+      .item{margin:8px 0;padding-left:20px}.check{color:#16a34a;font-weight:700}
+      .sig-area{margin-top:30px;text-align:center}
+      .sig-line{border-top:1px solid #333;display:inline-block;width:250px;margin-top:8px;padding-top:6px;font-size:11px;color:#888}
+      .footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
+    </style></head><body>
+      <h1>${clinicName}</h1><div class="en">${clinicNameEn}</div>
+      <h2>個人資料收集聲明及同意書</h2>
+      <p>本人 <strong>${name}</strong> 已閱讀及明白${clinicName}的個人資料收集聲明，並同意以下用途：</p>
+      ${items.map(i => `<div class="item"><span class="check">&#10003;</span> ${i}</div>`).join('')}
+      <p style="margin-top:16px;font-size:12px;color:#666">根據香港《個人資料（私隱）條例》（第486章），閣下有權查閱及更正本中心所持有的個人資料。如欲行使此權利，請聯絡本中心。</p>
+      <div class="sig-area">
+        ${sig ? `<img src="${sig}" style="height:60px;object-fit:contain;display:block;margin:0 auto 4px" />` : ''}
+        <div class="sig-line">病人簽名 Patient Signature</div>
+        <div style="margin-top:8px;font-size:12px">日期：${new Date().toISOString().substring(0, 10)}</div>
+      </div>
+      <div class="footer">已電子簽署 Digitally Signed | ${clinicName}</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
 
   return (
     <>
@@ -142,10 +209,64 @@ export default function PrivacyCenter({ data, setData, showToast, user }) {
               </div>
             ))}
           </div>
-          <div style={{ padding: 12, background: 'var(--gray-50)', borderRadius: 8, fontSize: 12, color: 'var(--gray-600)' }}>
+          <div style={{ padding: 12, background: 'var(--gray-50)', borderRadius: 8, fontSize: 12, color: 'var(--gray-600)', marginBottom: 12 }}>
             <strong>PDPO 要求：</strong>收集個人資料前必須取得明確同意。新病人登記時系統會自動顯示同意書。
             病人可隨時撤回同意。撤回後相關功能（如 WhatsApp 推廣）將自動停用。
           </div>
+
+          {/* Quick Consent Signing */}
+          {!showConsentSign ? (
+            <button className="btn btn-teal" onClick={() => setShowConsentSign(true)}>
+              + 簽署新同意書
+            </button>
+          ) : (
+            <div style={{ padding: 16, border: '1px solid var(--teal-200)', borderRadius: 8, background: 'var(--teal-50)' }}>
+              <h4 style={{ margin: '0 0 12px', fontSize: 14 }}>簽署個人資料收集同意書</h4>
+              <div className="grid-2" style={{ marginBottom: 12 }}>
+                <div>
+                  <label>病人姓名 *</label>
+                  <input value={consentPatient} onChange={e => {
+                    setConsentPatient(e.target.value);
+                    const p = patients.find(pt => pt.name === e.target.value);
+                    if (p) setConsentPatientPhone(p.phone || '');
+                  }} placeholder="姓名" list="consent-patients" />
+                  <datalist id="consent-patients">
+                    {patients.slice(0, 20).map(p => <option key={p.id} value={p.name} />)}
+                  </datalist>
+                </div>
+                <div><label>電話</label><input value={consentPatientPhone} readOnly style={{ background: 'var(--gray-100)' }} /></div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label>同意項目</label>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4 }}>
+                  {Object.entries(CONSENT_LABELS).map(([key, label]) => (
+                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={consentTypes[key] || false} onChange={e => setConsentTypes(prev => ({ ...prev, [key]: e.target.checked }))} />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label>病人簽名</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                  {patientConsentSig ? (
+                    <>
+                      <SignaturePreview src={patientConsentSig} label={consentPatient} height={50} />
+                      <button className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)}>重新簽名</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => setPatientConsentSig('')}>清除</button>
+                    </>
+                  ) : (
+                    <button className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)} style={{ padding: '8px 16px' }}>簽名 Sign</button>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-teal" onClick={handleConsentSign}>確認並列印同意書</button>
+                <button className="btn btn-outline" onClick={() => { setShowConsentSign(false); setPatientConsentSig(''); }}>取消</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -229,6 +350,16 @@ export default function PrivacyCenter({ data, setData, showToast, user }) {
             系統每月自動執行數據清理。過期數據將按照上述政策自動匿名化或刪除。診療紀錄因法規要求不會完全刪除，只會匿名化處理。
           </div>
         </div>
+      )}
+
+      {/* Signature Pad */}
+      {showSigPad && (
+        <SignaturePad
+          title="病人簽名 — PDPO 同意書"
+          label={`${consentPatient || '病人'} — 請簽名確認同意`}
+          onConfirm={(sig) => { setPatientConsentSig(sig); setShowSigPad(false); showToast('簽名已記錄'); }}
+          onCancel={() => setShowSigPad(false)}
+        />
       )}
 
       {/* ── Privacy Policy ── */}

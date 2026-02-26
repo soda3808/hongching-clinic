@@ -4,6 +4,7 @@ import { uid, fmtM, getMonth } from '../data';
 import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantDoctors, getTenantStores, getTenantSettings } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
+import SignaturePad, { SignaturePreview } from './SignaturePad';
 
 export default function SickLeavePage({ data, setData, showToast, allData, user }) {
   const DOCTORS = getTenantDoctors();
@@ -20,6 +21,8 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
   const [saving, setSaving] = useState(false);
   const [patientSuggestions, setPatientSuggestions] = useState([]);
   const [filterDoc, setFilterDoc] = useState('all');
+  const [showSigPad, setShowSigPad] = useState(false);
+  const [doctorSig, setDoctorSig] = useState(() => sessionStorage.getItem(`hcmc_sig_doctor_${user?.name || ''}`) || '');
 
   const modalRef = useRef(null);
   useFocusTrap(showModal ? modalRef : nullRef);
@@ -74,6 +77,7 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
       days: calcDays(form.startDate, form.endDate),
       issuedAt: new Date().toISOString().substring(0, 10),
       createdBy: user?.name || '',
+      doctorSignature: doctorSig || '',
     };
     await saveSickLeave(record);
     setData({ ...data, sickleaves: [...sickleaves, record] });
@@ -135,10 +139,10 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
       ${item.notes ? `<div class="field"><span class="label">備註 Remarks：</span><span class="value">${item.notes}</span></div>` : ''}
       <div class="field"><span class="label">簽發日期 Date：</span><span class="value">${item.issuedAt}</span></div>
       <div class="sig">
-        <div class="sig-box"><div class="sig-line">主診醫師 Attending Practitioner<br/>${item.doctor}</div></div>
-        <div class="sig-box"><div class="sig-line">診所蓋章 Clinic Stamp</div></div>
+        <div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:60px"></div>'}<div class="sig-line">主診醫師 Attending Practitioner<br/>${item.doctor}</div></div>
+        <div class="sig-box"><div style="margin-top:60px"></div><div class="sig-line">診所蓋章 Clinic Stamp</div></div>
       </div>
-      <div class="footer">此證明書僅供病假證明用途 This certificate is issued for sick leave purposes only.<br/>${certNo} | ${clinic.name || clinicName}</div>
+      <div class="footer">此證明書僅供病假證明用途 This certificate is issued for sick leave purposes only.${item.doctorSignature ? ' | 已電子簽署 Digitally Signed' : ''}<br/>${certNo} | ${clinic.name || clinicName}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -184,7 +188,8 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
                   <td>{s.doctor}</td>
                   <td style={{ fontSize: 11 }}>{s.store}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                      {s.doctorSignature && <span style={{ fontSize: 9, color: 'var(--green-600)', fontWeight: 600 }}>已簽</span>}
                       <button className="btn btn-teal btn-sm" onClick={() => handlePrint(s)}>列印</button>
                       <button className="btn btn-red btn-sm" onClick={() => setDeleteId(s.id)}>刪除</button>
                     </div>
@@ -240,9 +245,23 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
                 <div><label>病假結束 *</label><input type="date" value={form.endDate} onChange={e => { setForm(f => ({ ...f, endDate: e.target.value, days: calcDays(f.startDate, e.target.value) })); }} /></div>
                 <div><label>天數</label><input type="number" value={form.days} readOnly style={{ background: 'var(--gray-100)' }} /></div>
               </div>
-              <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 12 }}>
                 <label>備註</label>
                 <input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="選填" />
+              </div>
+              {/* Doctor Signature */}
+              <div style={{ marginBottom: 16 }}>
+                <label>醫師簽名</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                  {doctorSig ? (
+                    <>
+                      <SignaturePreview src={doctorSig} label={form.doctor} height={45} />
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)}>重新簽名</button>
+                    </>
+                  ) : (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)} style={{ padding: '8px 16px' }}>簽名 Sign</button>
+                  )}
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="submit" className="btn btn-teal" disabled={saving}>{saving ? '儲存中...' : '新增假紙'}</button>
@@ -254,6 +273,17 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
       )}
 
       {deleteId && <ConfirmModal message="確認刪除此假紙記錄？" onConfirm={handleDelete} onCancel={() => setDeleteId(null)} />}
+
+      {/* Signature Pad */}
+      {showSigPad && (
+        <SignaturePad
+          title="醫師簽名"
+          label={`${form.doctor || user?.name || '醫師'} — 簽發病假證明書`}
+          cacheKey={`doctor_${user?.name || ''}`}
+          onConfirm={(sig) => { setDoctorSig(sig); setShowSigPad(false); showToast('簽名已記錄'); }}
+          onCancel={() => setShowSigPad(false)}
+        />
+      )}
     </>
   );
 }
