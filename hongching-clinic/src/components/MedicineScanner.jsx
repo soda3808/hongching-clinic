@@ -29,7 +29,7 @@ async function compressImage(file, maxWidth = 1600, quality = 0.8) {
   });
 }
 
-export default function MedicineScanner({ data, setData, showToast, allData, user }) {
+export default function MedicineScanner({ data, setData, showToast, allData, user, onNavigate }) {
   const storeNames = getTenantStoreNames();
   const inventory = allData?.inventory || data?.inventory || [];
 
@@ -562,9 +562,10 @@ export default function MedicineScanner({ data, setData, showToast, allData, use
               <div className="stat-value gold" style={{ fontSize: 16 }}>{fmtM(importResult.totalAmount)}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-teal" onClick={resetAll}>📷 繼續掃描</button>
-            <button className="btn btn-outline" onClick={() => showToast('已匯入')}>完成</button>
+            {onNavigate && <button className="btn btn-green" onClick={() => onNavigate('inventory')}>💊 查看庫存</button>}
+            {onNavigate && <button className="btn btn-outline" onClick={() => onNavigate('exp')}>🧾 查看開支</button>}
           </div>
         </div>
       )}

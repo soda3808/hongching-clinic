@@ -818,7 +818,7 @@ function MainApp() {
           <Suspense fallback={LazyFallback}>
             {page === 'dash' && <Dashboard data={filteredData} onNavigate={setPage} />}
             {page === 'rev' && <Revenue data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-            {page === 'exp' && <Expenses data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+            {page === 'exp' && <Expenses data={filteredData} setData={updateData} showToast={showToast} allData={data} onNavigate={setPage} />}
             {page === 'scan' && <ReceiptScanner data={filteredData} setData={updateData} showToast={showToast} onNavigate={setPage} allData={data} />}
             {page === 'arap' && <ARAP data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'patient' && <PatientPage data={filteredData} setData={updateData} showToast={showToast} allData={data} onNavigate={setPage} />}
@@ -827,8 +827,8 @@ function MainApp() {
             {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
             {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
-            {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
-            {page === 'medscan' && <MedicineScanner data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} onNavigate={setPage} />}
+            {page === 'medscan' && <MedicineScanner data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
             {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'products' && <ProductPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'voucher' && <ElderlyVoucherPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}

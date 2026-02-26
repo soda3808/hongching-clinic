@@ -17,7 +17,7 @@ const EMPTY_FORM = {
   medicineCode: '', expiryDate: '',
 };
 
-export default function InventoryPage({ data, setData, showToast }) {
+export default function InventoryPage({ data, setData, showToast, onNavigate }) {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
@@ -469,6 +469,17 @@ export default function InventoryPage({ data, setData, showToast }) {
   // ══════════════════════════════════
   return (
     <>
+      {/* Quick Access: Medicine Scanner */}
+      {onNavigate && (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--teal-700)' }}>📦 藥材採購單掃描</div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>影相採購單，AI 自動入庫 + 記帳</div>
+          </div>
+          <button className="btn btn-teal" onClick={() => onNavigate('medscan')}>開始掃描</button>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card teal"><div className="stat-label">總品項</div><div className="stat-value teal">{stats.total}</div></div>

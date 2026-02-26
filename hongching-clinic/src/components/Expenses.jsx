@@ -3,7 +3,7 @@ import { saveExpense, deleteRecord } from '../api';
 import { uid, fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, ALL_CATEGORIES, getStoreNames, getDefaultStore } from '../data';
 import ConfirmModal from './ConfirmModal';
 
-export default function Expenses({ data, setData, showToast }) {
+export default function Expenses({ data, setData, showToast, onNavigate }) {
   const STORE_NAMES = getStoreNames();
   const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], merchant: '', amount: '', category: '租金', store: getDefaultStore(), payment: '現金', desc: '', receipt: '' });
   const [filterMonth, setFilterMonth] = useState('');
@@ -264,6 +264,19 @@ export default function Expenses({ data, setData, showToast }) {
 
   return (
     <>
+      {/* Quick Access: Medicine Scanner + Receipt Scanner */}
+      {onNavigate && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <button className="btn btn-teal" onClick={() => onNavigate('medscan')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            📦 掃描藥材採購單
+            <span style={{ fontSize: 10, opacity: 0.8 }}>AI 自動入庫+記帳</span>
+          </button>
+          <button className="btn btn-outline" onClick={() => onNavigate('scan')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            📷 掃描一般收據
+          </button>
+        </div>
+      )}
+
       {/* Add Form */}
       <div className="card">
         <div className="card-header"><h3>➕ 新增開支</h3></div>
