@@ -157,6 +157,17 @@ function useNotifications(data) {
 
     if (dayOfMonth >= 20 && dayOfMonth <= 25) notes.push({ icon: '💼', title: 'MPF 供款提醒：請於25日前完成供款', time: today });
 
+    // Follow-up reminders
+    const overdueFollowUps = (data.consultations || []).filter(c => c.followUpDate && c.followUpDate < today);
+    if (overdueFollowUps.length) notes.push({ icon: '📋', title: `${overdueFollowUps.length} 位病人覆診已逾期`, time: '覆診' });
+    const todayFollowUps = (data.consultations || []).filter(c => c.followUpDate === today);
+    if (todayFollowUps.length) notes.push({ icon: '🔔', title: `今日有 ${todayFollowUps.length} 位病人需要覆診`, time: '今日' });
+
+    // Patient birthdays
+    const todayMD = today.substring(5);
+    const birthdayPatients = (data.patients || []).filter(p => p.dob && p.dob.substring(5) === todayMD);
+    if (birthdayPatients.length) notes.push({ icon: '🎂', title: `${birthdayPatients.map(p => p.name).join('、')} 今日生日`, time: '生日' });
+
     // Low-stock inventory alerts
     const lowStockItems = (data.inventory || []).filter(i => Number(i.stock) < Number(i.minStock));
     if (lowStockItems.length) {
@@ -498,7 +509,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v5.2 • {new Date().getFullYear()}</span>
+          <span>v5.4 • {new Date().getFullYear()}</span>
         </div>
       </div>
 

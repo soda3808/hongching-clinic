@@ -32,6 +32,12 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   const [editService, setEditService] = useState(null);
   const [newService, setNewService] = useState({ label:'', fee:'', category:'治療', active:true });
 
+  // Audit filters
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditDateFrom, setAuditDateFrom] = useState('');
+  const [auditDateTo, setAuditDateTo] = useState('');
+  const [auditAction, setAuditAction] = useState('');
+
   const isAdmin = user?.role === 'admin';
   const editUserRef = useRef(null);
   const editStoreRef = useRef(null);
@@ -382,30 +388,52 @@ export default function SettingsPage({ data, setData, showToast, user }) {
       {/* Audit Trail */}
       {tab === 'audit' && isAdmin && (() => {
         const logs = getAuditLog();
+        const ACTION_LABELS = { login:'登入', logout:'登出', create:'新增', update:'更新', delete:'刪除' };
+        const filteredLogs = logs.filter(log => {
+          if (auditSearch) {
+            const q = auditSearch.toLowerCase();
+            if (!(log.userName||'').toLowerCase().includes(q) && !(log.detail||'').toLowerCase().includes(q) && !(log.target||'').toLowerCase().includes(q) && !(log.action||'').toLowerCase().includes(q)) return false;
+          }
+          if (auditDateFrom && log.ts < auditDateFrom) return false;
+          if (auditDateTo && log.ts > auditDateTo + 'T23:59:59') return false;
+          if (auditAction && log.action !== auditAction) return false;
+          return true;
+        });
         return (
-          <div className="card" style={{ padding:0 }}>
-            <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h3>操作記錄 ({logs.length})</h3>
+          <>
+            <div className="card" style={{ padding:12, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+              <input placeholder="搜尋用戶/操作/詳情..." value={auditSearch} onChange={e => setAuditSearch(e.target.value)} style={{ flex:1, minWidth:150 }} />
+              <input type="date" value={auditDateFrom} onChange={e => setAuditDateFrom(e.target.value)} style={{ width:'auto' }} />
+              <span style={{ color:'var(--gray-400)' }}>至</span>
+              <input type="date" value={auditDateTo} onChange={e => setAuditDateTo(e.target.value)} style={{ width:'auto' }} />
+              <select value={auditAction} onChange={e => setAuditAction(e.target.value)} style={{ width:'auto' }}>
+                <option value="">全部操作</option>
+                <option value="login">登入</option><option value="logout">登出</option>
+                <option value="create">新增</option><option value="update">更新</option><option value="delete">刪除</option>
+              </select>
               <button className="btn btn-outline btn-sm" onClick={() => { clearAuditLog(); showToast('記錄已清除'); }}>清除記錄</button>
             </div>
-            <div className="table-wrap" style={{ maxHeight:500, overflowY:'auto' }}>
-              <table>
-                <thead><tr><th>時間</th><th>用戶</th><th>操作</th><th>目標</th><th>詳情</th></tr></thead>
-                <tbody>
-                  {!logs.length && <tr><td colSpan={5} style={{textAlign:'center',padding:40,color:'#aaa'}}>暫無記錄</td></tr>}
-                  {logs.map((log, i) => (
-                    <tr key={i}>
-                      <td style={{ fontSize:11, color:'var(--gray-500)', whiteSpace:'nowrap' }}>{new Date(log.ts).toLocaleString('zh-HK')}</td>
-                      <td style={{ fontWeight:600 }}>{log.userName}</td>
-                      <td><span className={`tag ${log.action==='delete'?'tag-overdue':log.action==='create'?'tag-paid':'tag-other'}`}>{log.action}</span></td>
-                      <td>{log.target}</td>
-                      <td style={{ fontSize:11, color:'var(--gray-500)', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis' }}>{log.detail}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="card" style={{ padding:0 }}>
+              <div className="card-header"><h3>操作記錄 ({filteredLogs.length}/{logs.length})</h3></div>
+              <div className="table-wrap" style={{ maxHeight:500, overflowY:'auto' }}>
+                <table>
+                  <thead><tr><th>時間</th><th>用戶</th><th>操作</th><th>目標</th><th>詳情</th></tr></thead>
+                  <tbody>
+                    {!filteredLogs.length && <tr><td colSpan={5} style={{textAlign:'center',padding:40,color:'#aaa'}}>暫無記錄</td></tr>}
+                    {filteredLogs.slice(0, 200).map((log, i) => (
+                      <tr key={i}>
+                        <td style={{ fontSize:11, color:'var(--gray-500)', whiteSpace:'nowrap' }}>{new Date(log.ts).toLocaleString('zh-HK')}</td>
+                        <td style={{ fontWeight:600 }}>{log.userName}</td>
+                        <td><span className={`tag ${log.action==='delete'?'tag-overdue':log.action==='create'?'tag-paid':log.action==='login'?'tag-fps':'tag-other'}`}>{ACTION_LABELS[log.action]||log.action}</span></td>
+                        <td>{log.target}</td>
+                        <td style={{ fontSize:11, color:'var(--gray-500)', maxWidth:250, overflow:'hidden', textOverflow:'ellipsis' }}>{log.detail}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          </>
         );
       })()}
 

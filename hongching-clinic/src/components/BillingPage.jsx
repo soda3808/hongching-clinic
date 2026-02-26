@@ -276,6 +276,126 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     showToast('已匯出帳單');
   };
 
+  // ── Daily Closing Report (#54) ──
+  const printDailyClose = useCallback(() => {
+    const dayItems = queue.filter(r => r.date === filterDate);
+    const paidItems = dayItems.filter(r => r.paymentStatus === 'paid');
+    const refundedItems = dayItems.filter(r => r.totalRefunded > 0);
+    const totalRevenue = paidItems.reduce((s, r) => s + Number(r.serviceFee || 0), 0);
+    const totalRefunds = refundedItems.reduce((s, r) => s + Number(r.totalRefunded || 0), 0);
+    const netRevenue = totalRevenue - totalRefunds;
+
+    // Payment method breakdown
+    const payMethods = {};
+    paidItems.forEach(r => {
+      const method = r.paymentMethod || 'FPS';
+      payMethods[method] = (payMethods[method] || 0) + Number(r.serviceFee || 0);
+    });
+
+    // Doctor breakdown
+    const docBreak = {};
+    paidItems.forEach(r => {
+      if (!docBreak[r.doctor]) docBreak[r.doctor] = { count: 0, amount: 0 };
+      docBreak[r.doctor].count++;
+      docBreak[r.doctor].amount += Number(r.serviceFee || 0);
+    });
+
+    // Store breakdown
+    const storeBreak = {};
+    paidItems.forEach(r => {
+      if (!storeBreak[r.store]) storeBreak[r.store] = { count: 0, amount: 0 };
+      storeBreak[r.store].count++;
+      storeBreak[r.store].amount += Number(r.serviceFee || 0);
+    });
+
+    // Dispensing stats
+    const dispStats = { pending: 0, dispensed: 0, collected: 0, notNeeded: 0 };
+    dayItems.forEach(r => {
+      if (r.dispensingStatus === 'pending') dispStats.pending++;
+      else if (r.dispensingStatus === 'dispensed') dispStats.dispensed++;
+      else if (r.dispensingStatus === 'collected') dispStats.collected++;
+      else dispStats.notNeeded++;
+    });
+
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>日結報告 ${filterDate}</title>
+      <style>
+        @page { size: A4; margin: 15mm; }
+        body { font-family: 'Microsoft YaHei', 'PingFang TC', sans-serif; font-size: 13px; color: #333; max-width: 700px; margin: 0 auto; padding: 20px; }
+        h1 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+        .subtitle { text-align: center; color: #888; font-size: 11px; margin-bottom: 20px; }
+        h2 { font-size: 14px; border-bottom: 2px solid #0e7490; padding-bottom: 4px; margin-top: 20px; color: #0e7490; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f8f8; font-weight: 700; font-size: 12px; }
+        .right { text-align: right; }
+        .total-row { font-weight: 800; background: #f0fdfa; font-size: 14px; }
+        .sign { margin-top: 40px; display: flex; justify-content: space-between; }
+        .sign-box { border-top: 1px solid #333; width: 200px; text-align: center; padding-top: 6px; font-size: 11px; color: #888; }
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .summary-box { border: 1px solid #ddd; border-radius: 8px; padding: 12px; text-align: center; }
+        .summary-box .num { font-size: 22px; font-weight: 800; }
+        .summary-box .lbl { font-size: 10px; color: #888; }
+        @media print { body { margin: 0; padding: 10mm; } }
+      </style>
+    </head><body>
+      <h1>康晴綜合醫療中心 — 日結報告</h1>
+      <div class="subtitle">DAILY CLOSING REPORT | ${filterDate} | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
+
+      <div class="summary-grid">
+        <div class="summary-box"><div class="num" style="color:#0e7490">${dayItems.length}</div><div class="lbl">總帳單</div></div>
+        <div class="summary-box"><div class="num" style="color:#16a34a">${paidItems.length}</div><div class="lbl">已收費</div></div>
+        <div class="summary-box"><div class="num" style="color:#0e7490">$${totalRevenue.toLocaleString()}</div><div class="lbl">總收入</div></div>
+        <div class="summary-box"><div class="num" style="color:#dc2626">$${netRevenue.toLocaleString()}</div><div class="lbl">淨收入</div></div>
+      </div>
+
+      <h2>付款方式明細</h2>
+      <table>
+        <thead><tr><th>付款方式</th><th class="right">金額</th><th class="right">筆數</th></tr></thead>
+        <tbody>
+          ${Object.entries(payMethods).map(([m, amt]) => `<tr><td>${m}</td><td class="right">$${amt.toLocaleString()}</td><td class="right">${paidItems.filter(r => (r.paymentMethod || 'FPS') === m).length}</td></tr>`).join('')}
+          <tr class="total-row"><td>合計</td><td class="right">$${totalRevenue.toLocaleString()}</td><td class="right">${paidItems.length}</td></tr>
+          ${totalRefunds > 0 ? `<tr style="color:#dc2626"><td>退款</td><td class="right">-$${totalRefunds.toLocaleString()}</td><td class="right">${refundedItems.length}</td></tr>` : ''}
+        </tbody>
+      </table>
+
+      <h2>醫師業績</h2>
+      <table>
+        <thead><tr><th>醫師</th><th class="right">帳單數</th><th class="right">金額</th></tr></thead>
+        <tbody>
+          ${Object.entries(docBreak).map(([d, v]) => `<tr><td>${d}</td><td class="right">${v.count}</td><td class="right">$${v.amount.toLocaleString()}</td></tr>`).join('')}
+        </tbody>
+      </table>
+
+      <h2>分店收入</h2>
+      <table>
+        <thead><tr><th>分店</th><th class="right">帳單數</th><th class="right">金額</th></tr></thead>
+        <tbody>
+          ${Object.entries(storeBreak).map(([s, v]) => `<tr><td>${s}</td><td class="right">${v.count}</td><td class="right">$${v.amount.toLocaleString()}</td></tr>`).join('')}
+        </tbody>
+      </table>
+
+      <h2>配藥統計</h2>
+      <table>
+        <thead><tr><th>狀態</th><th class="right">數量</th></tr></thead>
+        <tbody>
+          <tr><td>已取藥</td><td class="right">${dispStats.collected}</td></tr>
+          <tr><td>已配藥</td><td class="right">${dispStats.dispensed}</td></tr>
+          <tr><td>配藥中</td><td class="right">${dispStats.pending}</td></tr>
+          <tr><td>不需配藥</td><td class="right">${dispStats.notNeeded}</td></tr>
+        </tbody>
+      </table>
+
+      <div class="sign">
+        <div class="sign-box">收銀員簽名</div>
+        <div class="sign-box">店長確認</div>
+      </div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  }, [queue, filterDate]);
+
   // Generate sequential receipt number
   const getReceiptNo = (item) => {
     const dateStr = (item.date || '').replace(/-/g, '');
@@ -388,6 +508,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
           {DOCTORS.map(d => <option key={d}>{d}</option>)}
         </select>
         <button className="btn btn-outline" onClick={handleExport}>匯出Excel</button>
+        <button className="btn btn-gold" onClick={() => printDailyClose()}>日結報告</button>
       </div>
 
       {/* Billing Table */}

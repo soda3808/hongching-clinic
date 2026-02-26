@@ -462,6 +462,87 @@ export default function Dashboard({ data, onNavigate }) {
         </div>
       </div>
 
+      {/* Birthday Reminders */}
+      {(() => {
+        const pts = data.patients || [];
+        const todayMD = new Date().toISOString().substring(5, 10);
+        const next7 = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(); d.setDate(d.getDate() + i);
+          return { date: d.toISOString().substring(0, 10), md: d.toISOString().substring(5, 10), dayLabel: i === 0 ? '今日' : i === 1 ? '明日' : `${i}日後` };
+        });
+        const birthdayList = next7.flatMap(day => pts.filter(p => p.dob && p.dob.substring(5) === day.md).map(p => ({ ...p, dayLabel: day.dayLabel, birthdayDate: day.date })));
+        if (!birthdayList.length) return null;
+        return (
+          <div className="card" style={{ marginTop: 16, border: '1px solid var(--gold-200)', background: 'var(--gold-50)' }}>
+            <div className="card-header"><h3>🎂 近期生日</h3></div>
+            <div style={{ fontSize: 12 }}>
+              {birthdayList.map((p, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: i < birthdayList.length - 1 ? '1px solid var(--gray-100)' : 'none', alignItems: 'center' }}>
+                  <span className={`tag ${p.dayLabel === '今日' ? 'tag-overdue' : 'tag-pending-orange'}`} style={{ fontSize: 10 }}>{p.dayLabel}</span>
+                  <span style={{ fontWeight: 600 }}>{p.name}</span>
+                  <span style={{ color: 'var(--gray-400)' }}>{p.phone}</span>
+                  <span style={{ color: 'var(--gray-400)', marginLeft: 'auto', fontSize: 11 }}>{p.dob}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Follow-up Reminders Widget */}
+      {(() => {
+        const cons = data.consultations || [];
+        const todayStr = new Date().toISOString().substring(0, 10);
+        const in7 = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().substring(0, 10); })();
+        const overdueFollowUps = cons.filter(c => c.followUpDate && c.followUpDate < todayStr);
+        const todayFollowUps = cons.filter(c => c.followUpDate === todayStr);
+        const upcomingFollowUps = cons.filter(c => c.followUpDate > todayStr && c.followUpDate <= in7);
+        const allFollowUps = [...todayFollowUps, ...overdueFollowUps, ...upcomingFollowUps.slice(0, 5)];
+        if (!allFollowUps.length) return null;
+        return (
+          <div className="card" style={{ marginTop: 16, border: todayFollowUps.length + overdueFollowUps.length > 0 ? '2px solid var(--gold-200)' : undefined }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>📋 覆診提醒</h3>
+              <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
+                {overdueFollowUps.length > 0 && <span className="tag tag-overdue">{overdueFollowUps.length} 逾期</span>}
+                {todayFollowUps.length > 0 && <span className="tag tag-pending-orange">{todayFollowUps.length} 今日</span>}
+                {upcomingFollowUps.length > 0 && <span className="tag tag-paid">{upcomingFollowUps.length} 本週</span>}
+              </div>
+            </div>
+            <div style={{ fontSize: 12 }}>
+              {overdueFollowUps.slice(0, 5).map((c, i) => (
+                <div key={'o' + i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center' }}>
+                  <span style={{ color: '#dc2626', fontWeight: 700, fontSize: 10, minWidth: 36 }}>逾期</span>
+                  <span style={{ fontWeight: 600, minWidth: 60 }}>{c.patientName}</span>
+                  <span style={{ color: 'var(--gray-500)' }}>{c.followUpDate}</span>
+                  <span style={{ color: 'var(--gray-400)', flex: 1 }}>{c.doctor}</span>
+                  <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{c.followUpNotes || c.tcmDiagnosis || ''}</span>
+                </div>
+              ))}
+              {todayFollowUps.map((c, i) => (
+                <div key={'t' + i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center', background: 'var(--gold-50)' }}>
+                  <span style={{ color: '#d97706', fontWeight: 700, fontSize: 10, minWidth: 36 }}>今日</span>
+                  <span style={{ fontWeight: 600, minWidth: 60 }}>{c.patientName}</span>
+                  <span style={{ color: 'var(--gray-500)' }}>{c.followUpDate}</span>
+                  <span style={{ color: 'var(--gray-400)', flex: 1 }}>{c.doctor}</span>
+                  <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{c.followUpNotes || c.tcmDiagnosis || ''}</span>
+                </div>
+              ))}
+              {upcomingFollowUps.slice(0, 5).map((c, i) => (
+                <div key={'u' + i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--teal-600)', fontWeight: 700, fontSize: 10, minWidth: 36 }}>即將</span>
+                  <span style={{ fontWeight: 600, minWidth: 60 }}>{c.patientName}</span>
+                  <span style={{ color: 'var(--gray-500)' }}>{c.followUpDate}</span>
+                  <span style={{ color: 'var(--gray-400)', flex: 1 }}>{c.doctor}</span>
+                  <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{c.followUpNotes || c.tcmDiagnosis || ''}</span>
+                </div>
+              ))}
+            </div>
+            {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('emr')}>查看病歷 →</button>}
+          </div>
+        );
+      })()}
+
       {/* Recent Activity */}
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-header"><h3>🕐 近期活動</h3></div>

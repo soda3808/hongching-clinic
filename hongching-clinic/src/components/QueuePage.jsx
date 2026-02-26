@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { saveQueue, deleteQueue } from '../api';
 import { uid, DOCTORS, fmtM } from '../data';
 import { getServices } from '../config';
@@ -72,6 +72,39 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     inConsult: todayQueue.filter(r => r.status === 'in-consultation').length,
     completed: todayQueue.filter(r => r.status === 'completed').length,
   }), [todayQueue]);
+
+  // ── Wait Time Tracking (#57) ──
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick(v => v + 1), 60000); // Update every minute
+    return () => clearInterval(t);
+  }, []);
+
+  const getWaitMins = (item) => {
+    if (!item.registeredAt || item.status === 'completed') return null;
+    const [h, m] = item.registeredAt.split(':').map(Number);
+    const now = new Date();
+    const regTime = new Date(); regTime.setHours(h, m, 0, 0);
+    if (regTime > now) return 0;
+    return Math.floor((now - regTime) / 60000);
+  };
+
+  const avgWaitTime = useMemo(() => {
+    const completedToday = todayQueue.filter(r => r.status !== 'waiting' && r.registeredAt && r.arrivedAt);
+    if (!completedToday.length) return 0;
+    const waits = completedToday.map(r => {
+      const [rh, rm] = r.registeredAt.split(':').map(Number);
+      const [ah, am] = r.arrivedAt.split(':').map(Number);
+      return (ah * 60 + am) - (rh * 60 + rm);
+    }).filter(w => w >= 0);
+    return waits.length ? Math.round(waits.reduce((s, w) => s + w, 0) / waits.length) : 0;
+  }, [todayQueue]);
+
+  const estimatedWait = useMemo(() => {
+    const waitingCount = todayQueue.filter(r => r.status === 'waiting').length;
+    const avgConsultTime = avgWaitTime > 0 ? avgWaitTime : 15; // Default 15min
+    return waitingCount * avgConsultTime;
+  }, [todayQueue, avgWaitTime]);
 
   // Patient search autocomplete
   const handlePatientSearch = (val) => {
@@ -182,14 +215,97 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     setDeleteId(null);
   };
 
+  // ── Treatment Consent Form Printing (#56) ──
+  const printConsentForm = (item) => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>治療同意書</title>
+      <style>
+        @page { size: A4; margin: 20mm; }
+        body { font-family: 'Microsoft YaHei', 'PingFang TC', serif; font-size: 13px; color: #333; max-width: 650px; margin: 0 auto; padding: 20px; line-height: 1.8; }
+        h1 { text-align: center; font-size: 18px; margin-bottom: 2px; }
+        .en { text-align: center; font-size: 11px; color: #888; margin-bottom: 4px; }
+        h2 { text-align: center; font-size: 16px; border-bottom: 2px solid #0e7490; padding-bottom: 6px; margin-top: 16px; color: #0e7490; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0; font-size: 13px; }
+        .info-item { display: flex; gap: 8px; }
+        .info-label { font-weight: 700; min-width: 80px; }
+        .section { margin: 16px 0; }
+        .section-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; color: #0e7490; }
+        .terms { padding-left: 20px; }
+        .terms li { margin-bottom: 6px; }
+        .sign-area { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+        .sign-box { border-top: 1px solid #333; padding-top: 6px; text-align: center; font-size: 11px; color: #888; margin-top: 50px; }
+        .checkbox { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+        .checkbox input { margin-top: 4px; }
+        @media print { body { margin: 0; padding: 15mm; } }
+      </style>
+    </head><body>
+      <h1>康晴綜合醫療中心</h1>
+      <div class="en">HONG CHING MEDICAL CENTRE</div>
+      <h2>治療同意書 Treatment Consent Form</h2>
+
+      <div class="info-grid">
+        <div class="info-item"><span class="info-label">病人姓名：</span><span>${item.patientName}</span></div>
+        <div class="info-item"><span class="info-label">掛號編號：</span><span>${item.queueNo}</span></div>
+        <div class="info-item"><span class="info-label">就診日期：</span><span>${item.date}</span></div>
+        <div class="info-item"><span class="info-label">主診醫師：</span><span>${item.doctor}</span></div>
+        <div class="info-item"><span class="info-label">診所分店：</span><span>${item.store}</span></div>
+        <div class="info-item"><span class="info-label">治療項目：</span><span>${item.services}</span></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">一、治療說明</div>
+        <p>本人已獲醫師充分說明以下治療方案之內容、目的、預期效果及可能之風險：</p>
+        <ol class="terms">
+          <li><strong>中醫診症：</strong>包括望聞問切四診合參，辨證論治。</li>
+          <li><strong>針灸治療：</strong>使用一次性無菌毫針，可能出現輕微出血、瘀斑、暫時性疼痛等正常反應。</li>
+          <li><strong>推拿治療：</strong>以手法操作為主，治療後可能出現短暫酸痛，屬正常反應。</li>
+          <li><strong>中藥處方：</strong>根據辨證結果開具處方，應按醫囑服用，如有不適即時通知醫師。</li>
+          <li><strong>拔罐/刮痧：</strong>治療後可能出現皮膚瘀紅，一般數日內消退。</li>
+        </ol>
+      </div>
+
+      <div class="section">
+        <div class="section-title">二、注意事項</div>
+        <ol class="terms">
+          <li>如有藥物過敏、慢性疾病、懷孕或正在服用其他藥物，請務必告知醫師。</li>
+          <li>治療期間如感不適，請即時告知醫護人員。</li>
+          <li>請遵從醫囑按時覆診，如未能依時到診請提前通知。</li>
+          <li>中藥煎煮方法及服用時間請依照醫師指示。</li>
+        </ol>
+      </div>
+
+      <div class="section">
+        <div class="section-title">三、同意聲明</div>
+        <div class="checkbox">☐ 本人已閱讀並明白以上治療說明及注意事項。</div>
+        <div class="checkbox">☐ 本人同意接受上述治療方案。</div>
+        <div class="checkbox">☐ 本人同意診所收集及使用本人醫療記錄作治療用途。</div>
+      </div>
+
+      <div class="sign-area">
+        <div>
+          <div class="sign-box">病人簽名 Patient Signature</div>
+        </div>
+        <div>
+          <div class="sign-box">醫師簽名 Doctor Signature</div>
+        </div>
+      </div>
+      <div style="text-align:center; margin-top:20px; font-size:11px; color:#aaa">
+        日期：________________
+      </div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
   return (
     <>
       {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card teal"><div className="stat-label">今日掛號</div><div className="stat-value teal">{stats.total}</div></div>
-        <div className="stat-card gold"><div className="stat-label">等候中</div><div className="stat-value gold">{stats.waiting}</div></div>
+        <div className="stat-card gold"><div className="stat-label">等候中</div><div className="stat-value gold">{stats.waiting}</div>{estimatedWait > 0 && <div className="stat-sub">預計等 ~{estimatedWait} 分鐘</div>}</div>
         <div className="stat-card green"><div className="stat-label">診症中</div><div className="stat-value green">{stats.inConsult}</div></div>
-        <div className="stat-card red"><div className="stat-label">已完成</div><div className="stat-value red">{stats.completed}</div></div>
+        <div className="stat-card red"><div className="stat-label">平均等候</div><div className="stat-value red">{avgWaitTime} 分</div></div>
       </div>
 
       {/* Filter + Quick Register */}
@@ -239,7 +355,15 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                   <td>{r.doctor}</td>
                   <td style={{ fontSize: 11 }}>{r.services}</td>
                   <td className="money">{fmtM(r.serviceFee)}</td>
-                  <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{r.registeredAt}</td>
+                  <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>
+                    {r.registeredAt}
+                    {r.status === 'waiting' && (() => {
+                      const mins = getWaitMins(r);
+                      if (mins === null) return null;
+                      const color = mins > 60 ? '#dc2626' : mins > 30 ? '#d97706' : 'var(--teal-600)';
+                      return <div style={{ fontSize: 10, fontWeight: 700, color }}>{mins} 分鐘</div>;
+                    })()}
+                  </td>
                   <td><span className={`tag ${STATUS_TAGS[r.status] || ''}`}>{STATUS_LABELS[r.status]}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -258,6 +382,7 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                       {r.status === 'billing' && (
                         <button className="btn btn-green btn-sm" onClick={() => updateStatus(r, 'completed')}>完成</button>
                       )}
+                      <button className="btn btn-outline btn-sm" onClick={() => printConsentForm(r)} title="同意書">📄</button>
                       {r.status !== 'completed' && (
                         <button className="btn btn-outline btn-sm" onClick={() => setDeleteId(r.id)}>刪除</button>
                       )}

@@ -79,6 +79,11 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
     ).sort((a, b) => b.date.localeCompare(a.date));
   }, [detail, data.revenue]);
 
+  const bookingHistory = useMemo(() => {
+    if (!detail) return [];
+    return (data.bookings || []).filter(b => b.patientName === detail.name).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [detail, data.bookings]);
+
   return (
     <>
       {/* Stats */}
@@ -248,20 +253,21 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               </div>
             )}
             {/* ── Visit Timeline ── */}
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診時間線 ({consultations.length + visitHistory.length} 筆紀錄)</h4>
+            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診時間線 ({consultations.length + visitHistory.length + bookingHistory.length} 筆紀錄)</h4>
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-              {consultations.length === 0 && visitHistory.length === 0 && (
+              {consultations.length === 0 && visitHistory.length === 0 && bookingHistory.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24, fontSize: 13 }}>暫無就診紀錄</div>
               )}
               {/* Merge and sort by date */}
               {[
                 ...consultations.map(c => ({ type: 'emr', date: c.date, data: c })),
                 ...visitHistory.filter(r => !consultations.find(c => c.date === r.date && c.patientName === r.name)).map(r => ({ type: 'rev', date: String(r.date).substring(0, 10), data: r })),
+                ...bookingHistory.filter(b => !consultations.find(c => c.date === b.date)).map(b => ({ type: 'booking', date: b.date, data: b })),
               ].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--gray-100)' }}>
                   {/* Timeline dot */}
                   <div style={{ minWidth: 44, textAlign: 'center' }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.type === 'emr' ? '#0e7490' : '#d97706', margin: '4px auto 4px' }} />
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.type === 'emr' ? '#0e7490' : item.type === 'booking' ? '#7c3aed' : '#d97706', margin: '4px auto 4px' }} />
                     <div style={{ fontSize: 10, color: '#999' }}>{item.date}</div>
                   </div>
                   {/* Content */}
@@ -283,6 +289,12 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                         {item.data.subjective && <div style={{ color: '#888', marginTop: 2 }}>主訴：{item.data.subjective}</div>}
                         {item.data.followUpDate && <div style={{ color: '#d97706' }}>覆診：{item.data.followUpDate}</div>}
                       </>
+                    ) : item.type === 'booking' ? (
+                      <div>
+                        <span style={{ fontWeight: 600, color: '#7c3aed' }}>📅 預約 — {item.data.type}</span>
+                        <span style={{ marginLeft: 8 }}>{item.data.time} | {item.data.doctor} | {item.data.store}</span>
+                        <span style={{ marginLeft: 8, fontSize: 11 }} className={`tag ${item.data.status === 'completed' ? 'tag-paid' : item.data.status === 'cancelled' ? 'tag-overdue' : 'tag-other'}`}>{item.data.status === 'completed' ? '已完成' : item.data.status === 'cancelled' ? '已取消' : item.data.status === 'no-show' ? '未到' : '已確認'}</span>
+                      </div>
                     ) : (
                       <div>
                         <span style={{ fontWeight: 600, color: '#92400e' }}>{item.data.item}</span>
