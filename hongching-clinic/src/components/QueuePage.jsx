@@ -176,15 +176,65 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     setShowModal(false);
   };
 
-  // Status transitions
+  // Status transitions with full timestamp tracking
   const updateStatus = async (item, newStatus) => {
     const updated = { ...item, status: newStatus };
-    if (newStatus === 'in-consultation') updated.arrivedAt = getTimeNow();
+    if (newStatus === 'in-consultation' && !updated.arrivedAt) updated.arrivedAt = getTimeNow();
+    if (newStatus === 'dispensing') updated.dispensingAt = getTimeNow();
+    if (newStatus === 'billing') updated.billingAt = getTimeNow();
     if (newStatus === 'completed') updated.completedAt = getTimeNow();
     await saveQueue(updated);
     setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q) });
     showToast(`${item.queueNo} ${STATUS_LABELS[newStatus]}`);
   };
+
+  // ── Queue Analytics ──
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const analytics = useMemo(() => {
+    const completed = todayQueue.filter(r => r.status === 'completed' && r.registeredAt && r.completedAt);
+    const timeDiff = (from, to) => {
+      if (!from || !to) return null;
+      const [fh, fm] = from.split(':').map(Number);
+      const [th, tm] = to.split(':').map(Number);
+      return (th * 60 + tm) - (fh * 60 + fm);
+    };
+    const waitTimes = completed.map(r => timeDiff(r.registeredAt, r.arrivedAt)).filter(t => t !== null && t >= 0);
+    const consultTimes = completed.map(r => timeDiff(r.arrivedAt, r.dispensingAt || r.billingAt || r.completedAt)).filter(t => t !== null && t >= 0);
+    const totalTimes = completed.map(r => timeDiff(r.registeredAt, r.completedAt)).filter(t => t !== null && t >= 0);
+    const avg = arr => arr.length ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : 0;
+
+    // Peak hours
+    const hourCounts = {};
+    todayQueue.forEach(r => {
+      if (r.registeredAt) {
+        const h = r.registeredAt.split(':')[0];
+        hourCounts[h] = (hourCounts[h] || 0) + 1;
+      }
+    });
+    const peakHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // By doctor
+    const byDoctor = {};
+    completed.forEach(r => {
+      if (!byDoctor[r.doctor]) byDoctor[r.doctor] = { count: 0, totalTime: 0 };
+      byDoctor[r.doctor].count++;
+      const ct = timeDiff(r.arrivedAt, r.dispensingAt || r.billingAt || r.completedAt);
+      if (ct > 0) byDoctor[r.doctor].totalTime += ct;
+    });
+
+    return {
+      completedCount: completed.length,
+      avgWait: avg(waitTimes),
+      avgConsult: avg(consultTimes),
+      avgTotal: avg(totalTimes),
+      maxWait: waitTimes.length ? Math.max(...waitTimes) : 0,
+      peakHour: peakHour ? `${peakHour[0]}:00 (${peakHour[1]}人)` : '-',
+      byDoctor: Object.entries(byDoctor).map(([doc, d]) => ({
+        doctor: doc, count: d.count, avgConsult: d.count ? Math.round(d.totalTime / d.count) : 0,
+      })),
+      hourCounts,
+    };
+  }, [todayQueue]);
 
   // Start consultation — navigate to EMR with pre-filled data
   const startConsultation = async (item) => {
@@ -394,6 +444,48 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
           </table>
         </div>
       </div>
+
+      {/* Queue Analytics */}
+      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="btn btn-outline btn-sm" onClick={() => setShowAnalytics(!showAnalytics)}>{showAnalytics ? '隱藏' : '📊'} 排隊分析</button>
+        {showAnalytics && <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>今日已完成 {analytics.completedCount} 人</span>}
+      </div>
+      {showAnalytics && (
+        <div className="card">
+          <div className="card-header"><h3>📊 今日排隊分析</h3></div>
+          <div className="stats-grid" style={{ marginBottom: 12 }}>
+            <div className="stat-card teal"><div className="stat-label">平均等候</div><div className="stat-value teal">{analytics.avgWait} 分</div></div>
+            <div className="stat-card green"><div className="stat-label">平均診症</div><div className="stat-value green">{analytics.avgConsult} 分</div></div>
+            <div className="stat-card gold"><div className="stat-label">平均總時</div><div className="stat-value gold">{analytics.avgTotal} 分</div></div>
+            <div className="stat-card red"><div className="stat-label">最長等候</div><div className="stat-value red">{analytics.maxWait} 分</div></div>
+          </div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12 }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--teal-700)' }}>醫師效率</div>
+              {analytics.byDoctor.map(d => (
+                <div key={d.doctor} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--gray-100)' }}>
+                  <span style={{ fontWeight: 600 }}>{d.doctor}</span>
+                  <span>{d.count} 人 | 平均 {d.avgConsult} 分/人</span>
+                </div>
+              ))}
+              {analytics.byDoctor.length === 0 && <div style={{ color: 'var(--gray-400)' }}>暫無數據</div>}
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--teal-700)' }}>掛號時段分佈</div>
+              {Object.entries(analytics.hourCounts).sort().map(([h, c]) => (
+                <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ minWidth: 40, fontWeight: 600 }}>{h}:00</span>
+                  <div style={{ flex: 1, height: 14, background: 'var(--gray-100)', borderRadius: 4 }}>
+                    <div style={{ width: `${(c / Math.max(...Object.values(analytics.hourCounts), 1)) * 100}%`, height: '100%', background: 'var(--teal-500)', borderRadius: 4 }} />
+                  </div>
+                  <span style={{ minWidth: 20, textAlign: 'right' }}>{c}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 8, color: 'var(--gray-500)' }}>高峰時段：{analytics.peakHour}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Registration Modal */}
       {showModal && (

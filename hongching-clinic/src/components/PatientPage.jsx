@@ -11,6 +11,9 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [filterStore, setFilterStore] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [detail, setDetail] = useState(null);
+  const [showImport, setShowImport] = useState(false);
+  const [importData, setImportData] = useState([]);
+  const [importErrors, setImportErrors] = useState([]);
 
   const patients = data.patients || [];
   const thisMonth = new Date().toISOString().substring(0, 7);
@@ -70,6 +73,71 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
     setData({ ...data, patients: [...patients, record] });
     setForm({ ...EMPTY });
     showToast('已新增病人');
+  };
+
+  // ── CSV Import ──
+  const handleCSVFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target.result;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) { showToast('CSV 格式錯誤：至少需要標題行 + 1 筆資料'); return; }
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+      const nameIdx = headers.findIndex(h => /姓名|name/i.test(h));
+      const phoneIdx = headers.findIndex(h => /電話|phone|tel/i.test(h));
+      const genderIdx = headers.findIndex(h => /性別|gender/i.test(h));
+      const dobIdx = headers.findIndex(h => /出生|dob|birth/i.test(h));
+      const allergyIdx = headers.findIndex(h => /過敏|allerg/i.test(h));
+      const doctorIdx = headers.findIndex(h => /醫師|doctor/i.test(h));
+      const storeIdx = headers.findIndex(h => /店舖|store|分店/i.test(h));
+      if (nameIdx === -1) { showToast('CSV 需包含「姓名」或「name」欄位'); return; }
+
+      const parsed = []; const errs = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim().replace(/"/g, ''));
+        const name = cols[nameIdx] || '';
+        const phone = phoneIdx >= 0 ? cols[phoneIdx] : '';
+        if (!name) { errs.push({ row: i + 1, msg: '姓名為空' }); continue; }
+        const isDupe = patients.some(p => p.phone && phone && p.phone === phone);
+        parsed.push({
+          name, phone,
+          gender: genderIdx >= 0 ? cols[genderIdx] || '男' : '男',
+          dob: dobIdx >= 0 ? cols[dobIdx] || '' : '',
+          allergies: allergyIdx >= 0 ? cols[allergyIdx] || '' : '',
+          doctor: doctorIdx >= 0 ? cols[doctorIdx] || DOCTORS[0] : DOCTORS[0],
+          store: storeIdx >= 0 ? cols[storeIdx] || '宋皇臺' : '宋皇臺',
+          isDupe, _row: i + 1,
+        });
+      }
+      setImportData(parsed);
+      setImportErrors(errs);
+      setShowImport(true);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleImportConfirm = async () => {
+    const toImport = importData.filter(r => !r.isDupe);
+    if (!toImport.length) { showToast('沒有可匯入的資料'); return; }
+    const now = new Date().toISOString().substring(0, 10);
+    const newPatients = [];
+    for (const r of toImport) {
+      const record = {
+        id: uid(), name: r.name, phone: r.phone, gender: r.gender, dob: r.dob,
+        allergies: r.allergies, doctor: r.doctor, store: r.store, address: '', notes: '',
+        chronicConditions: '', medications: '', bloodType: '',
+        firstVisit: now, lastVisit: now, totalVisits: 0, totalSpent: 0, status: 'active', createdAt: now,
+      };
+      await savePatient(record);
+      newPatients.push(record);
+    }
+    setData({ ...data, patients: [...patients, ...newPatients] });
+    showToast(`已匯入 ${newPatients.length} 位病人`);
+    setShowImport(false);
+    setImportData([]);
   };
 
   const visitHistory = useMemo(() => {
@@ -147,9 +215,60 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             <div><label>主診醫師</label><select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
             <div><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
           </div>
-          <button type="submit" className="btn btn-teal">新增病人</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="submit" className="btn btn-teal">新增病人</button>
+            <label className="btn btn-outline" style={{ cursor: 'pointer' }}>
+              📥 CSV 匯入
+              <input type="file" accept=".csv" onChange={handleCSVFile} style={{ display: 'none' }} />
+            </label>
+          </div>
         </form>
       </div>
+
+      {/* CSV Import Modal */}
+      {showImport && (
+        <div className="modal-overlay" onClick={() => setShowImport(false)} role="dialog" aria-modal="true">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>CSV 匯入預覽</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowImport(false)}>✕</button>
+            </div>
+            <div style={{ marginBottom: 12, fontSize: 12, display: 'flex', gap: 16 }}>
+              <span>總共 <strong>{importData.length}</strong> 筆</span>
+              <span style={{ color: 'var(--green-600)' }}>可匯入 <strong>{importData.filter(r => !r.isDupe).length}</strong></span>
+              <span style={{ color: 'var(--red-500)' }}>重複 <strong>{importData.filter(r => r.isDupe).length}</strong></span>
+              {importErrors.length > 0 && <span style={{ color: '#d97706' }}>錯誤 <strong>{importErrors.length}</strong></span>}
+            </div>
+            <div className="table-wrap" style={{ maxHeight: 350, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th>狀態</th><th>姓名</th><th>電話</th><th>性別</th><th>出生日期</th><th>醫師</th><th>店舖</th></tr></thead>
+                <tbody>
+                  {importData.map((r, i) => (
+                    <tr key={i} style={{ opacity: r.isDupe ? 0.5 : 1 }}>
+                      <td>{r.isDupe ? <span className="tag tag-overdue" style={{ fontSize: 10 }}>重複</span> : <span className="tag tag-paid" style={{ fontSize: 10 }}>✓</span>}</td>
+                      <td style={{ fontWeight: 600 }}>{r.name}</td>
+                      <td>{r.phone}</td>
+                      <td>{r.gender}</td>
+                      <td>{r.dob || '-'}</td>
+                      <td>{r.doctor}</td>
+                      <td>{r.store}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {importErrors.length > 0 && (
+              <div style={{ marginTop: 8, padding: 8, background: '#fef3c7', borderRadius: 6, fontSize: 11 }}>
+                {importErrors.map((e, i) => <div key={i}>第 {e.row} 行：{e.msg}</div>)}
+              </div>
+            )}
+            <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+              <button className="btn btn-teal" onClick={handleImportConfirm}>確認匯入 ({importData.filter(r => !r.isDupe).length} 筆)</button>
+              <button className="btn btn-outline" onClick={() => setShowImport(false)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search & Filter */}
       <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -203,6 +322,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         const tier = getMembershipTier(detail.totalSpent || 0);
         const consultations = (data.consultations || []).filter(c => c.patientId === detail.id || c.patientName === detail.name).sort((a, b) => b.date.localeCompare(a.date));
         const activeEnrollments = (data.enrollments || []).filter(e => e.patientId === detail.id && e.status === 'active');
+        const noShowCount = (data.bookings || []).filter(b => b.status === 'no-show' && (b.patientPhone === detail.phone || b.patientName === detail.name)).length;
         return (
         <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="病人詳情">
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 750 }}>
@@ -212,6 +332,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 <span className="membership-badge" style={{ color: tier.color, background: tier.bg, border: `1px solid ${tier.color}` }}>
                   {tier.name}{tier.discount > 0 ? ` ${tier.discount*100}%折扣` : ''}
                 </span>
+                {noShowCount > 0 && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: noShowCount >= 3 ? '#dc262618' : '#d9770618', color: noShowCount >= 3 ? '#dc2626' : '#d97706', fontWeight: 700 }}>NS×{noShowCount} {noShowCount >= 3 ? '高風險' : ''}</span>}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {onNavigate && <button className="btn btn-teal btn-sm" onClick={() => { setDetail(null); onNavigate('emr'); }}>開診</button>}

@@ -42,6 +42,7 @@ const REPORT_GROUPS = [
     { id: 'drugsafety', icon: '⚠️', label: '藥物安全量' },
     { id: 'serviceusage', icon: '🔧', label: '服務頻率' },
     { id: 'packagereport', icon: '🎫', label: '醫療計劃' },
+    { id: 'close', icon: '✅', label: '月結對帳' },
   ]},
 ];
 
@@ -620,7 +621,7 @@ export default function Reports({ data }) {
     setTimeout(() => w.print(), 300);
   };
 
-  const showMonthFilter = ['monthly', 'doctor', 'patient', 'consultrate', 'regstats', 'treatment', 'serviceusage', 'paymethod'].includes(reportType);
+  const showMonthFilter = ['monthly', 'doctor', 'patient', 'consultrate', 'regstats', 'treatment', 'serviceusage', 'paymethod', 'close'].includes(reportType);
 
   return (
     <>
@@ -681,6 +682,138 @@ export default function Reports({ data }) {
       {reportType === 'kpi' && <KPIDashboard data={data} />}
       {reportType === 'drugsafety' && <DrugSafetyReport data={data} />}
       {reportType === 'clinical' && <ClinicalAnalytics data={data} />}
+      {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>
+  );
+}
+
+// ── Monthly Close Checklist ──
+function MonthlyClose({ data, selectedMonth }) {
+  const [checks, setChecks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_month_close') || '{}'); } catch { return {}; }
+  });
+
+  const key = selectedMonth;
+  const monthChecks = checks[key] || {};
+
+  const toggleCheck = (id) => {
+    const updated = { ...checks, [key]: { ...monthChecks, [id]: monthChecks[id] ? null : new Date().toISOString() } };
+    setChecks(updated);
+    localStorage.setItem('hcmc_month_close', JSON.stringify(updated));
+  };
+
+  const revenue = (data.revenue || []).filter(r => getMonth(r.date) === selectedMonth);
+  const expenses = (data.expenses || []).filter(r => getMonth(r.date) === selectedMonth);
+  const queue = (data.queue || []).filter(q => (q.date || '').substring(0, 7) === selectedMonth);
+  const arap = data.arap || [];
+  const consultations = (data.consultations || []).filter(c => getMonth(c.date) === selectedMonth);
+
+  const totalRev = revenue.reduce((s, r) => s + Number(r.amount), 0);
+  const totalExp = expenses.reduce((s, r) => s + Number(r.amount), 0);
+  const completedQueue = queue.filter(q => q.status === 'completed').length;
+  const totalQueue = queue.length;
+  const pendingAR = arap.filter(r => r.type === 'receivable' && r.status !== '已收' && r.dueDate && r.dueDate.substring(0, 7) <= selectedMonth);
+  const overdueAR = pendingAR.filter(r => r.dueDate < new Date().toISOString().substring(0, 10));
+
+  // Payment reconciliation
+  const byPayment = {};
+  revenue.forEach(r => { byPayment[r.payment || '未知'] = (byPayment[r.payment || '未知'] || 0) + Number(r.amount); });
+
+  const CHECKLIST = [
+    { id: 'rev_review', label: '營業額已核對', desc: `本月營業 ${fmtM(totalRev)} (${revenue.length} 筆)`, auto: revenue.length > 0 },
+    { id: 'exp_review', label: '開支已核對', desc: `本月開支 ${fmtM(totalExp)} (${expenses.length} 筆)`, auto: expenses.length > 0 },
+    { id: 'queue_match', label: '排隊紀錄已匹配', desc: `完成 ${completedQueue}/${totalQueue} 筆`, auto: completedQueue === totalQueue && totalQueue > 0 },
+    { id: 'arap_review', label: '應收應付已覆核', desc: overdueAR.length > 0 ? `⚠️ ${overdueAR.length} 筆逾期` : '無逾期帳項', auto: overdueAR.length === 0 },
+    { id: 'payment_reconcile', label: '付款方式已對帳', desc: Object.entries(byPayment).map(([k, v]) => `${k}: ${fmtM(v)}`).join(' | ') },
+    { id: 'inventory_check', label: '庫存已盤點', desc: '確認系統庫存與實際相符' },
+    { id: 'consult_review', label: '診症紀錄已覆核', desc: `本月 ${consultations.length} 筆診症` },
+    { id: 'manager_signoff', label: '管理層簽核', desc: '確認本月結已完成' },
+  ];
+
+  const completedCount = CHECKLIST.filter(c => monthChecks[c.id]).length;
+  const allDone = completedCount === CHECKLIST.length;
+
+  return (
+    <div className="card">
+      <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h3>✅ {monthLabel(selectedMonth)} 月結對帳</h3>
+        <span style={{ fontSize: 12, fontWeight: 700, color: allDone ? '#16a34a' : '#d97706' }}>
+          {completedCount}/{CHECKLIST.length} {allDone ? '已完成' : '進行中'}
+        </span>
+      </div>
+
+      {/* Progress Bar */}
+      <div style={{ padding: '0 16px 12px' }}>
+        <div style={{ height: 8, background: 'var(--gray-100)', borderRadius: 4, overflow: 'hidden' }}>
+          <div style={{ width: `${(completedCount / CHECKLIST.length) * 100}%`, height: '100%', background: allDone ? '#16a34a' : '#0e7490', borderRadius: 4, transition: 'width 0.3s' }} />
+        </div>
+      </div>
+
+      {/* Summary Stats */}
+      <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, fontSize: 12 }}>
+        <div style={{ padding: 10, background: 'var(--teal-50)', borderRadius: 6, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: 'var(--teal-600)', fontWeight: 600 }}>營業額</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--teal-700)' }}>{fmtM(totalRev)}</div>
+        </div>
+        <div style={{ padding: 10, background: 'var(--red-50)', borderRadius: 6, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: 'var(--red-600)', fontWeight: 600 }}>開支</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--red-600)' }}>{fmtM(totalExp)}</div>
+        </div>
+        <div style={{ padding: 10, background: totalRev - totalExp >= 0 ? 'var(--green-50)' : 'var(--red-50)', borderRadius: 6, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: totalRev - totalExp >= 0 ? 'var(--green-600)' : 'var(--red-600)', fontWeight: 600 }}>淨利潤</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: totalRev - totalExp >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>{fmtM(totalRev - totalExp)}</div>
+        </div>
+        <div style={{ padding: 10, background: 'var(--gold-50)', borderRadius: 6, textAlign: 'center' }}>
+          <div style={{ fontSize: 10, color: 'var(--gold-700)', fontWeight: 600 }}>利潤率</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--gold-700)' }}>{totalRev ? ((totalRev - totalExp) / totalRev * 100).toFixed(1) : 0}%</div>
+        </div>
+      </div>
+
+      {/* Checklist */}
+      <div style={{ padding: '0 16px 16px' }}>
+        {CHECKLIST.map(c => (
+          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid var(--gray-100)', cursor: 'pointer' }}
+            onClick={() => toggleCheck(c.id)}>
+            <div style={{
+              width: 24, height: 24, borderRadius: 6,
+              border: monthChecks[c.id] ? '2px solid #16a34a' : '2px solid var(--gray-300)',
+              background: monthChecks[c.id] ? '#16a34a' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              {monthChecks[c.id] && <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>✓</span>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: monthChecks[c.id] ? 'var(--green-700)' : 'var(--gray-800)', textDecoration: monthChecks[c.id] ? 'line-through' : 'none' }}>{c.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>{c.desc}</div>
+            </div>
+            {monthChecks[c.id] && (
+              <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>
+                {new Date(monthChecks[c.id]).toLocaleString('zh-HK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Payment Reconciliation */}
+      <div style={{ padding: '0 16px 16px' }}>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--teal-700)' }}>付款方式對帳</div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>付款方式</th><th style={{ textAlign: 'right' }}>金額</th><th style={{ textAlign: 'right' }}>筆數</th><th style={{ textAlign: 'right' }}>佔比</th></tr></thead>
+            <tbody>
+              {Object.entries(byPayment).sort((a, b) => b[1] - a[1]).map(([method, amount]) => (
+                <tr key={method}>
+                  <td style={{ fontWeight: 600 }}>{method}</td>
+                  <td className="money">{fmtM(amount)}</td>
+                  <td style={{ textAlign: 'right' }}>{revenue.filter(r => (r.payment || '未知') === method).length}</td>
+                  <td style={{ textAlign: 'right', color: 'var(--gray-500)' }}>{totalRev ? (amount / totalRev * 100).toFixed(1) : 0}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   );
 }

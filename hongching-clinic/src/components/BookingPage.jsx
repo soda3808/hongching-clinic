@@ -46,6 +46,24 @@ export default function BookingPage({ data, setData, showToast }) {
     noshow: todayBookings.filter(b => b.status === 'no-show').length,
   }), [todayBookings]);
 
+  // ── No-Show Risk Tracking ──
+  const noShowCounts = useMemo(() => {
+    const counts = {};
+    bookings.filter(b => b.status === 'no-show').forEach(b => {
+      const key = b.patientPhone || b.patientName;
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  }, [bookings]);
+
+  const getNoShowRisk = (b) => {
+    const key = b.patientPhone || b.patientName;
+    const count = noShowCounts[key] || 0;
+    if (count >= 3) return { level: 'high', count, color: '#dc2626', label: '高風險' };
+    if (count >= 1) return { level: 'warn', count, color: '#d97706', label: '注意' };
+    return null;
+  };
+
   // Smart scheduling: analyze busiest hours
   const smartHints = useMemo(() => {
     const hourCounts = {};
@@ -315,7 +333,10 @@ export default function BookingPage({ data, setData, showToast }) {
                     <tr key={b.id} style={b.status === 'cancelled' ? { opacity: 0.4 } : {}}>
                       <td>{b.date}</td>
                       <td>{b.time}</td>
-                      <td style={{ fontWeight: 600 }}>{b.patientName}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {b.patientName}
+                        {(() => { const risk = getNoShowRisk(b); return risk ? <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 5px', borderRadius: 8, background: risk.color + '18', color: risk.color, fontWeight: 700 }}>NS×{risk.count}</span> : null; })()}
+                      </td>
                       <td>{b.patientPhone}</td>
                       <td>{b.doctor}</td>
                       <td>{b.store}</td>

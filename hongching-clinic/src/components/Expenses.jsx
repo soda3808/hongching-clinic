@@ -337,6 +337,39 @@ export default function Expenses({ data, setData, showToast }) {
         </div>
       )}
 
+      {/* Store Allocation Summary */}
+      {(() => {
+        const tkwDirect = list.filter(r => r.store === '宋皇臺').reduce((s, r) => s + Number(r.amount), 0);
+        const peDirect = list.filter(r => r.store === '太子').reduce((s, r) => s + Number(r.amount), 0);
+        const shared = list.filter(r => r.store === '兩店共用').reduce((s, r) => s + Number(r.amount), 0);
+        if (!shared && !tkwDirect && !peDirect) return null;
+        const sharedHalf = shared / 2;
+        return (
+          <div className="card" style={{ padding: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🏢 分店開支分攤</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 12 }}>
+              <div style={{ padding: 10, background: 'var(--teal-50)', borderRadius: 8, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'var(--teal-600)', fontWeight: 600 }}>宋皇臺</div>
+                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>直接：{fmtM(tkwDirect)}</div>
+                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>分攤：{fmtM(sharedHalf)}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)', marginTop: 4 }}>{fmtM(tkwDirect + sharedHalf)}</div>
+              </div>
+              <div style={{ padding: 10, background: 'var(--gold-50)', borderRadius: 8, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'var(--gold-700)', fontWeight: 600 }}>太子</div>
+                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>直接：{fmtM(peDirect)}</div>
+                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>分攤：{fmtM(sharedHalf)}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gold-700)', marginTop: 4 }}>{fmtM(peDirect + sharedHalf)}</div>
+              </div>
+              <div style={{ padding: 10, background: 'var(--gray-50)', borderRadius: 8, textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: 'var(--gray-500)', fontWeight: 600 }}>兩店共用</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-600)', marginTop: 4 }}>{fmtM(shared)}</div>
+                <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>各分攤 50%</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Records */}
       <div className="card">
         <div className="card-header">

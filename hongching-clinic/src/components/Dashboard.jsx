@@ -543,6 +543,122 @@ export default function Dashboard({ data, onNavigate }) {
         );
       })()}
 
+      {/* ARAP & Queue Alerts */}
+      <div className="grid-2" style={{ marginTop: 16 }}>
+        {/* Today Queue Status */}
+        <div className="card">
+          <div className="card-header"><h3>🎫 今日排隊</h3></div>
+          {(() => {
+            const queue = data.queue || [];
+            const todayStr = new Date().toISOString().substring(0, 10);
+            const todayQ = queue.filter(q => q.date === todayStr);
+            const waiting = todayQ.filter(q => q.status === 'waiting').length;
+            const inConsult = todayQ.filter(q => q.status === 'in-consultation').length;
+            const dispensing = todayQ.filter(q => q.status === 'dispensing').length;
+            const completed = todayQ.filter(q => q.status === 'completed').length;
+            return (
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 6, marginBottom: 12 }}>
+                  <div style={{ textAlign: 'center', padding: 8, background: 'var(--gold-50)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gold-700)' }}>{waiting}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>等候中</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: 8, background: 'var(--teal-50)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)' }}>{inConsult}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>診症中</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: 8, background: 'var(--gray-50)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-600)' }}>{dispensing}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>配藥中</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: 8, background: 'var(--green-50)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--green-700)' }}>{completed}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>已完成</div>
+                  </div>
+                </div>
+                {todayQ.filter(q => q.status === 'waiting').slice(0, 5).map(q => (
+                  <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--gray-100)', fontSize: 12 }}>
+                    <span style={{ fontWeight: 700, color: 'var(--teal-700)' }}>{q.queueNo}</span>
+                    <span>{q.patientName}</span>
+                    <span style={{ color: 'var(--gray-400)' }}>{q.doctor}</span>
+                    <span style={{ color: 'var(--gray-400)' }}>{q.registeredAt}</span>
+                  </div>
+                ))}
+                {todayQ.length === 0 && <div style={{ padding: 12, textAlign: 'center', color: 'var(--gray-400)', fontSize: 12 }}>暫無排隊</div>}
+                {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('queue')}>管理排隊 →</button>}
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* ARAP Alerts */}
+        <div className="card">
+          <div className="card-header"><h3>📑 應收應付提醒</h3></div>
+          {(() => {
+            const arap = data.arap || [];
+            const todayStr = new Date().toISOString().substring(0, 10);
+            const pendingAR = arap.filter(r => r.type === 'receivable' && r.status !== '已收');
+            const pendingAP = arap.filter(r => r.type === 'payable' && r.status !== '已付');
+            const overdueAR = pendingAR.filter(r => r.dueDate && r.dueDate < todayStr);
+            const overdueAP = pendingAP.filter(r => r.dueDate && r.dueDate < todayStr);
+            const totalAR = pendingAR.reduce((s, r) => s + Number(r.amount), 0);
+            const totalAP = pendingAP.reduce((s, r) => s + Number(r.amount), 0);
+            return (
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div style={{ padding: 10, background: 'var(--teal-50)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 10, color: 'var(--teal-600)', fontWeight: 600 }}>待收</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)' }}>{fmtM(totalAR)}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>{pendingAR.length} 筆</div>
+                  </div>
+                  <div style={{ padding: 10, background: 'var(--red-50)', borderRadius: 6 }}>
+                    <div style={{ fontSize: 10, color: 'var(--red-600)', fontWeight: 600 }}>待付</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--red-600)' }}>{fmtM(totalAP)}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>{pendingAP.length} 筆</div>
+                  </div>
+                </div>
+                {(overdueAR.length > 0 || overdueAP.length > 0) && (
+                  <div style={{ padding: 8, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, marginBottom: 8, fontSize: 12 }}>
+                    <strong style={{ color: '#dc2626' }}>⚠️ 逾期</strong>
+                    {overdueAR.length > 0 && <div style={{ color: '#991b1b' }}>應收 {overdueAR.length} 筆 ({fmtM(overdueAR.reduce((s, r) => s + Number(r.amount), 0))})</div>}
+                    {overdueAP.length > 0 && <div style={{ color: '#991b1b' }}>應付 {overdueAP.length} 筆 ({fmtM(overdueAP.reduce((s, r) => s + Number(r.amount), 0))})</div>}
+                  </div>
+                )}
+                {pendingAR.length === 0 && pendingAP.length === 0 && <div style={{ padding: 12, textAlign: 'center', color: 'var(--green-600)', fontSize: 13 }}>✅ 無待處理帳項</div>}
+                {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('arap')}>查看帳項 →</button>}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Today's Schedule */}
+      {(() => {
+        const bks = data.bookings || [];
+        const todayStr = new Date().toISOString().substring(0, 10);
+        const todayBks = bks.filter(b => b.date === todayStr && b.status !== 'cancelled').sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        if (!todayBks.length) return null;
+        return (
+          <div className="card" style={{ marginTop: 16 }}>
+            <div className="card-header"><h3>📅 今日預約 ({todayBks.length})</h3></div>
+            <div style={{ fontSize: 12, maxHeight: 250, overflowY: 'auto' }}>
+              {todayBks.map(b => (
+                <div key={b.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 700, minWidth: 42, color: 'var(--teal-700)' }}>{b.time}</span>
+                  <span style={{ fontWeight: 600, minWidth: 60 }}>{b.patientName}</span>
+                  <span style={{ color: 'var(--gray-400)' }}>{b.doctor}</span>
+                  <span style={{ color: 'var(--gray-400)' }}>{b.store}</span>
+                  <span className={`tag ${b.status === 'completed' ? 'tag-paid' : b.status === 'confirmed' ? 'tag-fps' : b.status === 'no-show' ? 'tag-overdue' : 'tag-pending-orange'}`} style={{ fontSize: 10 }}>
+                    {b.status === 'completed' ? '已完成' : b.status === 'confirmed' ? '已確認' : b.status === 'no-show' ? '未到' : '待確認'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('booking')}>管理預約 →</button>}
+          </div>
+        );
+      })()}
+
       {/* Recent Activity */}
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-header"><h3>🕐 近期活動</h3></div>

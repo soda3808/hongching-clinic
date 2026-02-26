@@ -248,6 +248,56 @@ export default function CRMPage({ data, setData, showToast }) {
   // RENDER
   // ═══════════════════════════════
 
+  // ── Patient Engagement Score & Lifecycle ──
+  const engagementData = useMemo(() => {
+    const today = new Date();
+    const todayStr = today.toISOString().substring(0, 10);
+    const cons = data.consultations || [];
+    const rev = data.revenue || [];
+
+    return patients.map(p => {
+      const visits = cons.filter(c => c.patientId === p.id || c.patientName === p.name).length;
+      const spent = Number(p.totalSpent || 0);
+      const daysSinceVisit = p.lastVisit ? Math.floor((today - new Date(p.lastVisit)) / 86400000) : 999;
+
+      // Engagement score (0-100)
+      const visitScore = Math.min(visits * 8, 40); // max 40
+      const spendScore = Math.min(spent / 500, 30); // max 30 ($15k = 30)
+      const recencyScore = daysSinceVisit <= 30 ? 30 : daysSinceVisit <= 60 ? 20 : daysSinceVisit <= 90 ? 10 : 0;
+      const score = Math.round(visitScore + spendScore + recencyScore);
+
+      // Lifecycle stage
+      let stage, stageColor;
+      if (daysSinceVisit <= 30) { stage = '活躍'; stageColor = '#16a34a'; }
+      else if (daysSinceVisit <= 60) { stage = '正常'; stageColor = '#0e7490'; }
+      else if (daysSinceVisit <= 90) { stage = '流失風險'; stageColor = '#d97706'; }
+      else if (daysSinceVisit <= 180) { stage = '沉睡'; stageColor = '#dc2626'; }
+      else { stage = '已流失'; stageColor = '#991b1b'; }
+
+      return { ...p, score, stage, stageColor, daysSinceVisit, visits };
+    }).sort((a, b) => b.score - a.score);
+  }, [patients, data.consultations]);
+
+  const lifecycleSummary = useMemo(() => {
+    const summary = {};
+    engagementData.forEach(p => { summary[p.stage] = (summary[p.stage] || 0) + 1; });
+    return summary;
+  }, [engagementData]);
+
+  // Batch WhatsApp
+  const [batchSegment, setBatchSegment] = useState('流失風險');
+  const handleBatchSend = (segment, template) => {
+    const targets = engagementData.filter(p => p.stage === segment && p.phone);
+    if (!targets.length) { showToast('此群組暫無病人'); return; }
+    targets.slice(0, 10).forEach((p, i) => {
+      setTimeout(() => {
+        const text = template.replace('{name}', p.name);
+        openWhatsApp(p.phone, text);
+      }, i * 1500);
+    });
+    showToast(`已開啟 WhatsApp（共 ${Math.min(targets.length, 10)} 個）`);
+  };
+
   return (
     <div>
       <h2 style={{ marginBottom: 12 }}>WhatsApp CRM</h2>
@@ -259,6 +309,7 @@ export default function CRMPage({ data, setData, showToast }) {
         </button>
         <button className={`tab-btn${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>對話</button>
         <button className={`tab-btn${tab === 'quick' ? ' active' : ''}`} onClick={() => setTab('quick')}>快速操作</button>
+        <button className={`tab-btn${tab === 'engage' ? ' active' : ''}`} onClick={() => setTab('engage')}>客群分析</button>
         <button className={`tab-btn${tab === 'settings' ? ' active' : ''}`} onClick={() => setTab('settings')}>設定</button>
       </div>
 
@@ -610,7 +661,96 @@ export default function CRMPage({ data, setData, showToast }) {
         </div>
       )}
 
-      {/* ── Tab 3: Settings ── */}
+      {/* ── Tab 3: Engagement ── */}
+      {tab === 'engage' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Lifecycle Summary */}
+          <div className="stats-grid">
+            {[
+              { label: '活躍', key: '活躍', color: '#16a34a' },
+              { label: '正常', key: '正常', color: '#0e7490' },
+              { label: '流失風險', key: '流失風險', color: '#d97706' },
+              { label: '沉睡/已流失', key: null, color: '#dc2626' },
+            ].map(s => (
+              <div key={s.label} className="stat-card" style={{ borderLeft: `4px solid ${s.color}` }}>
+                <div className="stat-label">{s.label}</div>
+                <div className="stat-value" style={{ color: s.color }}>
+                  {s.key ? (lifecycleSummary[s.key] || 0) : (lifecycleSummary['沉睡'] || 0) + (lifecycleSummary['已流失'] || 0)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Batch Actions */}
+          <div className="card" style={{ padding: 16 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 12 }}>📨 批量 WhatsApp 推送</h3>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              <select value={batchSegment} onChange={e => setBatchSegment(e.target.value)} style={{ width: 'auto' }}>
+                <option value="流失風險">流失風險客人</option>
+                <option value="沉睡">沉睡客人</option>
+                <option value="已流失">已流失客人</option>
+                <option value="活躍">活躍客人（感謝）</option>
+              </select>
+              <span style={{ fontSize: 12, color: 'var(--gray-400)', alignSelf: 'center' }}>
+                ({engagementData.filter(p => p.stage === batchSegment && p.phone).length} 人)
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }}
+                onClick={() => handleBatchSend(batchSegment, `【康晴醫療中心】{name}你好！好耐無見，掛住你呀！😊 我哋最近推出咗新嘅療程優惠，歡迎隨時預約！祝身體健康🙏`)}>
+                回訪邀請
+              </button>
+              <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }}
+                onClick={() => handleBatchSend(batchSegment, `【康晴醫療中心】{name}你好！溫馨提醒你注意季節轉換時的保養。如有任何不適，歡迎預約覆診。🙏`)}>
+                健康關懷
+              </button>
+              <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }}
+                onClick={() => handleBatchSend(batchSegment, `【康晴醫療中心】{name}你好！限時優惠：舊客回訪免診金！優惠期至本月底。立即預約：📞 WhatsApp 回覆「預約」🎉`)}>
+                優惠推送
+              </button>
+            </div>
+          </div>
+
+          {/* Engagement Ranking */}
+          <div className="card" style={{ padding: 0 }}>
+            <div className="card-header"><h3>📊 病人互動指數排名</h3></div>
+            <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th>排名</th><th>病人</th><th>互動分</th><th>生命週期</th><th>就診次數</th><th>最後到診</th><th>操作</th></tr></thead>
+                <tbody>
+                  {engagementData.slice(0, 50).map((p, i) => (
+                    <tr key={p.id}>
+                      <td style={{ fontWeight: 700, color: i < 3 ? 'var(--gold-700)' : 'var(--gray-400)' }}>{i + 1}</td>
+                      <td style={{ fontWeight: 600 }}>{p.name}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 60, height: 8, background: 'var(--gray-100)', borderRadius: 4 }}>
+                            <div style={{ width: `${p.score}%`, height: '100%', background: p.score >= 60 ? '#16a34a' : p.score >= 30 ? '#d97706' : '#dc2626', borderRadius: 4 }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700 }}>{p.score}</span>
+                        </div>
+                      </td>
+                      <td><span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8, background: p.stageColor + '18', color: p.stageColor, fontWeight: 700 }}>{p.stage}</span></td>
+                      <td>{p.visits}</td>
+                      <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{p.lastVisit || '-'}</td>
+                      <td>
+                        {p.phone && (
+                          <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 10, padding: '2px 6px' }}
+                            onClick={() => openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！希望你一切安好。如有需要歡迎預約覆診。🙏`)}>
+                            WA
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tab 4: Settings ── */}
       {tab === 'settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 

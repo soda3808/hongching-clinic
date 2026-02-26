@@ -837,7 +837,22 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                             </div>
                           )}
                         </td>
-                        <td><input value={rx.dosage} placeholder="例: 10g" onChange={e => updateRx(i, 'dosage', e.target.value)} /></td>
+                        <td style={{ position: 'relative' }}>
+                          <input value={rx.dosage} placeholder="例: 10g" onChange={e => updateRx(i, 'dosage', e.target.value)}
+                            style={(() => {
+                              if (!rx.herb || !rx.dosage) return {};
+                              const d = checkDosage(rx.herb, parseFloat(rx.dosage));
+                              if (!d) return { borderColor: '#16a34a' };
+                              if (d.level === 'danger') return { borderColor: '#dc2626', background: '#fef2f2' };
+                              if (d.level === 'warning') return { borderColor: '#d97706', background: '#fffbeb' };
+                              return { borderColor: '#3b82f6', background: '#eff6ff' };
+                            })()} />
+                          {rx.herb && (() => {
+                            const info = getHerbSafetyInfo(rx.herb);
+                            if (!info.maxDosage) return null;
+                            return <div style={{ fontSize: 9, color: 'var(--gray-400)', marginTop: 1 }}>{info.maxDosage.min}-{info.maxDosage.max}g{info.maxDosage.note ? ` (${info.maxDosage.note})` : ''}</div>;
+                          })()}
+                        </td>
                         <td style={{ width: 40 }}>
                           {form.prescription.length > 1 && (
                             <button type="button" className="btn btn-red btn-sm" onClick={() => removeRxRow(i)} style={{ padding: '2px 8px' }}>✕</button>
