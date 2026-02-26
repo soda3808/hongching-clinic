@@ -230,38 +230,52 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 })}
               </div>
             )}
-            {consultations.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>診症紀錄 (EMR)</h4>
-                <div className="table-wrap">
-                  <table>
-                    <thead><tr><th>日期</th><th>診斷</th><th>治療</th><th>處方</th><th>醫師</th></tr></thead>
-                    <tbody>
-                      {consultations.slice(0, 5).map(c => (
-                        <tr key={c.id}>
-                          <td>{c.date}</td>
-                          <td>{c.tcmDiagnosis || c.assessment || '-'}</td>
-                          <td>{(c.treatments || []).join('、') || '-'}</td>
-                          <td>{c.formulaName || (c.prescription?.length ? `${c.prescription.length}味藥` : '-')}</td>
-                          <td>{c.doctor}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* ── Visit Timeline ── */}
+            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診時間線 ({consultations.length + visitHistory.length} 筆紀錄)</h4>
+            <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+              {consultations.length === 0 && visitHistory.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24, fontSize: 13 }}>暫無就診紀錄</div>
+              )}
+              {/* Merge and sort by date */}
+              {[
+                ...consultations.map(c => ({ type: 'emr', date: c.date, data: c })),
+                ...visitHistory.filter(r => !consultations.find(c => c.date === r.date && c.patientName === r.name)).map(r => ({ type: 'rev', date: String(r.date).substring(0, 10), data: r })),
+              ].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((item, i) => (
+                <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--gray-100)' }}>
+                  {/* Timeline dot */}
+                  <div style={{ minWidth: 44, textAlign: 'center' }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.type === 'emr' ? '#0e7490' : '#d97706', margin: '4px auto 4px' }} />
+                    <div style={{ fontSize: 10, color: '#999' }}>{item.date}</div>
+                  </div>
+                  {/* Content */}
+                  <div style={{ flex: 1, fontSize: 12 }}>
+                    {item.type === 'emr' ? (
+                      <>
+                        <div style={{ fontWeight: 700, color: '#0e7490', marginBottom: 2 }}>
+                          {item.data.tcmDiagnosis || item.data.assessment || '診症'} — {item.data.doctor}
+                        </div>
+                        {item.data.tcmPattern && <div style={{ color: '#666' }}>辨證：{item.data.tcmPattern}</div>}
+                        {(item.data.treatments || []).length > 0 && <div>治療：{item.data.treatments.join('、')}</div>}
+                        {item.data.formulaName && <div style={{ fontWeight: 600 }}>處方：{item.data.formulaName} ({item.data.formulaDays || '-'}帖)</div>}
+                        {(item.data.prescription || []).length > 0 && (
+                          <div style={{ color: '#666', marginTop: 2 }}>
+                            藥材：{item.data.prescription.map(r => `${r.herb} ${r.dosage}`).join('、')}
+                          </div>
+                        )}
+                        {item.data.acupuncturePoints && <div>穴位：{item.data.acupuncturePoints}</div>}
+                        {item.data.subjective && <div style={{ color: '#888', marginTop: 2 }}>主訴：{item.data.subjective}</div>}
+                        {item.data.followUpDate && <div style={{ color: '#d97706' }}>覆診：{item.data.followUpDate}</div>}
+                      </>
+                    ) : (
+                      <div>
+                        <span style={{ fontWeight: 600, color: '#92400e' }}>{item.data.item}</span>
+                        <span style={{ marginLeft: 8 }}>{fmtM(item.data.amount)}</span>
+                        <span style={{ marginLeft: 8, color: '#888' }}>{item.data.doctor} | {item.data.store}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診歷史（營業紀錄）</h4>
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>日期</th><th>項目</th><th>金額</th><th>醫師</th><th>店舖</th></tr></thead>
-                <tbody>
-                  {visitHistory.map(r => (
-                    <tr key={r.id}><td>{String(r.date).substring(0, 10)}</td><td>{r.item}</td><td className="money">{fmtM(r.amount)}</td><td>{r.doctor}</td><td>{r.store}</td></tr>
-                  ))}
-                  {visitHistory.length === 0 && <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--gray-400)' }}>暫無就診紀錄</td></tr>}
-                </tbody>
-              </table>
+              ))}
             </div>
           </div>
         </div>

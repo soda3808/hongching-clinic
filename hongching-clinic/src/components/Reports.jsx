@@ -12,6 +12,7 @@ import PaymentMethodReport from './reports/PaymentMethodReport';
 import PackageReport from './reports/PackageReport';
 import KPIDashboard from './reports/KPIDashboard';
 import DrugSafetyReport from './reports/DrugSafetyReport';
+import ClinicalAnalytics from './reports/ClinicalAnalytics';
 
 const COLORS = ['#0e7490', '#16a34a', '#DAA520', '#dc2626', '#7C3AED', '#0284c7'];
 
@@ -36,6 +37,7 @@ const REPORT_GROUPS = [
     { id: 'rxsummary', icon: '📜', label: '處方報表' },
   ]},
   { label: '營運', tabs: [
+    { id: 'clinical', icon: '📊', label: '臨床分析' },
     { id: 'rxstats', icon: '💊', label: '藥物處方' },
     { id: 'drugsafety', icon: '⚠️', label: '藥物安全量' },
     { id: 'serviceusage', icon: '🔧', label: '服務頻率' },
@@ -650,6 +652,7 @@ export default function Reports({ data }) {
       {reportType === 'packagereport' && <PackageReport data={data} />}
       {reportType === 'kpi' && <KPIDashboard data={data} />}
       {reportType === 'drugsafety' && <DrugSafetyReport data={data} />}
+      {reportType === 'clinical' && <ClinicalAnalytics data={data} />}
     </>
   );
 }

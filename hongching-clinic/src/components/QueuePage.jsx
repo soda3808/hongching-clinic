@@ -37,7 +37,7 @@ function generateQueueNo(existingQueue, date) {
   return 'A' + String(num).padStart(3, '0');
 }
 
-export default function QueuePage({ data, setData, showToast, allData, user }) {
+export default function QueuePage({ data, setData, showToast, allData, user, onNavigate }) {
   const [showModal, setShowModal] = useState(false);
   const [filterDate, setFilterDate] = useState(getToday());
   const [filterDoctor, setFilterDoctor] = useState('all');
@@ -153,6 +153,26 @@ export default function QueuePage({ data, setData, showToast, allData, user }) {
     showToast(`${item.queueNo} ${STATUS_LABELS[newStatus]}`);
   };
 
+  // Start consultation — navigate to EMR with pre-filled data
+  const startConsultation = async (item) => {
+    // Update queue status to in-consultation
+    const updated = { ...item, status: 'in-consultation', arrivedAt: getTimeNow() };
+    await saveQueue(updated);
+    setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q) });
+    // Store pending consultation data for EMR to pick up
+    sessionStorage.setItem('hcmc_pending_consult', JSON.stringify({
+      queueId: item.id,
+      patientName: item.patientName,
+      patientPhone: item.patientPhone,
+      doctor: item.doctor,
+      store: item.store,
+      services: item.services,
+      date: item.date,
+    }));
+    showToast(`${item.queueNo} 開始診症`);
+    if (onNavigate) onNavigate('emr');
+  };
+
   // Delete
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -224,10 +244,13 @@ export default function QueuePage({ data, setData, showToast, allData, user }) {
                   <td>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {r.status === 'waiting' && (
-                        <button className="btn btn-green btn-sm" onClick={() => updateStatus(r, 'in-consultation')}>開診</button>
+                        <button className="btn btn-green btn-sm" onClick={() => startConsultation(r)}>開始診症</button>
                       )}
                       {r.status === 'in-consultation' && (
-                        <button className="btn btn-gold btn-sm" onClick={() => updateStatus(r, 'dispensing')}>配藥</button>
+                        <>
+                          <button className="btn btn-teal btn-sm" onClick={() => startConsultation(r)}>開EMR</button>
+                          <button className="btn btn-gold btn-sm" onClick={() => updateStatus(r, 'dispensing')}>配藥</button>
+                        </>
                       )}
                       {r.status === 'dispensing' && (
                         <button className="btn btn-teal btn-sm" onClick={() => updateStatus(r, 'billing')}>收費</button>

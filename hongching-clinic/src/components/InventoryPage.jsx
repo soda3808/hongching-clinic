@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { saveInventory, deleteInventory } from '../api';
 import { uid, fmtM, TCM_HERBS } from '../data';
 import { exportCSV } from '../utils/export';
+import { parseInventoryXLS, getImportSummary } from '../utils/inventoryImport';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -34,6 +35,13 @@ export default function InventoryPage({ data, setData, showToast }) {
   const [showBatchRestock, setShowBatchRestock] = useState(false);
   const [batchRestockQty, setBatchRestockQty] = useState('');
   const [showReport, setShowReport] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importRecords, setImportRecords] = useState([]);
+  const [importSelected, setImportSelected] = useState([]);
+  const [importSummary, setImportSummary] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [showPO, setShowPO] = useState(false);
+  const fileInputRef = useRef(null);
 
   const modalRef = useRef(null);
   const restockRef = useRef(null);
@@ -194,6 +202,97 @@ export default function InventoryPage({ data, setData, showToast }) {
     setBatchRestockQty('');
   };
 
+  // ── Bulk Import ──
+  const handleFileImport = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const records = parseInventoryXLS(ev.target.result);
+        if (!records.length) return showToast('未能解析任何藥材記錄');
+        // Filter out already existing items
+        const existingNames = new Set(inventory.map(i => i.name));
+        const newRecords = records.map(r => ({ ...r, isNew: !existingNames.has(r.name), isDuplicate: existingNames.has(r.name) }));
+        setImportRecords(newRecords);
+        setImportSelected(newRecords.filter(r => r.isNew).map(r => r.id));
+        setImportSummary(getImportSummary(records));
+        setShowImport(true);
+      } catch (err) {
+        showToast('解析失敗：' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    const fakeEvent = { target: { files: [file], value: '' } };
+    handleFileImport(fakeEvent);
+  };
+
+  const handleBulkImport = async () => {
+    if (!importSelected.length) return showToast('請選擇要匯入的項目');
+    setImporting(true);
+    const toImport = importRecords.filter(r => importSelected.includes(r.id));
+    let added = 0;
+    for (const record of toImport) {
+      const item = {
+        id: uid(), name: record.name, category: record.category || '中藥',
+        unit: record.unit || 'g', stock: record.stock || 0, minStock: record.minStock || 100,
+        costPerUnit: record.price || 0, supplier: record.supplier || '',
+        store: record.store || '宋皇臺', medicineCode: record.code || '',
+        lastRestocked: '', active: true,
+      };
+      await saveInventory(item);
+      setData(prev => ({ ...prev, inventory: [...(prev.inventory || []), item] }));
+      added++;
+    }
+    showToast(`已匯入 ${added} 項藥材`);
+    setShowImport(false);
+    setImportRecords([]);
+    setImporting(false);
+  };
+
+  const toggleImportItem = (id) => {
+    setImportSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  // ── Purchase Order ──
+  const lowStockItems = useMemo(() => inventory.filter(r => Number(r.stock) < Number(r.minStock)), [inventory]);
+
+  const printPurchaseOrder = () => {
+    const w = window.open('', '_blank');
+    if (!w) return showToast('請允許彈出視窗');
+    const today = new Date().toISOString().substring(0, 10);
+    const rows = lowStockItems.map(r => {
+      const orderQty = Math.max(Number(r.minStock) * 2 - Number(r.stock), Number(r.minStock));
+      return `<tr><td>${r.medicineCode || '-'}</td><td>${r.name}</td><td>${r.category}</td><td>${r.stock} ${r.unit}</td><td>${r.minStock} ${r.unit}</td><td style="font-weight:700;color:#0e7490">${orderQty} ${r.unit}</td><td>${r.supplier || '-'}</td></tr>`;
+    }).join('');
+    w.document.write(`<!DOCTYPE html><html><head><title>採購單</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:900px;margin:0 auto}
+      h1{color:#0e7490;font-size:20px;border-bottom:3px solid #0e7490;padding-bottom:8px}
+      .info{font-size:13px;color:#666;margin-bottom:20px}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th{background:#0e7490;color:#fff;padding:8px;text-align:left}
+      td{padding:6px 8px;border-bottom:1px solid #ddd}
+      tr:nth-child(even){background:#f9fafb}
+      .footer{margin-top:30px;font-size:11px;color:#999;text-align:center}
+      @media print{body{padding:10px}}
+    </style></head><body>
+      <h1>康晴綜合醫療中心 — 藥材採購單</h1>
+      <div class="info">日期：${today} | 低庫存品項：${lowStockItems.length} 項</div>
+      <table><thead><tr><th>編號</th><th>品名</th><th>分類</th><th>現有庫存</th><th>最低庫存</th><th>建議採購量</th><th>供應商</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="footer">此採購單由系統自動生成 | 請核實後再向供應商下單</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+    showToast('正在列印採購單');
+  };
+
   // ── Export CSV ──
   const handleExport = () => {
     const cols = [
@@ -253,7 +352,12 @@ export default function InventoryPage({ data, setData, showToast }) {
           <option value="normal">充足</option>
         </select>
         <button className="btn btn-teal" onClick={openAdd}>+ 新增存貨</button>
+        <button className="btn btn-green" onClick={() => fileInputRef.current?.click()}>匯入XLS</button>
+        <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.html,.htm,.csv" style={{ display: 'none' }} onChange={handleFileImport} />
         <button className="btn btn-outline" onClick={handleExport}>匯出CSV</button>
+        {lowStockItems.length > 0 && (
+          <button className="btn btn-gold" onClick={() => setShowPO(true)}>採購單 ({lowStockItems.length})</button>
+        )}
         {batchSelected.length > 0 && (
           <button className="btn btn-green" onClick={() => setShowBatchRestock(true)}>批量入貨 ({batchSelected.length})</button>
         )}
@@ -501,6 +605,102 @@ export default function InventoryPage({ data, setData, showToast }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-green" onClick={handleBatchRestock}>確認批量入貨</button>
               <button className="btn btn-outline" onClick={() => setShowBatchRestock(false)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════ */}
+      {/* Bulk Import Modal              */}
+      {/* ════════════════════════════════ */}
+      {showImport && (
+        <div className="modal-overlay" onClick={() => setShowImport(false)} role="dialog" aria-modal="true" aria-label="批量匯入">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 900, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>批量匯入藥材</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowImport(false)} aria-label="關閉">✕</button>
+            </div>
+            {importSummary && (
+              <div className="stats-grid" style={{ marginBottom: 16 }}>
+                <div className="stat-card teal"><div className="stat-label">解析品項</div><div className="stat-value teal">{importSummary.total}</div></div>
+                <div className="stat-card green"><div className="stat-label">有庫存</div><div className="stat-value green">{importSummary.withStock}</div></div>
+                <div className="stat-card gold"><div className="stat-label">總庫存量</div><div className="stat-value gold">{importSummary.totalStock}g</div></div>
+                <div className="stat-card red"><div className="stat-label">已選匯入</div><div className="stat-value red">{importSelected.length}</div></div>
+              </div>
+            )}
+            {importSummary && (
+              <div style={{ display: 'flex', gap: 12, marginBottom: 12, fontSize: 12 }}>
+                {Object.entries(importSummary.byType).map(([type, count]) => (
+                  <span key={type} style={{ background: 'var(--gray-100)', padding: '4px 10px', borderRadius: 12 }}>{type}: {count}</span>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setImportSelected(importRecords.filter(r => r.isNew).map(r => r.id))}>只選新品</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setImportSelected(importRecords.map(r => r.id))}>全選</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setImportSelected([])}>全不選</button>
+            </div>
+            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th style={{ width: 32 }}></th><th>品名</th><th>編號</th><th>分類</th><th>庫存</th><th>店舖</th><th>狀態</th></tr></thead>
+                <tbody>
+                  {importRecords.map(r => (
+                    <tr key={r.id} style={{ opacity: importSelected.includes(r.id) ? 1 : 0.4 }}>
+                      <td><input type="checkbox" checked={importSelected.includes(r.id)} onChange={() => toggleImportItem(r.id)} /></td>
+                      <td style={{ fontWeight: 600 }}>{r.name}</td>
+                      <td style={{ fontSize: 11 }}>{r.code}</td>
+                      <td><span style={{ background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>{r.category}</span></td>
+                      <td>{r.stock} {r.unit}</td>
+                      <td>{r.store}</td>
+                      <td>{r.isDuplicate ? <span className="tag tag-pending">已存在</span> : <span className="tag tag-paid">新品</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn btn-teal" onClick={handleBulkImport} disabled={importing || !importSelected.length}>
+                {importing ? '匯入中...' : `確認匯入 (${importSelected.length} 項)`}
+              </button>
+              <button className="btn btn-outline" onClick={() => setShowImport(false)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════ */}
+      {/* Purchase Order Modal            */}
+      {/* ════════════════════════════════ */}
+      {showPO && (
+        <div className="modal-overlay" onClick={() => setShowPO(false)} role="dialog" aria-modal="true" aria-label="採購單">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>低庫存採購單 ({lowStockItems.length} 項)</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowPO(false)} aria-label="關閉">✕</button>
+            </div>
+            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th>品名</th><th>分類</th><th>現有庫存</th><th>最低庫存</th><th>建議採購量</th><th>供應商</th></tr></thead>
+                <tbody>
+                  {lowStockItems.map(r => {
+                    const orderQty = Math.max(Number(r.minStock) * 2 - Number(r.stock), Number(r.minStock));
+                    return (
+                      <tr key={r.id}>
+                        <td style={{ fontWeight: 600 }}>{r.name}</td>
+                        <td>{r.category}</td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{r.stock} {r.unit}</td>
+                        <td>{r.minStock} {r.unit}</td>
+                        <td style={{ color: '#0e7490', fontWeight: 700 }}>{orderQty} {r.unit}</td>
+                        <td>{r.supplier || '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn btn-teal" onClick={printPurchaseOrder}>列印採購單</button>
+              <button className="btn btn-outline" onClick={() => setShowPO(false)}>關閉</button>
             </div>
           </div>
         </div>

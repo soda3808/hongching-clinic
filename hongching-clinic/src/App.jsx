@@ -543,8 +543,8 @@ function MainApp() {
           {page === 'arap' && <ARAP data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'patient' && <PatientPage data={filteredData} setData={updateData} showToast={showToast} allData={data} onNavigate={setPage} />}
           {page === 'booking' && <BookingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
-          {page === 'queue' && <QueuePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+          {page === 'queue' && <QueuePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
+          {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
           {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
           {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}

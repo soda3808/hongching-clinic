@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
-import { saveConsultation, deleteConsultation, openWhatsApp } from '../api';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { saveConsultation, deleteConsultation, openWhatsApp, saveQueue } from '../api';
 import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
@@ -18,7 +18,7 @@ const EMPTY_FORM = {
   followUpDate: '', followUpNotes: '', fee: 0,
 };
 
-export default function EMRPage({ data, setData, showToast, allData, user }) {
+export default function EMRPage({ data, setData, showToast, allData, user, onNavigate }) {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_FORM, date: new Date().toISOString().substring(0, 10) });
   const [detail, setDetail] = useState(null);
@@ -37,11 +37,37 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [showLabel, setShowLabel] = useState(null);
   const [acupointMeridian, setAcupointMeridian] = useState('all');
+  const [customFormulas, setCustomFormulas] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_custom_formulas') || '[]'); } catch { return []; }
+  });
 
   const addRef = useRef(null);
   const detailRef = useRef(null);
   useFocusTrap(showAdd ? addRef : nullRef);
   useFocusTrap(detail ? detailRef : nullRef);
+
+  // ── Pick up pending consult from Queue ──
+  useEffect(() => {
+    const pending = sessionStorage.getItem('hcmc_pending_consult');
+    if (pending) {
+      try {
+        const p = JSON.parse(pending);
+        const patient = (data.patients || []).find(pt => pt.name === p.patientName || pt.phone === p.patientPhone);
+        setForm(f => ({
+          ...f,
+          patientId: patient?.id || '',
+          patientName: p.patientName,
+          patientPhone: p.patientPhone || '',
+          doctor: p.doctor || f.doctor,
+          store: p.store || f.store,
+          date: p.date || new Date().toISOString().substring(0, 10),
+        }));
+        setPatientSearch(p.patientName);
+        setShowAdd(true);
+        sessionStorage.removeItem('hcmc_pending_consult');
+      } catch { /* ignore */ }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const consultations = data.consultations || [];
   const patients = data.patients || [];
@@ -136,6 +162,31 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
     showToast(`已載入 ${formula.name}`);
   };
 
+  // ── Custom Formula Save/Load ──
+  const saveCustomFormula = () => {
+    const rx = form.prescription.filter(r => r.herb);
+    if (!rx.length) return showToast('處方不能為空');
+    const name = form.formulaName || prompt('請輸入處方名稱：');
+    if (!name) return;
+    const cf = { id: uid(), name, herbs: rx, indication: form.tcmDiagnosis || '', doctor: user?.name || '', createdAt: new Date().toISOString().substring(0, 10) };
+    const updated = [...customFormulas.filter(f => f.name !== name), cf];
+    setCustomFormulas(updated);
+    localStorage.setItem('hcmc_custom_formulas', JSON.stringify(updated));
+    showToast(`已儲存自訂處方「${name}」`);
+  };
+
+  const deleteCustomFormula = (id) => {
+    const updated = customFormulas.filter(f => f.id !== id);
+    setCustomFormulas(updated);
+    localStorage.setItem('hcmc_custom_formulas', JSON.stringify(updated));
+    showToast('已刪除自訂處方');
+  };
+
+  const loadCustomFormula = (cf) => {
+    setForm(f => ({ ...f, prescription: cf.herbs.map(h => ({ ...h })), formulaName: cf.name }));
+    showToast(`已載入自訂處方「${cf.name}」`);
+  };
+
   // ── Acupoint chip toggle ──
   const toggleAcupoint = (pt) => {
     setForm(f => {
@@ -181,6 +232,35 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
     setData(d => ({ ...d, consultations: (d.consultations || []).filter(c => c.id !== deleteId) }));
     showToast('已刪除');
     setDeleteId(null);
+  };
+
+  // ── Send to Billing ──
+  const sendToBilling = async (item) => {
+    const queue = data.queue || [];
+    // Find existing queue entry for this patient/date
+    let queueEntry = queue.find(q => q.patientName === item.patientName && q.date === item.date && q.status !== 'completed');
+    if (queueEntry) {
+      // Update existing queue entry
+      const updated = { ...queueEntry, status: 'dispensing', consultationId: item.id, prescription: item.prescription, formulaName: item.formulaName, formulaDays: item.formulaDays };
+      await saveQueue(updated);
+      setData(d => ({ ...d, queue: (d.queue || []).map(q => q.id === updated.id ? updated : q) }));
+    } else {
+      // Create new queue entry
+      const newEntry = {
+        id: uid(), queueNo: 'B' + String(queue.filter(q => q.date === item.date).length + 1).padStart(3, '0'),
+        patientName: item.patientName, patientPhone: item.patientPhone || '', date: item.date,
+        registeredAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        arrivedAt: '', completedAt: '', doctor: item.doctor, store: item.store || '宋皇臺',
+        services: '配藥收費', serviceFee: Number(item.fee) || 0, status: 'dispensing',
+        dispensingStatus: 'pending', paymentStatus: 'pending',
+        consultationId: item.id, prescription: item.prescription, formulaName: item.formulaName, formulaDays: item.formulaDays,
+        createdAt: new Date().toISOString(),
+      };
+      await saveQueue(newEntry);
+      setData(d => ({ ...d, queue: [...(d.queue || []), newEntry] }));
+    }
+    showToast(`已送往配藥收費 — ${item.patientName}`);
+    if (onNavigate) onNavigate('billing');
   };
 
   // ── Print ──
@@ -491,8 +571,20 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
                 <h4 style={{ margin: 0, fontSize: 13 }}>處方</h4>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <select style={{ width: 'auto', fontSize: 12, padding: '4px 8px' }} value="" onChange={e => { if (e.target.value) loadFormula(e.target.value); }}>
-                    <option value="">從方劑庫載入 ({TCM_FORMULAS_DB.length} 方)...</option>
+                  <select style={{ width: 'auto', fontSize: 12, padding: '4px 8px' }} value="" onChange={e => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    if (v.startsWith('custom:')) { const cf = customFormulas.find(f => f.id === v.slice(7)); if (cf) loadCustomFormula(cf); }
+                    else loadFormula(v);
+                  }}>
+                    <option value="">從方劑庫載入 ({TCM_FORMULAS_DB.length + customFormulas.length} 方)...</option>
+                    {customFormulas.length > 0 && (
+                      <optgroup label={`我的處方 (${customFormulas.length})`}>
+                        {customFormulas.map(f => (
+                          <option key={f.id} value={`custom:${f.id}`}>{f.name} — {f.herbs.map(h => h.herb).join('、').substring(0, 30)}</option>
+                        ))}
+                      </optgroup>
+                    )}
                     {FORMULA_CATEGORIES.map(cat => (
                       <optgroup key={cat} label={cat}>
                         {TCM_FORMULAS_DB.filter(f => f.cat === cat).map(f => (
@@ -501,6 +593,9 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
                       </optgroup>
                     ))}
                   </select>
+                  <button type="button" className="btn btn-sm" style={{ fontSize: 11, background: '#7c3aed', color: '#fff' }} onClick={saveCustomFormula} title="儲存當前處方為自訂模板">
+                    儲存處方
+                  </button>
                   <button type="button" className="btn btn-outline btn-sm" onClick={handleAiSuggest} disabled={aiLoading} style={{ fontSize: 11 }}>
                     {aiLoading ? '分析中...' : '🤖 AI 處方建議'}
                   </button>
@@ -629,6 +724,7 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn btn-teal btn-sm" onClick={handlePrint}>列印處方</button>
                 <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => setShowLabel(detail)}>藥袋標籤</button>
+                <button className="btn btn-gold btn-sm" onClick={() => sendToBilling(detail)}>送往配藥收費</button>
                 <button className="btn btn-green btn-sm" onClick={() => handleReferral(detail)}>轉介信</button>
                 {detail.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }} onClick={() => sendMedReminder(detail)}>💊 WhatsApp 服藥提醒</button>}
                 <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>

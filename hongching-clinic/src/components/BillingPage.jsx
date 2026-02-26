@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { saveQueue, saveRevenue } from '../api';
+import { saveQueue, saveRevenue, saveInventory } from '../api';
 import { uid, fmtM, DOCTORS } from '../data';
 import { exportCSV } from '../utils/export';
 
@@ -74,6 +74,54 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     showToast(`${item.queueNo} ${DISPENSING_LABELS[newStatus]}`);
   }, [data, queue, setData, showToast]);
 
+  // ── Auto-deduct inventory stock ──
+  const deductStock = useCallback(async (item) => {
+    const rx = item.prescription || [];
+    if (!rx.length) return;
+    const inventory = data.inventory || [];
+    const days = Number(item.formulaDays) || 1;
+    let deducted = 0;
+    let warnings = [];
+    const updatedInventory = [...inventory];
+
+    for (const herb of rx) {
+      if (!herb.herb) continue;
+      const dosagePerDay = parseFloat(herb.dosage) || 0;
+      const totalQty = dosagePerDay * days;
+      if (totalQty <= 0) continue;
+
+      const idx = updatedInventory.findIndex(inv => inv.name === herb.herb && inv.store === (item.store || '宋皇臺'));
+      if (idx < 0) {
+        // Try any store
+        const anyIdx = updatedInventory.findIndex(inv => inv.name === herb.herb);
+        if (anyIdx < 0) continue; // Not in inventory
+        const inv = updatedInventory[anyIdx];
+        if (Number(inv.stock) < totalQty) {
+          warnings.push(`${herb.herb} 庫存不足 (現有 ${inv.stock}${inv.unit}，需 ${totalQty}${inv.unit})`);
+        }
+        updatedInventory[anyIdx] = { ...inv, stock: Math.max(0, Number(inv.stock) - totalQty) };
+        await saveInventory(updatedInventory[anyIdx]);
+        deducted++;
+      } else {
+        const inv = updatedInventory[idx];
+        if (Number(inv.stock) < totalQty) {
+          warnings.push(`${herb.herb} 庫存不足 (現有 ${inv.stock}${inv.unit}，需 ${totalQty}${inv.unit})`);
+        }
+        updatedInventory[idx] = { ...inv, stock: Math.max(0, Number(inv.stock) - totalQty) };
+        await saveInventory(updatedInventory[idx]);
+        deducted++;
+      }
+    }
+
+    if (deducted > 0) {
+      setData(prev => ({ ...prev, inventory: updatedInventory }));
+    }
+    if (warnings.length) {
+      showToast(`庫存警告：${warnings[0]}${warnings.length > 1 ? ` 等 ${warnings.length} 項` : ''}`);
+    }
+    return deducted;
+  }, [data, setData, showToast]);
+
   // Mark as paid + auto-create revenue record
   const markPaid = useCallback(async (item) => {
     const updated = { ...item, paymentStatus: 'paid', status: 'completed', completedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) };
@@ -95,8 +143,10 @@ export default function BillingPage({ data, setData, showToast, allData, user })
 
     const updatedRevenue = [...(data.revenue || []), revRecord];
     setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q), revenue: updatedRevenue });
+    // Auto-deduct inventory
+    await deductStock(item);
     showToast(`${item.queueNo} 已收費 ${fmtM(item.serviceFee)}`);
-  }, [data, queue, setData, showToast]);
+  }, [data, queue, setData, showToast, deductStock]);
 
   // Quick dispense + charge
   const quickProcess = useCallback(async (item) => {
@@ -124,8 +174,10 @@ export default function BillingPage({ data, setData, showToast, allData, user })
 
     const updatedRevenue = [...(data.revenue || []), revRecord];
     setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q), revenue: updatedRevenue });
+    // Auto-deduct inventory
+    await deductStock(item);
     showToast(`${item.queueNo} 快捷收費完成`);
-  }, [data, queue, setData, showToast]);
+  }, [data, queue, setData, showToast, deductStock]);
 
   // Export to Excel (CSV)
   const handleExport = () => {
