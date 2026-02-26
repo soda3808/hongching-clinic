@@ -19,7 +19,9 @@ const DISPENSING_TAGS = {
 
 const PAYMENT_LABELS = {
   pending: '未收費',
+  partial: '部分收費',
   paid: '已收費',
+  refunded: '已退款',
 };
 
 const STATUS_LABELS = {
@@ -41,6 +43,12 @@ export default function BillingPage({ data, setData, showToast, allData, user })
   const [filterDoctor, setFilterDoctor] = useState('all');
   const [search, setSearch] = useState('');
   const [receiptItem, setReceiptItem] = useState(null);
+  const [partialItem, setPartialItem] = useState(null);
+  const [partialAmt, setPartialAmt] = useState('');
+  const [partialMethod, setPartialMethod] = useState('FPS');
+  const [refundItem, setRefundItem] = useState(null);
+  const [refundAmt, setRefundAmt] = useState('');
+  const [refundReason, setRefundReason] = useState('');
 
   const queue = data.queue || [];
 
@@ -121,6 +129,72 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     }
     return deducted;
   }, [data, setData, showToast]);
+
+  // ── Partial Payment (#47) ──
+  const handlePartialPay = useCallback(async () => {
+    if (!partialItem) return;
+    const amt = Number(partialAmt);
+    if (!amt || amt <= 0) return showToast('請輸入有效金額');
+    const totalFee = Number(partialItem.serviceFee || 0);
+    const prevPaid = Number(partialItem.paidAmount || 0);
+    const newPaid = prevPaid + amt;
+    const isFullyPaid = newPaid >= totalFee;
+
+    const payments = [...(partialItem.payments || []), { amount: amt, method: partialMethod, date: getToday(), time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) }];
+    const updated = {
+      ...partialItem,
+      paidAmount: newPaid,
+      payments,
+      paymentStatus: isFullyPaid ? 'paid' : 'partial',
+      status: isFullyPaid ? 'completed' : partialItem.status,
+      completedAt: isFullyPaid ? new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : partialItem.completedAt,
+    };
+    await saveQueue(updated);
+
+    // Create revenue record for partial payment
+    const revRecord = {
+      id: uid(), date: partialItem.date, name: partialItem.patientName,
+      item: partialItem.services, amount: amt, payment: partialMethod,
+      store: partialItem.store, doctor: partialItem.doctor,
+      note: `掛號 ${partialItem.queueNo}（部分收費 ${newPaid}/${totalFee}）`,
+    };
+    await saveRevenue(revRecord);
+    const updatedRevenue = [...(data.revenue || []), revRecord];
+    setData({ ...data, queue: queue.map(q => q.id === partialItem.id ? updated : q), revenue: updatedRevenue });
+    if (isFullyPaid) await deductStock(partialItem);
+    setPartialItem(null);
+    setPartialAmt('');
+    showToast(`已收取部分款項 ${fmtM(amt)}${isFullyPaid ? '（已全額收費）' : ''}`);
+  }, [partialItem, partialAmt, partialMethod, data, queue, setData, showToast, deductStock]);
+
+  // ── Refund (#47) ──
+  const handleRefund = useCallback(async () => {
+    if (!refundItem) return;
+    const amt = Number(refundAmt);
+    if (!amt || amt <= 0) return showToast('請輸入退款金額');
+    const maxRefund = Number(refundItem.paidAmount || refundItem.serviceFee || 0);
+    if (amt > maxRefund) return showToast(`退款金額不能超過已收金額 ${fmtM(maxRefund)}`);
+
+    const refunds = [...(refundItem.refunds || []), { amount: amt, reason: refundReason, date: getToday(), time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), by: user?.name || 'admin' }];
+    const totalRefunded = refunds.reduce((s, r) => s + r.amount, 0);
+    const updated = { ...refundItem, refunds, totalRefunded, paymentStatus: totalRefunded >= maxRefund ? 'refunded' : 'paid' };
+    await saveQueue(updated);
+
+    // Create negative revenue record
+    const revRecord = {
+      id: uid(), date: getToday(), name: refundItem.patientName,
+      item: `退款 - ${refundReason || refundItem.services}`, amount: -amt, payment: 'refund',
+      store: refundItem.store, doctor: refundItem.doctor,
+      note: `退款：${refundReason || '無'}（掛號 ${refundItem.queueNo}）`,
+    };
+    await saveRevenue(revRecord);
+    const updatedRevenue = [...(data.revenue || []), revRecord];
+    setData({ ...data, queue: queue.map(q => q.id === refundItem.id ? updated : q), revenue: updatedRevenue });
+    setRefundItem(null);
+    setRefundAmt('');
+    setRefundReason('');
+    showToast(`已退款 ${fmtM(amt)}`);
+  }, [refundItem, refundAmt, refundReason, data, queue, setData, showToast, user]);
 
   // Mark as paid + auto-create revenue record
   const markPaid = useCallback(async (item) => {
@@ -356,9 +430,15 @@ export default function BillingPage({ data, setData, showToast, allData, user })
                     </span>
                   </td>
                   <td>
-                    <span className={`tag ${r.paymentStatus === 'paid' ? 'tag-paid' : 'tag-overdue'}`}>
-                      {PAYMENT_LABELS[r.paymentStatus]}
+                    <span className={`tag ${r.paymentStatus === 'paid' ? 'tag-paid' : r.paymentStatus === 'partial' ? 'tag-pending-orange' : r.paymentStatus === 'refunded' ? 'tag-other' : 'tag-overdue'}`}>
+                      {PAYMENT_LABELS[r.paymentStatus] || r.paymentStatus}
                     </span>
+                    {r.paidAmount > 0 && r.paymentStatus === 'partial' && (
+                      <div style={{ fontSize: 10, color: 'var(--gray-500)', marginTop: 2 }}>{fmtM(r.paidAmount)}/{fmtM(r.serviceFee)}</div>
+                    )}
+                    {r.totalRefunded > 0 && (
+                      <div style={{ fontSize: 10, color: '#dc2626', marginTop: 2 }}>退 {fmtM(r.totalRefunded)}</div>
+                    )}
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -371,11 +451,17 @@ export default function BillingPage({ data, setData, showToast, allData, user })
                       {r.dispensingStatus === 'dispensed' && (
                         <button className="btn btn-green btn-sm" onClick={() => updateDispensing(r, 'collected')}>已取藥</button>
                       )}
-                      {r.paymentStatus === 'pending' && (
+                      {(r.paymentStatus === 'pending' || r.paymentStatus === 'partial') && (
                         <button className="btn btn-teal btn-sm" onClick={() => markPaid(r)}>收費</button>
+                      )}
+                      {(r.paymentStatus === 'pending' || r.paymentStatus === 'partial') && (
+                        <button className="btn btn-gold btn-sm" onClick={() => { setPartialItem(r); setPartialAmt(''); setPartialMethod('FPS'); }}>部分</button>
                       )}
                       {r.paymentStatus === 'pending' && (
                         <button className="btn btn-outline btn-sm" onClick={() => quickProcess(r)}>快捷</button>
+                      )}
+                      {r.paymentStatus === 'paid' && (
+                        <button className="btn btn-red btn-sm" onClick={() => { setRefundItem(r); setRefundAmt(''); setRefundReason(''); }}>退款</button>
                       )}
                       <button className="btn btn-outline btn-sm" onClick={() => printReceipt(r)}>收據</button>
                     </div>
@@ -395,6 +481,84 @@ export default function BillingPage({ data, setData, showToast, allData, user })
           </table>
         </div>
       </div>
+
+      {/* Partial Payment Modal (#47) */}
+      {partialItem && (
+        <div className="modal-overlay" onClick={() => setPartialItem(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <h3>部分收費</h3>
+            <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--gray-600)' }}>
+              <strong>{partialItem.patientName}</strong> ({partialItem.queueNo})<br />
+              總費用：<strong>{fmtM(partialItem.serviceFee)}</strong>
+              {partialItem.paidAmount > 0 && <> ・已收：<strong>{fmtM(partialItem.paidAmount)}</strong> ・餘額：<strong>{fmtM(Number(partialItem.serviceFee) - Number(partialItem.paidAmount || 0))}</strong></>}
+            </div>
+            {(partialItem.payments || []).length > 0 && (
+              <div style={{ marginBottom: 12, fontSize: 11, background: 'var(--gray-50)', padding: 8, borderRadius: 6 }}>
+                <strong>付款紀錄：</strong>
+                {partialItem.payments.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                    <span>{p.date} {p.time}</span>
+                    <span>{fmtM(p.amount)} ({p.method})</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label>收取金額 *</label>
+                <input type="number" value={partialAmt} onChange={e => setPartialAmt(e.target.value)} placeholder="金額" autoFocus />
+              </div>
+              <div>
+                <label>付款方式</label>
+                <select value={partialMethod} onChange={e => setPartialMethod(e.target.value)}>
+                  <option>FPS</option><option>現金</option><option>信用卡</option><option>八達通</option><option>微信</option><option>支付寶</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-teal" onClick={handlePartialPay}>確認收費</button>
+              <button className="btn btn-outline" onClick={() => setPartialItem(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Modal (#47) */}
+      {refundItem && (
+        <div className="modal-overlay" onClick={() => setRefundItem(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <h3 style={{ color: '#dc2626' }}>退款處理</h3>
+            <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--gray-600)' }}>
+              <strong>{refundItem.patientName}</strong> ({refundItem.queueNo})<br />
+              已收費：<strong>{fmtM(refundItem.paidAmount || refundItem.serviceFee)}</strong>
+              {refundItem.totalRefunded > 0 && <> ・已退：<strong style={{ color: '#dc2626' }}>{fmtM(refundItem.totalRefunded)}</strong></>}
+            </div>
+            {(refundItem.refunds || []).length > 0 && (
+              <div style={{ marginBottom: 12, fontSize: 11, background: '#fef2f2', padding: 8, borderRadius: 6 }}>
+                <strong>退款紀錄：</strong>
+                {refundItem.refunds.map((r, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                    <span>{r.date} {r.time} - {r.reason || '無原因'}</span>
+                    <span style={{ color: '#dc2626' }}>-{fmtM(r.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ marginBottom: 12 }}>
+              <label>退款金額 *</label>
+              <input type="number" value={refundAmt} onChange={e => setRefundAmt(e.target.value)} placeholder="退款金額" autoFocus />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label>退款原因</label>
+              <input value={refundReason} onChange={e => setRefundReason(e.target.value)} placeholder="退款原因（選填）" />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-red" onClick={handleRefund}>確認退款</button>
+              <button className="btn btn-outline" onClick={() => setRefundItem(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Print-only receipt (fallback) */}
       {receiptItem && (

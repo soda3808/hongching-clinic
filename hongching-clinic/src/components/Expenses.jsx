@@ -14,6 +14,15 @@ export default function Expenses({ data, setData, showToast }) {
   const [deleteId, setDeleteId] = useState(null);
   const [sortBy, setSortBy] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [showRecurring, setShowRecurring] = useState(false);
+  const [recurringTemplates, setRecurringTemplates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_recurring_expenses') || '[]'); } catch { return []; }
+  });
+  const [budgets, setBudgets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_budgets') || '{}'); } catch { return {}; }
+  });
+  const [showBudget, setShowBudget] = useState(false);
 
   const months = useMemo(() => {
     const m = new Set();
@@ -79,6 +88,88 @@ export default function Expenses({ data, setData, showToast }) {
     setForm(f => ({ ...f, amount: safe }));
   };
 
+  // ── Receipt OCR (#43) ──
+  const handleOCR = async (file) => {
+    if (!file) return;
+    setOcrLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const base64 = ev.target.result;
+        setForm(f => ({ ...f, receipt: base64 }));
+        setFileName(file.name);
+        try {
+          const res = await fetch('/api/analyze-receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64 }),
+          });
+          const result = await res.json();
+          if (result.success && result.data) {
+            const d = result.data;
+            setForm(f => ({
+              ...f,
+              merchant: d.merchant || f.merchant,
+              amount: d.amount ? String(d.amount) : f.amount,
+              date: d.date || f.date,
+              category: d.category || f.category,
+              desc: d.description || f.desc,
+            }));
+            showToast('OCR 已自動填寫表單');
+          } else {
+            showToast('OCR 未能識別，請手動填寫');
+          }
+        } catch { showToast('OCR 服務暫時不可用'); }
+        setOcrLoading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch { setOcrLoading(false); }
+  };
+
+  // ── Recurring Expenses (#44) ──
+  const saveRecurringTemplate = () => {
+    if (!form.merchant || !form.amount) return showToast('請先填寫商戶和金額');
+    const tmpl = { id: uid(), merchant: form.merchant, amount: form.amount, category: form.category, store: form.store, payment: form.payment, desc: form.desc };
+    const updated = [...recurringTemplates.filter(t => t.merchant !== tmpl.merchant), tmpl];
+    setRecurringTemplates(updated);
+    localStorage.setItem('hcmc_recurring_expenses', JSON.stringify(updated));
+    showToast(`已儲存常用開支「${tmpl.merchant}」`);
+  };
+
+  const applyRecurring = async (tmpl) => {
+    const today = new Date().toISOString().split('T')[0];
+    const rec = { ...tmpl, id: uid(), date: today, amount: parseFloat(tmpl.amount), receipt: '' };
+    setSaving(true);
+    await saveExpense(rec);
+    setData({ ...data, expenses: [...data.expenses, rec] });
+    showToast(`已新增常用開支 ${tmpl.merchant} ${fmtM(parseFloat(tmpl.amount))}`);
+    setSaving(false);
+    setShowRecurring(false);
+  };
+
+  const deleteRecurring = (id) => {
+    const updated = recurringTemplates.filter(t => t.id !== id);
+    setRecurringTemplates(updated);
+    localStorage.setItem('hcmc_recurring_expenses', JSON.stringify(updated));
+    showToast('已刪除常用開支');
+  };
+
+  // ── Budget Tracking (#49) ──
+  const thisMonthKey = new Date().toISOString().substring(0, 7);
+  const thisMonthExpenses = useMemo(() => {
+    const map = {};
+    data.expenses.filter(r => getMonth(r.date) === thisMonthKey).forEach(r => {
+      map[r.category] = (map[r.category] || 0) + Number(r.amount);
+    });
+    return map;
+  }, [data.expenses, thisMonthKey]);
+
+  const saveBudget = (cat, amount) => {
+    const updated = { ...budgets, [cat]: amount };
+    setBudgets(updated);
+    localStorage.setItem('hcmc_budgets', JSON.stringify(updated));
+  };
+
   const handleAdd = async () => {
     if (!form.date || !form.amount) { alert('請填日期同金額'); return; }
     setSaving(true);
@@ -138,12 +229,73 @@ export default function Expenses({ data, setData, showToast }) {
             </div>
           </div>
         </div>
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn btn-green" onClick={handleAdd} disabled={saving}>
             {saving ? '儲存中...' : '+ 新增開支'}
           </button>
+          <button className="btn btn-outline" onClick={saveRecurringTemplate} title="儲存為常用開支">💾 儲存為常用</button>
+          {recurringTemplates.length > 0 && (
+            <button className="btn btn-gold" onClick={() => setShowRecurring(true)}>🔄 常用開支 ({recurringTemplates.length})</button>
+          )}
+          <label className="btn btn-outline" style={{ cursor: 'pointer', position: 'relative' }}>
+            {ocrLoading ? '⏳ OCR 識別中...' : '📷 智能掃描'}
+            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleOCR(e.target.files[0]); e.target.value = ''; }} />
+          </label>
+          <button className="btn btn-outline" onClick={() => setShowBudget(!showBudget)}>📊 {showBudget ? '隱藏預算' : '預算管理'}</button>
         </div>
       </div>
+
+      {/* Budget Tracking */}
+      {showBudget && (
+        <div className="card">
+          <div className="card-header"><h3>📊 月度預算追蹤 ({thisMonthKey})</h3></div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {ALL_CATEGORIES.slice(0, 12).map(cat => {
+              const spent = thisMonthExpenses[cat] || 0;
+              const budget = budgets[cat] || 0;
+              const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+              const overBudget = budget > 0 && spent > budget;
+              return (
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span style={{ minWidth: 60, fontWeight: 600 }}>{cat}</span>
+                  <div style={{ flex: 1, height: 8, background: 'var(--gray-100)', borderRadius: 4 }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: overBudget ? '#dc2626' : spent > budget * 0.8 ? '#d97706' : 'var(--teal-600)', borderRadius: 4, transition: 'width 0.3s' }} />
+                  </div>
+                  <span style={{ minWidth: 80, color: overBudget ? '#dc2626' : 'var(--gray-600)', fontWeight: overBudget ? 700 : 400 }}>{fmtM(spent)}</span>
+                  <span style={{ color: 'var(--gray-400)' }}>/</span>
+                  <input type="number" min="0" step="100" value={budget || ''} onChange={e => saveBudget(cat, Number(e.target.value))} placeholder="預算" style={{ width: 80, padding: '3px 6px', fontSize: 11 }} />
+                  {overBudget && <span style={{ color: '#dc2626', fontSize: 10, fontWeight: 700 }}>超支!</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Recurring Expenses Modal */}
+      {showRecurring && (
+        <div className="modal-overlay" onClick={() => setShowRecurring(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>常用開支</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowRecurring(false)}>✕</button>
+            </div>
+            {recurringTemplates.map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--gray-100)' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{t.merchant}</div>
+                  <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>{t.category} • {t.store} • {fmtM(parseFloat(t.amount))}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button className="btn btn-teal btn-sm" onClick={() => applyRecurring(t)}>新增</button>
+                  <button className="btn btn-red btn-sm" onClick={() => deleteRecurring(t.id)}>刪除</button>
+                </div>
+              </div>
+            ))}
+            {!recurringTemplates.length && <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 20 }}>暫無常用開支，先填寫表單再點「儲存為常用」</div>}
+          </div>
+        </div>
+      )}
 
       {/* Category Summary */}
       {catTotals.length > 0 && (

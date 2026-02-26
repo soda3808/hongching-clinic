@@ -14,7 +14,7 @@ const SLOTS = ['上午', '下午', '晚上'];
 const STORE_OPTIONS = ['宋皇臺', '太子', '休息'];
 const STORE_COLORS = { '宋皇臺': { bg: 'var(--teal-50)', color: 'var(--teal-700)', border: 'var(--teal-200)' }, '太子': { bg: '#FFF8E1', color: '#92400e', border: '#F5D790' }, '休息': { bg: 'var(--gray-100)', color: 'var(--gray-400)', border: 'var(--gray-200)' } };
 
-export default function DoctorSchedule({ data, setData, showToast, user }) {
+export default function DoctorSchedule({ data, showToast, user }) {
   const [schedule, setSchedule] = useState(getDoctorSchedule);
   const [selectedDoctor, setSelectedDoctor] = useState('all');
   const [editing, setEditing] = useState(false);
@@ -26,6 +26,24 @@ export default function DoctorSchedule({ data, setData, showToast, user }) {
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
   const doctors = selectedDoctor === 'all' ? DOCTORS : [selectedDoctor];
+
+  // ── Leave Integration (#45) ──
+  const leaves = data?.leaves || [];
+  const approvedLeaves = leaves.filter(l => l.status === 'approved');
+
+  const getDoctorLeave = (doctor, dayId) => {
+    // Map dayId to actual date for this week
+    const today = new Date();
+    const dayOfWeek = today.getDay() || 7; // 1=Mon, 7=Sun
+    const dayMap = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    const targetDay = dayMap[dayId];
+    if (!targetDay) return null;
+    const diff = targetDay - dayOfWeek;
+    const targetDate = new Date(today);
+    targetDate.setDate(targetDate.getDate() + diff);
+    const dateStr = targetDate.toISOString().substring(0, 10);
+    return approvedLeaves.find(l => l.doctor === doctor && l.startDate <= dateStr && l.endDate >= dateStr);
+  };
 
   const getSlot = (doctor, day, slot) => {
     return schedule[doctor]?.[day]?.[slot] || null;
@@ -70,6 +88,17 @@ export default function DoctorSchedule({ data, setData, showToast, user }) {
         >
           {STORE_OPTIONS.map(o => <option key={o}>{o}</option>)}
         </select>
+      );
+    }
+
+    // Check for leave on this day
+    const leave = getDoctorLeave(doctor, day.id);
+    if (leave && !editing) {
+      const LEAVE_TYPES = { annual: '年假', sick: '病假', personal: '事假' };
+      return (
+        <div style={{ padding: '6px 8px', borderRadius: 6, textAlign: 'center', fontSize: 10, fontWeight: 600, background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', minHeight: 28, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          🏖️ {LEAVE_TYPES[leave.type] || '請假'}
+        </div>
       );
     }
 
@@ -146,6 +175,10 @@ export default function DoctorSchedule({ data, setData, showToast, user }) {
             <span style={{ color: STORE_COLORS[s].color, fontWeight: 600 }}>{s}</span>
           </span>
         ))}
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 14, height: 14, borderRadius: 3, background: '#fee2e2', border: '1px solid #fecaca', display: 'inline-block' }} />
+          <span style={{ color: '#991b1b', fontWeight: 600 }}>請假</span>
+        </span>
         {editing && <span style={{ color: 'var(--teal-600)', fontWeight: 600, marginLeft: 'auto' }}>點擊格子可修改</span>}
       </div>
 

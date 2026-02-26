@@ -145,6 +145,53 @@ export default function BookingPage({ data, setData, showToast }) {
     showToast(`已更新為${STATUS_LABELS[status]}`);
   };
 
+  // ── Appointment Card Printing (#48) ──
+  const printAppointmentCard = (b) => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>預約卡 - ${b.patientName}</title>
+      <style>
+        @page { size: 100mm 65mm; margin: 0; }
+        body { font-family: 'Microsoft YaHei', 'PingFang TC', sans-serif; margin: 0; padding: 0; }
+        .card { width: 96mm; height: 61mm; border: 2px solid #0d9488; border-radius: 8px; padding: 8mm; box-sizing: border-box; position: relative; overflow: hidden; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4mm; border-bottom: 1.5px solid #0d9488; padding-bottom: 3mm; }
+        .clinic-name { font-size: 14px; font-weight: 800; color: #0d9488; }
+        .clinic-en { font-size: 8px; color: #888; }
+        .badge { background: #0d9488; color: #fff; font-size: 9px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+        .info { margin-bottom: 2mm; }
+        .row { display: flex; margin-bottom: 1.5mm; font-size: 11px; }
+        .label { color: #666; min-width: 18mm; }
+        .value { font-weight: 700; color: #333; }
+        .highlight { font-size: 13px; font-weight: 800; color: #0d9488; background: #f0fdfa; padding: 2mm 3mm; border-radius: 4px; margin: 2mm 0; text-align: center; }
+        .footer { position: absolute; bottom: 4mm; left: 8mm; right: 8mm; font-size: 8px; color: #aaa; text-align: center; border-top: 1px dashed #ddd; padding-top: 2mm; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head><body>
+      <div class="card">
+        <div class="header">
+          <div>
+            <div class="clinic-name">康晴綜合醫療中心</div>
+            <div class="clinic-en">HONG CHING MEDICAL CENTRE</div>
+          </div>
+          <div class="badge">預約確認卡</div>
+        </div>
+        <div class="highlight">
+          📅 ${b.date} &nbsp;&nbsp; ⏰ ${b.time}
+        </div>
+        <div class="info">
+          <div class="row"><span class="label">病人姓名：</span><span class="value">${b.patientName}</span></div>
+          <div class="row"><span class="label">主診醫師：</span><span class="value">👨‍⚕️ ${b.doctor}</span></div>
+          <div class="row"><span class="label">診所地址：</span><span class="value">📍 ${b.store === '太子' ? '太子彌敦道788號利安大廈1樓B室' : '九龍宋皇臺道38號傲寓地下5號舖'}</span></div>
+          <div class="row"><span class="label">治療類型：</span><span class="value">${b.type}</span></div>
+          ${b.notes ? `<div class="row"><span class="label">備註：</span><span class="value">${b.notes}</span></div>` : ''}
+        </div>
+        <div class="footer">如需更改或取消預約，請提前致電診所。多謝！</div>
+      </div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
   const sendBookingWA = (b) => {
     const text = `【康晴醫療中心】${b.patientName}你好！你嘅預約已確認：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
     openWhatsApp(b.patientPhone, text);
@@ -235,6 +282,7 @@ export default function BookingPage({ data, setData, showToast }) {
                           <div style={{ display: 'flex', gap: 4 }}>
                             <button className="btn btn-green btn-sm" onClick={() => handleUpdateStatus(b.id, 'completed')}>✓</button>
                             {b.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => sendBookingWA(b)}>WA</button>}
+                            <button className="btn btn-outline btn-sm" onClick={() => printAppointmentCard(b)} title="列印預約卡">🖨️</button>
                             <button className="btn btn-outline btn-sm" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>✕</button>
                             <button className="btn btn-red btn-sm" onClick={() => handleUpdateStatus(b.id, 'no-show')}>NS</button>
                           </div>

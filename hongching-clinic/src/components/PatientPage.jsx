@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { savePatient } from '../api';
 import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
 
-const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:'宋皇臺', doctor:DOCTORS[0] };
+const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:'宋皇臺', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'' };
 
 export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [form, setForm] = useState({ ...EMPTY });
@@ -125,6 +125,11 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             <div><label>地址</label><input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="地址" /></div>
             <div><label>過敏史</label><input value={form.allergies} onChange={e => setForm({...form, allergies: e.target.value})} placeholder="如無請填「無」" /></div>
           </div>
+          <div className="grid-3" style={{ marginBottom: 12 }}>
+            <div><label>慢性病</label><input value={form.chronicConditions} onChange={e => setForm({...form, chronicConditions: e.target.value})} placeholder="如高血壓、糖尿病" /></div>
+            <div><label>長期用藥</label><input value={form.medications} onChange={e => setForm({...form, medications: e.target.value})} placeholder="西藥名稱" /></div>
+            <div><label>血型</label><select value={form.bloodType} onChange={e => setForm({...form, bloodType: e.target.value})}><option value="">未知</option>{['A','B','AB','O'].map(t => <option key={t}>{t}</option>)}</select></div>
+          </div>
           <div className="grid-2" style={{ marginBottom: 12 }}>
             <div><label>主診醫師</label><select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
             <div><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
@@ -210,7 +215,19 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               <div><strong>累計消費：</strong>{fmtM(detail.totalSpent || 0)}</div>
               <div><strong>總就診：</strong>{detail.totalVisits || 0} 次</div>
               <div><strong>店舖：</strong>{detail.store}</div>
+              {detail.bloodType && <div><strong>血型：</strong>{detail.bloodType}</div>}
             </div>
+            {/* Medical Alerts */}
+            {(detail.allergies || detail.chronicConditions || detail.medications) && (
+              <div style={{ marginBottom: 16, padding: 12, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
+                <div style={{ fontWeight: 700, color: '#991b1b', fontSize: 13, marginBottom: 6 }}>⚠️ 醫療警示</div>
+                <div style={{ fontSize: 12, display: 'grid', gap: 4 }}>
+                  {detail.allergies && detail.allergies !== '無' && <div><strong style={{ color: '#dc2626' }}>過敏：</strong>{detail.allergies}</div>}
+                  {detail.chronicConditions && <div><strong style={{ color: '#d97706' }}>慢性病：</strong>{detail.chronicConditions}</div>}
+                  {detail.medications && <div><strong style={{ color: '#7c3aed' }}>長期用藥：</strong>{detail.medications}</div>}
+                </div>
+              </div>
+            )}
             {detail.notes && <div style={{ fontSize: 13, marginBottom: 16, padding: 10, background: 'var(--gray-50)', borderRadius: 6 }}><strong>備註：</strong>{detail.notes}</div>}
             {activeEnrollments.length > 0 && (
               <div style={{ marginBottom: 16 }}>
