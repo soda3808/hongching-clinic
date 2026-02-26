@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { savePatient } from '../api';
+import { savePatient, openWhatsApp } from '../api';
 import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
 
 const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:'宋皇臺', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'' };
@@ -101,17 +101,25 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             <h3 style={{ color: '#991b1b', fontSize: 14 }}>⚠️ 流失風險病人 ({churnRisk.length})</h3>
             <span style={{ fontSize: 11, color: '#991b1b' }}>60-90天未覆診 | 已流失(&gt;90天): {churned}</span>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', padding: '0 16px 12px' }}>
-            {churnRisk.slice(0, 8).map(p => (
-              <div key={p.id} onClick={() => setDetail(p)} style={{
-                padding: '6px 12px', borderRadius: 8, background: '#fff', border: '1px solid #fecaca',
-                cursor: 'pointer', fontSize: 12,
-              }}>
-                <strong>{p.name}</strong>
-                <div style={{ color: '#991b1b', fontSize: 10 }}>最後到訪: {p.lastVisit} | {p.totalVisits}次 | {fmtM(p.totalSpent || 0)}</div>
-              </div>
-            ))}
-            {churnRisk.length > 8 && <div style={{ padding: '6px 12px', fontSize: 12, color: '#991b1b' }}>+{churnRisk.length - 8} 更多...</div>}
+          <div style={{ padding: '0 16px 12px' }}>
+            {churnRisk.slice(0, 10).map(p => {
+              const daysSince = Math.floor((Date.now() - new Date(p.lastVisit).getTime()) / 86400000);
+              return (
+                <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #fde2e2', fontSize: 12 }}>
+                  <span style={{ fontWeight: 700, minWidth: 60, cursor: 'pointer', color: '#0e7490' }} onClick={() => setDetail(p)}>{p.name}</span>
+                  <span style={{ color: '#991b1b', fontSize: 10 }}>{daysSince}天前</span>
+                  <span style={{ color: '#888', fontSize: 10 }}>{p.totalVisits}次 | {fmtM(p.totalSpent || 0)}</span>
+                  <span style={{ color: '#888', fontSize: 10, flex: 1 }}>{p.lastVisit}</span>
+                  {p.phone && (
+                    <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 10, padding: '2px 8px' }} onClick={(e) => {
+                      e.stopPropagation();
+                      openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！好耐無見，掛住你呀！😊\n\n我哋最近推出咗新嘅療程優惠，想邀請你嚟體驗下。\n\n🎁 舊客回訪優惠：覆診免診金\n\n歡迎隨時預約！\n📞 致電或WhatsApp預約\n祝身體健康！🙏`);
+                    }}>📱 WA</button>
+                  )}
+                </div>
+              );
+            })}
+            {churnRisk.length > 10 && <div style={{ padding: '6px 0', fontSize: 11, color: '#991b1b' }}>+{churnRisk.length - 10} 更多...</div>}
           </div>
         </div>
       )}

@@ -300,6 +300,37 @@ function InstallPrompt() {
   );
 }
 
+// ── Mobile FAB (Quick Actions) (#65) ──
+function MobileFAB({ onAction }) {
+  const [open, setOpen] = useState(false);
+  const actions = [
+    { icon: '💰', label: '新增營業', page: 'rev' },
+    { icon: '📅', label: '新增預約', page: 'booking' },
+    { icon: '🎫', label: '掛號排隊', page: 'queue' },
+    { icon: '👥', label: '新增病人', page: 'patient' },
+    { icon: '🧾', label: '新增開支', page: 'exp' },
+  ];
+  return (
+    <>
+      {open && <div className="fab-overlay" onClick={() => setOpen(false)} />}
+      <div className="fab-container">
+        {open && (
+          <div className="fab-menu">
+            {actions.map(a => (
+              <button key={a.page} className="fab-action" onClick={() => { onAction(a.page); setOpen(false); }}>
+                <span>{a.icon}</span><span>{a.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <button className={`fab-btn ${open ? 'fab-open' : ''}`} onClick={() => setOpen(!open)} aria-label="快捷操作">
+          {open ? '✕' : '＋'}
+        </button>
+      </div>
+    </>
+  );
+}
+
 // ── Mobile More Menu ──
 function MobileMoreMenu({ pages, page, setPage, onClose, user, onLogout }) {
   return (
@@ -509,7 +540,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v5.4 • {new Date().getFullYear()}</span>
+          <span>v5.5 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -586,6 +617,9 @@ function MainApp() {
           {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
         </div>
       </div>
+
+      {/* Mobile FAB (#65) */}
+      <MobileFAB onAction={setPage} />
 
       {/* Mobile Bottom Tab Bar */}
       <div className="mobile-tabbar">

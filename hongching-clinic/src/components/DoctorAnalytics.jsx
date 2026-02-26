@@ -1,12 +1,32 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { fmtM, fmt, getMonth, monthLabel, DOCTORS } from '../data';
 
 const COLORS = { '常凱晴': '#0e7490', '許植輝': '#8B6914', '曾其方': '#7C3AED' };
+const DEFAULT_TARGETS = { '常凱晴': 200000, '許植輝': 150000, '曾其方': 120000 };
+const COMMISSION_TIERS = [
+  { threshold: 1.2, rate: 0.15, label: '超額 120%+' },
+  { threshold: 1.0, rate: 0.10, label: '達標 100%+' },
+  { threshold: 0.8, rate: 0.05, label: '達 80%+' },
+  { threshold: 0, rate: 0, label: '未達 80%' },
+];
 
 export default function DoctorAnalytics({ data, user }) {
   const isDoctor = user?.role === 'doctor';
   const visibleDoctors = isDoctor ? [user.name] : DOCTORS;
+
+  // ── Performance Targets (#61) ──
+  const [targets, setTargets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_doc_targets') || 'null') || DEFAULT_TARGETS; } catch { return DEFAULT_TARGETS; }
+  });
+  const [editingTargets, setEditingTargets] = useState(false);
+  const [tempTargets, setTempTargets] = useState({ ...targets });
+
+  const saveTargets = () => {
+    setTargets({ ...tempTargets });
+    localStorage.setItem('hcmc_doc_targets', JSON.stringify(tempTargets));
+    setEditingTargets(false);
+  };
   const months = useMemo(() => {
     const m = new Set();
     data.revenue.forEach(r => { const k = getMonth(r.date); if (k) m.add(k); });
@@ -89,6 +109,67 @@ export default function DoctorAnalytics({ data, user }) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Performance Targets & Commission (#61) */}
+      {!isDoctor && (
+        <div className="card">
+          <div className="card-header">
+            <h3>🎯 業績目標 & 佣金計算（本月）</h3>
+            {!editingTargets ? (
+              <button className="btn btn-outline btn-sm" onClick={() => { setTempTargets({ ...targets }); setEditingTargets(true); }}>設定目標</button>
+            ) : (
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className="btn btn-teal btn-sm" onClick={saveTargets}>儲存</button>
+                <button className="btn btn-outline btn-sm" onClick={() => setEditingTargets(false)}>取消</button>
+              </div>
+            )}
+          </div>
+          {editingTargets && (
+            <div style={{ padding: '12px 16px', background: 'var(--gray-50)', display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+              {visibleDoctors.map(d => (
+                <div key={d} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{d}:</span>
+                  <input type="number" value={tempTargets[d] || ''} onChange={e => setTempTargets({ ...tempTargets, [d]: Number(e.target.value) })} style={{ width: 100, fontSize: 12, padding: '4px 8px' }} />
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>醫師</th><th style={{ textAlign: 'right' }}>本月目標</th><th style={{ textAlign: 'right' }}>本月實績</th><th style={{ textAlign: 'right' }}>達成率</th><th>進度</th><th style={{ textAlign: 'right' }}>佣金比率</th><th style={{ textAlign: 'right' }}>佣金金額</th></tr>
+              </thead>
+              <tbody>
+                {docStats.map(d => {
+                  const target = targets[d.name] || 0;
+                  const achievement = target > 0 ? d.thisRev / target : 0;
+                  const tier = COMMISSION_TIERS.find(t => achievement >= t.threshold) || COMMISSION_TIERS[COMMISSION_TIERS.length - 1];
+                  const commission = d.thisRev * tier.rate;
+                  const pct = Math.min(achievement * 100, 150);
+                  return (
+                    <tr key={d.name}>
+                      <td style={{ fontWeight: 700, color: d.color }}>{d.name}</td>
+                      <td className="money">{fmtM(target)}</td>
+                      <td className="money" style={{ color: d.color }}>{fmtM(d.thisRev)}</td>
+                      <td className="money" style={{ fontWeight: 700, color: achievement >= 1 ? '#16a34a' : achievement >= 0.8 ? '#d97706' : '#dc2626' }}>{(achievement * 100).toFixed(1)}%</td>
+                      <td style={{ minWidth: 120 }}>
+                        <div style={{ background: 'var(--gray-200)', borderRadius: 6, height: 14, overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: achievement >= 1 ? '#16a34a' : achievement >= 0.8 ? '#d97706' : '#dc2626', borderRadius: 6, transition: 'width 0.5s' }} />
+                        </div>
+                      </td>
+                      <td className="money">{(tier.rate * 100).toFixed(0)}% <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>({tier.label})</span></td>
+                      <td className="money" style={{ fontWeight: 700, color: commission > 0 ? '#16a34a' : 'var(--gray-400)' }}>{fmtM(commission)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: '8px 16px', fontSize: 11, color: 'var(--gray-400)' }}>
+            佣金級別：≥120% → 15% | ≥100% → 10% | ≥80% → 5% | &lt;80% → 0%
+          </div>
+        </div>
+      )}
 
       {/* Detail Tables */}
       {docStats.map(d => (

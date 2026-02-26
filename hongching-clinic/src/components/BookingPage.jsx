@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { saveBooking, updateBookingStatus, openWhatsApp } from '../api';
+import { saveBooking, updateBookingStatus, openWhatsApp, saveQueue } from '../api';
 import { uid, DOCTORS } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 
@@ -198,6 +198,23 @@ export default function BookingPage({ data, setData, showToast }) {
     showToast('已開啟 WhatsApp');
   };
 
+  // ── Booking-to-Queue Auto-Link (#62) ──
+  const sendToQueue = async (b) => {
+    const queue = data.queue || [];
+    const alreadyQueued = queue.find(q => q.bookingId === b.id && q.date === today);
+    if (alreadyQueued) return showToast(`${b.patientName} 已在排隊中`);
+    const now = new Date();
+    const registeredAt = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const queueItem = {
+      id: uid(), bookingId: b.id, date: today, patientName: b.patientName, patientPhone: b.patientPhone || '',
+      doctor: b.doctor, store: b.store, type: b.type, status: 'waiting', registeredAt, notes: b.notes || '',
+    };
+    await saveQueue(queueItem);
+    setData({ ...data, queue: [...queue, queueItem] });
+    await handleUpdateStatus(b.id, 'completed');
+    showToast(`${b.patientName} 已加入排隊`);
+  };
+
   const shiftWeek = (dir) => {
     const d = new Date(calWeek);
     d.setDate(d.getDate() + dir * 7);
@@ -280,6 +297,7 @@ export default function BookingPage({ data, setData, showToast }) {
                         )}
                         {b.status === 'confirmed' && (
                           <div style={{ display: 'flex', gap: 4 }}>
+                            {b.date === today && <button className="btn btn-teal btn-sm" onClick={() => sendToQueue(b)} title="到診掛號">🎫</button>}
                             <button className="btn btn-green btn-sm" onClick={() => handleUpdateStatus(b.id, 'completed')}>✓</button>
                             {b.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => sendBookingWA(b)}>WA</button>}
                             <button className="btn btn-outline btn-sm" onClick={() => printAppointmentCard(b)} title="列印預約卡">🖨️</button>

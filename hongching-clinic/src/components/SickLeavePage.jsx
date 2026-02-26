@@ -12,6 +12,7 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
   const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: DOCTORS[0], store: '宋皇臺', diagnosis: '', startDate: '', endDate: '', days: 1, notes: '' });
   const [saving, setSaving] = useState(false);
   const [patientSuggestions, setPatientSuggestions] = useState([]);
+  const [filterDoc, setFilterDoc] = useState('all');
 
   const modalRef = useRef(null);
   useFocusTrap(showModal ? modalRef : nullRef);
@@ -32,8 +33,9 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
       const q = search.toLowerCase();
       l = l.filter(s => s.patientName.toLowerCase().includes(q) || (s.diagnosis || '').toLowerCase().includes(q));
     }
+    if (filterDoc !== 'all') l = l.filter(s => s.doctor === filterDoc);
     return l;
-  }, [sickleaves, search]);
+  }, [sickleaves, search, filterDoc]);
 
   const handlePatientSearch = (val) => {
     setForm(f => ({ ...f, patientName: val }));
@@ -84,43 +86,55 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
 
   const handlePrint = (item) => {
     const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
+    const certNo = `SL-${(item.issuedAt || '').replace(/-/g, '')}-${(item.id || '').substring(0, 6).toUpperCase()}`;
     const w = window.open('', '_blank');
     if (!w) return showToast('請允許彈出視窗');
-    w.document.write(`<!DOCTYPE html><html><head><title>病假證明書</title><style>
-      body{font-family:'Microsoft YaHei',sans-serif;padding:40px 50px;max-width:700px;margin:0 auto;color:#333}
-      .header{text-align:center;border-bottom:3px solid #0e7490;padding-bottom:16px;margin-bottom:24px}
-      .header img{height:60px;margin-bottom:8px}
+    w.document.write(`<!DOCTYPE html><html><head><title>病假證明書 / Medical Certificate</title><style>
+      body{font-family:'Microsoft YaHei','Arial',sans-serif;padding:40px 50px;max-width:700px;margin:0 auto;color:#333}
+      .header{text-align:center;border-bottom:3px double #0e7490;padding-bottom:16px;margin-bottom:8px}
       .header h1{font-size:18px;color:#0e7490;margin:0}
-      .header p{font-size:12px;color:#888;margin:4px 0}
-      .title{text-align:center;font-size:20px;font-weight:800;margin:24px 0;color:#0e7490}
-      .field{display:flex;margin:12px 0;font-size:14px}
-      .field .label{width:120px;font-weight:700;color:#555}
+      .header h2{font-size:13px;color:#0e7490;margin:2px 0;font-weight:400;letter-spacing:1px}
+      .header p{font-size:11px;color:#888;margin:3px 0}
+      .cert-no{text-align:right;font-size:11px;color:#888;margin-bottom:4px}
+      .title{text-align:center;font-size:18px;font-weight:800;margin:16px 0;color:#0e7490;letter-spacing:3px}
+      .title-en{text-align:center;font-size:12px;color:#666;margin:-10px 0 20px;letter-spacing:1px}
+      .field{display:flex;margin:10px 0;font-size:13px}
+      .field .label{width:160px;font-weight:700;color:#555}
+      .field .label-en{font-weight:400;color:#999;font-size:11px}
       .field .value{flex:1;border-bottom:1px solid #ddd;padding-bottom:4px}
-      .sig{margin-top:60px;display:flex;justify-content:space-between}
+      .body-text{font-size:13px;line-height:1.8;margin:20px 0;padding:16px;background:#f9fafb;border-radius:8px;border-left:4px solid #0e7490}
+      .sig{margin-top:50px;display:flex;justify-content:space-between}
       .sig-box{text-align:center;width:200px}
-      .sig-line{border-top:1px solid #333;margin-top:60px;padding-top:4px;font-size:12px}
-      .footer{margin-top:40px;text-align:center;font-size:10px;color:#aaa}
+      .sig-line{border-top:1px solid #333;margin-top:60px;padding-top:4px;font-size:11px}
+      .footer{margin-top:40px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:12px}
+      @media print{body{padding:20px 30px}}
     </style></head><body>
       <div class="header">
         <h1>${clinic.name || '康晴綜合醫療中心'}</h1>
-        <p>${clinic.nameEn || 'Hong Ching International Medical Centre'}</p>
-        <p>${item.store === '太子' ? (clinic.addr2 || '長沙灣道28號長康大廈地下') : (clinic.addr1 || '馬頭涌道97號美誠大廈地下')}</p>
+        <h2>${clinic.nameEn || 'HONG CHING INTERNATIONAL MEDICAL CENTRE'}</h2>
+        <p>${item.store === '太子' ? (clinic.addr2 || '九龍太子彌敦道788號利安大廈1樓B室') : (clinic.addr1 || '九龍宋皇臺道38號傲寓地下5號舖')}</p>
+        <p>Tel: ${clinic.tel || '2XXX XXXX'}</p>
       </div>
-      <div class="title">病假證明書</div>
-      <div class="field"><span class="label">病人姓名：</span><span class="value">${item.patientName}</span></div>
-      <div class="field"><span class="label">聯絡電話：</span><span class="value">${item.patientPhone || '-'}</span></div>
-      <div class="field"><span class="label">診斷：</span><span class="value">${item.diagnosis || '-'}</span></div>
-      <div class="field"><span class="label">病假日期：</span><span class="value">${item.startDate} 至 ${item.endDate}（共 ${item.days} 天）</span></div>
-      <div class="field"><span class="label">備註：</span><span class="value">${item.notes || '-'}</span></div>
-      <div class="field"><span class="label">簽發日期：</span><span class="value">${item.issuedAt}</span></div>
+      <div class="cert-no">證明書編號 Cert No.: ${certNo}</div>
+      <div class="title">病 假 證 明 書</div>
+      <div class="title-en">MEDICAL CERTIFICATE FOR SICK LEAVE</div>
+      <div class="body-text">
+        茲證明 <strong>${item.patientName}</strong> 於 <strong>${item.issuedAt}</strong> 到本醫療中心就診，經診斷後建議病假休息，日期由 <strong>${item.startDate}</strong> 至 <strong>${item.endDate}</strong>，共 <strong>${item.days}</strong> 天。
+      </div>
+      <div class="body-text" style="font-size:12px;color:#666;background:#fff;border-left-color:#ccc">
+        This is to certify that <strong>${item.patientName}</strong> attended this medical centre on <strong>${item.issuedAt}</strong> and is granted sick leave from <strong>${item.startDate}</strong> to <strong>${item.endDate}</strong>, a total of <strong>${item.days}</strong> day(s).
+      </div>
+      <div class="field"><span class="label">診斷 Diagnosis：</span><span class="value">${item.diagnosis || '-'}</span></div>
+      ${item.notes ? `<div class="field"><span class="label">備註 Remarks：</span><span class="value">${item.notes}</span></div>` : ''}
+      <div class="field"><span class="label">簽發日期 Date：</span><span class="value">${item.issuedAt}</span></div>
       <div class="sig">
-        <div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div>
-        <div class="sig-box"><div class="sig-line">診所蓋章</div></div>
+        <div class="sig-box"><div class="sig-line">主診醫師 Attending Practitioner<br/>${item.doctor}</div></div>
+        <div class="sig-box"><div class="sig-line">診所蓋章 Clinic Stamp</div></div>
       </div>
-      <div class="footer">此證明書僅供病假證明用途 | ${clinic.name || '康晴綜合醫療中心'}</div>
+      <div class="footer">此證明書僅供病假證明用途 This certificate is issued for sick leave purposes only.<br/>${certNo} | ${clinic.name || '康晴綜合醫療中心'}</div>
     </body></html>`);
     w.document.close();
-    w.print();
+    setTimeout(() => w.print(), 300);
   };
 
   return (
@@ -137,6 +151,9 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
       {/* Filter Bar */}
       <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <input style={{ flex: 1, minWidth: 200 }} placeholder="搜尋病人或診斷..." value={search} onChange={e => setSearch(e.target.value)} />
+        <select style={{ width: 'auto' }} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
+          <option value="all">全部醫師</option>{DOCTORS.map(d => <option key={d}>{d}</option>)}
+        </select>
         <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 新增假紙</button>
       </div>
 

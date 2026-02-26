@@ -41,6 +41,8 @@ export default function InventoryPage({ data, setData, showToast }) {
   const [importSummary, setImportSummary] = useState(null);
   const [importing, setImporting] = useState(false);
   const [showPO, setShowPO] = useState(false);
+  const [transferItem, setTransferItem] = useState(null);
+  const [transferQty, setTransferQty] = useState('');
   const fileInputRef = useRef(null);
 
   const modalRef = useRef(null);
@@ -302,6 +304,35 @@ export default function InventoryPage({ data, setData, showToast }) {
     showToast('正在列印採購單');
   };
 
+  // ── Stock Transfer Between Stores (#60) ──
+  const handleTransfer = async () => {
+    if (!transferItem || !transferQty) return;
+    const qty = parseFloat(transferQty) || 0;
+    if (qty <= 0) return showToast('請輸入有效數量');
+    if (qty > Number(transferItem.stock)) return showToast('轉移數量不能超過現有庫存');
+    const fromStore = transferItem.store;
+    const toStore = fromStore === '宋皇臺' ? '太子' : '宋皇臺';
+    // Deduct from source
+    const updatedSource = { ...transferItem, stock: Number(transferItem.stock) - qty };
+    await saveInventory(updatedSource);
+    // Find or create target item
+    const existing = inventory.find(r => r.name === transferItem.name && r.store === toStore);
+    let updatedInv;
+    if (existing) {
+      const updatedTarget = { ...existing, stock: Number(existing.stock) + qty };
+      await saveInventory(updatedTarget);
+      updatedInv = inventory.map(r => r.id === updatedSource.id ? updatedSource : r.id === updatedTarget.id ? updatedTarget : r);
+    } else {
+      const newItem = { ...transferItem, id: uid(), store: toStore, stock: qty, lastRestocked: new Date().toISOString().split('T')[0] };
+      await saveInventory(newItem);
+      updatedInv = inventory.map(r => r.id === updatedSource.id ? updatedSource : r).concat(newItem);
+    }
+    setData({ ...data, inventory: updatedInv });
+    showToast(`已將 ${qty}${transferItem.unit} ${transferItem.name} 從${fromStore}轉至${toStore}`);
+    setTransferItem(null);
+    setTransferQty('');
+  };
+
   // ── Export CSV ──
   const handleExport = () => {
     const cols = [
@@ -469,6 +500,7 @@ export default function InventoryPage({ data, setData, showToast }) {
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-green btn-sm" onClick={() => openRestock(r)}>入貨</button>
+                        {r.store !== '兩店共用' && <button className="btn btn-gold btn-sm" onClick={() => { setTransferItem(r); setTransferQty(''); }}>轉倉</button>}
                         <button className="btn btn-outline btn-sm" onClick={() => openEdit(r)}>編輯</button>
                         <button className="btn btn-red btn-sm" onClick={() => setDeleteId(r.id)}>刪除</button>
                       </div>
@@ -732,6 +764,40 @@ export default function InventoryPage({ data, setData, showToast }) {
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button className="btn btn-teal" onClick={printPurchaseOrder}>列印採購單</button>
               <button className="btn btn-outline" onClick={() => setShowPO(false)}>關閉</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Transfer Modal (#60) */}
+      {transferItem && (
+        <div className="modal-overlay" onClick={() => setTransferItem(null)} role="dialog" aria-modal="true" aria-label="庫存轉倉">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>轉倉 — {transferItem.name}</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setTransferItem(null)} aria-label="關閉">✕</button>
+            </div>
+            <div style={{ background: 'var(--gray-50)', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+              <div className="grid-2">
+                <div><strong>來源店舖：</strong>{transferItem.store}</div>
+                <div><strong>目標店舖：</strong>{transferItem.store === '宋皇臺' ? '太子' : '宋皇臺'}</div>
+                <div><strong>現有庫存：</strong>{transferItem.stock} {transferItem.unit}</div>
+                <div><strong>分類：</strong>{transferItem.category}</div>
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label>轉移數量 ({transferItem.unit}) *</label>
+              <input type="number" min="1" max={transferItem.stock} step="any" value={transferQty} onChange={e => setTransferQty(e.target.value)} placeholder="輸入數量" autoFocus />
+            </div>
+            {transferQty && Number(transferQty) > 0 && (
+              <div style={{ background: 'var(--gold-50, #fffbeb)', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+                <div>📦 {transferItem.store}：{transferItem.stock} → <strong>{Number(transferItem.stock) - Number(transferQty)} {transferItem.unit}</strong></div>
+                <div>📦 {transferItem.store === '宋皇臺' ? '太子' : '宋皇臺'}：+<strong>{transferQty} {transferItem.unit}</strong></div>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-gold" onClick={handleTransfer}>確認轉倉</button>
+              <button className="btn btn-outline" onClick={() => setTransferItem(null)}>取消</button>
             </div>
           </div>
         </div>
