@@ -5,6 +5,7 @@
 import bcrypt from 'bcryptjs';
 import { createClient } from '@supabase/supabase-js';
 import { setCORS, handleOptions, requireAuth, validateRequired, sanitizeString, rateLimit, getClientIP, errorResponse } from './_middleware.js';
+import { sendEmail, welcomeEmail, tenantOnboardEmail } from './_email.js';
 
 export default async function handler(req, res) {
   setCORS(req, res);
@@ -91,6 +92,38 @@ export default async function handler(req, res) {
       created_at: new Date().toISOString(),
     });
 
+    // Send welcome email to the new tenant admin (non-blocking, non-critical)
+    let welcomeEmailSent = false;
+    if (userRecord.email) {
+      try {
+        const { subject, html } = welcomeEmail({
+          tenantName: tenant.name,
+          adminName: userRecord.display_name,
+        });
+        const result = await sendEmail({ to: userRecord.email, subject, html });
+        welcomeEmailSent = result.success;
+      } catch {
+        // Email failure should not block onboarding
+      }
+    }
+
+    // Notify super admin about new tenant registration (non-blocking, non-critical)
+    let notificationSent = false;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+      try {
+        const { subject, html } = tenantOnboardEmail({
+          tenantName: tenant.name,
+          adminEmail: userRecord.email,
+          slug,
+        });
+        const result = await sendEmail({ to: adminEmail, subject, html });
+        notificationSent = result.success;
+      } catch {
+        // Notification failure should not block onboarding
+      }
+    }
+
     return res.status(200).json({
       success: true,
       tenant: {
@@ -102,6 +135,10 @@ export default async function handler(req, res) {
         id: adminUser.id,
         username: adminUser.username,
         displayName: adminUser.display_name,
+      },
+      emailSent: {
+        welcome: welcomeEmailSent,
+        notification: notificationSent,
       },
     });
   } catch (err) {

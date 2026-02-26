@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   const rl = rateLimit(`inquiry:${ip}`, 5, 60000);
   if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁');
 
-  const { id, name, phone, type, message } = req.body || {};
+  const { id, name, phone, type, message, tenantId } = req.body || {};
   if (!name || !phone || !message) return errorResponse(res, 400, 'Missing required fields');
 
   // Input validation
@@ -41,6 +41,7 @@ export default async function handler(req, res) {
     message: cleanMessage,
     status: 'new',
     createdAt: new Date().toISOString(),
+    ...(tenantId ? { tenant_id: tenantId } : {}),
   };
 
   try {

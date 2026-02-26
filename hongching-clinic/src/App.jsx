@@ -40,6 +40,9 @@ const PrivacyCenter = lazy(() => import('./components/PrivacyCenter'));
 const SuperAdmin = lazy(() => import('./components/SuperAdmin'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const MedicineScanner = lazy(() => import('./components/MedicineScanner'));
+const TermsOfService = lazy(() => import('./components/TermsOfService'));
+const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
+const BillingSettings = lazy(() => import('./components/BillingSettings'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -67,6 +70,7 @@ const ALL_PAGES = [
   { id: 'ai', icon: '🤖', label: 'AI 助手', section: '分析', perm: 'viewDashboard' },
   { id: 'compare', icon: '🏢', label: '分店對比', section: '分析', perm: 'viewDashboard' },
   { id: 'survey', icon: '📋', label: '滿意度調查', section: '分析', perm: 'viewDashboard' },
+  { id: 'billingsub', icon: '💳', label: '訂閱管理', section: '系統', perm: 'viewSettings' },
   { id: 'privacy', icon: '🔒', label: '私隱中心', section: '系統', perm: 'viewPrivacy' },
   { id: 'superadmin', icon: '🛡️', label: 'Super Admin', section: '系統', perm: 'viewSuperAdmin' },
 ];
@@ -81,7 +85,7 @@ const MOBILE_TABS = [
 ];
 
 // ── Login Page ──
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, onShowLegal }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -287,6 +291,17 @@ function LoginPage({ onLogin }) {
             </div>
           </>
         )}
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--gray-200)', textAlign: 'center', fontSize: 11, color: 'var(--gray-400)' }}>
+          <span style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--gray-500)' }}
+            onClick={() => onShowLegal && onShowLegal('terms')}>
+            服務條款
+          </span>
+          <span style={{ margin: '0 6px' }}>|</span>
+          <span style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--gray-500)' }}
+            onClick={() => onShowLegal && onShowLegal('privacy')}>
+            私隱政策
+          </span>
+        </div>
       </form>
     </div>
   );
@@ -567,6 +582,7 @@ function MainApp() {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [theme, setTheme] = useState(() => localStorage.getItem('hcmc_theme') || 'light');
   const [showLoginPage, setShowLoginPage] = useState(false);
+  const [legalPage, setLegalPage] = useState(null); // 'terms' | 'privacy' | null
   const [readNotifs, setReadNotifs] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('hcmc_read_notifs') || '[]'); } catch { return []; }
   });
@@ -673,6 +689,22 @@ function MainApp() {
   };
 
   if (!user) {
+    // Show legal pages (Terms / Privacy) from login screen
+    if (legalPage === 'terms') {
+      return (
+        <Suspense fallback={LazyFallback}>
+          <TermsOfService onBack={() => setLegalPage(null)} />
+        </Suspense>
+      );
+    }
+    if (legalPage === 'privacy') {
+      return (
+        <Suspense fallback={LazyFallback}>
+          <PrivacyPolicy onBack={() => setLegalPage(null)} />
+        </Suspense>
+      );
+    }
+
     const path = window.location.pathname;
     const isLandingRoute = path === '/' || path === '/landing';
     if (isLandingRoute && !showLoginPage) {
@@ -685,7 +717,7 @@ function MainApp() {
         </Suspense>
       );
     }
-    return <LoginPage onLogin={(session) => { applyTenantTheme(); setShowLoginPage(false); setUser(session); }} />;
+    return <LoginPage onLogin={(session) => { applyTenantTheme(); setShowLoginPage(false); setUser(session); }} onShowLegal={setLegalPage} />;
   }
 
   if (loading) {
@@ -739,7 +771,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v6.1.0 • {new Date().getFullYear()}</span>
+          <span>v6.2.0 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -844,6 +876,9 @@ function MainApp() {
             {page === 'privacy' && <PrivacyCenter data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'superadmin' && <SuperAdmin showToast={showToast} user={user} />}
             {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'tos' && <TermsOfService onBack={() => setPage('dash')} />}
+            {page === 'pp' && <PrivacyPolicy onBack={() => setPage('dash')} />}
+            {page === 'billingsub' && <BillingSettings />}
           </Suspense>
         </div>
       </div>

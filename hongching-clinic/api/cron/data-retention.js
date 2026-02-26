@@ -46,7 +46,11 @@ export default async function handler(req, res) {
     const { count: auditDeleted } = await supabase.from('audit_logs').delete({ count: 'exact' }).lt('created_at', auditCutoff);
     if (auditDeleted > 0) results.cleaned.push(`audit_logs: ${auditDeleted} deleted (>3yr)`);
 
-    // ── 5. Log retention run ──
+    // ── 5. Expired password reset tokens → delete ──
+    const { count: tokensDeleted } = await supabase.from('password_resets').delete({ count: 'exact' }).lt('expires_at', now.toISOString());
+    if (tokensDeleted > 0) results.cleaned.push(`password_resets: ${tokensDeleted} expired tokens deleted`);
+
+    // ── 6. Log retention run ──
     await supabase.from('audit_logs').insert({
       user_id: 'system',
       user_name: 'Data Retention Cron',

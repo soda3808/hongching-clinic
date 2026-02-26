@@ -1,10 +1,11 @@
 // Vercel Serverless — Password Reset Request
 // POST /api/auth/reset-request  { username } or { email }
-// Returns: { success, token } (admin-initiated reset; no email service)
+// Returns: { success, token, emailSent } — sends password reset email if user has email on file
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { setCORS, handleOptions, rateLimit, getClientIP, sanitizeString, errorResponse } from '../_middleware.js';
+import { sendEmail, passwordResetEmail } from '../_email.js';
 
 export default async function handler(req, res) {
   setCORS(req, res);
@@ -105,10 +106,30 @@ export default async function handler(req, res) {
       });
     } catch { /* audit is non-critical */ }
 
+    // Send password reset email if user has an email address
+    let emailSent = false;
+    if (user.email) {
+      try {
+        const { subject, html } = passwordResetEmail({
+          name: user.display_name,
+          token,
+          expiresIn: '1 小時 / 1 hour',
+        });
+        const emailResult = await sendEmail({ to: user.email, subject, html });
+        emailSent = emailResult.success;
+      } catch {
+        // Email is non-critical — don't fail the reset request
+        emailSent = false;
+      }
+    }
+
     return res.status(200).json({
       success: true,
       token,
-      message: '重設令牌已產生，有效期1小時',
+      emailSent,
+      message: emailSent
+        ? '重設令牌已產生並已發送至電郵，有效期1小時'
+        : '重設令牌已產生，有效期1小時',
       username: user.username,
       displayName: user.display_name,
     });

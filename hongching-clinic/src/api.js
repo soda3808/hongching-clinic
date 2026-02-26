@@ -36,7 +36,11 @@ async function sbUpsert(table, record) {
 async function sbDelete(table, id) {
   if (!supabase) return null;
   try {
-    const { error } = await supabase.from(table).delete().eq('id', id);
+    let query = supabase.from(table).delete().eq('id', id);
+    // Enforce tenant isolation on delete
+    const tenantId = getTenantId();
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+    const { error } = await query;
     if (error) throw error;
     return true;
   } catch (err) { console.error(`Supabase delete ${table}:`, err); return null; }
@@ -217,11 +221,13 @@ export async function chatWithAI(message, context) {
   } catch (err) { console.error('Chatbot API Error:', err); return { success: false, error: err.message }; }
 }
 
-// ── Supabase Realtime Subscription ──
+// ── Supabase Realtime Subscription (tenant-filtered) ──
 export function subscribeToChanges(table, callback) {
   if (!supabase) return null;
-  return supabase.channel(`${table}_changes`)
-    .on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+  const tenantId = getTenantId();
+  const filter = tenantId ? { event: '*', schema: 'public', table, filter: `tenant_id=eq.${tenantId}` } : { event: '*', schema: 'public', table };
+  return supabase.channel(`${table}_changes_${tenantId || 'all'}`)
+    .on('postgres_changes', filter, (payload) => {
       callback(payload);
     })
     .subscribe();
