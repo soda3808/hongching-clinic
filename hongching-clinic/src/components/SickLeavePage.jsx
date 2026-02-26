@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { saveSickLeave, deleteSickLeave } from '../api';
 import { uid, fmtM, getMonth } from '../data';
-import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantDoctors, getTenantStores } from '../tenant';
+import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantDoctors, getTenantStores, getTenantSettings } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -120,7 +120,7 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
         <h1>${clinic.name || clinicName}</h1>
         <h2>${clinic.nameEn || clinicNameEn}</h2>
         <p>${(() => { const s = stores.find(st => st.name === item.store); return s?.address ? s.address : (clinic.addr1 || ''); })()}</p>
-        <p>Tel: ${clinic.tel || '2XXX XXXX'}</p>
+        <p>Tel: ${clinic.tel || getTenantSettings().phone || ''}</p>
       </div>
       <div class="cert-no">證明書編號 Cert No.: ${certNo}</div>
       <div class="title">病 假 證 明 書</div>

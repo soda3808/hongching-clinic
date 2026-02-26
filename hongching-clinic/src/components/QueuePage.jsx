@@ -81,9 +81,15 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     return () => clearInterval(t);
   }, []);
 
+  const parseTime = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') return { h: 0, m: 0 };
+    const parts = timeStr.split(':').map(Number);
+    return { h: parts[0] || 0, m: parts[1] || 0 };
+  };
+
   const getWaitMins = (item) => {
     if (!item.registeredAt || item.status === 'completed') return null;
-    const [h, m] = item.registeredAt.split(':').map(Number);
+    const { h, m } = parseTime(item.registeredAt);
     const now = new Date();
     const regTime = new Date(); regTime.setHours(h, m, 0, 0);
     if (regTime > now) return 0;
@@ -94,9 +100,9 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     const completedToday = todayQueue.filter(r => r.status !== 'waiting' && r.registeredAt && r.arrivedAt);
     if (!completedToday.length) return 0;
     const waits = completedToday.map(r => {
-      const [rh, rm] = r.registeredAt.split(':').map(Number);
-      const [ah, am] = r.arrivedAt.split(':').map(Number);
-      return (ah * 60 + am) - (rh * 60 + rm);
+      const reg = parseTime(r.registeredAt);
+      const arr = parseTime(r.arrivedAt);
+      return (arr.h * 60 + arr.m) - (reg.h * 60 + reg.m);
     }).filter(w => w >= 0);
     return waits.length ? Math.round(waits.reduce((s, w) => s + w, 0) / waits.length) : 0;
   }, [todayQueue]);
@@ -208,8 +214,9 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     const hourCounts = {};
     todayQueue.forEach(r => {
       if (r.registeredAt) {
-        const h = r.registeredAt.split(':')[0];
-        hourCounts[h] = (hourCounts[h] || 0) + 1;
+        const { h } = parseTime(r.registeredAt);
+        const hStr = String(h).padStart(2, '0');
+        hourCounts[hStr] = (hourCounts[hStr] || 0) + 1;
       }
     });
     const peakHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];

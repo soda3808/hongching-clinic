@@ -101,7 +101,7 @@ export async function loadAllData() {
 
 // ── Generic save (Supabase + GAS + localStorage) ──
 async function saveRecord(collection, record, gasAction) {
-  sbUpsert(collection, record);
+  await sbUpsert(collection, record);
   if (gasAction) gasCall(gasAction, { record });
   saveLocal(collection, record);
   return { ok: true };
@@ -161,7 +161,7 @@ export async function updateBookingStatus(id, status) {
     if (booking) {
       booking.status = status;
       localStorage.setItem('hc_data', JSON.stringify(data));
-      sbUpsert('bookings', booking);
+      await sbUpsert('bookings', booking);
       await gasCall('saveBooking', { record: booking });
     }
     return { ok: true };
@@ -170,7 +170,7 @@ export async function updateBookingStatus(id, status) {
 
 // ── Delete ──
 export async function deleteRecord(sheet, id) {
-  sbDelete(sheet, id);
+  await sbDelete(sheet, id);
   const res = await gasCall('deleteRecord', { sheet, id });
   deleteLocal(sheet, id);
   return res || { ok: true };
@@ -183,11 +183,13 @@ export async function uploadReceipt(base64, fileName, mimeType) {
 
 // ── Bulk Import ──
 export async function bulkImport(data) {
-  // Also push to Supabase
+  // Also push to Supabase with tenant_id injection
   if (supabase) {
+    const tenantId = getTenantId();
     for (const col of COLLECTIONS) {
       if (data[col]?.length) {
-        await sbUpsert(col, data[col]);
+        const records = tenantId ? data[col].map(r => r.tenant_id ? r : { ...r, tenant_id: tenantId }) : data[col];
+        await sbUpsert(col, records);
       }
     }
   }

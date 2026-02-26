@@ -27,7 +27,7 @@ const COMMISSION_TIERS = [
 export default function DoctorAnalytics({ data, user }) {
   const isDoctor = user?.role === 'doctor';
   const allDoctors = getTenantDoctors();
-  const visibleDoctors = isDoctor ? [user.name] : allDoctors;
+  const visibleDoctors = isDoctor ? [user?.name].filter(Boolean) : allDoctors;
   const COLORS = getDoctorColors();
   const DEFAULT_TARGETS = getDefaultTargets();
 

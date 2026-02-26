@@ -672,7 +672,8 @@ function MainApp() {
         saveAllLocal(SEED_DATA);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Data load failed:', err);
+      showToast('數據加載失敗，使用本地備用數據');
       setData(SEED_DATA);
     }
     setLoading(false);

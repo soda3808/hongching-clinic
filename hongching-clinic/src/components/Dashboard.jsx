@@ -60,15 +60,15 @@ export default function Dashboard({ data, onNavigate }) {
   };
 
   const filtered = useMemo(() => {
-    const rev = store === 'all' ? data.revenue : data.revenue.filter(r => r.store === store);
-    const exp = store === 'all' ? data.expenses : data.expenses.filter(r => r.store === store || r.store === '兩店共用');
+    const rev = store === 'all' ? (data.revenue || []) : (data.revenue || []).filter(r => r.store === store);
+    const exp = store === 'all' ? (data.expenses || []) : (data.expenses || []).filter(r => r.store === store || r.store === '兩店共用');
     return { rev, exp };
   }, [data, store]);
 
   const months = useMemo(() => {
     const m = new Set();
-    data.revenue.forEach(r => { const k = getMonth(r.date); if (k) m.add(k); });
-    data.expenses.forEach(r => { const k = getMonth(r.date); if (k) m.add(k); });
+    (data.revenue || []).forEach(r => { const k = getMonth(r.date); if (k) m.add(k); });
+    (data.expenses || []).forEach(r => { const k = getMonth(r.date); if (k) m.add(k); });
     return [...m].sort();
   }, [data]);
 
@@ -85,7 +85,7 @@ export default function Dashboard({ data, onNavigate }) {
   const thisExp = filtered.exp.filter(r => getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
   const lastRev = filtered.rev.filter(r => getMonth(r.date) === lastMonth).reduce((s, r) => s + Number(r.amount), 0);
   const revGrowth = lastRev ? ((thisRev - lastRev) / lastRev * 100).toFixed(1) : 0;
-  const patientCount = filtered.rev.filter(r => getMonth(r.date) === thisMonth && !r.name.includes('匯總')).length;
+  const patientCount = filtered.rev.filter(r => getMonth(r.date) === thisMonth && !(r.name || '').includes('匯總')).length;
   const margin = totalRev ? ((net / totalRev) * 100).toFixed(1) : 0;
 
   // Chart data
