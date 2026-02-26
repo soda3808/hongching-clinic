@@ -74,6 +74,53 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   const today = new Date().toISOString().substring(0, 10);
   const thisMonth = today.substring(0, 7);
 
+  // ── SOAP Note Templates (#40) ──
+  const SOAP_TEMPLATES = [
+    { name: '感冒(風寒)', subjective: '惡寒發熱，頭痛，鼻塞流涕，噴嚏', objective: '舌淡苔白，脈浮緊', tcmDiagnosis: '感冒', tcmPattern: '風寒束表', assessment: '風寒感冒', plan: '疏風散寒，宣肺解表' },
+    { name: '感冒(風熱)', subjective: '發熱重，惡風，頭痛，咽喉腫痛', objective: '舌尖紅苔薄黃，脈浮數', tcmDiagnosis: '感冒', tcmPattern: '風熱犯表', assessment: '風熱感冒', plan: '辛涼解表，清熱解毒' },
+    { name: '咳嗽(痰濕)', subjective: '咳嗽痰多，色白易咯，胸悶，食少', objective: '舌淡苔白膩，脈濡滑', tcmDiagnosis: '咳嗽', tcmPattern: '痰濕蘊肺', assessment: '痰濕咳嗽', plan: '燥濕化痰，理氣止咳' },
+    { name: '胃痛(脾胃虛寒)', subjective: '胃脘隱痛，喜溫喜按，空腹痛甚，得食則緩', objective: '舌淡苔白，脈沉遲無力', tcmDiagnosis: '胃痛', tcmPattern: '脾胃虛寒', assessment: '虛寒胃痛', plan: '溫中健脾，和胃止痛' },
+    { name: '失眠(心脾兩虛)', subjective: '不易入睡，多夢易醒，心悸健忘，神疲食少', objective: '舌淡苔薄，脈細弱', tcmDiagnosis: '不寐', tcmPattern: '心脾兩虛', assessment: '心脾兩虛型失眠', plan: '補益心脾，養血安神' },
+    { name: '腰痛(腎虛)', subjective: '腰膝痠軟，腰痛綿綿，喜按喜揉，勞累加重', objective: '舌淡苔白，脈沉細', tcmDiagnosis: '腰痛', tcmPattern: '腎虛腰痛', assessment: '腎虛腰痛', plan: '補腎壯腰，強筋健骨' },
+    { name: '頭痛(肝陽上亢)', subjective: '頭痛眩暈，心煩易怒，面紅目赤', objective: '舌紅苔黃，脈弦有力', tcmDiagnosis: '頭痛', tcmPattern: '肝陽上亢', assessment: '肝陽頭痛', plan: '平肝潛陽，滋陰降火' },
+    { name: '濕疹', subjective: '皮膚瘙癢，紅斑丘疹，反覆發作', objective: '舌紅苔黃膩，脈滑數', tcmDiagnosis: '濕瘡', tcmPattern: '濕熱蘊膚', assessment: '濕熱型濕疹', plan: '清熱利濕，涼血止癢' },
+    { name: '月經不調(氣血虛)', subjective: '月經後期，量少色淡，面色萎黃，頭暈', objective: '舌淡苔薄白，脈細弱', tcmDiagnosis: '月經不調', tcmPattern: '氣血虧虛', assessment: '氣血虛型月經不調', plan: '補氣養血，調經' },
+    { name: '頸肩痛(氣滯血瘀)', subjective: '頸肩疼痛，轉側不利，痛有定處', objective: '舌暗有瘀點，脈弦澀', tcmDiagnosis: '痹證', tcmPattern: '氣滯血瘀', assessment: '氣滯血瘀型頸肩痛', plan: '活血化瘀，行氣止痛，針灸推拿' },
+  ];
+
+  const applySOAPTemplate = (tmpl) => {
+    setForm(f => ({
+      ...f,
+      subjective: tmpl.subjective,
+      objective: tmpl.objective,
+      assessment: tmpl.assessment,
+      plan: tmpl.plan,
+      tcmDiagnosis: tmpl.tcmDiagnosis,
+      tcmPattern: tmpl.tcmPattern,
+    }));
+    showToast(`已套用模板「${tmpl.name}」`);
+  };
+
+  // ── Repeat Prescription (#37) ──
+  const loadLastPrescription = (patientName) => {
+    const lastConsult = consultations
+      .filter(c => c.patientName === patientName && (c.prescription || []).some(r => r.herb))
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))[0];
+    if (!lastConsult) return showToast('找不到該病人的歷史處方');
+    setForm(f => ({
+      ...f,
+      prescription: (lastConsult.prescription || []).map(r => ({ ...r })),
+      formulaName: lastConsult.formulaName || '',
+      formulaDays: lastConsult.formulaDays || 3,
+      formulaInstructions: lastConsult.formulaInstructions || '每日一劑，水煎服',
+      prescriptionType: lastConsult.prescriptionType || 'decoction',
+      treatments: lastConsult.treatments || [],
+      tcmDiagnosis: lastConsult.tcmDiagnosis || '',
+      tcmPattern: lastConsult.tcmPattern || '',
+    }));
+    showToast(`已載入 ${patientName} 上次處方（${lastConsult.date}）`);
+  };
+
   const weekStart = useMemo(() => {
     const d = new Date(); const day = d.getDay() || 7;
     d.setDate(d.getDate() - day + 1); return d.toISOString().substring(0, 10);
@@ -493,7 +540,14 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               {/* SOAP Notes */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
                 <h4 style={{ margin: 0, fontSize: 13 }}>SOAP 病歷</h4>
-                <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>🎙 撳 mic 可語音輸入</span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <select style={{ width: 'auto', fontSize: 11, padding: '3px 6px' }} value="" onChange={e => { const t = SOAP_TEMPLATES.find(t => t.name === e.target.value); if (t) applySOAPTemplate(t); }}>
+                    <option value="">快捷模板...</option>
+                    {SOAP_TEMPLATES.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+                  </select>
+                  {form.patientName && <button type="button" className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => loadLastPrescription(form.patientName)}>重複上次處方</button>}
+                  <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>🎙 mic 語音</span>
+                </div>
               </div>
               <div className="grid-2" style={{ marginBottom: 8 }}>
                 <div>

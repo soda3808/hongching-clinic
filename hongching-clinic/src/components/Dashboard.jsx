@@ -366,6 +366,102 @@ export default function Dashboard({ data, onNavigate }) {
         );
       })()}
 
+      {/* Patient Funnel & Inventory Widget */}
+      <div className="grid-2" style={{ marginTop: 16 }}>
+        {/* Patient Funnel */}
+        <div className="card">
+          <div className="card-header"><h3>👥 病人漏斗</h3></div>
+          {(() => {
+            const pts = data.patients || [];
+            const cons = data.consultations || [];
+            const bks = data.bookings || [];
+            const totalPatients = pts.length;
+            const newThisMonth = pts.filter(p => (p.createdAt || '').substring(0, 7) === thisMonth).length;
+            const activePatients = new Set(cons.filter(c => (c.date || '').substring(0, 7) === thisMonth).map(c => c.patientId || c.patientName)).size;
+            const returning = cons.filter(c => {
+              const prev = cons.filter(cc => cc.patientName === c.patientName && cc.date < c.date);
+              return prev.length > 0 && (c.date || '').substring(0, 7) === thisMonth;
+            });
+            const returnRate = activePatients > 0 ? (returning.length / activePatients * 100).toFixed(0) : 0;
+            const todayBk = bks.filter(b => b.date === new Date().toISOString().substring(0, 10) && b.status !== 'cancelled').length;
+            const funnelData = [
+              { label: '總病人數', value: totalPatients, color: 'var(--teal-600)', width: 100 },
+              { label: '本月活躍', value: activePatients, color: 'var(--green-600)', width: activePatients / Math.max(totalPatients, 1) * 100 },
+              { label: '本月新增', value: newThisMonth, color: 'var(--gold-600)', width: newThisMonth / Math.max(totalPatients, 1) * 100 },
+              { label: '今日預約', value: todayBk, color: 'var(--red-500)', width: todayBk / Math.max(activePatients, 1) * 100 },
+            ];
+            return (
+              <div style={{ padding: '8px 0' }}>
+                {funnelData.map((f, i) => (
+                  <div key={i} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 3 }}>
+                      <span style={{ fontWeight: 600 }}>{f.label}</span>
+                      <span style={{ fontWeight: 800, color: f.color }}>{f.value}</span>
+                    </div>
+                    <div style={{ height: 8, background: 'var(--gray-100)', borderRadius: 4 }}>
+                      <div style={{ width: `${Math.max(f.width, 3)}%`, height: '100%', background: f.color, borderRadius: 4, transition: 'width 0.5s' }} />
+                    </div>
+                  </div>
+                ))}
+                <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--green-50)', borderRadius: 6, fontSize: 12 }}>
+                  覆診率：<strong style={{ color: 'var(--green-700)' }}>{returnRate}%</strong>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Inventory Alert Widget */}
+        <div className="card">
+          <div className="card-header"><h3>💊 庫存警示</h3></div>
+          {(() => {
+            const inv = data.inventory || [];
+            const lowStock = inv.filter(i => Number(i.stock) < Number(i.minStock));
+            const today = new Date().toISOString().substring(0, 10);
+            const in30 = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10); })();
+            const expired = inv.filter(i => i.expiryDate && i.expiryDate <= today);
+            const expiring = inv.filter(i => i.expiryDate && i.expiryDate > today && i.expiryDate <= in30);
+            const totalValue = inv.reduce((s, r) => s + Number(r.stock) * Number(r.costPerUnit), 0);
+            return (
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div style={{ background: 'var(--gray-50)', padding: '10px 12px', borderRadius: 8, textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--teal-700)' }}>{inv.length}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>總品項</div>
+                  </div>
+                  <div style={{ background: 'var(--gray-50)', padding: '10px 12px', borderRadius: 8, textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--gold-700)' }}>{fmtM(totalValue)}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>存貨總值</div>
+                  </div>
+                </div>
+                {lowStock.length > 0 && (
+                  <div style={{ background: 'var(--red-50)', border: '1px solid var(--red-100)', padding: '8px 12px', borderRadius: 6, marginBottom: 6, fontSize: 12 }}>
+                    <strong style={{ color: 'var(--red-600)' }}>⚠️ {lowStock.length} 項低庫存</strong>
+                    <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>{lowStock.slice(0, 5).map(i => i.name).join('、')}{lowStock.length > 5 ? '...' : ''}</div>
+                  </div>
+                )}
+                {expired.length > 0 && (
+                  <div style={{ background: 'var(--red-50)', border: '1px solid var(--red-100)', padding: '8px 12px', borderRadius: 6, marginBottom: 6, fontSize: 12 }}>
+                    <strong style={{ color: '#dc2626' }}>🚫 {expired.length} 項已過期</strong>
+                    <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>{expired.slice(0, 3).map(i => `${i.name}(${i.expiryDate})`).join('、')}</div>
+                  </div>
+                )}
+                {expiring.length > 0 && (
+                  <div style={{ background: 'var(--gold-50)', border: '1px solid var(--gold-100)', padding: '8px 12px', borderRadius: 6, marginBottom: 6, fontSize: 12 }}>
+                    <strong style={{ color: '#d97706' }}>⏰ {expiring.length} 項即將過期</strong>
+                    <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>{expiring.slice(0, 3).map(i => `${i.name}(${i.expiryDate})`).join('、')}</div>
+                  </div>
+                )}
+                {lowStock.length === 0 && expired.length === 0 && expiring.length === 0 && (
+                  <div style={{ padding: 16, textAlign: 'center', color: 'var(--green-600)', fontSize: 13 }}>✅ 庫存狀態良好</div>
+                )}
+                {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('inventory')}>查看庫存 →</button>}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
       {/* Recent Activity */}
       <div className="card" style={{ marginTop: 16 }}>
         <div className="card-header"><h3>🕐 近期活動</h3></div>

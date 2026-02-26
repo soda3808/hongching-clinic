@@ -546,6 +546,39 @@ tr:hover { background: var(--gray-50); }
   .crm-sidebar { width: 100%; max-height: 200px; }
 }
 
+/* ── DARK MODE ── */
+[data-theme="dark"] {
+  --gray-50: #1a1a1e; --gray-100: #222226; --gray-200: #2e2e33;
+  --gray-300: #3e3e44; --gray-400: #8e8e96; --gray-500: #a8a8b0;
+  --gray-600: #c8c8d0; --gray-700: #dddde0; --gray-800: #eeeeef;
+  --teal-50: #0d2628; --teal-100: #0f3a3f;
+  --gold-50: #2a2210; --gold-100: #3a3018;
+  --red-50: #2a1212; --red-100: #3a1a1a;
+  --green-50: #0d2814; --green-100: #123a1e;
+  --shadow: 0 1px 3px rgba(0,0,0,.3); --shadow-md: 0 4px 6px rgba(0,0,0,.4); --shadow-lg: 0 10px 15px rgba(0,0,0,.5);
+}
+[data-theme="dark"] body { background: #141416; }
+[data-theme="dark"] .topbar { background: #1a1a1e; }
+[data-theme="dark"] .card, [data-theme="dark"] .stat-card,
+[data-theme="dark"] .confirm-modal, [data-theme="dark"] .payslip-preview { background: #1e1e22; }
+[data-theme="dark"] .modal { background: #1e1e22; }
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: #1a1a1e; color: var(--gray-800); }
+[data-theme="dark"] input[readonly] { background: #161618; }
+[data-theme="dark"] .tab-btn, [data-theme="dark"] .preset-chip, [data-theme="dark"] .btn-outline { background: #1e1e22; }
+[data-theme="dark"] .search-panel, [data-theme="dark"] .search-input, [data-theme="dark"] .dropdown-menu { background: #1e1e22; }
+[data-theme="dark"] .search-input { color: var(--gray-800); }
+[data-theme="dark"] .mobile-tabbar { background: #1a1a1e; }
+[data-theme="dark"] .mobile-more-panel { background: #1e1e22; }
+[data-theme="dark"] .crm-sidebar, [data-theme="dark"] .crm-chat-header, [data-theme="dark"] .crm-chat-input { background: #1e1e22; }
+[data-theme="dark"] .crm-chat { background: #141416; }
+[data-theme="dark"] .upload-zone { border-color: var(--gray-300); color: var(--gray-400); }
+[data-theme="dark"] .table-wrap { border-color: var(--gray-200); }
+[data-theme="dark"] .login-card { background: #1e1e22; }
+[data-theme="dark"] .pb-page { background: #141416; }
+[data-theme="dark"] .pb-card, [data-theme="dark"] .pb-success-card { background: #1e1e22; }
+[data-theme="dark"] .chat-bubble-in > div { background: var(--gray-200); color: var(--gray-800); }
+[data-theme="dark"] .toast { background: #1e1e22; border: 1px solid var(--teal-600); }
+
 @media print {
   @page { size: A4; margin: 15mm; }
   .sidebar, .topbar, .mobile-tabbar, .install-banner, .toast,

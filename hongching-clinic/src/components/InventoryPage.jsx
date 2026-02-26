@@ -13,7 +13,7 @@ const STORES = ['宋皇臺', '太子', '兩店共用'];
 const EMPTY_FORM = {
   name: '', category: '中藥', unit: 'g', stock: 0, minStock: 100,
   costPerUnit: 0, supplier: '', store: '宋皇臺', lastRestocked: '', active: true,
-  medicineCode: '',
+  medicineCode: '', expiryDate: '',
 };
 
 export default function InventoryPage({ data, setData, showToast }) {
@@ -69,6 +69,15 @@ export default function InventoryPage({ data, setData, showToast }) {
     if (filterStore !== 'all') l = l.filter(r => r.store === filterStore);
     if (filterStatus === 'low') l = l.filter(r => Number(r.stock) < Number(r.minStock));
     if (filterStatus === 'normal') l = l.filter(r => Number(r.stock) >= Number(r.minStock));
+    if (filterStatus === 'expired') {
+      const today = new Date().toISOString().substring(0, 10);
+      l = l.filter(r => r.expiryDate && r.expiryDate <= today);
+    }
+    if (filterStatus === 'expiring') {
+      const today = new Date().toISOString().substring(0, 10);
+      const in30 = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10); })();
+      l = l.filter(r => r.expiryDate && r.expiryDate > today && r.expiryDate <= in30);
+    }
     l.sort((a, b) => {
       const cmp = a.name.localeCompare(b.name, 'zh-Hant');
       return sortDir === 'asc' ? cmp : -cmp;
@@ -306,6 +315,7 @@ export default function InventoryPage({ data, setData, showToast }) {
       { key: 'value', label: '存貨價值' },
       { key: 'supplier', label: '供應商' },
       { key: 'store', label: '店舖' },
+      { key: 'expiryDate', label: '到期日' },
       { key: 'lastRestocked', label: '最後入貨' },
     ];
     const rows = list.map(r => ({ ...r, value: Number(r.stock) * Number(r.costPerUnit) }));
@@ -350,6 +360,8 @@ export default function InventoryPage({ data, setData, showToast }) {
           <option value="all">所有狀態</option>
           <option value="low">低庫存</option>
           <option value="normal">充足</option>
+          <option value="expired">已過期</option>
+          <option value="expiring">即將過期(30日)</option>
         </select>
         <button className="btn btn-teal" onClick={openAdd}>+ 新增存貨</button>
         <button className="btn btn-green" onClick={() => fileInputRef.current?.click()}>匯入XLS</button>
@@ -411,6 +423,7 @@ export default function InventoryPage({ data, setData, showToast }) {
                 <th>最低庫存</th>
                 <th style={{ textAlign: 'right' }}>單位成本</th>
                 <th style={{ textAlign: 'right' }}>存貨價值</th>
+                <th>到期日</th>
                 <th>供應商</th>
                 <th>店舖</th>
                 <th>狀態</th>
@@ -419,7 +432,7 @@ export default function InventoryPage({ data, setData, showToast }) {
             </thead>
             <tbody>
               {!list.length && (
-                <tr><td colSpan={12} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有存貨紀錄</td></tr>
+                <tr><td colSpan={13} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有存貨紀錄</td></tr>
               )}
               {list.map(r => {
                 const isLow = Number(r.stock) < Number(r.minStock);
@@ -438,6 +451,14 @@ export default function InventoryPage({ data, setData, showToast }) {
                     <td>{r.minStock} {r.unit}</td>
                     <td className="money">{fmtM(r.costPerUnit)}</td>
                     <td className="money">{fmtM(value)}</td>
+                    <td style={{ fontSize: 11 }}>{(() => {
+                      if (!r.expiryDate) return <span style={{ color: 'var(--gray-400)' }}>-</span>;
+                      const today = new Date().toISOString().substring(0, 10);
+                      const in30 = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10); })();
+                      if (r.expiryDate <= today) return <span style={{ color: '#dc2626', fontWeight: 700 }}>已過期 {r.expiryDate}</span>;
+                      if (r.expiryDate <= in30) return <span style={{ color: '#d97706', fontWeight: 600 }}>{r.expiryDate}</span>;
+                      return r.expiryDate;
+                    })()}</td>
                     <td style={{ color: 'var(--gray-500)', fontSize: 12 }}>{r.supplier || '-'}</td>
                     <td>{r.store}</td>
                     <td>
@@ -520,11 +541,17 @@ export default function InventoryPage({ data, setData, showToast }) {
                   <input type="number" min="0" step="any" value={form.minStock} onChange={e => setForm({ ...form, minStock: e.target.value })} />
                 </div>
               </div>
-              <div className="grid-3" style={{ marginBottom: 12 }}>
+              <div className="grid-2" style={{ marginBottom: 12 }}>
                 <div>
                   <label>單位成本 ($)</label>
                   <input type="number" min="0" step="0.01" value={form.costPerUnit} onChange={e => setForm({ ...form, costPerUnit: e.target.value })} />
                 </div>
+                <div>
+                  <label>到期日</label>
+                  <input type="date" value={form.expiryDate || ''} onChange={e => setForm({ ...form, expiryDate: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid-3" style={{ marginBottom: 12 }}>
                 <div>
                   <label>供應商</label>
                   <input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} placeholder="供應商名稱" />
@@ -534,6 +561,10 @@ export default function InventoryPage({ data, setData, showToast }) {
                   <select value={form.store} onChange={e => setForm({ ...form, store: e.target.value })}>
                     {STORES.map(s => <option key={s}>{s}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label>最後入貨</label>
+                  <input type="date" value={form.lastRestocked || ''} onChange={e => setForm({ ...form, lastRestocked: e.target.value })} />
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>

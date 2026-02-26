@@ -87,11 +87,48 @@ export default function BookingPage({ data, setData, showToast }) {
 
   const weekDates = useMemo(() => getWeekDates(calWeek), [calWeek]);
 
+  // ── Conflict Detection (#38) ──
+  const checkConflict = (date, time, doctor, duration) => {
+    const startMin = parseInt(time.split(':')[0]) * 60 + parseInt(time.split(':')[1]);
+    const endMin = startMin + (duration || 30);
+    return bookings.filter(b =>
+      b.date === date && b.doctor === doctor &&
+      b.status !== 'cancelled' && b.status !== 'no-show'
+    ).filter(b => {
+      const bStart = parseInt(b.time.split(':')[0]) * 60 + parseInt(b.time.split(':')[1]);
+      const bEnd = bStart + (b.duration || 30);
+      return startMin < bEnd && endMin > bStart;
+    });
+  };
+
+  // ── Batch WhatsApp Reminders (#41) ──
+  const tomorrowBookings = useMemo(() =>
+    bookings.filter(b => b.date === tomorrow && (b.status === 'confirmed' || b.status === 'pending'))
+  , [bookings, tomorrow]);
+
+  const sendBatchReminders = () => {
+    const withPhone = tomorrowBookings.filter(b => b.patientPhone);
+    if (!withPhone.length) return showToast('明日預約暫無電話記錄');
+    withPhone.forEach((b, i) => {
+      setTimeout(() => {
+        const text = `【康晴醫療中心】${b.patientName}你好！提醒你明日預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
+        openWhatsApp(b.patientPhone, text);
+      }, i * 1500);
+    });
+    showToast(`已逐一開啟 ${withPhone.length} 位病人的 WhatsApp 提醒`);
+  };
+
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!form.patientName || !form.date || !form.time) return showToast('請填寫必要欄位');
     const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
     if (new Date(form.date) < todayDate) return showToast('不能預約過去的日期');
+    // Conflict detection
+    const conflicts = checkConflict(form.date, form.time, form.doctor, form.duration);
+    if (conflicts.length > 0) {
+      const confNames = conflicts.map(c => `${c.time} ${c.patientName}`).join('、');
+      if (!window.confirm(`⚠️ 時間衝突！${form.doctor} 在此時段已有預約：\n${confNames}\n\n是否仍要新增？`)) return;
+    }
     const record = { ...form, id: uid(), status: 'confirmed', createdAt: new Date().toISOString().substring(0, 10) };
     await saveBooking(record);
     setData({ ...data, bookings: [...bookings, record] });
@@ -145,7 +182,14 @@ export default function BookingPage({ data, setData, showToast }) {
           <button className={`tab-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}>📋 列表視圖</button>
           <button className={`tab-btn ${view === 'calendar' ? 'active' : ''}`} onClick={() => setView('calendar')}>📅 日曆視圖</button>
         </div>
-        <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 新增預約</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {tomorrowBookings.length > 0 && (
+            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 12 }} onClick={sendBatchReminders}>
+              📱 明日提醒 ({tomorrowBookings.length})
+            </button>
+          )}
+          <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 新增預約</button>
+        </div>
       </div>
 
       {/* List View */}

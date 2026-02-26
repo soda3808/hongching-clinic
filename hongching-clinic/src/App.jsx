@@ -339,6 +339,7 @@ function MainApp() {
   const [activeStore, setActiveStore] = useState('all');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [theme, setTheme] = useState(() => localStorage.getItem('hcmc_theme') || 'light');
   const [readNotifs, setReadNotifs] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('hcmc_read_notifs') || '[]'); } catch { return []; }
   });
@@ -362,6 +363,13 @@ function MainApp() {
     window.addEventListener('offline', goOffline);
     return () => { window.removeEventListener('online', goOnline); window.removeEventListener('offline', goOffline); };
   }, []);
+
+  // Dark mode
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('hcmc_theme', theme);
+  }, [theme]);
+  const toggleTheme = useCallback(() => setTheme(t => t === 'dark' ? 'light' : 'dark'), []);
 
   // Supabase Realtime — auto-sync across devices
   useEffect(() => {
@@ -486,8 +494,11 @@ function MainApp() {
           )}
         </nav>
         <div className="sidebar-footer">
-          <button className="btn-logout" onClick={handleLogout}>🔓 登出</button>
-          <span>v4.0 • {new Date().getFullYear()}</span>
+          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+            <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
+            <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
+          </div>
+          <span>v5.2 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -528,6 +539,7 @@ function MainApp() {
                 {showExport && <ExportMenu data={filteredData} showToast={showToast} onClose={() => setShowExport(false)} />}
               </div>
             )}
+            <button className="btn btn-outline btn-sm" onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             <button className="btn btn-outline btn-sm hide-mobile" onClick={reload}>🔄</button>
             <span className="hide-mobile" style={{ fontSize: 12, color: 'var(--gray-600)', display: 'flex', alignItems: 'center', gap: 4 }}>
               👤 {user.name} <span className={`tag ${ROLE_TAGS[user.role] || ''}`}>{ROLE_LABELS[user.role]}</span>
