@@ -1,5 +1,6 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
 import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, DOCTORS, linearRegression } from '../data';
+import { getClinicName, getTenantStoreNames } from '../tenant';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 // Lazy-loaded sub-reports for code splitting
@@ -107,12 +108,12 @@ export default function Reports({ data }) {
       <div className="card" id="monthlyReport">
         <div style={{ borderBottom: '3px solid var(--teal-700)', paddingBottom: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)' }}>康晴綜合醫療中心</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)' }}>{getClinicName()}</div>
             <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>HONG CHING INTERNATIONAL MEDICAL CENTRE</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 16, fontWeight: 800 }}>月結報表</div>
-            <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>{monthLabel(selectedMonth)} | {selectedStore === 'all' ? '兩店合計' : selectedStore}</div>
+            <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>{monthLabel(selectedMonth)} | {selectedStore === 'all' ? '全店合計' : selectedStore}</div>
           </div>
         </div>
 
@@ -181,7 +182,7 @@ export default function Reports({ data }) {
         </div>
 
         <div style={{ fontSize: 10, color: 'var(--gray-400)', textAlign: 'right', marginTop: 16 }}>
-          報表生成時間: {new Date().toLocaleString('zh-HK')} | 康晴綜合醫療中心
+          報表生成時間: {new Date().toLocaleString('zh-HK')} | {getClinicName()}
         </div>
       </div>
     );
@@ -208,7 +209,7 @@ export default function Reports({ data }) {
       <div className="card">
         <div style={{ borderBottom: '3px solid var(--gold-700)', paddingBottom: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gold-700)' }}>康晴綜合醫療中心</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gold-700)' }}>{getClinicName()}</div>
             <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>稅務年結摘要</div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -710,7 +711,7 @@ export default function Reports({ data }) {
     const w = window.open('', '_blank');
     if (!w) return;
     const tabLabel = REPORT_GROUPS.flatMap(g => g.tabs).find(t => t.id === reportType);
-    w.document.write(`<!DOCTYPE html><html><head><title>${tabLabel?.label || '報表'} — 康晴醫療中心</title><style>
+    w.document.write(`<!DOCTYPE html><html><head><title>${tabLabel?.label || '報表'} — ${getClinicName()}</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:20px 30px;color:#333;max-width:900px;margin:0 auto}
       .report-header{text-align:center;border-bottom:3px solid #0e7490;padding-bottom:12px;margin-bottom:16px}
       .report-header h1{font-size:18px;color:#0e7490;margin:0}
@@ -723,7 +724,7 @@ export default function Reports({ data }) {
       h3,h4{color:#0e7490}.footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
       @media print{body{padding:10px}}
     </style></head><body>
-      <div class="report-header"><h1>康晴綜合醫療中心</h1><p>HONG CHING INTERNATIONAL MEDICAL CENTRE</p><p>${tabLabel?.icon || ''} ${tabLabel?.label || ''} | ${selectedStore === 'all' ? '兩店合計' : selectedStore} | 生成：${new Date().toLocaleString('zh-HK')}</p></div>
+      <div class="report-header"><h1>${getClinicName()}</h1><p>HONG CHING INTERNATIONAL MEDICAL CENTRE</p><p>${tabLabel?.icon || ''} ${tabLabel?.label || ''} | ${selectedStore === 'all' ? '全店合計' : selectedStore} | 生成：${new Date().toLocaleString('zh-HK')}</p></div>
       ${el.innerHTML}
       <div class="footer">報表由系統自動生成 | 僅供內部參考</div>
     </body></html>`);
@@ -762,7 +763,8 @@ export default function Reports({ data }) {
         <div>
           <label>店舖</label>
           <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} style={{ width: 'auto' }}>
-            <option value="all">兩店合計</option><option>宋皇臺</option><option>太子</option>
+            <option value="all">全店合計</option>
+            {getTenantStoreNames().map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>

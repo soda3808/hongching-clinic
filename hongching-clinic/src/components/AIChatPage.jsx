@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { fmtM, getMonth } from '../data';
+import { getClinicName } from '../tenant';
 
 const QUICK_QUESTIONS = [
   '本月營業額分析',
@@ -196,7 +197,7 @@ export default function AIChatPage({ data, setData, showToast, allData, user }) 
           {messages.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--gray-400)' }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🤖</div>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>你好！我係康晴AI助手</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>你好！我係{getClinicName()}AI助手</div>
               <div style={{ fontSize: 12, marginBottom: 20 }}>你可以問我任何關於診所數據嘅問題</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
                 {QUICK_QUESTIONS.map(q => (

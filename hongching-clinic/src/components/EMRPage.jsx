@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { saveConsultation, deleteConsultation, openWhatsApp, saveQueue, saveEnrollment } from '../api';
-import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule } from '../data';
+import { uid, fmtM, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule, getDoctors, getStoreNames, getDefaultStore } from '../data';
+import { getClinicName, getClinicNameEn, getTenantStoreNames, getTenantStores } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { checkInteractions, getHerbSafetyInfo, checkDosage, getSafetyBadges } from '../utils/drugInteractions';
@@ -8,19 +9,28 @@ import VoiceButton from './VoiceButton';
 import MedicineLabel from './MedicineLabel';
 
 const EMPTY_RX = { herb: '', dosage: '' };
-const EMPTY_FORM = {
-  patientId: '', patientName: '', patientPhone: '', date: '', doctor: DOCTORS[0], store: '宋皇臺',
-  subjective: '', objective: '', assessment: '', plan: '',
-  tcmDiagnosis: '', tcmPattern: '', tongue: '', pulse: '',
-  prescription: [{ ...EMPTY_RX }], formulaName: '', formulaDays: 3, formulaInstructions: '每日一劑，水煎服',
-  prescriptionType: 'decoction', granuleDosesPerDay: 2, specialNotes: '',
-  treatments: [], acupuncturePoints: '',
-  followUpDate: '', followUpNotes: '', fee: 0,
-};
+function makeEmptyForm() {
+  const doctors = getDoctors();
+  const defaultStore = getDefaultStore();
+  return {
+    patientId: '', patientName: '', patientPhone: '', date: '', doctor: doctors[0] || '', store: defaultStore,
+    subjective: '', objective: '', assessment: '', plan: '',
+    tcmDiagnosis: '', tcmPattern: '', tongue: '', pulse: '',
+    prescription: [{ ...EMPTY_RX }], formulaName: '', formulaDays: 3, formulaInstructions: '每日一劑，水煎服',
+    prescriptionType: 'decoction', granuleDosesPerDay: 2, specialNotes: '',
+    treatments: [], acupuncturePoints: '',
+    followUpDate: '', followUpNotes: '', fee: 0,
+  };
+}
 
 export default function EMRPage({ data, setData, showToast, allData, user, onNavigate }) {
+  const doctors = getDoctors();
+  const storeNames = getStoreNames();
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ ...EMPTY_FORM, date: new Date().toISOString().substring(0, 10) });
+  const [form, setForm] = useState({ ...makeEmptyForm(), date: new Date().toISOString().substring(0, 10) });
   const [detail, setDetail] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [search, setSearch] = useState('');
@@ -305,7 +315,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     await saveConsultation(record);
     setData(d => ({ ...d, consultations: [...(d.consultations || []), record] }));
     setShowAdd(false);
-    setForm({ ...EMPTY_FORM, date: new Date().toISOString().substring(0, 10) });
+    setForm({ ...makeEmptyForm(), date: new Date().toISOString().substring(0, 10) });
     setPatientSearch('');
     showToast('已儲存診症紀錄');
   };
@@ -335,7 +345,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         id: uid(), queueNo: 'B' + String(queue.filter(q => q.date === item.date).length + 1).padStart(3, '0'),
         patientName: item.patientName, patientPhone: item.patientPhone || '', date: item.date,
         registeredAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        arrivedAt: '', completedAt: '', doctor: item.doctor, store: item.store || '宋皇臺',
+        arrivedAt: '', completedAt: '', doctor: item.doctor, store: item.store || (storeNames[0] || ''),
         services: '配藥收費', serviceFee: Number(item.fee) || 0, status: 'dispensing',
         dispensingStatus: 'pending', paymentStatus: 'pending',
         consultationId: item.id, prescription: item.prescription, formulaName: item.formulaName, formulaDays: item.formulaDays,
@@ -368,7 +378,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:4px;font-size:10px}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
     </style></head><body>
-      <div class="header"><h1>${clinic.name || '康晴綜合醫療中心'}</h1><p>${clinic.nameEn || 'HONG CHING INTERNATIONAL MEDICAL CENTRE'}</p></div>
+      <div class="header"><h1>${clinic.name || clinicName}</h1><p>${clinic.nameEn || clinicNameEn}</p></div>
       <div class="title">處 方 箋</div>
       <div class="info"><span>病人：<strong>${item.patientName}</strong></span><span>日期：${item.date}</span><span>醫師：${item.doctor}</span><span>店舖：${item.store}</span></div>
       ${item.tcmDiagnosis ? `<div class="info"><span>診斷：<strong>${item.tcmDiagnosis}</strong></span>${item.tcmPattern ? `<span>證型：${item.tcmPattern}</span>` : ''}</div>` : ''}
@@ -379,7 +389,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       ${item.acupuncturePoints ? `<div style="font-size:11px;margin:8px 0"><strong>穴位：</strong>${item.acupuncturePoints}</div>` : ''}
       ${item.followUpDate ? `<div style="font-size:12px;margin:8px 0;padding:6px;background:#f0fdfa;border-radius:4px"><strong>覆診：</strong>${item.followUpDate}${item.followUpNotes ? ` — ${item.followUpNotes}` : ''}</div>` : ''}
       <div class="sig"><div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div class="sig-line">診所蓋章</div></div></div>
-      <div class="footer">此處方箋由系統生成 | ${clinic.name || '康晴綜合醫療中心'}</div>
+      <div class="footer">此處方箋由系統生成 | ${clinic.name || clinicName}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -408,7 +418,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
       @media print{body{padding:15px}}
     </style></head><body>
-      <div class="header"><h1>${clinic.name || '康晴綜合醫療中心'}</h1><p>${clinic.nameEn || 'HONG CHING INTERNATIONAL MEDICAL CENTRE'}</p></div>
+      <div class="header"><h1>${clinic.name || clinicName}</h1><p>${clinic.nameEn || clinicNameEn}</p></div>
       <div class="title">診症紀錄 (SOAP Note)</div>
       <div class="meta"><div><strong>病人：</strong>${item.patientName}</div><div><strong>日期：</strong>${item.date}</div><div><strong>醫師：</strong>${item.doctor}</div><div><strong>電話：</strong>${item.patientPhone || '-'}</div><div><strong>店舖：</strong>${item.store}</div><div><strong>診金：</strong>$${item.fee || 0}</div></div>
       <div class="soap">
@@ -423,7 +433,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       ${rxRows ? `<div class="section"><h4>處方${item.formulaName ? ' — ' + item.formulaName : ''}${item.formulaDays ? ' (' + item.formulaDays + '天)' : ''}</h4><table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rxRows}</tbody></table><div>服法：${item.formulaInstructions || '每日一劑，水煎服'}</div></div>` : ''}
       ${item.followUpDate ? `<div class="section" style="padding:8px;background:#f0fdfa;border-radius:6px"><h4>覆診安排</h4><div>${item.followUpDate}${item.followUpNotes ? ' — ' + item.followUpNotes : ''}</div></div>` : ''}
       <div class="sig"><div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div class="sig-line">診所蓋章</div></div></div>
-      <div class="footer">此病歷由系統生成 | ${clinic.name || '康晴綜合醫療中心'} | ${new Date().toLocaleString('zh-HK')}</div>
+      <div class="footer">此病歷由系統生成 | ${clinic.name || clinicName} | ${new Date().toLocaleString('zh-HK')}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -434,7 +444,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   // ── WhatsApp med reminder ──
   const sendMedReminder = (item) => {
     const rxList = (item.prescription || []).map(r => r.herb).filter(Boolean).join('、');
-    const text = `【康晴醫療中心】${item.patientName}你好！提醒你按時服藥。\n` +
+    const text = `【${clinicName}】${item.patientName}你好！提醒你按時服藥。\n` +
       (item.formulaName ? `處方：${item.formulaName}\n` : '') +
       (rxList ? `藥材：${rxList}\n` : '') +
       (item.formulaDays ? `共 ${item.formulaDays} 天\n` : '') +
@@ -509,9 +519,9 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       .footer{margin-top:40px;text-align:center;font-size:10px;color:#aaa}
     </style></head><body>
       <div class="header">
-        <h1>${clinic.name || '康晴綜合醫療中心'}</h1>
-        <p>${clinic.nameEn || 'Hong Ching International Medical Centre'}</p>
-        <p>${item.store === '太子' ? (clinic.addr2 || '長沙灣道28號長康大廈地下') : (clinic.addr1 || '馬頭涌道97號美誠大廈地下')}</p>
+        <h1>${clinic.name || clinicName}</h1>
+        <p>${clinic.nameEn || clinicNameEn}</p>
+        <p>${(() => { const tenantStores = getTenantStores(); const s = tenantStores.find(st => st.name === item.store) || tenantStores[0] || {}; return s.address || ''; })()}</p>
       </div>
       <div class="title">轉介信 Referral Letter</div>
       <div class="field"><span class="label">日期：</span>${new Date().toISOString().substring(0, 10)}</div>
@@ -530,7 +540,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         <div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div>
         <div class="sig-box"><div class="sig-line">診所蓋章</div></div>
       </div>
-      <div class="footer">此轉介信由 ${clinic.name || '康晴綜合醫療中心'} 簽發</div>
+      <div class="footer">此轉介信由 ${clinic.name || clinicName} 簽發</div>
     </body></html>`);
     w.document.close();
     w.print();
@@ -570,11 +580,11 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         )}
         <select style={{ width: 'auto' }} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
           <option value="all">所有醫師</option>
-          {DOCTORS.map(d => <option key={d}>{d}</option>)}
+          {doctors.map(d => <option key={d}>{d}</option>)}
         </select>
         <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">所有店舖</option>
-          <option>宋皇臺</option><option>太子</option>
+          {storeNames.map(s => <option key={s}>{s}</option>)}
         </select>
         <button className="btn btn-outline btn-sm" onClick={() => {
           if (!filtered.length) return showToast('沒有診症紀錄可匯出');
@@ -665,8 +675,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 <div><label>日期 *</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
               </div>
               <div className="grid-3" style={{ marginBottom: 16 }}>
-                <div><label>醫師</label><select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
-                <div><label>店舖</label><select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))}><option>宋皇臺</option><option>太子</option></select></div>
+                <div><label>醫師</label><select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))}>{doctors.map(d => <option key={d}>{d}</option>)}</select></div>
+                <div><label>店舖</label><select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))}>{storeNames.map(s => <option key={s}>{s}</option>)}</select></div>
                 <div><label>診金 ($)</label><input type="number" min="0" value={form.fee} onChange={e => setForm(f => ({ ...f, fee: e.target.value }))} /></div>
               </div>
 
@@ -932,7 +942,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="診症詳情">
           <div className="modal emr-print" onClick={e => e.stopPropagation()} ref={detailRef} style={{ maxWidth: 750, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ textAlign: 'center', marginBottom: 12 }} className="print-only">
-              <img src="/logo.jpg" alt="康晴醫療中心" style={{ height: 48 }} />
+              <img src="/logo.jpg" alt={clinicName} style={{ height: 48 }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>診症詳情 -- {detail.patientName}</h3>

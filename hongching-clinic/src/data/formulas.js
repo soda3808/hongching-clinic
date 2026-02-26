@@ -1,6 +1,6 @@
 // ============================================================
-// Hong Ching Clinic - TCM Classic Formulas Database
-// 康晴診所 - 經典方劑資料庫
+// TCM Classic Formulas Database
+// 經典方劑資料庫
 // ============================================================
 
 export const TCM_FORMULAS_DB = [

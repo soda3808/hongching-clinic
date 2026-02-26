@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { saveRevenue, deleteRecord } from '../api';
-import { uid, fmtM, fmt, getMonth, monthLabel, DOCTORS } from '../data';
+import { uid, fmtM, fmt, getMonth, monthLabel, getDoctors, getStoreNames, getDefaultStore } from '../data';
+import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import ConfirmModal from './ConfirmModal';
 
 export default function Revenue({ data, setData, showToast, user, allData }) {
   const isDoctor = user?.role === 'doctor';
-  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], name: '', item: '', amount: '', payment: '現金', store: isDoctor ? (user.stores[0] || '宋皇臺') : '宋皇臺', doctor: isDoctor ? user.name : '常凱晴', note: '' });
+  const DOCTORS = getDoctors();
+  const STORE_NAMES = getStoreNames();
+  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], name: '', item: '', amount: '', payment: '現金', store: isDoctor ? (user.stores[0] || getDefaultStore()) : getDefaultStore(), doctor: isDoctor ? user.name : DOCTORS[0], note: '' });
   const [filterMonth, setFilterMonth] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [filterDoc, setFilterDoc] = useState('');
@@ -200,10 +203,10 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
 
   // ── Receipt Printing ──
   const printReceipt = (r) => {
-    const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
-    const clinicName = clinic.name || '康晴綜合醫療中心';
-    const clinicNameEn = clinic.nameEn || 'Hong Ching International Medical Centre';
-    const addr = r.store === '太子' ? (clinic.addr2 || '太子彌敦道788號利安大廈1樓B室') : (clinic.addr1 || '九龍宋皇臺道38號傲寓地下5號舖');
+    const clinicName = getClinicName();
+    const clinicNameEn = getClinicNameEn();
+    const storeInfo = getTenantStores().find(s => s.name === r.store);
+    const addr = storeInfo?.address || r.store;
     const receiptNo = `RC${r.date.replace(/-/g, '')}${r.id.substring(0, 4).toUpperCase()}`;
     const w = window.open('', '_blank');
     if (!w) return;
@@ -262,7 +265,7 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
         <div className="card-header">
           <h3>➕ 新增營業紀錄</h3>
           <select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))} style={{ width: 'auto', padding: '6px 12px' }}>
-            <option>宋皇臺</option><option>太子</option>
+            {STORE_NAMES.map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
         <div className="grid-4">
@@ -316,7 +319,7 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
               {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
             </select>
             <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部店舖</option><option>宋皇臺</option><option>太子</option>
+              <option value="">全部店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}
             </select>
             <select value={filterDoc} onChange={e => setFilterDoc(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
               <option value="">全部醫師</option>

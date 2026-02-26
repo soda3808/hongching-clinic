@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import { saveBooking } from '../api';
-import { uid, DOCTORS } from '../data';
-
-const STORES = [
-  { name: '宋皇臺', address: '九龍馬頭涌道97號美誠大廈地下', mapUrl: 'https://maps.google.com/?q=九龍馬頭涌道97號美誠大廈地下' },
-  { name: '太子', address: '九龍長沙灣道28號長康大廈地下', mapUrl: 'https://maps.google.com/?q=九龍長沙灣道28號長康大廈地下' },
-];
+import { uid } from '../data';
+import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames, getTenantDoctors } from '../tenant';
 
 const PHONE = ''; // fill when available
 const WHATSAPP = '85291234567'; // placeholder
@@ -17,7 +13,13 @@ const TIME_SLOTS = [
 ];
 
 export default function PublicBooking() {
-  const [form, setForm] = useState({ name: '', phone: '', store: '宋皇臺', date: '', timeSlot: '10:00', doctor: '', symptoms: '' });
+  const storeNames = getTenantStoreNames();
+  const stores = getTenantStores();
+  const doctors = getTenantDoctors();
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+
+  const [form, setForm] = useState({ name: '', phone: '', store: storeNames[0] || '', date: '', timeSlot: '10:00', doctor: '', symptoms: '' });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(null);
 
@@ -39,7 +41,7 @@ export default function PublicBooking() {
       date: form.date,
       time: form.timeSlot,
       duration: 30,
-      doctor: form.doctor || DOCTORS[0],
+      doctor: form.doctor || doctors[0],
       type: '初診',
       status: 'pending',
       notes: form.symptoms,
@@ -57,8 +59,8 @@ export default function PublicBooking() {
       <div className="pb-page">
         <div className="pb-container">
           <div className="pb-header">
-            <h1>康晴綜合醫療中心</h1>
-            <p>HONG CHING MEDICAL CENTRE</p>
+            <h1>{clinicName}</h1>
+            <p>{clinicNameEn.toUpperCase()}</p>
           </div>
           <div className="pb-success-card">
             <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
@@ -77,7 +79,7 @@ export default function PublicBooking() {
               className="pb-btn pb-btn-green" target="_blank" rel="noopener" style={{ marginTop: 20 }}>
               📱 WhatsApp 聯繫我們
             </a>
-            <button className="pb-btn pb-btn-outline" onClick={() => { setDone(null); setForm({ name:'', phone:'', store:'宋皇臺', date:'', timeSlot:'10:00', doctor:'', symptoms:'' }); }} style={{ marginTop: 8 }}>
+            <button className="pb-btn pb-btn-outline" onClick={() => { setDone(null); setForm({ name:'', phone:'', store: storeNames[0] || '', date:'', timeSlot:'10:00', doctor:'', symptoms:'' }); }} style={{ marginTop: 8 }}>
               再預約一次
             </button>
           </div>
@@ -92,21 +94,21 @@ export default function PublicBooking() {
       <div className="pb-container">
         {/* Header */}
         <div className="pb-header">
-          <h1>康晴綜合醫療中心</h1>
-          <p>HONG CHING MEDICAL CENTRE</p>
+          <h1>{clinicName}</h1>
+          <p>{clinicNameEn.toUpperCase()}</p>
           <div className="pb-subtitle">專業中醫診療服務</div>
         </div>
 
         {/* Clinic Info */}
         <div className="pb-card">
           <h3 style={{ marginBottom: 12 }}>📍 診所地址</h3>
-          {STORES.map(s => (
+          {stores.map(s => (
             <div key={s.name} className="pb-store-row">
               <div>
                 <strong>{s.name}店</strong>
                 <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>{s.address}</div>
               </div>
-              <a href={s.mapUrl} target="_blank" rel="noopener" className="pb-map-link">📍 地圖</a>
+              {s.mapUrl && <a href={s.mapUrl} target="_blank" rel="noopener" className="pb-map-link">📍 地圖</a>}
             </div>
           ))}
           <div className="pb-info-row">
@@ -146,7 +148,7 @@ export default function PublicBooking() {
             <div className="pb-field">
               <label>選擇分店</label>
               <select value={form.store} onChange={e => setForm({ ...form, store: e.target.value })}>
-                {STORES.map(s => <option key={s.name} value={s.name}>{s.name}店 — {s.address}</option>)}
+                {stores.map(s => <option key={s.name} value={s.name}>{s.name}店{s.address ? ` — ${s.address}` : ''}</option>)}
               </select>
             </div>
             <div className="pb-field">
@@ -163,7 +165,7 @@ export default function PublicBooking() {
               <label>選擇醫師</label>
               <select value={form.doctor} onChange={e => setForm({ ...form, doctor: e.target.value })}>
                 <option value="">不指定</option>
-                {DOCTORS.map(d => <option key={d} value={d}>{d} 醫師</option>)}
+                {doctors.map(d => <option key={d} value={d}>{d} 醫師</option>)}
               </select>
             </div>
             <div className="pb-field">
@@ -184,27 +186,24 @@ export default function PublicBooking() {
 }
 
 function Footer() {
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+  const doctors = getTenantDoctors();
   return (
     <div className="pb-footer">
-      <h3>關於康晴</h3>
-      <p>康晴綜合醫療中心提供專業中醫診療服務，涵蓋內科、針灸、推拿、天灸等多項療程，致力為患者提供全面的中醫治療方案。</p>
+      <h3>關於{clinicName}</h3>
+      <p>{clinicName}提供專業中醫診療服務，涵蓋內科、針灸、推拿、天灸等多項療程，致力為患者提供全面的中醫治療方案。</p>
       <h4 style={{ marginTop: 16, marginBottom: 8 }}>醫師團隊</h4>
       <div className="pb-team">
-        <div className="pb-doc">
-          <strong>常凱晴 醫師</strong>
-          <span>註冊中醫師 · 內科/針灸</span>
-        </div>
-        <div className="pb-doc">
-          <strong>許植輝 醫師</strong>
-          <span>註冊中醫師 · 內科/骨傷</span>
-        </div>
-        <div className="pb-doc">
-          <strong>曾其方 醫師</strong>
-          <span>註冊中醫師 · 內科/推拿</span>
-        </div>
+        {doctors.map(d => (
+          <div key={d} className="pb-doc">
+            <strong>{d} 醫師</strong>
+            <span>註冊中醫師</span>
+          </div>
+        ))}
       </div>
       <div className="pb-copyright">
-        &copy; {new Date().getFullYear()} 康晴綜合醫療中心 Hong Ching Medical Centre. All rights reserved.
+        &copy; {new Date().getFullYear()} {clinicName} {clinicNameEn}. All rights reserved.
       </div>
     </div>
   );

@@ -1,11 +1,13 @@
 import { useState, useMemo, useRef } from 'react';
 import { savePackage, saveEnrollment } from '../api';
 import { uid, fmtM, getMonth, DOCTORS, MEMBERSHIP_TIERS, getMembershipTier, TCM_TREATMENTS } from '../data';
+import { getTenantStoreNames, getClinicName } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
 const EMPTY_PKG = { name: '', type: 'session', sessions: 10, price: '', validDays: 180, treatments: [], active: true };
-const EMPTY_ENROLL = { packageId: '', patientId: '', patientName: '', patientPhone: '', store: '宋皇臺' };
+const _defaultStore = () => { const names = getTenantStoreNames(); return names[0] || ''; };
+const EMPTY_ENROLL = { packageId: '', patientId: '', patientName: '', patientPhone: '', store: '' };
 
 function getEnrollmentStatus(e) {
   const today = new Date().toISOString().substring(0, 10);
@@ -146,7 +148,7 @@ export default function PackagePage({ data, setData, showToast, allData }) {
       th{background:#0e7490;color:#fff;padding:5px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
     </style></head><body>
-      <h1>康晴綜合醫療中心 — 套餐分析報告</h1>
+      <h1>${getClinicName()} — 套餐分析報告</h1>
       <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0, 10)} | 總套餐：${packages.length} | 總登記：${enrollments.length}</p>
       <h3>套餐業績</h3>
       <table><thead><tr><th>套餐名稱</th><th style="text-align:right">登記數</th><th style="text-align:right">活躍</th><th style="text-align:right">總收入</th><th style="text-align:right">使用率</th></tr></thead><tbody>${pkgRows}</tbody></table>
@@ -215,7 +217,7 @@ export default function PackagePage({ data, setData, showToast, allData }) {
   // Enrollment CRUD
   // ══════════════════════════════════
   const openAddEnroll = () => {
-    setEnrollForm({ ...EMPTY_ENROLL });
+    setEnrollForm({ ...EMPTY_ENROLL, store: _defaultStore() });
     setPatientSearch('');
     setShowEnrollModal(true);
   };
@@ -707,8 +709,7 @@ export default function PackagePage({ data, setData, showToast, allData }) {
               <div style={{ marginBottom: 12 }}>
                 <label>店舖</label>
                 <select value={enrollForm.store} onChange={e => setEnrollForm({ ...enrollForm, store: e.target.value })}>
-                  <option>宋皇臺</option>
-                  <option>太子</option>
+                  {getTenantStoreNames().map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               {enrollForm.packageId && (() => {

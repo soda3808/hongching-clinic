@@ -5,14 +5,15 @@ import { exportCSV } from '../utils/export';
 import { parseInventoryXLS, getImportSummary } from '../utils/inventoryImport';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
+import { getTenantStoreNames, getClinicName } from '../tenant';
 
 const CATEGORIES = ['中藥', '耗材', '器材', '其他'];
 const UNITS = ['g', 'kg', '件', '包', '盒'];
-const STORES = ['宋皇臺', '太子', '兩店共用'];
+const STORES = [...getTenantStoreNames(), '兩店共用'];
 
 const EMPTY_FORM = {
   name: '', category: '中藥', unit: 'g', stock: 0, minStock: 100,
-  costPerUnit: 0, supplier: '', store: '宋皇臺', lastRestocked: '', active: true,
+  costPerUnit: 0, supplier: '', store: getTenantStoreNames()[0] || '', lastRestocked: '', active: true,
   medicineCode: '', expiryDate: '',
 };
 
@@ -301,7 +302,7 @@ export default function InventoryPage({ data, setData, showToast }) {
         id: uid(), name: record.name, category: record.category || '中藥',
         unit: record.unit || 'g', stock: record.stock || 0, minStock: record.minStock || 100,
         costPerUnit: record.price || 0, supplier: record.supplier || '',
-        store: record.store || '宋皇臺', medicineCode: record.code || '',
+        store: record.store || getTenantStoreNames()[0] || '', medicineCode: record.code || '',
         lastRestocked: '', active: true,
       };
       await saveInventory(item);
@@ -341,7 +342,7 @@ export default function InventoryPage({ data, setData, showToast }) {
       .footer{margin-top:30px;font-size:11px;color:#999;text-align:center}
       @media print{body{padding:10px}}
     </style></head><body>
-      <h1>康晴綜合醫療中心 — 藥材採購單</h1>
+      <h1>${getClinicName()} — 藥材採購單</h1>
       <div class="info">日期：${today} | 低庫存品項：${lowStockItems.length} 項</div>
       <table><thead><tr><th>編號</th><th>品名</th><th>分類</th><th>現有庫存</th><th>最低庫存</th><th>建議採購量</th><th>供應商</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="footer">此採購單由系統自動生成 | 請核實後再向供應商下單</div>
@@ -358,7 +359,8 @@ export default function InventoryPage({ data, setData, showToast }) {
     if (qty <= 0) return showToast('請輸入有效數量');
     if (qty > Number(transferItem.stock)) return showToast('轉移數量不能超過現有庫存');
     const fromStore = transferItem.store;
-    const toStore = fromStore === '宋皇臺' ? '太子' : '宋皇臺';
+    const storeNames = getTenantStoreNames();
+    const toStore = storeNames.find(s => s !== fromStore) || storeNames[0];
     // Deduct from source
     const updatedSource = { ...transferItem, stock: Number(transferItem.stock) - qty };
     await saveInventory(updatedSource);
@@ -519,7 +521,7 @@ export default function InventoryPage({ data, setData, showToast }) {
         <input style={{ flex: 1, minWidth: 200 }} placeholder="搜尋品名..." value={search} onChange={e => setSearch(e.target.value)} />
         <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">所有店舖</option>
-          <option>宋皇臺</option><option>太子</option><option>兩店共用</option>
+          {STORES.map(s => <option key={s}>{s}</option>)}
         </select>
         <select style={{ width: 'auto' }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="all">所有狀態</option>
@@ -919,7 +921,7 @@ export default function InventoryPage({ data, setData, showToast }) {
             <div style={{ background: 'var(--gray-50)', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
               <div className="grid-2">
                 <div><strong>來源店舖：</strong>{transferItem.store}</div>
-                <div><strong>目標店舖：</strong>{transferItem.store === '宋皇臺' ? '太子' : '宋皇臺'}</div>
+                <div><strong>目標店舖：</strong>{getTenantStoreNames().find(s => s !== transferItem.store) || getTenantStoreNames()[0]}</div>
                 <div><strong>現有庫存：</strong>{transferItem.stock} {transferItem.unit}</div>
                 <div><strong>分類：</strong>{transferItem.category}</div>
               </div>
@@ -931,7 +933,7 @@ export default function InventoryPage({ data, setData, showToast }) {
             {transferQty && Number(transferQty) > 0 && (
               <div style={{ background: 'var(--gold-50, #fffbeb)', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
                 <div>📦 {transferItem.store}：{transferItem.stock} → <strong>{Number(transferItem.stock) - Number(transferQty)} {transferItem.unit}</strong></div>
-                <div>📦 {transferItem.store === '宋皇臺' ? '太子' : '宋皇臺'}：+<strong>{transferQty} {transferItem.unit}</strong></div>
+                <div>📦 {getTenantStoreNames().find(s => s !== transferItem.store) || getTenantStoreNames()[0]}：+<strong>{transferQty} {transferItem.unit}</strong></div>
               </div>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
@@ -1047,7 +1049,7 @@ export default function InventoryPage({ data, setData, showToast }) {
                         <td className="money">{fmtM(st.value)}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 4 }}>
-                            {s.phone && <button className="btn btn-green btn-sm" onClick={() => window.open(`https://wa.me/852${s.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`${s.name} 你好，我係康晴綜合醫療中心，想查詢藥材供應事宜。`)}`, '_blank')}>WhatsApp</button>}
+                            {s.phone && <button className="btn btn-green btn-sm" onClick={() => window.open(`https://wa.me/852${s.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`${s.name} 你好，我係${getClinicName()}，想查詢藥材供應事宜。`)}`, '_blank')}>WhatsApp</button>}
                             <button className="btn btn-outline btn-sm" onClick={() => openEditSupplier(s)}>編輯</button>
                             <button className="btn btn-red btn-sm" onClick={() => deleteSupplierById(s.id)}>刪除</button>
                           </div>

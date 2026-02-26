@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { uid, DOCTORS } from '../data';
 import { saveSurvey, deleteSurvey as deleteSurveyApi } from '../api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { getTenantStoreNames, getClinicName } from '../tenant';
 
 const QUESTIONS = [
   { id: 'q1', label: '整體滿意度', desc: '對今次診症的整體滿意程度' },
@@ -17,7 +18,7 @@ export default function SurveyPage({ data, setData, showToast, user }) {
   const surveys = data.surveys || [];
   const [tab, setTab] = useState('results');
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ patientName: '', doctor: DOCTORS[0], store: '宋皇臺', ratings: {}, comment: '' });
+  const [form, setForm] = useState({ patientName: '', doctor: DOCTORS[0], store: getTenantStoreNames()[0] || '', ratings: {}, comment: '' });
 
   const thisMonth = new Date().toISOString().substring(0, 7);
 
@@ -60,7 +61,7 @@ export default function SurveyPage({ data, setData, showToast, user }) {
 
   // Store comparison
   const storeAvg = useMemo(() => {
-    return ['宋皇臺', '太子'].map(store => {
+    return getTenantStoreNames().map(store => {
       const storeSurveys = surveys.filter(s => s.store === store);
       const avg = storeSurveys.length ? (storeSurveys.reduce((s, sv) => s + (sv.ratings?.q1 || 0), 0) / storeSurveys.length).toFixed(1) : '0';
       return { store, avg: Number(avg), count: storeSurveys.length };
@@ -91,7 +92,7 @@ export default function SurveyPage({ data, setData, showToast, user }) {
     await saveSurvey(record);
     setData({ ...data, surveys: [...surveys, record] });
     setShowAdd(false);
-    setForm({ patientName: '', doctor: DOCTORS[0], store: '宋皇臺', ratings: {}, comment: '' });
+    setForm({ patientName: '', doctor: DOCTORS[0], store: getTenantStoreNames()[0] || '', ratings: {}, comment: '' });
     showToast('問卷已儲存');
   };
 
@@ -168,7 +169,7 @@ export default function SurveyPage({ data, setData, showToast, user }) {
             .box .l{font-size:10px;color:#888}
             @media print{body{margin:0;padding:10mm}}
             </style></head><body>
-            <h1>康晴綜合醫療中心 — 滿意度報告</h1>
+            <h1>${getClinicName()} — 滿意度報告</h1>
             <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')} | 總問卷數：${surveys.length}</div>
             <div class="grid">
               <div class="box"><div class="n" style="color:#0e7490">${stats.total}</div><div class="l">總問卷</div></div>
@@ -272,7 +273,7 @@ export default function SurveyPage({ data, setData, showToast, user }) {
               <div style={{ padding: 16 }}>
                 {storeAvg.map(s => (
                   <div key={s.store} style={{ marginBottom: 16, textAlign: 'center' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: s.store === '宋皇臺' ? '#0e7490' : '#8B6914', marginBottom: 4 }}>{s.store}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: s.store === getTenantStoreNames()[0] ? '#0e7490' : '#8B6914', marginBottom: 4 }}>{s.store}</div>
                     <div style={{ fontSize: 28, fontWeight: 800, color: s.avg >= 4 ? 'var(--green-600)' : s.avg >= 3 ? '#f59e0b' : '#ef4444' }}>{s.avg}/5</div>
                     <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>{s.count} 份問卷</div>
                   </div>
@@ -350,7 +351,7 @@ export default function SurveyPage({ data, setData, showToast, user }) {
               <div className="grid-3" style={{ marginBottom: 12 }}>
                 <div><label>病人姓名 *</label><input value={form.patientName} onChange={e => setForm(f => ({ ...f, patientName: e.target.value }))} placeholder="姓名" /></div>
                 <div><label>醫師</label><select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
-                <div><label>店舖</label><select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))}><option>宋皇臺</option><option>太子</option></select></div>
+                <div><label>店舖</label><select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))}>{getTenantStoreNames().map(s => <option key={s}>{s}</option>)}</select></div>
               </div>
 
               <div style={{ marginBottom: 16 }}>

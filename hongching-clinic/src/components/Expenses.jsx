@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { saveExpense, deleteRecord } from '../api';
-import { uid, fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, ALL_CATEGORIES } from '../data';
+import { uid, fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, ALL_CATEGORIES, getStoreNames, getDefaultStore } from '../data';
 import ConfirmModal from './ConfirmModal';
 
 export default function Expenses({ data, setData, showToast }) {
-  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], merchant: '', amount: '', category: '租金', store: '宋皇臺', payment: '現金', desc: '', receipt: '' });
+  const STORE_NAMES = getStoreNames();
+  const [form, setForm] = useState({ date: new Date().toISOString().split('T')[0], merchant: '', amount: '', category: '租金', store: getDefaultStore(), payment: '現金', desc: '', receipt: '' });
   const [filterMonth, setFilterMonth] = useState('');
   const [filterStore, setFilterStore] = useState('');
   const [filterCat, setFilterCat] = useState('');
@@ -283,7 +284,7 @@ export default function Expenses({ data, setData, showToast }) {
         <div className="grid-4" style={{ marginTop: 10 }}>
           <div><label>店舖</label>
             <select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))}>
-              <option>宋皇臺</option><option>太子</option><option>兩店共用</option>
+              {STORE_NAMES.map(s => <option key={s}>{s}</option>)}<option>兩店共用</option>
             </select>
           </div>
           <div><label>付款方式</label>
@@ -516,31 +517,34 @@ export default function Expenses({ data, setData, showToast }) {
 
       {/* Store Allocation Summary */}
       {(() => {
-        const tkwDirect = list.filter(r => r.store === '宋皇臺').reduce((s, r) => s + Number(r.amount), 0);
-        const peDirect = list.filter(r => r.store === '太子').reduce((s, r) => s + Number(r.amount), 0);
+        const storeColors = ['teal', 'gold', 'blue', 'red', 'purple'];
+        const storeTotals = STORE_NAMES.map(name => ({
+          name,
+          direct: list.filter(r => r.store === name).reduce((s, r) => s + Number(r.amount), 0),
+        }));
         const shared = list.filter(r => r.store === '兩店共用').reduce((s, r) => s + Number(r.amount), 0);
-        if (!shared && !tkwDirect && !peDirect) return null;
-        const sharedHalf = shared / 2;
+        const hasData = shared > 0 || storeTotals.some(s => s.direct > 0);
+        if (!hasData) return null;
+        const sharedSplit = STORE_NAMES.length > 0 ? shared / STORE_NAMES.length : 0;
         return (
           <div className="card" style={{ padding: 16 }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>🏢 分店開支分攤</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 12 }}>
-              <div style={{ padding: 10, background: 'var(--teal-50)', borderRadius: 8, textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: 'var(--teal-600)', fontWeight: 600 }}>宋皇臺</div>
-                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>直接：{fmtM(tkwDirect)}</div>
-                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>分攤：{fmtM(sharedHalf)}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)', marginTop: 4 }}>{fmtM(tkwDirect + sharedHalf)}</div>
-              </div>
-              <div style={{ padding: 10, background: 'var(--gold-50)', borderRadius: 8, textAlign: 'center' }}>
-                <div style={{ fontSize: 10, color: 'var(--gold-700)', fontWeight: 600 }}>太子</div>
-                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>直接：{fmtM(peDirect)}</div>
-                <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>分攤：{fmtM(sharedHalf)}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gold-700)', marginTop: 4 }}>{fmtM(peDirect + sharedHalf)}</div>
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${STORE_NAMES.length + 1}, 1fr)`, gap: 12, fontSize: 12 }}>
+              {storeTotals.map((st, i) => {
+                const c = storeColors[i % storeColors.length];
+                return (
+                  <div key={st.name} style={{ padding: 10, background: `var(--${c}-50)`, borderRadius: 8, textAlign: 'center' }}>
+                    <div style={{ fontSize: 10, color: `var(--${c}-600)`, fontWeight: 600 }}>{st.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>直接：{fmtM(st.direct)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>分攤：{fmtM(sharedSplit)}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: `var(--${c}-700)`, marginTop: 4 }}>{fmtM(st.direct + sharedSplit)}</div>
+                  </div>
+                );
+              })}
               <div style={{ padding: 10, background: 'var(--gray-50)', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: 'var(--gray-500)', fontWeight: 600 }}>兩店共用</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-600)', marginTop: 4 }}>{fmtM(shared)}</div>
-                <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>各分攤 50%</div>
+                <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>各分攤 {STORE_NAMES.length > 0 ? (100 / STORE_NAMES.length).toFixed(0) : 0}%</div>
               </div>
             </div>
           </div>
@@ -557,7 +561,7 @@ export default function Expenses({ data, setData, showToast }) {
               {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
             </select>
             <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部店舖</option><option>宋皇臺</option><option>太子</option><option>兩店共用</option>
+              <option value="">全部店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}<option>兩店共用</option>
             </select>
             <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
               <option value="">全部類別</option>

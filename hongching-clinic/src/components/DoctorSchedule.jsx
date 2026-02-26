@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getDoctorSchedule, saveDoctorSchedule } from '../config';
-import { DOCTORS } from '../data';
+import { getTenantDoctors, getTenantStoreNames, getClinicName } from '../tenant';
 
 const DAYS = [
   { id: 'mon', label: '星期一' },
@@ -11,8 +11,22 @@ const DAYS = [
   { id: 'sat', label: '星期六' },
 ];
 const SLOTS = ['上午', '下午', '晚上'];
-const STORE_OPTIONS = ['宋皇臺', '太子', '休息'];
-const STORE_COLORS = { '宋皇臺': { bg: 'var(--teal-50)', color: 'var(--teal-700)', border: 'var(--teal-200)' }, '太子': { bg: '#FFF8E1', color: '#92400e', border: '#F5D790' }, '休息': { bg: 'var(--gray-100)', color: 'var(--gray-400)', border: 'var(--gray-200)' } };
+const STORE_COLOR_PALETTE = [
+  { bg: 'var(--teal-50)', color: 'var(--teal-700)', border: 'var(--teal-200)' },
+  { bg: '#FFF8E1', color: '#92400e', border: '#F5D790' },
+  { bg: '#EDE9FE', color: '#5B21B6', border: '#C4B5FD' },
+  { bg: '#FFF1F2', color: '#9F1239', border: '#FDA4AF' },
+  { bg: '#ECFDF5', color: '#065F46', border: '#6EE7B7' },
+  { bg: '#FFF7ED', color: '#9A3412', border: '#FDBA74' },
+];
+function getStoreOptions() { return [...getTenantStoreNames(), '休息']; }
+function getStoreColors() {
+  const storeNames = getTenantStoreNames();
+  const colors = {};
+  storeNames.forEach((name, i) => { colors[name] = STORE_COLOR_PALETTE[i % STORE_COLOR_PALETTE.length]; });
+  colors['休息'] = { bg: 'var(--gray-100)', color: 'var(--gray-400)', border: 'var(--gray-200)' };
+  return colors;
+}
 
 export default function DoctorSchedule({ data, showToast, user }) {
   const [schedule, setSchedule] = useState(getDoctorSchedule);
@@ -25,7 +39,8 @@ export default function DoctorSchedule({ data, showToast, user }) {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
-  const doctors = selectedDoctor === 'all' ? DOCTORS : [selectedDoctor];
+  const allDoctors = getTenantDoctors();
+  const doctors = selectedDoctor === 'all' ? allDoctors : [selectedDoctor];
 
   // ── Leave Integration (#45) ──
   const leaves = data?.leaves || [];
@@ -73,7 +88,8 @@ export default function DoctorSchedule({ data, showToast, user }) {
   const renderCell = (doctor, day, slot) => {
     const val = getSlot(doctor, day.id, slot);
     const display = val || '休息';
-    const style = STORE_COLORS[display] || STORE_COLORS['休息'];
+    const storeColors = getStoreColors();
+    const style = storeColors[display] || storeColors['休息'];
     const cellKey = `${doctor}-${day.id}-${slot}`;
     const isEditing = editing && editCell === cellKey;
 
@@ -86,7 +102,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
           autoFocus
           style={{ width: '100%', padding: '4px 6px', fontSize: 11, border: '2px solid var(--teal-500)', borderRadius: 4 }}
         >
-          {STORE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+          {getStoreOptions().map(o => <option key={o}>{o}</option>)}
         </select>
       );
     }
@@ -122,7 +138,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
       <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <select style={{ width: 'auto' }} value={selectedDoctor} onChange={e => setSelectedDoctor(e.target.value)}>
           <option value="all">所有醫師</option>
-          {DOCTORS.map(d => <option key={d}>{d}</option>)}
+          {allDoctors.map(d => <option key={d}>{d}</option>)}
         </select>
         {isAdmin && !editing && <button className="btn btn-teal" onClick={() => setEditing(true)}>編輯排班</button>}
         {!editing && (
@@ -130,7 +146,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
             <button className="btn btn-outline btn-sm" onClick={() => {
               const headers = ['醫師', ...DAYS.map(d => d.label)];
               const rows = [];
-              DOCTORS.forEach(doc => {
+              allDoctors.forEach(doc => {
                 SLOTS.forEach(slot => {
                   const row = [`${doc} (${slot})`];
                   DAYS.forEach(d => row.push(getSlot(doc, d.id, slot) || '休息'));
@@ -148,14 +164,14 @@ export default function DoctorSchedule({ data, showToast, user }) {
             <button className="btn btn-gold btn-sm" onClick={() => {
               const w = window.open('', '_blank');
               if (!w) return;
-              const docRows = DOCTORS.map(doc => {
+              const docRows = allDoctors.map(doc => {
                 return `<tr><td style="font-weight:700" rowspan="${SLOTS.length}">${doc}</td>` +
                   SLOTS.map((slot, si) => {
+                    const printStoreColors = getStoreColors();
                     const cells = DAYS.map(d => {
                       const val = getSlot(doc, d.id, slot) || '休息';
-                      const bg = val === '宋皇臺' ? '#f0fdfa' : val === '太子' ? '#FFF8E1' : '#f9fafb';
-                      const color = val === '宋皇臺' ? '#0e7490' : val === '太子' ? '#92400e' : '#9ca3af';
-                      return `<td style="background:${bg};color:${color};text-align:center;font-weight:600">${val}</td>`;
+                      const sc = printStoreColors[val] || printStoreColors['休息'];
+                      return `<td style="background:${sc.bg};color:${sc.color};text-align:center;font-weight:600">${val}</td>`;
                     }).join('');
                     return si === 0 ? `<td>${slot}</td>${cells}</tr>` : `<tr><td>${slot}</td>${cells}</tr>`;
                   }).join('');
@@ -169,7 +185,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
                 th{background:#f0f0f0;font-weight:700}
                 @media print{body{margin:0;padding:10mm}}
                 </style></head><body>
-                <h1>康晴綜合醫療中心 — 醫師排班表</h1>
+                <h1>${getClinicName()} — 醫師排班表</h1>
                 <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
                 <table><thead><tr><th>醫師</th><th>時段</th>${DAYS.map(d => `<th>${d.label}</th>`).join('')}</tr></thead>
                 <tbody>${docRows}</tbody></table>
@@ -189,7 +205,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   message: `分析以下醫師排班表，提供優化建議（例如：是否平均分配、有無時段無人值班、建議調整等）：\n${scheduleStr}`,
-                  context: { schedule, doctors: DOCTORS },
+                  context: { schedule, doctors: allDoctors },
                   history: [],
                 }),
               });
@@ -223,12 +239,15 @@ export default function DoctorSchedule({ data, showToast, user }) {
       {/* Legend */}
       <div className="card" style={{ padding: '8px 16px', display: 'flex', gap: 16, alignItems: 'center', fontSize: 12 }}>
         <span style={{ fontWeight: 600, color: 'var(--gray-500)' }}>圖例：</span>
-        {['宋皇臺', '太子', '休息'].map(s => (
-          <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ width: 14, height: 14, borderRadius: 3, background: STORE_COLORS[s].bg, border: `1px solid ${STORE_COLORS[s].border}`, display: 'inline-block' }} />
-            <span style={{ color: STORE_COLORS[s].color, fontWeight: 600 }}>{s}</span>
-          </span>
-        ))}
+        {getStoreOptions().map(s => {
+          const sc = getStoreColors()[s];
+          return (
+            <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ width: 14, height: 14, borderRadius: 3, background: sc.bg, border: `1px solid ${sc.border}`, display: 'inline-block' }} />
+              <span style={{ color: sc.color, fontWeight: 600 }}>{s}</span>
+            </span>
+          );
+        })}
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, background: '#fee2e2', border: '1px solid #fecaca', display: 'inline-block' }} />
           <span style={{ color: '#991b1b', fontWeight: 600 }}>請假</span>
@@ -275,25 +294,35 @@ export default function DoctorSchedule({ data, showToast, user }) {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>醫師</th><th style={{ textAlign: 'right' }}>宋皇臺</th><th style={{ textAlign: 'right' }}>太子</th><th style={{ textAlign: 'right' }}>總時段</th><th style={{ textAlign: 'right' }}>休息</th></tr>
+              <tr>
+                <th>醫師</th>
+                {getTenantStoreNames().map(name => <th key={name} style={{ textAlign: 'right' }}>{name}</th>)}
+                <th style={{ textAlign: 'right' }}>總時段</th>
+                <th style={{ textAlign: 'right' }}>休息</th>
+              </tr>
             </thead>
             <tbody>
-              {DOCTORS.map(doc => {
-                let tkw = 0, pe = 0, off = 0;
+              {allDoctors.map(doc => {
+                const storeNames = getTenantStoreNames();
+                const storeColors = getStoreColors();
+                const counts = {};
+                storeNames.forEach(name => { counts[name] = 0; });
+                let off = 0;
                 DAYS.forEach(d => {
                   SLOTS.forEach(s => {
                     const v = getSlot(doc, d.id, s);
-                    if (v === '宋皇臺') tkw++;
-                    else if (v === '太子') pe++;
+                    if (v && counts[v] !== undefined) counts[v]++;
                     else off++;
                   });
                 });
+                const totalWorking = storeNames.reduce((s, name) => s + counts[name], 0);
                 return (
                   <tr key={doc}>
                     <td style={{ fontWeight: 600 }}>{doc}</td>
-                    <td className="money" style={{ color: 'var(--teal-700)' }}>{tkw}</td>
-                    <td className="money" style={{ color: '#92400e' }}>{pe}</td>
-                    <td className="money" style={{ fontWeight: 700 }}>{tkw + pe}</td>
+                    {storeNames.map(name => (
+                      <td key={name} className="money" style={{ color: storeColors[name]?.color || 'var(--gray-600)' }}>{counts[name]}</td>
+                    ))}
+                    <td className="money" style={{ fontWeight: 700 }}>{totalWorking}</td>
                     <td className="money" style={{ color: 'var(--gray-400)' }}>{off}</td>
                   </tr>
                 );

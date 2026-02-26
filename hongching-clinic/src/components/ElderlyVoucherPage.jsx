@@ -4,6 +4,7 @@
 import { useState, useMemo } from 'react';
 import { uid, fmtM, getMonth } from '../data';
 import { savePatient } from '../api';
+import { getClinicName, getTenantStoreNames } from '../tenant';
 
 const VOUCHER_LIMIT = 2000; // Annual limit
 const ELIGIBLE_AGE = 65;
@@ -19,6 +20,9 @@ function getAge(dob) {
 }
 
 export default function ElderlyVoucherPage({ data, setData, showToast, allData, user }) {
+  const clinicName = getClinicName();
+  const storeNames = getTenantStoreNames();
+
   const [search, setSearch] = useState('');
   const [showClaim, setShowClaim] = useState(null);
   const [claimAmount, setClaimAmount] = useState('');
@@ -87,7 +91,8 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
     // By store
     const byStore = {};
     allClaims.forEach(c => {
-      byStore[c.store || '宋皇臺'] = (byStore[c.store || '宋皇臺'] || 0) + Number(c.amount || 0);
+      const fallbackStore = storeNames[0] || '';
+      byStore[c.store || fallbackStore] = (byStore[c.store || fallbackStore] || 0) + Number(c.amount || 0);
     });
     // Utilization rate
     const utilization = eligiblePatients.length > 0
@@ -127,7 +132,7 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
       amount,
       desc: claimDesc,
       claimedBy: user?.name || '',
-      store: patient.store || '宋皇臺',
+      store: patient.store || storeNames[0] || '',
     };
 
     const updatedPatient = {
@@ -263,7 +268,7 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
               .box .l{font-size:10px;color:#888}
               @media print{body{margin:0;padding:10mm}}
               </style></head><body>
-              <h1>康晴綜合醫療中心 — 長者醫療券報告</h1>
+              <h1>${clinicName} — 長者醫療券報告</h1>
               <div class="sub">${CURRENT_YEAR}年度 | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
               <div class="grid">
                 <div class="box"><div class="n" style="color:#0e7490">${stats.totalEligible}</div><div class="l">合資格長者</div></div>

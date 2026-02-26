@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
+import { getTenantStoreNames, getClinicName } from '../tenant';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
@@ -178,7 +179,7 @@ export default function Dashboard({ data, onNavigate }) {
         .sign-box{border-top:1px solid #333;width:180px;text-align:center;padding-top:6px;font-size:10px;color:#888}
         .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
       </style></head><body>
-      <h1>康晴綜合醫療中心 — 日結總報告</h1>
+      <h1>${getClinicName()} — 日結總報告</h1>
       <div class="sub">DAILY CLOSING REPORT | ${today} | 列印: ${new Date().toLocaleString('zh-HK')}</div>
 
       <div class="grid">
@@ -224,7 +225,7 @@ export default function Dashboard({ data, onNavigate }) {
         <div class="sign-box">經手人簽名</div>
         <div class="sign-box">管理人核實</div>
       </div>
-      <div class="footer">此報告由系統自動生成 | 康晴綜合醫療中心</div>
+      <div class="footer">此報告由系統自動生成 | ${getClinicName()}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -285,9 +286,9 @@ export default function Dashboard({ data, onNavigate }) {
 
       {/* Store Tabs */}
       <div className="tab-bar">
-        {['all', '宋皇臺', '太子'].map(s => (
+        {['all', ...getTenantStoreNames()].map(s => (
           <button key={s} className={`tab-btn ${store === s ? 'active' : ''}`} onClick={() => setStore(s)}>
-            {s === 'all' ? '🏢 兩店合計' : s === '宋皇臺' ? '📍 宋皇臺' : '📍 太子'}
+            {s === 'all' ? `🏢 ${getTenantStoreNames().length}店合計` : `📍 ${s}`}
           </button>
         ))}
       </div>
@@ -456,28 +457,29 @@ export default function Dashboard({ data, onNavigate }) {
 
       {/* Store Comparison Mini */}
       {(() => {
-        const tkwRev = filtered.rev.filter(r => r.store === '宋皇臺' && getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
-        const peRev = filtered.rev.filter(r => r.store === '太子' && getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
-        const total = tkwRev + peRev || 1;
+        const storeNames = getTenantStoreNames();
+        const storeColors = ['#0e7490', '#8B6914', '#C0392B', '#1A7A42', '#7C3AED', '#EA580C'];
+        const storeRevs = storeNames.map(name =>
+          filtered.rev.filter(r => r.store === name && getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0)
+        );
+        const total = storeRevs.reduce((s, v) => s + v, 0) || 1;
         return (
           <div className="card" style={{ marginTop: 16 }}>
             <div className="card-header"><h3>🏢 分店本月對比</h3></div>
             <div style={{ padding: 16 }}>
               <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, color: '#0e7490', fontWeight: 600 }}>宋皇臺</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#0e7490' }}>{fmtM(tkwRev)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>{(tkwRev/total*100).toFixed(0)}%</div>
-                </div>
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 12, color: '#8B6914', fontWeight: 600 }}>太子</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: '#8B6914' }}>{fmtM(peRev)}</div>
-                  <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>{(peRev/total*100).toFixed(0)}%</div>
-                </div>
+                {storeNames.map((name, i) => (
+                  <div key={name} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: 12, color: storeColors[i % storeColors.length], fontWeight: 600 }}>{name}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: storeColors[i % storeColors.length] }}>{fmtM(storeRevs[i])}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>{(storeRevs[i]/total*100).toFixed(0)}%</div>
+                  </div>
+                ))}
               </div>
               <div style={{ height: 12, borderRadius: 6, overflow: 'hidden', display: 'flex', background: 'var(--gray-100)' }}>
-                <div style={{ width: `${tkwRev/total*100}%`, background: '#0e7490', transition: 'width 0.5s' }} />
-                <div style={{ width: `${peRev/total*100}%`, background: '#8B6914', transition: 'width 0.5s' }} />
+                {storeNames.map((name, i) => (
+                  <div key={name} style={{ width: `${storeRevs[i]/total*100}%`, background: storeColors[i % storeColors.length], transition: 'width 0.5s' }} />
+                ))}
               </div>
             </div>
           </div>

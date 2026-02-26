@@ -1,17 +1,23 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { saveConversation, openWhatsApp, saveInquiry } from '../api';
-import { uid, DOCTORS, CLINIC_PRICING } from '../data';
+import { uid, CLINIC_PRICING } from '../data';
+import { getClinicName, getTenantStores, getTenantStoreNames } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 
 
-const QUICK_REPLIES = [
-  { label: '收費表', text: Object.entries(CLINIC_PRICING).map(([k, v]) => `${k}：$${v.price}`).join('\n') },
-  { label: '預約', text: '歡迎預約！請提供以下資料：\n1. 姓名\n2. 聯絡電話\n3. 希望日期及時間\n4. 診症類型（初診/覆診/針灸/推拿）' },
-  { label: '營業時間', text: '營業時間：\n星期一至六 10:00-20:00\n星期日及公眾假期 休息' },
-  { label: '地址', text: '宋皇臺店：九龍宋皇臺道38號傲寓地下5號舖\n太子店：太子彌敦道788號利安大廈1樓B室' },
-  { label: '🎂 生日', text: '【康晴醫療中心】祝你生日快樂！🎂🎉\n\n感謝你一直以來的支持！為答謝你的信任，我們特別送上生日優惠：\n🎁 診金8折優惠（本月有效）\n\n歡迎預約：\n📞 致電或WhatsApp預約\n祝身體健康，萬事如意！🙏' },
-  { label: '覆診提醒', text: '【康晴醫療中心】你好！溫馨提醒你的覆診日期快到了。\n\n為確保治療效果，建議按時覆診。\n\n歡迎致電或WhatsApp預約時間。\n祝早日康復！🙏' },
-];
+function buildQuickReplies() {
+  const clinicName = getClinicName();
+  const stores = getTenantStores();
+  const addrLines = stores.map(s => `${s.name}店：${s.address || ''}`).join('\n');
+  return [
+    { label: '收費表', text: Object.entries(CLINIC_PRICING).map(([k, v]) => `${k}：$${v.price}`).join('\n') },
+    { label: '預約', text: '歡迎預約！請提供以下資料：\n1. 姓名\n2. 聯絡電話\n3. 希望日期及時間\n4. 診症類型（初診/覆診/針灸/推拿）' },
+    { label: '營業時間', text: '營業時間：\n星期一至六 10:00-20:00\n星期日及公眾假期 休息' },
+    { label: '地址', text: addrLines },
+    { label: '🎂 生日', text: `【${clinicName}】祝你生日快樂！🎂🎉\n\n感謝你一直以來的支持！為答謝你的信任，我們特別送上生日優惠：\n🎁 診金8折優惠（本月有效）\n\n歡迎預約：\n📞 致電或WhatsApp預約\n祝身體健康，萬事如意！🙏` },
+    { label: '覆診提醒', text: `【${clinicName}】你好！溫馨提醒你的覆診日期快到了。\n\n為確保治療效果，建議按時覆診。\n\n歡迎致電或WhatsApp預約時間。\n祝早日康復！🙏` },
+  ];
+}
 
 function fmtTime(ts) {
   if (!ts) return '';
@@ -29,6 +35,11 @@ function nowTimestamp() {
 }
 
 export default function CRMPage({ data, setData, showToast }) {
+  const clinicName = getClinicName();
+  const storeNames = getTenantStoreNames();
+  const defaultStore = storeNames[0] || '';
+  const QUICK_REPLIES = buildQuickReplies();
+
   const [tab, setTab] = useState('inquiries');
   const [selectedConvId, setSelectedConvId] = useState(null);
   const [searchQ, setSearchQ] = useState('');
@@ -72,7 +83,7 @@ export default function CRMPage({ data, setData, showToast }) {
   }
 
   function handleReplyInquiry(inquiry, replyText) {
-    const text = `【康晴醫療中心】${inquiry.name}你好！\n${replyText}`;
+    const text = `【${clinicName}】${inquiry.name}你好！\n${replyText}`;
     openWhatsApp(inquiry.phone, text);
     // Mark as replied
     const updated = { ...inquiry, status: 'replied', repliedAt: new Date().toISOString() };
@@ -81,7 +92,7 @@ export default function CRMPage({ data, setData, showToast }) {
     // Also create conversation record
     const conv = {
       id: uid(), patientId: '', patientName: inquiry.name, patientPhone: inquiry.phone,
-      store: '宋皇臺', messages: [
+      store: defaultStore, messages: [
         { id: uid(), text: `[查詢] ${inquiry.message}`, sender: 'patient', timestamp: inquiry.createdAt, type: 'text' },
         { id: uid(), text: replyText, sender: 'clinic', timestamp: new Date().toISOString().substring(0, 16).replace('T', ' '), status: 'sent', type: 'text' },
       ],
@@ -199,7 +210,7 @@ export default function CRMPage({ data, setData, showToast }) {
     if (existing) return existing;
     const conv = {
       id: uid(), patientId: patient.id, patientName: patient.name, patientPhone: patient.phone,
-      store: patient.store || '宋皇臺', messages: [], lastMessage: '', lastTimestamp: nowTimestamp(),
+      store: patient.store || defaultStore, messages: [], lastMessage: '', lastTimestamp: nowTimestamp(),
       unread: 0, status: 'active',
     };
     return conv;
@@ -217,7 +228,7 @@ export default function CRMPage({ data, setData, showToast }) {
 
   function handleSendBookingReminder(bk) {
     const patient = patients.find(p => p.phone === bk.patientPhone) || { id: '', name: bk.patientName, phone: bk.patientPhone, store: bk.store };
-    const text = `【康晴醫療中心】${bk.patientName}你好！提醒你明天 ${bk.time} 有預約（${bk.doctor}，${bk.store}）。請準時到達，謝謝！`;
+    const text = `【${clinicName}】${bk.patientName}你好！提醒你明天 ${bk.time} 有預約（${bk.doctor}，${bk.store}）。請準時到達，謝謝！`;
     const conv = getOrCreateConv(patient);
     const msg = { id: uid(), text, sender: 'clinic', timestamp: nowTimestamp(), status: 'sent', type: 'booking' };
     const updated = { ...conv, messages: [...(conv.messages || []), msg], lastMessage: text.substring(0, 50), lastTimestamp: nowTimestamp() };
@@ -234,7 +245,7 @@ export default function CRMPage({ data, setData, showToast }) {
   }
 
   function handleSendFollowUp(patient) {
-    const text = `【康晴醫療中心】${patient.name}你好！希望你身體漸有好轉。如有任何不適，歡迎預約覆診。`;
+    const text = `【${clinicName}】${patient.name}你好！希望你身體漸有好轉。如有任何不適，歡迎預約覆診。`;
     const conv = getOrCreateConv(patient);
     const msg = { id: uid(), text, sender: 'clinic', timestamp: nowTimestamp(), status: 'sent', type: 'reminder' };
     const updated = { ...conv, messages: [...(conv.messages || []), msg], lastMessage: text.substring(0, 50), lastTimestamp: nowTimestamp() };
@@ -592,7 +603,7 @@ export default function CRMPage({ data, setData, showToast }) {
                       <div key={p.id} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--gray-50)' }}
                         onClick={() => {
                           setMedPatient(p.name);
-                          setMedMsg(`【康晴醫療中心】${p.name}你好！提醒你按時服藥。每日一劑，水煎服。如有不適請聯絡我們。`);
+                          setMedMsg(`【${clinicName}】${p.name}你好！提醒你按時服藥。每日一劑，水煎服。如有不適請聯絡我們。`);
                         }}
                       >
                         <strong>{p.name}</strong> <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{p.phone}</span>
@@ -606,7 +617,7 @@ export default function CRMPage({ data, setData, showToast }) {
               <label style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 4, display: 'block' }}>訊息內容</label>
               <textarea
                 value={medMsg} onChange={e => setMedMsg(e.target.value)} rows={3}
-                placeholder="【康晴醫療中心】{name}你好！提醒你按時服藥。每日一劑，水煎服。如有不適請聯絡我們。"
+                placeholder={`【${clinicName}】{name}你好！提醒你按時服藥。每日一劑，水煎服。如有不適請聯絡我們。`}
                 style={{ width: '100%', padding: '6px 10px', border: '1px solid var(--gray-200)', borderRadius: 6, fontSize: 13, resize: 'none' }}
               />
             </div>
@@ -749,15 +760,15 @@ export default function CRMPage({ data, setData, showToast }) {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }}
-                onClick={() => handleBatchSend(batchSegment, `【康晴醫療中心】{name}你好！好耐無見，掛住你呀！😊 我哋最近推出咗新嘅療程優惠，歡迎隨時預約！祝身體健康🙏`)}>
+                onClick={() => handleBatchSend(batchSegment, `【${clinicName}】{name}你好！好耐無見，掛住你呀！😊 我哋最近推出咗新嘅療程優惠，歡迎隨時預約！祝身體健康🙏`)}>
                 回訪邀請
               </button>
               <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }}
-                onClick={() => handleBatchSend(batchSegment, `【康晴醫療中心】{name}你好！溫馨提醒你注意季節轉換時的保養。如有任何不適，歡迎預約覆診。🙏`)}>
+                onClick={() => handleBatchSend(batchSegment, `【${clinicName}】{name}你好！溫馨提醒你注意季節轉換時的保養。如有任何不適，歡迎預約覆診。🙏`)}>
                 健康關懷
               </button>
               <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }}
-                onClick={() => handleBatchSend(batchSegment, `【康晴醫療中心】{name}你好！限時優惠：舊客回訪免診金！優惠期至本月底。立即預約：📞 WhatsApp 回覆「預約」🎉`)}>
+                onClick={() => handleBatchSend(batchSegment, `【${clinicName}】{name}你好！限時優惠：舊客回訪免診金！優惠期至本月底。立即預約：📞 WhatsApp 回覆「預約」🎉`)}>
                 優惠推送
               </button>
             </div>
@@ -788,7 +799,7 @@ export default function CRMPage({ data, setData, showToast }) {
                       <td>
                         {p.phone && (
                           <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 10, padding: '2px 6px' }}
-                            onClick={() => openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！希望你一切安好。如有需要歡迎預約覆診。🙏`)}>
+                            onClick={() => openWhatsApp(p.phone, `【${clinicName}】${p.name}你好！希望你一切安好。如有需要歡迎預約覆診。🙏`)}>
                             WA
                           </button>
                         )}
@@ -819,7 +830,7 @@ export default function CRMPage({ data, setData, showToast }) {
                   </div>
                   {p.phone && (
                     <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
-                      openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！🎂🎉\n\n祝你生日快樂！感謝你一直以來的支持！\n\n為答謝你的信任，我們特別送上生日優惠：\n🎁 診金8折優惠（本月有效）\n\n歡迎預約：📞 WhatsApp 或致電預約\n祝身體健康，萬事如意！🙏`);
+                      openWhatsApp(p.phone, `【${clinicName}】${p.name}你好！🎂🎉\n\n祝你生日快樂！感謝你一直以來的支持！\n\n為答謝你的信任，我們特別送上生日優惠：\n🎁 診金8折優惠（本月有效）\n\n歡迎預約：📞 WhatsApp 或致電預約\n祝身體健康，萬事如意！🙏`);
                       showToast(`已開啟 WhatsApp 祝賀 ${p.name}`);
                     }}>🎂 發送祝福</button>
                   )}
@@ -851,7 +862,7 @@ export default function CRMPage({ data, setData, showToast }) {
                         <td>
                           {p.phone && (
                             <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
-                              openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！🎂\n\n提前祝你生日快樂！感謝你一直以來的支持！\n🎁 生日月份專享診金8折優惠\n\n歡迎預約！🙏`);
+                              openWhatsApp(p.phone, `【${clinicName}】${p.name}你好！🎂\n\n提前祝你生日快樂！感謝你一直以來的支持！\n🎁 生日月份專享診金8折優惠\n\n歡迎預約！🙏`);
                             }}>📱 提前祝福</button>
                           )}
                         </td>
@@ -872,7 +883,7 @@ export default function CRMPage({ data, setData, showToast }) {
                 const targets = birthdayData.todayBdays.filter(p => p.phone);
                 targets.forEach((p, i) => {
                   setTimeout(() => {
-                    openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！🎂🎉\n\n祝你生日快樂！\n🎁 生日優惠：診金8折（本月有效）\n\n歡迎預約！🙏`);
+                    openWhatsApp(p.phone, `【${clinicName}】${p.name}你好！🎂🎉\n\n祝你生日快樂！\n🎁 生日優惠：診金8折（本月有效）\n\n歡迎預約！🙏`);
                   }, i * 1500);
                 });
                 showToast(`已批量發送 ${targets.length} 個生日祝福`);
@@ -909,7 +920,7 @@ export default function CRMPage({ data, setData, showToast }) {
                         <td>
                           {c.patientPhone && (
                             <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
-                              const msg = `【康晴醫療中心】${c.patientName}你好！\n\n溫馨提醒：你的覆診日期（${c.followUpDate}）已過期。\n\n${c.tcmDiagnosis ? `上次診斷：${c.tcmDiagnosis}` : ''}\n${c.followUpNotes ? `醫囑：${c.followUpNotes}` : ''}\n\n為確保治療效果，建議儘快安排覆診。\n歡迎致電或 WhatsApp 預約。🙏`;
+                              const msg = `【${clinicName}】${c.patientName}你好！\n\n溫馨提醒：你的覆診日期（${c.followUpDate}）已過期。\n\n${c.tcmDiagnosis ? `上次診斷：${c.tcmDiagnosis}` : ''}\n${c.followUpNotes ? `醫囑：${c.followUpNotes}` : ''}\n\n為確保治療效果，建議儘快安排覆診。\n歡迎致電或 WhatsApp 預約。🙏`;
                               openWhatsApp(c.patientPhone, msg);
                               showToast(`已開啟覆診提醒 ${c.patientName}`);
                             }}>📱 覆診提醒</button>
@@ -926,7 +937,7 @@ export default function CRMPage({ data, setData, showToast }) {
                     const targets = followUpData.overdue.filter(c => c.patientPhone);
                     targets.slice(0, 10).forEach((c, i) => {
                       setTimeout(() => {
-                        openWhatsApp(c.patientPhone, `【康晴醫療中心】${c.patientName}你好！溫馨提醒你的覆診日期已過期（${c.followUpDate}）。建議儘快安排覆診，以確保治療效果。歡迎預約！🙏`);
+                        openWhatsApp(c.patientPhone, `【${clinicName}】${c.patientName}你好！溫馨提醒你的覆診日期已過期（${c.followUpDate}）。建議儘快安排覆診，以確保治療效果。歡迎預約！🙏`);
                       }, i * 1500);
                     });
                     showToast(`已批量發送 ${Math.min(targets.length, 10)} 個覆診提醒`);
@@ -953,7 +964,7 @@ export default function CRMPage({ data, setData, showToast }) {
                         <td>
                           {c.patientPhone && (
                             <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
-                              openWhatsApp(c.patientPhone, `【康晴醫療中心】${c.patientName}你好！\n\n提醒你即將到來的覆診：${c.followUpDate}\n${c.followUpNotes ? `醫囑：${c.followUpNotes}` : ''}\n\n歡迎提前預約時間。🙏`);
+                              openWhatsApp(c.patientPhone, `【${clinicName}】${c.patientName}你好！\n\n提醒你即將到來的覆診：${c.followUpDate}\n${c.followUpNotes ? `醫囑：${c.followUpNotes}` : ''}\n\n歡迎提前預約時間。🙏`);
                             }}>📱 提醒</button>
                           )}
                         </td>

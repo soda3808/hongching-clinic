@@ -1,12 +1,19 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { saveBooking, updateBookingStatus, openWhatsApp, saveQueue } from '../api';
-import { uid, DOCTORS } from '../data';
+import { uid, getDoctors, getStoreNames, getDefaultStore } from '../data';
+import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 
 const TYPES = ['初診','覆診','針灸','推拿','天灸','其他'];
 const STATUS_TAGS = { pending:'tag-pending-orange', confirmed:'tag-fps', completed:'tag-paid', cancelled:'tag-other', 'no-show':'tag-overdue' };
 const STATUS_LABELS = { pending:'待確認', confirmed:'已確認', completed:'已完成', cancelled:'已取消', 'no-show':'未到' };
-const DOC_COLORS = { '常凱晴':'#0e7490', '許植輝':'#8B6914', '曾其方':'#7C3AED' };
+const DOC_COLOR_PALETTE = ['#0e7490', '#8B6914', '#7C3AED', '#dc2626', '#16a34a', '#d97706'];
+const getDocColors = () => {
+  const doctors = getDoctors();
+  const colors = {};
+  doctors.forEach((d, i) => { colors[d] = DOC_COLOR_PALETTE[i % DOC_COLOR_PALETTE.length]; });
+  return colors;
+};
 const HOURS = Array.from({ length: 23 }, (_, i) => { const h = 9 + Math.floor(i / 2); const m = i % 2 ? '30' : '00'; return `${String(h).padStart(2,'0')}:${m}`; });
 
 function getWeekDates(baseDate) {
@@ -23,6 +30,9 @@ function getWeekDates(baseDate) {
 const WEEKDAY_LABELS = ['一','二','三','四','五','六','日'];
 
 export default function BookingPage({ data, setData, showToast }) {
+  const DOCTORS = getDoctors();
+  const STORE_NAMES = getStoreNames();
+  const DOC_COLORS = getDocColors();
   const [view, setView] = useState('list');
   const [showModal, setShowModal] = useState(false);
   const [filterDate, setFilterDate] = useState('today');
@@ -30,7 +40,7 @@ export default function BookingPage({ data, setData, showToast }) {
   const [filterStore, setFilterStore] = useState('all');
   const [filterDoc, setFilterDoc] = useState('all');
   const [calWeek, setCalWeek] = useState(new Date().toISOString().substring(0, 10));
-  const [form, setForm] = useState({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:'宋皇臺', type:'覆診', notes:'' });
+  const [form, setForm] = useState({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:getDefaultStore(), type:'覆診', notes:'' });
   const [showReminderPanel, setShowReminderPanel] = useState(false);
   const [remindersSent, setRemindersSent] = useState(() => {
     try { return JSON.parse(localStorage.getItem('hcmc_reminders_sent') || '{}'); } catch { return {}; }
@@ -152,7 +162,7 @@ export default function BookingPage({ data, setData, showToast }) {
     if (!unsent.length) return showToast('明日預約已全部發送提醒');
     unsent.forEach((b, i) => {
       setTimeout(() => {
-        const text = `【康晴醫療中心】${b.patientName}你好！提醒你明日預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
+        const text = `【${getClinicName()}】${b.patientName}你好！提醒你明日預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
         openWhatsApp(b.patientPhone, text);
       }, i * 1500);
     });
@@ -164,7 +174,7 @@ export default function BookingPage({ data, setData, showToast }) {
     if (!b.patientPhone) return showToast('此預約沒有電話號碼');
     const daysUntil = Math.ceil((new Date(b.date) - new Date()) / 86400000);
     const dayText = daysUntil === 1 ? '明日' : daysUntil === 2 ? '後日' : `${b.date}`;
-    const text = `【康晴醫療中心】${b.patientName}你好！提醒你${dayText}預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
+    const text = `【${getClinicName()}】${b.patientName}你好！提醒你${dayText}預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
     openWhatsApp(b.patientPhone, text);
     markReminderSent([b.id]);
     showToast('已開啟 WhatsApp 提醒');
@@ -186,7 +196,7 @@ export default function BookingPage({ data, setData, showToast }) {
     setData({ ...data, bookings: [...bookings, record] });
     setShowModal(false);
     if (form.patientPhone) sendBookingWA(record);
-    setForm({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:'宋皇臺', type:'覆診', notes:'' });
+    setForm({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:getDefaultStore(), type:'覆診', notes:'' });
     showToast('已新增預約');
   };
 
@@ -222,8 +232,8 @@ export default function BookingPage({ data, setData, showToast }) {
       <div class="card">
         <div class="header">
           <div>
-            <div class="clinic-name">康晴綜合醫療中心</div>
-            <div class="clinic-en">HONG CHING MEDICAL CENTRE</div>
+            <div class="clinic-name">${getClinicName()}</div>
+            <div class="clinic-en">${getClinicNameEn().toUpperCase()}</div>
           </div>
           <div class="badge">預約確認卡</div>
         </div>
@@ -233,7 +243,7 @@ export default function BookingPage({ data, setData, showToast }) {
         <div class="info">
           <div class="row"><span class="label">病人姓名：</span><span class="value">${b.patientName}</span></div>
           <div class="row"><span class="label">主診醫師：</span><span class="value">👨‍⚕️ ${b.doctor}</span></div>
-          <div class="row"><span class="label">診所地址：</span><span class="value">📍 ${b.store === '太子' ? '太子彌敦道788號利安大廈1樓B室' : '九龍宋皇臺道38號傲寓地下5號舖'}</span></div>
+          <div class="row"><span class="label">診所地址：</span><span class="value">📍 ${(getTenantStores().find(s => s.name === b.store) || {}).address || b.store}</span></div>
           <div class="row"><span class="label">治療類型：</span><span class="value">${b.type}</span></div>
           ${b.notes ? `<div class="row"><span class="label">備註：</span><span class="value">${b.notes}</span></div>` : ''}
         </div>
@@ -245,7 +255,7 @@ export default function BookingPage({ data, setData, showToast }) {
   };
 
   const sendBookingWA = (b) => {
-    const text = `【康晴醫療中心】${b.patientName}你好！你嘅預約已確認：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
+    const text = `【${getClinicName()}】${b.patientName}你好！你嘅預約已確認：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
     openWhatsApp(b.patientPhone, text);
     showToast('已開啟 WhatsApp');
   };
@@ -290,7 +300,7 @@ export default function BookingPage({ data, setData, showToast }) {
       th{background:#0e7490;color:#fff;padding:6px;font-size:11px;text-align:center}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:10px}
     </style></head><body>
-      <h1>康晴綜合醫療中心 — 週預約排班表</h1>
+      <h1>${getClinicName()} — 週預約排班表</h1>
       <p style="font-size:11px;color:#888">${dates[0]} ~ ${dates[6]}</p>
       <table><thead><tr><th></th>${dates.map((d, i) => `<th>星期${dayLabels[i]}<br/>${d.substring(5)}</th>`).join('')}</tr></thead><tbody>${cells}</tbody></table>
       <div style="margin-top:8px;font-size:10px;display:flex;gap:12px">${DOCTORS.map(d => `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:3px;background:${DOC_COLORS[d] || '#888'}"></span>${d}</span>`).join('')}</div>
@@ -407,7 +417,7 @@ export default function BookingPage({ data, setData, showToast }) {
             </div>
             {filterDate === 'custom' && <input type="date" style={{ width: 'auto' }} value={customDate} onChange={e => setCustomDate(e.target.value)} />}
             <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
-              <option value="all">所有店舖</option><option>宋皇臺</option><option>太子</option>
+              <option value="all">所有店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}
             </select>
             <select style={{ width: 'auto' }} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
               <option value="all">所有醫師</option>{DOCTORS.map(d => <option key={d}>{d}</option>)}
@@ -518,7 +528,7 @@ export default function BookingPage({ data, setData, showToast }) {
               </div>
               <div className="grid-3" style={{ marginBottom: 12 }}>
                 <div><label>醫師</label><select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
-                <div><label>店舖</label><select value={form.store} onChange={e => setForm({...form, store: e.target.value})}><option>宋皇臺</option><option>太子</option></select></div>
+                <div><label>店舖</label><select value={form.store} onChange={e => setForm({...form, store: e.target.value})}>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}</select></div>
                 <div><label>治療類型</label><select value={form.type} onChange={e => setForm({...form, type: e.target.value})}>{TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
               </div>
               <div style={{ marginBottom: 12 }}><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>

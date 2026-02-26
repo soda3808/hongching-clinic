@@ -3,13 +3,14 @@ import { saveProduct, saveProductSale, deleteProduct, saveRevenue } from '../api
 import { uid, fmtM, getMonth } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
+import { getTenantStoreNames } from '../tenant';
 
 const CATEGORIES = ['保健品', '養生茶', '外用品', '其他'];
-const STORES = ['宋皇臺', '太子'];
+const STORES = getTenantStoreNames();
 const PAYMENTS = ['現金', 'FPS', 'PayMe', 'AlipayHK', '信用卡', '其他'];
 
 const EMPTY_PRODUCT = {
-  name: '', category: '保健品', price: '', cost: '', stock: 0, minStock: 5, unit: '件', store: '宋皇臺', barcode: '', active: true,
+  name: '', category: '保健品', price: '', cost: '', stock: 0, minStock: 5, unit: '件', store: getTenantStoreNames()[0] || '', barcode: '', active: true,
 };
 
 export default function ProductPage({ data, setData, showToast, allData, user }) {
@@ -18,7 +19,7 @@ export default function ProductPage({ data, setData, showToast, allData, user })
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_PRODUCT });
-  const [saleForm, setSaleForm] = useState({ productId: '', quantity: 1, patientName: '', store: '宋皇臺', payment: '現金' });
+  const [saleForm, setSaleForm] = useState({ productId: '', quantity: 1, patientName: '', store: getTenantStoreNames()[0] || '', payment: '現金' });
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -72,7 +73,7 @@ export default function ProductPage({ data, setData, showToast, allData, user })
     // By store
     const byStore = {};
     monthSales.forEach(s => {
-      byStore[s.store || '宋皇臺'] = (byStore[s.store || '宋皇臺'] || 0) + Number(s.totalAmount || 0);
+      byStore[s.store || getTenantStoreNames()[0] || ''] = (byStore[s.store || getTenantStoreNames()[0] || ''] || 0) + Number(s.totalAmount || 0);
     });
     // Daily trend (last 14 days)
     const dailyMap = {};
@@ -140,7 +141,7 @@ export default function ProductPage({ data, setData, showToast, allData, user })
 
   // ── Sale ──
   const openSale = () => {
-    setSaleForm({ productId: products[0]?.id || '', quantity: 1, patientName: '', store: '宋皇臺', payment: '現金' });
+    setSaleForm({ productId: products[0]?.id || '', quantity: 1, patientName: '', store: getTenantStoreNames()[0] || '', payment: '現金' });
     setShowSaleModal(true);
   };
 
@@ -356,7 +357,7 @@ export default function ProductPage({ data, setData, showToast, allData, user })
                       <span>{fmtM(amt)} ({pct}%)</span>
                     </div>
                     <div style={{ background: 'var(--gray-100)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: store === '宋皇臺' ? 'var(--teal-500)' : '#B8860B', borderRadius: 4 }} />
+                      <div style={{ width: `${pct}%`, height: '100%', background: store === getTenantStoreNames()[0] ? 'var(--teal-500)' : '#B8860B', borderRadius: 4 }} />
                     </div>
                   </div>
                 );

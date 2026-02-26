@@ -1,15 +1,22 @@
 import { useState, useMemo, useRef } from 'react';
 import { saveSickLeave, deleteSickLeave } from '../api';
-import { uid, fmtM, getMonth, DOCTORS } from '../data';
+import { uid, fmtM, getMonth } from '../data';
+import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantDoctors, getTenantStores } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
 export default function SickLeavePage({ data, setData, showToast, allData, user }) {
+  const DOCTORS = getTenantDoctors();
+  const storeNames = getTenantStoreNames();
+  const stores = getTenantStores();
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
   const [deleteId, setDeleteId] = useState(null);
   const [printItem, setPrintItem] = useState(null);
-  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: DOCTORS[0], store: '宋皇臺', diagnosis: '', startDate: '', endDate: '', days: 1, notes: '' });
+  const [form, setForm] = useState({ patientName: '', patientPhone: '', doctor: DOCTORS[0], store: storeNames[0] || '', diagnosis: '', startDate: '', endDate: '', days: 1, notes: '' });
   const [saving, setSaving] = useState(false);
   const [patientSuggestions, setPatientSuggestions] = useState([]);
   const [filterDoc, setFilterDoc] = useState('all');
@@ -72,7 +79,7 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
     setData({ ...data, sickleaves: [...sickleaves, record] });
     setShowModal(false);
     setSaving(false);
-    setForm({ patientName: '', patientPhone: '', doctor: DOCTORS[0], store: '宋皇臺', diagnosis: '', startDate: '', endDate: '', days: 1, notes: '' });
+    setForm({ patientName: '', patientPhone: '', doctor: DOCTORS[0], store: storeNames[0] || '', diagnosis: '', startDate: '', endDate: '', days: 1, notes: '' });
     showToast('假紙已新增');
   };
 
@@ -110,9 +117,9 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
       @media print{body{padding:20px 30px}}
     </style></head><body>
       <div class="header">
-        <h1>${clinic.name || '康晴綜合醫療中心'}</h1>
-        <h2>${clinic.nameEn || 'HONG CHING INTERNATIONAL MEDICAL CENTRE'}</h2>
-        <p>${item.store === '太子' ? (clinic.addr2 || '九龍太子彌敦道788號利安大廈1樓B室') : (clinic.addr1 || '九龍宋皇臺道38號傲寓地下5號舖')}</p>
+        <h1>${clinic.name || clinicName}</h1>
+        <h2>${clinic.nameEn || clinicNameEn}</h2>
+        <p>${(() => { const s = stores.find(st => st.name === item.store); return s?.address ? s.address : (clinic.addr1 || ''); })()}</p>
         <p>Tel: ${clinic.tel || '2XXX XXXX'}</p>
       </div>
       <div class="cert-no">證明書編號 Cert No.: ${certNo}</div>
@@ -131,7 +138,7 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
         <div class="sig-box"><div class="sig-line">主診醫師 Attending Practitioner<br/>${item.doctor}</div></div>
         <div class="sig-box"><div class="sig-line">診所蓋章 Clinic Stamp</div></div>
       </div>
-      <div class="footer">此證明書僅供病假證明用途 This certificate is issued for sick leave purposes only.<br/>${certNo} | ${clinic.name || '康晴綜合醫療中心'}</div>
+      <div class="footer">此證明書僅供病假證明用途 This certificate is issued for sick leave purposes only.<br/>${certNo} | ${clinic.name || clinicName}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -220,7 +227,7 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
                 </div>
                 <div><label>店舖</label>
                   <select value={form.store} onChange={e => setForm({ ...form, store: e.target.value })}>
-                    <option>宋皇臺</option><option>太子</option>
+                    {storeNames.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
               </div>

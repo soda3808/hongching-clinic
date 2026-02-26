@@ -88,7 +88,8 @@ export const EXPENSE_CATEGORIES = {
 
 export const ALL_CATEGORIES = Object.values(EXPENSE_CATEGORIES).flat();
 
-export const EMPLOYEES = [
+// Default employees (fallback when tenant config not loaded)
+export const DEFAULT_EMPLOYEES = [
   { id: 'hui', name: '許植輝', pos: '註冊中醫師', type: 'monthly', rate: 33000, start: '2026-02-01',
     comm: { tiers: [
       { min: 0, max: 100000, r: 0.02 },
@@ -102,9 +103,47 @@ export const EMPLOYEES = [
   { id: 'cheung', name: '常凱晴', pos: '負責人/中醫師', type: 'monthly', rate: 25000, start: '', comm: null },
 ];
 
+// Dynamic getters — use tenant config when available, fallback to defaults
+import { getTenantDoctors, getTenantStoreNames, getTenantServices, getClinicName } from './tenant';
+
+export function getEmployees() {
+  try { return JSON.parse(localStorage.getItem('hcmc_employees')) || DEFAULT_EMPLOYEES; }
+  catch { return DEFAULT_EMPLOYEES; }
+}
+
+export function saveEmployees(employees) {
+  localStorage.setItem('hcmc_employees', JSON.stringify(employees));
+}
+
+export function getDoctors() {
+  return getTenantDoctors();
+}
+
+export function getStoreNames() {
+  return getTenantStoreNames();
+}
+
+export function getDefaultStore() {
+  const stores = getStoreNames();
+  return stores[0] || '';
+}
+
+// Backward-compatible static exports (seed data fallback)
+export const EMPLOYEES = DEFAULT_EMPLOYEES;
 export const DOCTORS = ['常凱晴', '許植輝', '曾其方'];
 
-// ── Clinic Pricing (for AI chatbot) ──
+// ── Clinic Pricing (for AI chatbot) ── Dynamic from tenant services
+export function getClinicPricing() {
+  const services = getTenantServices();
+  const pricing = {};
+  services.forEach(s => {
+    if (s.active !== false) {
+      pricing[s.label] = { price: s.fee, desc: s.label };
+    }
+  });
+  return Object.keys(pricing).length ? pricing : CLINIC_PRICING;
+}
+
 export const CLINIC_PRICING = {
   '初診': { price: 450, desc: '首次診症（含診金+藥費）' },
   '覆診': { price: 350, desc: '覆診（含診金+藥費）' },

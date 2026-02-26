@@ -1,9 +1,22 @@
 import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { fmtM, fmt, getMonth, monthLabel, DOCTORS } from '../data';
+import { fmtM, fmt, getMonth, monthLabel } from '../data';
+import { getTenantDoctors } from '../tenant';
 
-const COLORS = { '常凱晴': '#0e7490', '許植輝': '#8B6914', '曾其方': '#7C3AED' };
-const DEFAULT_TARGETS = { '常凱晴': 200000, '許植輝': 150000, '曾其方': 120000 };
+const COLOR_PALETTE = ['#0e7490', '#8B6914', '#7C3AED', '#dc2626', '#16a34a', '#0284c7', '#d97706', '#991b1b'];
+function getDoctorColors() {
+  const doctors = getTenantDoctors();
+  const map = {};
+  doctors.forEach((doc, i) => { map[doc] = COLOR_PALETTE[i % COLOR_PALETTE.length]; });
+  return map;
+}
+function getDefaultTargets() {
+  const doctors = getTenantDoctors();
+  const map = {};
+  const defaultAmounts = [200000, 150000, 120000];
+  doctors.forEach((doc, i) => { map[doc] = defaultAmounts[i] || 100000; });
+  return map;
+}
 const COMMISSION_TIERS = [
   { threshold: 1.2, rate: 0.15, label: '超額 120%+' },
   { threshold: 1.0, rate: 0.10, label: '達標 100%+' },
@@ -13,7 +26,10 @@ const COMMISSION_TIERS = [
 
 export default function DoctorAnalytics({ data, user }) {
   const isDoctor = user?.role === 'doctor';
-  const visibleDoctors = isDoctor ? [user.name] : DOCTORS;
+  const allDoctors = getTenantDoctors();
+  const visibleDoctors = isDoctor ? [user.name] : allDoctors;
+  const COLORS = getDoctorColors();
+  const DEFAULT_TARGETS = getDefaultTargets();
 
   // ── Performance Targets (#61) ──
   const [targets, setTargets] = useState(() => {

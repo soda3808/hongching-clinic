@@ -2,6 +2,7 @@
 // Generates printable labels for dispensed prescriptions
 
 import { useState } from 'react';
+import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames } from '../tenant';
 
 const LABEL_STYLES = {
   container: {
@@ -21,19 +22,23 @@ const LABEL_STYLES = {
 };
 
 function LabelPreview({ consultation, clinicInfo, labelCount = 1 }) {
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+  const tenantStores = getTenantStores();
+  const defaultStoreName = getTenantStoreNames()[0] || '';
+
   const rx = consultation.prescription || [];
   const herbList = rx.map(r => `${r.herb} ${r.dosage}`).join('、');
   const days = consultation.formulaDays || 3;
-  const store = consultation.store || '宋皇臺';
-  const storeAddr = store === '太子'
-    ? (clinicInfo?.addr2 || '太子彌敦道788號利安大廈1樓B室')
-    : (clinicInfo?.addr1 || '九龍宋皇臺道38號傲寓地下5號舖');
+  const store = consultation.store || defaultStoreName;
+  const matchedStore = tenantStores.find(s => s.name === store) || tenantStores[0] || {};
+  const storeAddr = matchedStore.address || '';
 
   return (
     <div style={LABEL_STYLES.container} className="medicine-label">
       <div style={LABEL_STYLES.header}>
-        <p style={LABEL_STYLES.clinicName}>{clinicInfo?.name || '康晴綜合醫療中心'}</p>
-        <p style={LABEL_STYLES.clinicNameEn}>{clinicInfo?.nameEn || 'Hong Ching Medical Centre'}</p>
+        <p style={LABEL_STYLES.clinicName}>{clinicInfo?.name || clinicName}</p>
+        <p style={LABEL_STYLES.clinicNameEn}>{clinicInfo?.nameEn || clinicNameEn}</p>
         <p style={{ fontSize: 8, margin: 0 }}>{storeAddr}</p>
       </div>
 
@@ -79,6 +84,11 @@ function LabelPreview({ consultation, clinicInfo, labelCount = 1 }) {
 
 export default function MedicineLabel({ consultation, onClose, showToast }) {
   const [copies, setCopies] = useState(1);
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+  const tenantStores = getTenantStores();
+  const defaultStoreName = getTenantStoreNames()[0] || '';
+
   const clinicInfo = (() => {
     try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; }
   })();
@@ -90,16 +100,15 @@ export default function MedicineLabel({ consultation, onClose, showToast }) {
     const rx = consultation.prescription || [];
     const herbList = rx.map(r => `${r.herb} ${r.dosage}`).join('、');
     const days = consultation.formulaDays || 3;
-    const store = consultation.store || '宋皇臺';
-    const storeAddr = store === '太子'
-      ? (clinicInfo?.addr2 || '太子彌敦道788號利安大廈1樓B室')
-      : (clinicInfo?.addr1 || '九龍宋皇臺道38號傲寓地下5號舖');
+    const store = consultation.store || defaultStoreName;
+    const matchedStore = tenantStores.find(s => s.name === store) || tenantStores[0] || {};
+    const storeAddr = matchedStore.address || '';
 
     const labelHtml = (num) => `
       <div class="label">
         <div class="header">
-          <div class="clinic-name">${clinicInfo?.name || '康晴綜合醫療中心'}</div>
-          <div class="clinic-en">${clinicInfo?.nameEn || 'Hong Ching Medical Centre'}</div>
+          <div class="clinic-name">${clinicInfo?.name || clinicName}</div>
+          <div class="clinic-en">${clinicInfo?.nameEn || clinicNameEn}</div>
           <div class="clinic-addr">${storeAddr}</div>
         </div>
         <div class="row">

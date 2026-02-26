@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { saveExpense } from '../api';
 import { uid, fmtM, fmt, EMPLOYEES, DOCTORS, getMonth } from '../data';
+import { getClinicName } from '../tenant';
 
 export default function Payslip({ data, setData, showToast, allData }) {
   const [empId, setEmpId] = useState('hui');
@@ -51,7 +52,7 @@ export default function Payslip({ data, setData, showToast, allData }) {
       .sig{display:flex;justify-content:space-between;margin-top:60px;padding:0 40px}
       .sig-box{text-align:center;width:35%}.sig-box div{border-bottom:1px solid #999;height:30px;margin-bottom:6px}
     </style></head><body>
-    <div class="header"><div><b style="font-size:17px">康晴綜合醫療中心</b><br><small>HONG CHING INTERNATIONAL MEDICAL CENTRE</small></div><div style="text-align:right"><b style="font-size:20px">PAYSLIP 糧單</b></div></div>
+    <div class="header"><div><b style="font-size:17px">${getClinicName()}</b><br><small>HONG CHING INTERNATIONAL MEDICAL CENTRE</small></div><div style="text-align:right"><b style="font-size:20px">PAYSLIP 糧單</b></div></div>
     <div style="display:flex;justify-content:space-between;margin-bottom:14px"><div><b>員工:</b> ${emp.name}<br><b>職位:</b> ${emp.pos}</div><div style="text-align:right"><b>月份:</b> ${form.period}<br><b>發薪日:</b> ${new Date().toISOString().split('T')[0]}</div></div>
     <table><thead><tr><th>項目</th><th style="text-align:right">金額</th></tr></thead><tbody>
     <tr><td>基本薪金</td><td style="text-align:right">${fmtM(base)}</td></tr>
@@ -154,7 +155,7 @@ export default function Payslip({ data, setData, showToast, allData }) {
       {/* Preview */}
       <div className="card payslip-preview">
         <div className="payslip-header">
-          <div><b style={{ fontSize: 16 }}>康晴綜合醫療中心</b><br /><small style={{ color: 'var(--gray-400)' }}>HONG CHING INTERNATIONAL MEDICAL CENTRE</small></div>
+          <div><b style={{ fontSize: 16 }}>{getClinicName()}</b><br /><small style={{ color: 'var(--gray-400)' }}>HONG CHING INTERNATIONAL MEDICAL CENTRE</small></div>
           <div style={{ textAlign: 'right' }}><b style={{ fontSize: 20 }}>PAYSLIP</b></div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 14, fontSize: 13 }}>

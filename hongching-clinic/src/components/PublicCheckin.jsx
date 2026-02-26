@@ -1,9 +1,15 @@
 import { useState } from 'react';
 import { saveQueue } from '../api';
-import { uid, DOCTORS } from '../data';
+import { uid } from '../data';
+import { getClinicName, getClinicNameEn, getTenantStoreNames, getTenantDoctors } from '../tenant';
 
 export default function PublicCheckin() {
-  const [form, setForm] = useState({ name: '', phone: '', store: '宋皇臺', doctor: '', symptoms: '' });
+  const storeNames = getTenantStoreNames();
+  const doctors = getTenantDoctors();
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+
+  const [form, setForm] = useState({ name: '', phone: '', store: storeNames[0] || '', doctor: '', symptoms: '' });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(null);
 
@@ -18,7 +24,7 @@ export default function PublicCheckin() {
       patientName: form.name,
       patientPhone: form.phone,
       store: form.store,
-      doctor: form.doctor || DOCTORS[0],
+      doctor: form.doctor || doctors[0],
       date: today,
       time: now,
       type: '覆診',
@@ -49,7 +55,7 @@ export default function PublicCheckin() {
             <div><strong>時間：</strong>{done.time}</div>
           </div>
           <p style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 16 }}>請在候診區等候叫號，謝謝！</p>
-          <button onClick={() => { setDone(null); setForm({ name: '', phone: '', store: '宋皇臺', doctor: '', symptoms: '' }); }} style={{ marginTop: 16, padding: '10px 24px', background: 'var(--teal-600)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
+          <button onClick={() => { setDone(null); setForm({ name: '', phone: '', store: storeNames[0] || '', doctor: '', symptoms: '' }); }} style={{ marginTop: 16, padding: '10px 24px', background: 'var(--teal-600)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
             返回
           </button>
         </div>
@@ -61,7 +67,7 @@ export default function PublicCheckin() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)', padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.jpg" alt="康晴醫療中心" style={{ height: 48, marginBottom: 8 }} />
+          <img src="/logo.jpg" alt={clinicName} style={{ height: 48, marginBottom: 8 }} />
           <h2 style={{ color: 'var(--teal-700)', margin: 0 }}>自助登記</h2>
           <p style={{ fontSize: 12, color: 'var(--gray-400)', margin: '4px 0' }}>掃碼即可排隊掛號</p>
         </div>
@@ -78,14 +84,14 @@ export default function PublicCheckin() {
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>店舖</label>
             <select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))} style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--gray-200)', borderRadius: 8, fontSize: 14 }}>
-              <option>宋皇臺</option><option>太子</option>
+              {storeNames.map(s => <option key={s}>{s}</option>)}
             </select>
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>醫師偏好</label>
             <select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))} style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--gray-200)', borderRadius: 8, fontSize: 14 }}>
               <option value="">無偏好</option>
-              {DOCTORS.map(d => <option key={d}>{d}</option>)}
+              {doctors.map(d => <option key={d}>{d}</option>)}
             </select>
           </div>
           <div style={{ marginBottom: 16 }}>
@@ -99,7 +105,7 @@ export default function PublicCheckin() {
         </form>
 
         <p style={{ fontSize: 10, color: 'var(--gray-400)', textAlign: 'center', marginTop: 16 }}>
-          康晴綜合醫療中心 | Hong Ching Medical Centre
+          {clinicName} | {clinicNameEn}
         </p>
       </div>
     </div>

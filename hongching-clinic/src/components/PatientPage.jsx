@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { savePatient, openWhatsApp } from '../api';
 import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
+import { getTenantStoreNames, getClinicName } from '../tenant';
 
-const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:'宋皇臺', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'' };
+const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'' };
 
 export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [form, setForm] = useState({ ...EMPTY });
@@ -147,7 +148,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
           dob: dobIdx >= 0 ? cols[dobIdx] || '' : '',
           allergies: allergyIdx >= 0 ? cols[allergyIdx] || '' : '',
           doctor: doctorIdx >= 0 ? cols[doctorIdx] || DOCTORS[0] : DOCTORS[0],
-          store: storeIdx >= 0 ? cols[storeIdx] || '宋皇臺' : '宋皇臺',
+          store: storeIdx >= 0 ? cols[storeIdx] || getTenantStoreNames()[0] || '' : getTenantStoreNames()[0] || '',
           isDupe, _row: i + 1,
         });
       }
@@ -221,7 +222,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   {p.phone && (
                     <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 10, padding: '2px 8px' }} onClick={(e) => {
                       e.stopPropagation();
-                      openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！好耐無見，掛住你呀！😊\n\n我哋最近推出咗新嘅療程優惠，想邀請你嚟體驗下。\n\n🎁 舊客回訪優惠：覆診免診金\n\n歡迎隨時預約！\n📞 致電或WhatsApp預約\n祝身體健康！🙏`);
+                      openWhatsApp(p.phone, `【${getClinicName()}】${p.name}你好！好耐無見，掛住你呀！😊\n\n我哋最近推出咗新嘅療程優惠，想邀請你嚟體驗下。\n\n🎁 舊客回訪優惠：覆診免診金\n\n歡迎隨時預約！\n📞 致電或WhatsApp預約\n祝身體健康！🙏`);
                     }}>📱 WA</button>
                   )}
                 </div>
@@ -348,7 +349,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         </select>
         <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">所有店舖</option>
-          <option>宋皇臺</option><option>太子</option>
+          {getTenantStoreNames().map(s => <option key={s}>{s}</option>)}
         </select>
         <select style={{ width: 'auto' }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="all">所有狀態</option>
@@ -364,7 +365,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             const selPatients = filtered.filter(p => selected.has(p.id));
             const withPhone = selPatients.filter(p => p.phone);
             if (!withPhone.length) return showToast('所選病人沒有電話號碼');
-            setBatchMsg(`親愛的病人，康晴綜合醫療中心祝您身體健康！如需預約，歡迎致電或WhatsApp聯繫我們。`);
+            setBatchMsg(`親愛的病人，${getClinicName()}祝您身體健康！如需預約，歡迎致電或WhatsApp聯繫我們。`);
             setShowBatchWA(true);
           }}>批量 WhatsApp</button>
           <button className="btn btn-outline btn-sm" onClick={() => {
@@ -488,7 +489,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                     .footer{text-align:center;font-size:9px;color:#aaa;margin-top:24px}
                     @media print{body{padding:15px}}
                   </style></head><body>
-                    <h1>康晴綜合醫療中心 — 病人檔案</h1>
+                    <h1>${getClinicName()} — 病人檔案</h1>
                     <p style="color:#888;margin-bottom:16px">列印日期：${new Date().toISOString().substring(0,10)}</p>
                     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
                       <span style="font-size:22px;font-weight:800">${p.name}</span>

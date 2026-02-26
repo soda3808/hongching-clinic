@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { saveQueue, saveRevenue, saveInventory } from '../api';
-import { uid, fmtM, DOCTORS } from '../data';
+import { uid, fmtM } from '../data';
+import { getDoctors } from '../data';
+import { getTenantStoreNames, getClinicName, getTenantStores } from '../tenant';
 import { exportCSV } from '../utils/export';
 
 const DISPENSING_LABELS = {
@@ -32,7 +34,7 @@ const STATUS_LABELS = {
   completed: '已完成',
 };
 
-const STORES = ['宋皇臺', '太子'];
+const STORES = getTenantStoreNames();
 
 function getToday() {
   return new Date().toISOString().substring(0, 10);
@@ -126,7 +128,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       const totalQty = dosagePerDay * days;
       if (totalQty <= 0) continue;
 
-      const idx = updatedInventory.findIndex(inv => inv.name === herb.herb && inv.store === (item.store || '宋皇臺'));
+      const idx = updatedInventory.findIndex(inv => inv.name === herb.herb && inv.store === (item.store || getTenantStoreNames()[0]));
       if (idx < 0) {
         // Try any store
         const anyIdx = updatedInventory.findIndex(inv => inv.name === herb.herb);
@@ -368,7 +370,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
         @media print { body { margin: 0; padding: 10mm; } }
       </style>
     </head><body>
-      <h1>康晴綜合醫療中心 — 日結報告</h1>
+      <h1>${getClinicName()} — 日結報告</h1>
       <div class="subtitle">DAILY CLOSING REPORT | ${filterDate} | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
 
       <div class="summary-grid">
@@ -427,7 +429,9 @@ export default function BillingPage({ data, setData, showToast, allData, user })
   // Generate sequential receipt number
   const getReceiptNo = (item) => {
     const dateStr = (item.date || '').replace(/-/g, '');
-    const storeCode = item.store === '太子' ? 'PE' : 'TKW';
+    const storeNames = getTenantStoreNames();
+    const storeIdx = storeNames.indexOf(item.store);
+    const storeCode = storeIdx >= 0 ? `S${storeIdx + 1}` : 'S1';
     // Use queue position for sequential number
     const dayItems = queue.filter(q => q.date === item.date && q.store === item.store && q.paymentStatus === 'paid');
     const idx = dayItems.findIndex(q => q.id === item.id);
@@ -441,9 +445,9 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     const clinicInfo = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
     const brNo = clinicInfo?.brNo || '________';
     const receiptNo = getReceiptNo(item);
-    const storeAddr = item.store === '太子'
-      ? (clinicInfo?.addr2 || '太子彌敦道788號利安大廈1樓B室')
-      : (clinicInfo?.addr1 || '九龍宋皇臺道38號傲寓地下5號舖');
+    const tenantStores = getTenantStores();
+    const matchedStore = tenantStores.find(s => s.name === item.store);
+    const storeAddr = matchedStore?.address || clinicInfo?.addr1 || '';
 
     // Parse services into itemized list
     const services = (item.services || '').split(/[,、+]/).map(s => s.trim()).filter(Boolean);
@@ -475,7 +479,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       </style>
     </head><body>
       <div class="center">
-        <div class="bold" style="font-size:14px">康晴綜合醫療中心</div>
+        <div class="bold" style="font-size:14px">${getClinicName()}</div>
         <div class="small">HONG CHING MEDICAL CENTRE</div>
         <div class="small">${storeAddr}</div>
       </div>
@@ -533,7 +537,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
         <input style={{ flex: 1, minWidth: 160 }} placeholder="搜尋病人/號碼..." value={search} onChange={e => setSearch(e.target.value)} />
         <select style={{ width: 'auto' }} value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)}>
           <option value="all">全部醫師</option>
-          {DOCTORS.map(d => <option key={d}>{d}</option>)}
+          {getDoctors().map(d => <option key={d}>{d}</option>)}
         </select>
         <button className="btn btn-outline" onClick={handleExport}>匯出Excel</button>
         <button className="btn btn-gold" onClick={() => printDailyClose()}>日結報告</button>
@@ -751,7 +755,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       {receiptItem && (
         <div className="print-only" style={{ padding: 24, maxWidth: 280, margin: '0 auto', fontFamily: "'Microsoft YaHei', monospace" }}>
           <div style={{ textAlign: 'center', marginBottom: 8 }}>
-            <div style={{ fontSize: 14, fontWeight: 800 }}>康晴綜合醫療中心</div>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>{getClinicName()}</div>
             <div style={{ fontSize: 9, color: '#666' }}>HONG CHING MEDICAL CENTRE</div>
           </div>
           <div style={{ borderTop: '2px solid #000', margin: '6px 0' }} />

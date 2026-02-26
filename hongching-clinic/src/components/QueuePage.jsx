@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { saveQueue, deleteQueue } from '../api';
 import { uid, DOCTORS, fmtM } from '../data';
 import { getServices } from '../config';
+import { getTenantStoreNames, getClinicName, getClinicNameEn } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -21,7 +22,7 @@ const STATUS_TAGS = {
   completed: 'tag-paid',
 };
 
-const STORES = ['宋皇臺', '太子'];
+const STORES = getTenantStoreNames();
 
 function getToday() {
   return new Date().toISOString().substring(0, 10);
@@ -265,9 +266,9 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     if (!item.patientPhone) return showToast('此病人無電話號碼');
     const phone = item.patientPhone.replace(/\D/g, '');
     const messages = {
-      ready: `${item.patientName} 你好，我係康晴綜合醫療中心。你嘅號碼 ${item.queueNo} 即將到你，請準備入診症室。醫師：${item.doctor}。`,
+      ready: `${item.patientName} 你好，我係${getClinicName()}。你嘅號碼 ${item.queueNo} 即將到你，請準備入診症室。醫師：${item.doctor}。`,
       dispensing: `${item.patientName} 你好，你嘅藥已配好，請到櫃檯取藥及結帳。號碼：${item.queueNo}。`,
-      completed: `${item.patientName} 你好，感謝你今日嚟診。如有任何不適，歡迎致電查詢。祝早日康復！康晴綜合醫療中心`,
+      completed: `${item.patientName} 你好，感謝你今日嚟診。如有任何不適，歡迎致電查詢。祝早日康復！${getClinicName()}`,
       reminder: `${item.patientName} 你好，你目前排隊號碼為 ${item.queueNo}，前面仲有約 ${todayQueue.filter(r => r.status === 'waiting' && (r.queueNo || '') < (item.queueNo || '')).length} 位。預計等候時間約 ${Math.max(5, todayQueue.filter(r => r.status === 'waiting' && (r.queueNo || '') < (item.queueNo || '')).length * (avgWaitTime || 15))} 分鐘。`,
     };
     const msg = messages[type] || messages.ready;
@@ -325,8 +326,8 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
         @media print { body { margin: 0; padding: 15mm; } }
       </style>
     </head><body>
-      <h1>康晴綜合醫療中心</h1>
-      <div class="en">HONG CHING MEDICAL CENTRE</div>
+      <h1>${getClinicName()}</h1>
+      <div class="en">${getClinicNameEn()}</div>
       <h2>治療同意書 Treatment Consent Form</h2>
 
       <div class="info-grid">

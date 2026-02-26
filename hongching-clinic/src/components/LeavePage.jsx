@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { saveLeave, deleteLeave } from '../api';
 import { uid } from '../data';
+import { getClinicName } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -192,7 +193,7 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
               .r{text-align:right}
               @media print{body{margin:0;padding:10mm}}
               </style></head><body>
-              <h1>康晴綜合醫療中心 — 請假報告</h1>
+              <h1>${getClinicName()} — 請假報告</h1>
               <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
               <h2>員工已用假期統計</h2>
               <table><thead><tr><th>員工</th><th class="r">年假</th><th class="r">病假</th><th class="r">事假</th><th class="r">合計</th></tr></thead>

@@ -7,12 +7,16 @@ import { getAuditLog, clearAuditLog } from '../utils/audit';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import { MEMBERSHIP_TIERS } from '../data';
 import { supabase } from '../supabase';
+import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames } from '../tenant';
 
 export default function SettingsPage({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('clinic');
   const [clinic, setClinic] = useState(() => {
-    try { return { name:'康晴綜合醫療中心', nameEn:'Hong Ching International Medical Centre', addr1:'馬頭涌道97號美誠大廈地下', addr2:'長沙灣道28號長康大廈地下', phone:'', whatsapp:'', email:'', ...JSON.parse(localStorage.getItem('hcmc_clinic') || '{}') }; }
-    catch { return { name:'康晴綜合醫療中心', nameEn:'Hong Ching International Medical Centre', addr1:'', addr2:'', phone:'', whatsapp:'', email:'' }; }
+    const _stores = getTenantStores();
+    const _defaultAddr1 = _stores[0]?.address || '';
+    const _defaultAddr2 = _stores[1]?.address || '';
+    try { return { name: getClinicName(), nameEn: getClinicNameEn(), addr1: _defaultAddr1, addr2: _defaultAddr2, phone:'', whatsapp:'', email:'', ...JSON.parse(localStorage.getItem('hcmc_clinic') || '{}') }; }
+    catch { return { name: getClinicName(), nameEn: getClinicNameEn(), addr1:'', addr2:'', phone:'', whatsapp:'', email:'' }; }
   });
   const [gasUrl, setGasUrl] = useState(() => localStorage.getItem('hcmc_gas_url') || '');
   const [showReset, setShowReset] = useState(false);
@@ -181,8 +185,8 @@ export default function SettingsPage({ data, setData, showToast, user }) {
             <div><label>英文名稱</label><input value={clinic.nameEn} onChange={e => setClinic({...clinic, nameEn:e.target.value})} /></div>
           </div>
           <div className="grid-2" style={{ marginBottom:12 }}>
-            <div><label>宋皇臺地址</label><input value={clinic.addr1} onChange={e => setClinic({...clinic, addr1:e.target.value})} /></div>
-            <div><label>太子地址</label><input value={clinic.addr2} onChange={e => setClinic({...clinic, addr2:e.target.value})} /></div>
+            <div><label>{(getTenantStoreNames()[0] || '分店1') + '地址'}</label><input value={clinic.addr1} onChange={e => setClinic({...clinic, addr1:e.target.value})} /></div>
+            <div><label>{(getTenantStoreNames()[1] || '分店2') + '地址'}</label><input value={clinic.addr2} onChange={e => setClinic({...clinic, addr2:e.target.value})} /></div>
           </div>
           <div className="grid-3" style={{ marginBottom:12 }}>
             <div><label>電話</label><input value={clinic.phone} onChange={e => setClinic({...clinic, phone:e.target.value})} /></div>
@@ -207,7 +211,7 @@ export default function SettingsPage({ data, setData, showToast, user }) {
           </div>
           <div className="card" style={{ background:'var(--gray-50)' }}>
             <p style={{ fontSize:13, color:'var(--gray-600)' }}>
-              版本 v3.0 — 康晴診所管理系統<br/>
+              版本 v3.0 — {getClinicName()}管理系統<br/>
               數據統計：{counts.rev} 筆營業 / {counts.exp} 筆開支 / {counts.pt} 個病人 / {counts.bk} 筆預約
             </p>
           </div>
@@ -325,21 +329,19 @@ export default function SettingsPage({ data, setData, showToast, user }) {
             <div className="card-header"><h3>🖨️ 宣傳單張預覽</h3></div>
             <div className="promo-flyer" id="promo-flyer">
               <div style={{ textAlign: 'center', borderBottom: '3px solid var(--teal-700)', paddingBottom: 16, marginBottom: 16 }}>
-                <img src="/logo.jpg" alt="康晴綜合醫療中心" style={{ height: 56, marginBottom: 8 }} />
+                <img src="/logo.jpg" alt={getClinicName()} style={{ height: 56, marginBottom: 8 }} />
                 <div style={{ fontSize: 13, color: 'var(--gray-600)' }}>專業中醫診療服務</div>
               </div>
               <div style={{ background: 'var(--gold-100)', padding: '10px 16px', borderRadius: 8, textAlign: 'center', fontWeight: 700, color: '#92400e', marginBottom: 16, fontSize: 14 }}>
                 🎉 新客優惠：首次免診金 + 療程套餐9折
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16, fontSize: 12 }}>
-                <div>
-                  <strong>📍 宋皇臺店</strong>
-                  <div style={{ color: 'var(--gray-500)' }}>馬頭涌道97號美誠大廈地下</div>
-                </div>
-                <div>
-                  <strong>📍 太子店</strong>
-                  <div style={{ color: 'var(--gray-500)' }}>長沙灣道28號長康大廈地下</div>
-                </div>
+                {getTenantStores().map(s => (
+                  <div key={s.name}>
+                    <strong>{'\uD83D\uDCCD'} {s.name}店</strong>
+                    <div style={{ color: 'var(--gray-500)' }}>{s.address || ''}</div>
+                  </div>
+                ))}
               </div>
               <div style={{ fontSize: 12, marginBottom: 16 }}>
                 <div>🕐 營業時間：星期一至六 10:00 - 20:00</div>
@@ -553,7 +555,7 @@ export default function SettingsPage({ data, setData, showToast, user }) {
                   th{background:#0e7490;color:#fff;padding:6px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}
                   .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
                 </style></head><body>
-                  <h1>康晴綜合醫療中心 — 審計日誌</h1>
+                  <h1>${getClinicName()} — 審計日誌</h1>
                   <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0,10)} | 共 ${filteredLogs.length} 條記錄</p>
                   <table><thead><tr><th>時間</th><th>用戶</th><th>操作</th><th>目標</th><th>詳情</th></tr></thead><tbody>${trs}</tbody></table>
                   <div class="footer">此報表由系統自動生成</div>

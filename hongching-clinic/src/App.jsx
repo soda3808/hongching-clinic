@@ -35,6 +35,7 @@ import PublicInquiry from './components/PublicInquiry';
 import PrivacyCenter from './components/PrivacyCenter';
 import SuperAdmin from './components/SuperAdmin';
 import { logAction } from './utils/audit';
+import { getClinicName, getClinicLogo } from './tenant';
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -103,7 +104,7 @@ function LoginPage({ onLogin }) {
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-brand">
-          <img src="/logo.jpg" alt="康晴綜合醫療中心" className="login-logo" />
+          <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} className="login-logo" />
         </div>
         <div className="login-divider" />
         <label htmlFor="username">用戶名</label>
@@ -312,7 +313,7 @@ function InstallPrompt() {
 
   return (
     <div className="install-banner">
-      <span>📱 安裝康晴醫療 App 到主畫面，使用更方便</span>
+      <span>📱 安裝{getClinicName().replace('綜合醫療中心','醫療')} App 到主畫面，使用更方便</span>
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="btn btn-teal btn-sm" onClick={handleInstall}>安裝</button>
         <button className="btn btn-outline btn-sm" onClick={handleDismiss}>稍後</button>
@@ -534,7 +535,7 @@ function MainApp() {
       {/* SIDEBAR (desktop) */}
       <div className="sidebar">
         <div className="sidebar-logo">
-          <img src="/logo.jpg" alt="康晴醫療中心" className="sidebar-logo-img" />
+          <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} className="sidebar-logo-img" />
         </div>
         <nav className="sidebar-nav">
           {Object.entries(sections).map(([section, items]) => (

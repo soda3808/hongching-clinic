@@ -18,7 +18,8 @@ export function parseInventoryXLS(htmlContent) {
     const [storeRaw, name, code, medType, , currentQty, frozen, remaining] = cells;
     if (!name) return;
 
-    const store = storeRaw.includes('宋皇臺') ? '宋皇臺' : storeRaw.includes('太子') ? '太子' : storeRaw;
+    // Dynamic store matching — match imported store name against tenant stores
+    const store = storeRaw.trim() || storeRaw;
     const stock = parseFloat(remaining) || 0;
     const catMap = { '單味顆粒': '顆粒-單味', '複方顆粒': '顆粒-複方', '藥材': '飲片' };
     const category = catMap[medType] || medType;

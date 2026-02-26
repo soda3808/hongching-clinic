@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { uid, fmtM, EXPENSE_CATEGORIES } from '../data';
+import { getTenantStoreNames } from '../tenant';
 
 async function compressImage(file, maxWidth = 1600, quality = 0.8) {
   return new Promise((resolve) => {
@@ -37,6 +38,8 @@ async function processInBatches(items, fn, batchSize = 3, onProgress) {
 }
 
 export default function ReceiptScanner({ data, setData, showToast, onNavigate }) {
+  const storeNames = getTenantStoreNames();
+
   const [files, setFiles] = useState([]);
   const [results, setResults] = useState([]);
   const [processing, setProcessing] = useState(false);
@@ -111,7 +114,7 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
             category: json.data.category || '其他',
             payment: json.data.payment || '其他',
             desc: json.data.description || '',
-            store: '宋皇臺',
+            store: storeNames[0] || '',
             confidence: json.data.confidence || 0,
             checked: true,
           }]);
@@ -305,7 +308,8 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
                       <td><input value={r.desc} onChange={e => updateResult(r.id, 'desc', e.target.value)} style={{ width: 120, padding: 4, fontSize: 11 }} /></td>
                       <td>
                         <select value={r.store} onChange={e => updateResult(r.id, 'store', e.target.value)} style={{ width: 80, padding: 4, fontSize: 11 }}>
-                          <option>宋皇臺</option><option>太子</option><option>兩店共用</option>
+                          {storeNames.map(s => <option key={s}>{s}</option>)}
+                          <option>兩店共用</option>
                         </select>
                       </td>
                       <td><span className="tag" style={{ background: cb.bg, color: cb.color }}>{r.confidence}%</span></td>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { saveARAP, deleteRecord } from '../api';
 import { uid, fmtM, fmt, getMonth } from '../data';
+import { getClinicName } from '../tenant';
 import ConfirmModal from './ConfirmModal';
 
 export default function ARAP({ data, setData, showToast }) {
@@ -101,7 +102,7 @@ export default function ARAP({ data, setData, showToast }) {
       th{background:#0e7490;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
     </style></head><body>
-      <h1>康晴綜合醫療中心 — ${typeLabel}帳齡分析</h1>
+      <h1>${getClinicName()} — ${typeLabel}帳齡分析</h1>
       <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0, 10)}</p>
       <h3>摘要</h3><table><thead><tr><th>帳齡</th><th style="text-align:right">筆數</th><th style="text-align:right">金額</th></tr></thead><tbody>${rows}</tbody></table>
       <h3>明細</h3><table><thead><tr><th>對象</th><th style="text-align:right">金額</th><th>到期日</th><th>描述</th></tr></thead><tbody>${detailRows}</tbody></table>
@@ -151,7 +152,7 @@ export default function ARAP({ data, setData, showToast }) {
   const sendReminder = (r) => {
     const typeLabel = tab === 'receivable' ? '應收' : '應付';
     const days = r.dueDate ? Math.floor((new Date() - new Date(r.dueDate)) / 86400000) : 0;
-    const msg = `康晴綜合醫療中心 付款提醒\n\n${r.party} 您好，\n\n您有一筆${typeLabel}款項尚未處理：\n金額：$${Number(r.amount).toLocaleString()}\n到期日：${r.dueDate || '未設定'}\n${days > 0 ? `已逾期 ${days} 天` : ''}\n描述：${r.desc || '-'}\n\n請儘快處理，謝謝！`;
+    const msg = `${getClinicName()} 付款提醒\n\n${r.party} 您好，\n\n您有一筆${typeLabel}款項尚未處理：\n金額：$${Number(r.amount).toLocaleString()}\n到期日：${r.dueDate || '未設定'}\n${days > 0 ? `已逾期 ${days} 天` : ''}\n描述：${r.desc || '-'}\n\n請儘快處理，謝謝！`;
     setReminderTarget({ ...r, message: msg });
   };
 
@@ -166,7 +167,7 @@ export default function ARAP({ data, setData, showToast }) {
       .amount{font-size:24px;color:#dc2626;font-weight:800}
       .footer{margin-top:40px;padding-top:16px;border-top:1px solid #ddd;font-size:11px;color:#888;text-align:center}
     </style></head><body>
-      <h1>康晴綜合醫療中心 — 付款提醒通知</h1>
+      <h1>${getClinicName()} — 付款提醒通知</h1>
       <p>日期：${new Date().toISOString().substring(0, 10)}</p>
       <div class="info">
         <p><strong>${r.party}</strong> 閣下：</p>
@@ -178,7 +179,7 @@ export default function ARAP({ data, setData, showToast }) {
         <p style="margin-top:24px">敬請儘快安排付款，如已付款請忽略此通知。</p>
         <p>如有任何疑問，請聯絡本中心。</p>
       </div>
-      <div class="footer">康晴綜合醫療中心</div>
+      <div class="footer">${getClinicName()}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

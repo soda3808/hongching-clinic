@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { uid } from '../data';
+import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 
 const INQUIRY_TYPES = ['一般查詢', '預約查詢', '收費查詢', '診症查詢', '其他'];
 
 export default function PublicInquiry() {
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+  const stores = getTenantStores();
+
   const [form, setForm] = useState({ name: '', phone: '', type: '一般查詢', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -59,7 +64,7 @@ export default function PublicInquiry() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)', padding: 20 }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: 32, maxWidth: 420, width: '100%', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/logo.jpg" alt="康晴醫療中心" style={{ height: 48, marginBottom: 8 }} />
+          <img src="/logo.jpg" alt={clinicName} style={{ height: 48, marginBottom: 8 }} />
           <h2 style={{ color: '#0e7490', margin: 0 }}>客人查詢</h2>
           <p style={{ fontSize: 12, color: '#999', margin: '4px 0' }}>填寫以下資料，我哋會透過 WhatsApp 回覆你</p>
         </div>
@@ -96,8 +101,9 @@ export default function PublicInquiry() {
 
         <div style={{ marginTop: 20, padding: 12, background: '#f9fafb', borderRadius: 8, fontSize: 12, color: '#666' }}>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>其他聯絡方式：</div>
-          <div>宋皇臺店：九龍宋皇臺道38號傲寓地下5號舖</div>
-          <div>太子店：太子彌敦道788號利安大廈1樓B室</div>
+          {stores.map(s => (
+            <div key={s.name}>{s.name}店{s.address ? `：${s.address}` : ''}</div>
+          ))}
           <div style={{ marginTop: 4 }}>營業時間：星期一至六 10:00-20:00</div>
           <div style={{ marginTop: 8, display: 'flex', gap: 12 }}>
             <a href="https://www.hongchingmedical.com" target="_blank" rel="noopener noreferrer" style={{ color: '#0e7490', textDecoration: 'none' }}>🌐 官網</a>
@@ -106,7 +112,7 @@ export default function PublicInquiry() {
         </div>
 
         <p style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 16 }}>
-          康晴綜合醫療中心 | Hong Ching Medical Centre
+          {clinicName} | {clinicNameEn}
         </p>
       </div>
     </div>
