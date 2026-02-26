@@ -7,7 +7,8 @@ import { getAuditLog, clearAuditLog } from '../utils/audit';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import { MEMBERSHIP_TIERS } from '../data';
 import { supabase } from '../supabase';
-import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames } from '../tenant';
+import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames, getTenantDoctors, getTenantServices, getTenantSettings, getTenantSlug, applyTenantTheme } from '../tenant';
+import { getAuthHeader, getTenantConfig } from '../auth';
 
 export default function SettingsPage({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('clinic');
@@ -35,6 +36,22 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   const [services, setServicesState] = useState(getServices);
   const [editService, setEditService] = useState(null);
   const [newService, setNewService] = useState({ label:'', fee:'', category:'治療', active:true });
+
+  // Tenant self-service settings
+  const [tenantConfig, setTenantConfig] = useState(() => {
+    const tc = getTenantConfig();
+    return {
+      name: tc?.name || getClinicName(),
+      nameEn: tc?.nameEn || getClinicNameEn(),
+      logoUrl: tc?.logoUrl || '',
+      doctors: tc?.doctors || getTenantDoctors(),
+      services: tc?.services || getTenantServices(),
+      settings: tc?.settings || getTenantSettings(),
+    };
+  });
+  const [tenantSaving, setTenantSaving] = useState(false);
+  const [newDoctor, setNewDoctor] = useState('');
+  const [themeColor, setThemeColor] = useState(() => getTenantSettings()?.primaryColor || '#0e7490');
 
   // Audit filters
   const [auditSearch, setAuditSearch] = useState('');
@@ -163,6 +180,7 @@ export default function SettingsPage({ data, setData, showToast, user }) {
     <>
       {/* Tabs */}
       <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
+        {isAdmin && <button className={`tab-btn ${tab==='tenant'?'active':''}`} onClick={()=>setTab('tenant')}>🌐 租戶設定</button>}
         <button className={`tab-btn ${tab==='clinic'?'active':''}`} onClick={()=>setTab('clinic')}>🏥 診所資料</button>
         <button className={`tab-btn ${tab==='services'?'active':''}`} onClick={()=>setTab('services')}>💊 服務管理</button>
         <button className={`tab-btn ${tab==='system'?'active':''}`} onClick={()=>setTab('system')}>⚙️ 系統設定</button>
@@ -175,6 +193,147 @@ export default function SettingsPage({ data, setData, showToast, user }) {
         {isAdmin && <button className={`tab-btn ${tab==='audit'?'active':''}`} onClick={()=>setTab('audit')}>📋 操作記錄</button>}
         {isAdmin && <button className={`tab-btn ${tab==='discounts'?'active':''}`} onClick={()=>setTab('discounts')}>🏷️ 折扣設定</button>}
       </div>
+
+      {/* Tenant Self-Service Settings */}
+      {tab === 'tenant' && isAdmin && (
+        <>
+          {/* Branding */}
+          <div className="card">
+            <div className="card-header"><h3>🎨 品牌設定</h3></div>
+            <p style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 12 }}>更改會同步到所有設備和所有用戶。修改後需重新登入才生效。</p>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div><label>診所中文名</label><input value={tenantConfig.name} onChange={e => setTenantConfig({ ...tenantConfig, name: e.target.value })} /></div>
+              <div><label>診所英文名</label><input value={tenantConfig.nameEn} onChange={e => setTenantConfig({ ...tenantConfig, nameEn: e.target.value })} /></div>
+            </div>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label>Logo URL</label>
+                <input value={tenantConfig.logoUrl} onChange={e => setTenantConfig({ ...tenantConfig, logoUrl: e.target.value })} placeholder="https://example.com/logo.png" />
+                <small style={{ color: 'var(--gray-400)', fontSize: 11 }}>輸入圖片網址（建議 512x512 PNG）</small>
+              </div>
+              <div>
+                <label>主題色</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input type="color" value={themeColor} onChange={e => setThemeColor(e.target.value)} style={{ width: 48, height: 36, padding: 2, cursor: 'pointer' }} />
+                  <input value={themeColor} onChange={e => setThemeColor(e.target.value)} style={{ flex: 1, fontFamily: 'monospace' }} placeholder="#0e7490" />
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  {['#0e7490', '#059669', '#7c3aed', '#dc2626', '#d97706', '#2563eb', '#be185d'].map(c => (
+                    <div key={c} onClick={() => setThemeColor(c)} style={{ width: 24, height: 24, borderRadius: '50%', background: c, cursor: 'pointer', border: themeColor === c ? '3px solid var(--gray-800)' : '2px solid var(--gray-200)', transition: 'all .2s' }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            {tenantConfig.logoUrl && (
+              <div style={{ marginBottom: 12 }}>
+                <label>Logo 預覽</label>
+                <img src={tenantConfig.logoUrl} alt="Logo" style={{ height: 64, borderRadius: 8, border: '1px solid var(--gray-200)' }} onError={e => { e.target.style.display = 'none'; }} />
+              </div>
+            )}
+          </div>
+
+          {/* Doctors */}
+          <div className="card">
+            <div className="card-header"><h3>👨‍⚕️ 醫師名單</h3></div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {tenantConfig.doctors.map((doc, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--teal-50)', padding: '4px 10px', borderRadius: 16, fontSize: 13 }}>
+                  <span>{doc}</span>
+                  <span style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700, fontSize: 16, lineHeight: 1 }} onClick={() => {
+                    setTenantConfig({ ...tenantConfig, doctors: tenantConfig.doctors.filter((_, j) => j !== i) });
+                  }}>&times;</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input value={newDoctor} onChange={e => setNewDoctor(e.target.value)} placeholder="輸入醫師姓名" style={{ flex: 1 }} onKeyDown={e => {
+                if (e.key === 'Enter' && newDoctor.trim()) {
+                  setTenantConfig({ ...tenantConfig, doctors: [...tenantConfig.doctors, newDoctor.trim()] });
+                  setNewDoctor('');
+                }
+              }} />
+              <button className="btn btn-teal btn-sm" onClick={() => {
+                if (!newDoctor.trim()) return;
+                setTenantConfig({ ...tenantConfig, doctors: [...tenantConfig.doctors, newDoctor.trim()] });
+                setNewDoctor('');
+              }}>新增</button>
+            </div>
+          </div>
+
+          {/* Business Settings */}
+          <div className="card">
+            <div className="card-header"><h3>⚙️ 營業設定</h3></div>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label>營業時間</label>
+                <input value={tenantConfig.settings?.businessHours || ''} onChange={e => setTenantConfig({ ...tenantConfig, settings: { ...tenantConfig.settings, businessHours: e.target.value } })} placeholder="10:00-20:00" />
+              </div>
+              <div>
+                <label>預設預約時段（分鐘）</label>
+                <input type="number" value={tenantConfig.settings?.slotMinutes || 30} onChange={e => setTenantConfig({ ...tenantConfig, settings: { ...tenantConfig.settings, slotMinutes: Number(e.target.value) } })} />
+              </div>
+            </div>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label>WhatsApp 號碼</label>
+                <input value={tenantConfig.settings?.whatsapp || ''} onChange={e => setTenantConfig({ ...tenantConfig, settings: { ...tenantConfig.settings, whatsapp: e.target.value } })} placeholder="85298765432" />
+              </div>
+              <div>
+                <label>聯絡電話</label>
+                <input value={tenantConfig.settings?.phone || ''} onChange={e => setTenantConfig({ ...tenantConfig, settings: { ...tenantConfig.settings, phone: e.target.value } })} placeholder="23456789" />
+              </div>
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span style={{ fontSize: 12, color: 'var(--gray-400)' }}>租戶: {getTenantSlug()} | 所有修改將即時同步到雲端</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-outline" onClick={() => {
+                // Preview theme color
+                applyTenantTheme();
+                showToast('已套用主題色預覽');
+              }}>預覽主題</button>
+              <button className="btn btn-teal" disabled={tenantSaving} onClick={async () => {
+                setTenantSaving(true);
+                try {
+                  const payload = {
+                    name: tenantConfig.name,
+                    nameEn: tenantConfig.nameEn,
+                    logoUrl: tenantConfig.logoUrl,
+                    doctors: tenantConfig.doctors,
+                    services: tenantConfig.services,
+                    settings: { ...tenantConfig.settings, primaryColor: themeColor },
+                  };
+                  const res = await fetch('/api/tenant/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+                    body: JSON.stringify(payload),
+                  });
+                  const result = await res.json();
+                  if (result.success && result.tenant) {
+                    // Update session storage with new tenant config
+                    sessionStorage.setItem('hcmc_tenant', JSON.stringify(result.tenant));
+                    applyTenantTheme();
+                    showToast('租戶設定已儲存');
+                  } else {
+                    showToast('儲存失敗：' + (result.error || '未知錯誤'));
+                  }
+                } catch (err) {
+                  // Fallback: save to localStorage if API fails
+                  localStorage.setItem('hcmc_clinic', JSON.stringify({
+                    name: tenantConfig.name, nameEn: tenantConfig.nameEn,
+                  }));
+                  showToast('已儲存到本地（雲端同步失敗）');
+                }
+                setTenantSaving(false);
+              }}>{tenantSaving ? '儲存中...' : '💾 儲存到雲端'}</button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Clinic Info */}
       {tab === 'clinic' && (

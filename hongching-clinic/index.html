@@ -5,8 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>康晴綜合醫療中心</title>
     <link rel="icon" href="/logo.jpg">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" id="manifest-link" href="/api/manifest">
     <meta name="theme-color" content="#0e7490">
+    <script>
+      // Detect tenant slug from URL and append to manifest link
+      (function() {
+        var slug = null;
+        // 1. Check subdomain
+        try {
+          var parts = location.hostname.split('.');
+          if (parts.length >= 3) {
+            var sub = parts[0].toLowerCase();
+            if (sub !== 'www' && sub !== 'localhost' && sub !== 'app') slug = sub;
+          }
+        } catch(e) {}
+        // 2. Check query param ?tenant=
+        if (!slug) {
+          try {
+            var p = new URLSearchParams(location.search);
+            if (p.get('tenant')) slug = p.get('tenant').toLowerCase().replace(/[^a-z0-9\-]/g, '');
+          } catch(e) {}
+        }
+        // 3. Check localStorage
+        if (!slug) {
+          try { slug = localStorage.getItem('hcmc_tenant_slug'); } catch(e) {}
+        }
+        // Update manifest link with tenant param
+        if (slug) {
+          var link = document.getElementById('manifest-link');
+          if (link) link.href = '/api/manifest?tenant=' + encodeURIComponent(slug);
+        }
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="/logo.jpg">

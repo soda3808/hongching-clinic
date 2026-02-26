@@ -8,6 +8,8 @@ export default defineConfig({
       output: {
         manualChunks: {
           recharts: ['recharts'],
+          supabase: ['@supabase/supabase-js'],
+          vendor: ['react', 'react-dom'],
         },
       },
     },

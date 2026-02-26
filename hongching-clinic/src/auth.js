@@ -86,6 +86,26 @@ export async function login(username, password) {
   }
 }
 
+// Request a password reset token (admin-initiated)
+export async function requestPasswordReset(username) {
+  const res = await fetch('/api/auth/reset-request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  return res.json();
+}
+
+// Reset password using a token
+export async function resetPassword(token, newPassword) {
+  const res = await fetch('/api/auth/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  return res.json();
+}
+
 export function logout() {
   sessionStorage.removeItem(AUTH_KEY);
   sessionStorage.removeItem(TOKEN_KEY);

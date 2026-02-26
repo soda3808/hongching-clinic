@@ -1,41 +1,44 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { loadAllData, saveAllLocal, subscribeToChanges, unsubscribe } from './api';
 import { SEED_DATA, fmtM, getMonth } from './data';
 import { exportCSV, exportJSON, importJSON } from './utils/export';
 import { PERMISSIONS, PAGE_PERMISSIONS, ROLE_LABELS, ROLE_TAGS } from './config';
-import { login, logout, getCurrentUser, hasPermission, filterByPermission, getStores, touchActivity } from './auth';
-import Dashboard from './components/Dashboard';
-import Revenue from './components/Revenue';
-import Expenses from './components/Expenses';
-import Payslip from './components/Payslip';
-import DoctorAnalytics from './components/DoctorAnalytics';
-import Reports from './components/Reports';
-import ARAP from './components/ARAP';
-import PatientPage from './components/PatientPage';
-import BookingPage from './components/BookingPage';
-import EMRPage from './components/EMRPage';
-import PackagePage from './components/PackagePage';
-import CRMPage from './components/CRMPage';
-import InventoryPage from './components/InventoryPage';
-import QueuePage from './components/QueuePage';
-import BillingPage from './components/BillingPage';
-import SickLeavePage from './components/SickLeavePage';
-import DoctorSchedule from './components/DoctorSchedule';
-import LeavePage from './components/LeavePage';
-import ProductPage from './components/ProductPage';
-import SettingsPage from './components/SettingsPage';
-import ReceiptScanner from './components/ReceiptScanner';
-import AIChatPage from './components/AIChatPage';
-import StoreComparePage from './components/StoreComparePage';
-import SurveyPage from './components/SurveyPage';
-import ElderlyVoucherPage from './components/ElderlyVoucherPage';
-import PublicBooking from './components/PublicBooking';
-import PublicCheckin from './components/PublicCheckin';
-import PublicInquiry from './components/PublicInquiry';
-import PrivacyCenter from './components/PrivacyCenter';
-import SuperAdmin from './components/SuperAdmin';
+import { login, logout, getCurrentUser, hasPermission, filterByPermission, getStores, touchActivity, requestPasswordReset, resetPassword } from './auth';
 import { logAction } from './utils/audit';
-import { getClinicName, getClinicLogo } from './tenant';
+import { getClinicName, getClinicLogo, applyTenantTheme } from './tenant';
+
+// Lazy-loaded page components
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Revenue = lazy(() => import('./components/Revenue'));
+const Expenses = lazy(() => import('./components/Expenses'));
+const Payslip = lazy(() => import('./components/Payslip'));
+const DoctorAnalytics = lazy(() => import('./components/DoctorAnalytics'));
+const Reports = lazy(() => import('./components/Reports'));
+const ARAP = lazy(() => import('./components/ARAP'));
+const PatientPage = lazy(() => import('./components/PatientPage'));
+const BookingPage = lazy(() => import('./components/BookingPage'));
+const EMRPage = lazy(() => import('./components/EMRPage'));
+const PackagePage = lazy(() => import('./components/PackagePage'));
+const CRMPage = lazy(() => import('./components/CRMPage'));
+const InventoryPage = lazy(() => import('./components/InventoryPage'));
+const QueuePage = lazy(() => import('./components/QueuePage'));
+const BillingPage = lazy(() => import('./components/BillingPage'));
+const SickLeavePage = lazy(() => import('./components/SickLeavePage'));
+const DoctorSchedule = lazy(() => import('./components/DoctorSchedule'));
+const LeavePage = lazy(() => import('./components/LeavePage'));
+const ProductPage = lazy(() => import('./components/ProductPage'));
+const SettingsPage = lazy(() => import('./components/SettingsPage'));
+const ReceiptScanner = lazy(() => import('./components/ReceiptScanner'));
+const AIChatPage = lazy(() => import('./components/AIChatPage'));
+const StoreComparePage = lazy(() => import('./components/StoreComparePage'));
+const SurveyPage = lazy(() => import('./components/SurveyPage'));
+const ElderlyVoucherPage = lazy(() => import('./components/ElderlyVoucherPage'));
+const PublicBooking = lazy(() => import('./components/PublicBooking'));
+const PublicCheckin = lazy(() => import('./components/PublicCheckin'));
+const PublicInquiry = lazy(() => import('./components/PublicInquiry'));
+const PrivacyCenter = lazy(() => import('./components/PrivacyCenter'));
+const SuperAdmin = lazy(() => import('./components/SuperAdmin'));
+const LandingPage = lazy(() => import('./components/LandingPage'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -81,6 +84,16 @@ function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetMode, setResetMode] = useState('request'); // 'request' | 'reset'
+  const [resetUsername, setResetUsername] = useState('');
+  const [resetToken, setResetToken] = useState('');
+  const [resetTokenInput, setResetTokenInput] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,33 +113,178 @@ function LoginPage({ onLogin }) {
     setLoading(false);
   };
 
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    if (!resetUsername.trim()) { setResetError('請輸入用戶名'); return; }
+    setResetLoading(true);
+    setResetError('');
+    setResetMsg('');
+    try {
+      const data = await requestPasswordReset(resetUsername.trim());
+      if (data.success && data.token) {
+        setResetToken(data.token);
+        setResetMsg(`重設令牌已產生 (${data.displayName || data.username})。請將以下令牌提供給用戶：`);
+      } else if (data.success) {
+        setResetMsg('如用戶存在，重設令牌已產生。');
+      } else {
+        setResetError(data.error || '請求失敗');
+      }
+    } catch {
+      setResetError('網絡錯誤，請稍後再試');
+    }
+    setResetLoading(false);
+  };
+
+  const handlePasswordReset = async (e) => {
+    e.preventDefault();
+    if (!resetTokenInput.trim()) { setResetError('請輸入重設令牌'); return; }
+    if (!newPassword) { setResetError('請輸入新密碼'); return; }
+    if (newPassword.length < 6) { setResetError('密碼最少需要6個字元'); return; }
+    if (newPassword !== confirmPassword) { setResetError('兩次密碼不一致'); return; }
+    setResetLoading(true);
+    setResetError('');
+    setResetMsg('');
+    try {
+      const data = await resetPassword(resetTokenInput.trim(), newPassword);
+      if (data.success) {
+        setResetMsg('密碼已成功重設，請返回登入。');
+        setResetTokenInput('');
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        setResetError(data.error || '重設失敗');
+      }
+    } catch {
+      setResetError('網絡錯誤，請稍後再試');
+    }
+    setResetLoading(false);
+  };
+
+  const clearResetState = () => {
+    setShowReset(false);
+    setResetMode('request');
+    setResetUsername('');
+    setResetToken('');
+    setResetTokenInput('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetMsg('');
+    setResetError('');
+  };
+
   return (
     <div className="login-page">
-      <form className="login-card" onSubmit={handleSubmit}>
+      <form className="login-card" onSubmit={showReset ? (resetMode === 'request' ? handleResetRequest : handlePasswordReset) : handleSubmit}>
         <div className="login-brand">
           <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} className="login-logo" />
         </div>
         <div className="login-divider" />
-        <label htmlFor="username">用戶名</label>
-        <input
-          id="username"
-          type="text"
-          placeholder="請輸入用戶名"
-          value={username}
-          onChange={(e) => { setUsername(e.target.value); setError(''); }}
-          autoFocus
-        />
-        <label htmlFor="password" style={{ marginTop: 4 }}>密碼</label>
-        <input
-          id="password"
-          type="password"
-          placeholder="請輸入密碼"
-          value={password}
-          onChange={(e) => { setPassword(e.target.value); setError(''); }}
-        />
-        {error && <div className="login-error">{error}</div>}
-        <button type="submit" className="btn btn-teal btn-lg login-btn" disabled={loading}>{loading ? '登入中...' : '登入'}</button>
-        <p style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 12 }}>如忘記密碼，請聯絡管理員</p>
+
+        {!showReset ? (
+          <>
+            <label htmlFor="username">用戶名</label>
+            <input
+              id="username"
+              type="text"
+              placeholder="請輸入用戶名"
+              value={username}
+              onChange={(e) => { setUsername(e.target.value); setError(''); }}
+              autoFocus
+            />
+            <label htmlFor="password" style={{ marginTop: 4 }}>密碼</label>
+            <input
+              id="password"
+              type="password"
+              placeholder="請輸入密碼"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+            />
+            {error && <div className="login-error">{error}</div>}
+            <button type="submit" className="btn btn-teal btn-lg login-btn" disabled={loading}>{loading ? '登入中...' : '登入'}</button>
+            <p style={{ fontSize: 11, color: 'var(--teal)', marginTop: 12, cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={() => { setShowReset(true); setResetMode('request'); setError(''); }}>
+              忘記密碼?
+            </p>
+          </>
+        ) : resetMode === 'request' ? (
+          <>
+            <label style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>忘記密碼 - 申請重設</label>
+            <label htmlFor="resetUsername">用戶名</label>
+            <input
+              id="resetUsername"
+              type="text"
+              placeholder="請輸入用戶名"
+              value={resetUsername}
+              onChange={(e) => { setResetUsername(e.target.value); setResetError(''); }}
+              autoFocus
+            />
+            {resetError && <div className="login-error">{resetError}</div>}
+            {resetMsg && <div style={{ fontSize: 12, color: 'var(--teal)', marginTop: 8 }}>{resetMsg}</div>}
+            {resetToken && (
+              <div style={{ fontSize: 12, background: 'var(--gray-50)', border: '1px solid var(--gray-200)', borderRadius: 6, padding: '8px 10px', marginTop: 8, wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                {resetToken}
+              </div>
+            )}
+            <button type="submit" className="btn btn-teal btn-lg login-btn" disabled={resetLoading} style={{ marginTop: 12 }}>
+              {resetLoading ? '處理中...' : '發送重設連結'}
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              <span style={{ fontSize: 11, color: 'var(--teal)', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => { setResetMode('reset'); setResetError(''); setResetMsg(''); }}>
+                已有令牌? 重設密碼
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--gray-400)', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={clearResetState}>
+                返回登入
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <label style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>重設密碼</label>
+            <label htmlFor="tokenInput">重設令牌</label>
+            <input
+              id="tokenInput"
+              type="text"
+              placeholder="請輸入重設令牌"
+              value={resetTokenInput}
+              onChange={(e) => { setResetTokenInput(e.target.value); setResetError(''); }}
+              autoFocus
+              style={{ fontFamily: 'monospace', fontSize: 12 }}
+            />
+            <label htmlFor="newPassword" style={{ marginTop: 4 }}>新密碼</label>
+            <input
+              id="newPassword"
+              type="password"
+              placeholder="請輸入新密碼 (至少6位)"
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setResetError(''); }}
+            />
+            <label htmlFor="confirmPassword" style={{ marginTop: 4 }}>確認新密碼</label>
+            <input
+              id="confirmPassword"
+              type="password"
+              placeholder="再次輸入新密碼"
+              value={confirmPassword}
+              onChange={(e) => { setConfirmPassword(e.target.value); setResetError(''); }}
+            />
+            {resetError && <div className="login-error">{resetError}</div>}
+            {resetMsg && <div style={{ fontSize: 12, color: 'var(--teal)', marginTop: 8 }}>{resetMsg}</div>}
+            <button type="submit" className="btn btn-teal btn-lg login-btn" disabled={resetLoading} style={{ marginTop: 12 }}>
+              {resetLoading ? '處理中...' : '重設密碼'}
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+              <span style={{ fontSize: 11, color: 'var(--teal)', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => { setResetMode('request'); setResetError(''); setResetMsg(''); }}>
+                申請重設令牌
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--gray-400)', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={clearResetState}>
+                返回登入
+              </span>
+            </div>
+          </>
+        )}
       </form>
     </div>
   );
@@ -382,11 +540,13 @@ function MobileMoreMenu({ pages, page, setPage, onClose, user, onLogout }) {
 }
 
 // ── Main App ──
+const LazyFallback = <div style={{ padding: 40, textAlign: 'center' }}>載入中...</div>;
+
 export default function App() {
   const path = window.location.pathname;
-  if (path === '/booking') return <PublicBooking />;
-  if (path === '/checkin') return <PublicCheckin />;
-  if (path === '/inquiry') return <PublicInquiry />;
+  if (path === '/booking') return <Suspense fallback={LazyFallback}><PublicBooking /></Suspense>;
+  if (path === '/checkin') return <Suspense fallback={LazyFallback}><PublicCheckin /></Suspense>;
+  if (path === '/inquiry') return <Suspense fallback={LazyFallback}><PublicInquiry /></Suspense>;
 
   return <MainApp />;
 }
@@ -404,6 +564,7 @@ function MainApp() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [theme, setTheme] = useState(() => localStorage.getItem('hcmc_theme') || 'light');
+  const [showLoginPage, setShowLoginPage] = useState(false);
   const [readNotifs, setReadNotifs] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('hcmc_read_notifs') || '[]'); } catch { return []; }
   });
@@ -509,7 +670,21 @@ function MainApp() {
     sessionStorage.setItem('hcmc_read_notifs', JSON.stringify(ids));
   };
 
-  if (!user) return <LoginPage onLogin={(session) => setUser(session)} />;
+  if (!user) {
+    const path = window.location.pathname;
+    const isLandingRoute = path === '/' || path === '/landing';
+    if (isLandingRoute && !showLoginPage) {
+      return (
+        <Suspense fallback={LazyFallback}>
+          <LandingPage
+            onGetStarted={() => setShowLoginPage(true)}
+            onLogin={() => setShowLoginPage(true)}
+          />
+        </Suspense>
+      );
+    }
+    return <LoginPage onLogin={(session) => { applyTenantTheme(); setShowLoginPage(false); setUser(session); }} />;
+  }
 
   if (loading) {
     return (
@@ -562,7 +737,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v5.10 • {new Date().getFullYear()}</span>
+          <span>v6.1.0 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -638,33 +813,35 @@ function MainApp() {
           </div>
         </div>
         <div className="content">
-          {page === 'dash' && <Dashboard data={filteredData} onNavigate={setPage} />}
-          {page === 'rev' && <Revenue data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'exp' && <Expenses data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
-          {page === 'scan' && <ReceiptScanner data={filteredData} setData={updateData} showToast={showToast} onNavigate={setPage} allData={data} />}
-          {page === 'arap' && <ARAP data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
-          {page === 'patient' && <PatientPage data={filteredData} setData={updateData} showToast={showToast} allData={data} onNavigate={setPage} />}
-          {page === 'booking' && <BookingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
-          {page === 'queue' && <QueuePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
-          {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
-          {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
-          {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
-          {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
-          {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'products' && <ProductPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'voucher' && <ElderlyVoucherPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
-          {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
-          {page === 'leave' && <LeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
-          {page === 'report' && <Reports data={filteredData} />}
-          {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'compare' && <StoreComparePage data={filteredData} allData={data} showToast={showToast} />}
-          {page === 'survey' && <SurveyPage data={filteredData} setData={setData} showToast={showToast} user={user} />}
-          {page === 'privacy' && <PrivacyCenter data={filteredData} setData={updateData} showToast={showToast} user={user} />}
-          {page === 'superadmin' && <SuperAdmin showToast={showToast} user={user} />}
-          {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
+          <Suspense fallback={LazyFallback}>
+            {page === 'dash' && <Dashboard data={filteredData} onNavigate={setPage} />}
+            {page === 'rev' && <Revenue data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'exp' && <Expenses data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+            {page === 'scan' && <ReceiptScanner data={filteredData} setData={updateData} showToast={showToast} onNavigate={setPage} allData={data} />}
+            {page === 'arap' && <ARAP data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+            {page === 'patient' && <PatientPage data={filteredData} setData={updateData} showToast={showToast} allData={data} onNavigate={setPage} />}
+            {page === 'booking' && <BookingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+            {page === 'queue' && <QueuePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
+            {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
+            {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+            {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
+            {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
+            {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'products' && <ProductPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'voucher' && <ElderlyVoucherPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+            {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'leave' && <LeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
+            {page === 'report' && <Reports data={filteredData} />}
+            {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+            {page === 'compare' && <StoreComparePage data={filteredData} allData={data} showToast={showToast} />}
+            {page === 'survey' && <SurveyPage data={filteredData} setData={setData} showToast={showToast} user={user} />}
+            {page === 'privacy' && <PrivacyCenter data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'superadmin' && <SuperAdmin showToast={showToast} user={user} />}
+            {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
+          </Suspense>
         </div>
       </div>
 
