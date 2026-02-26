@@ -39,6 +39,7 @@ const PublicInquiry = lazy(() => import('./components/PublicInquiry'));
 const PrivacyCenter = lazy(() => import('./components/PrivacyCenter'));
 const SuperAdmin = lazy(() => import('./components/SuperAdmin'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
+const MedicineScanner = lazy(() => import('./components/MedicineScanner'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -53,6 +54,7 @@ const ALL_PAGES = [
   { id: 'package', icon: '🎫', label: '套餐/會員', section: '病人', perm: 'viewPackages' },
   { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
   { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
+  { id: 'medscan', icon: '📦', label: '採購掃描', section: '營運', perm: 'editExpenses' },
   { id: 'billing', icon: '💵', label: '配藥/收費', section: '營運', perm: 'viewBilling' },
   { id: 'products', icon: '🛍️', label: '商品管理', section: '營運', perm: 'editExpenses' },
   { id: 'voucher', icon: '🧓', label: '長者醫療券', section: '病人', perm: 'viewPatients' },
@@ -826,6 +828,7 @@ function MainApp() {
             {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
             {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
+            {page === 'medscan' && <MedicineScanner data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'products' && <ProductPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'voucher' && <ElderlyVoucherPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
