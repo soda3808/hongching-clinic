@@ -2,10 +2,19 @@
 // POST /api/analyze-receipt
 // Body: { image: "base64 string", mimeType: "image/jpeg" }
 
+import { setCORS, handleOptions, requireAuth, rateLimit, errorResponse } from './_middleware.js';
+
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  setCORS(req, res);
+  if (handleOptions(req, res)) return;
+
+  if (req.method !== 'POST') return errorResponse(res, 405, 'Method not allowed');
+
+  const auth = requireAuth(req);
+  if (!auth.authenticated) return errorResponse(res, 401, auth.error);
+
+  const rl = rateLimit(`ocr:${auth.user.userId}`, 10, 60000);
+  if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁');
 
   const { image, mimeType } = req.body;
   const apiKey = process.env.ANTHROPIC_API_KEY;

@@ -2,15 +2,20 @@
 // Body: { diagnosis, pattern, tongue, pulse, subjective }
 // Returns: { success, herbs, formula, acupoints, explanation }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+import { setCORS, handleOptions, requireAuth, rateLimit, errorResponse } from './_middleware.js';
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
+export default async function handler(req, res) {
+  setCORS(req, res);
+  if (handleOptions(req, res)) return;
+
+  if (req.method !== 'POST') return errorResponse(res, 405, 'Method not allowed');
+
+  // Require doctor or admin role
+  const auth = requireAuth(req);
+  if (!auth.authenticated) return errorResponse(res, 401, auth.error);
+
+  const rl = rateLimit(`rx:${auth.user.userId}`, 15, 60000);
+  if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁');
 
   const apiKey = process.env.GOOGLE_AI_KEY;
   if (!apiKey) {

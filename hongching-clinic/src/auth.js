@@ -6,6 +6,9 @@ import { DEFAULT_USERS, DEFAULT_STORES, PERMISSIONS } from './config';
 
 const AUTH_KEY = 'hcmc_user';
 const TOKEN_KEY = 'hcmc_token';
+const TENANT_KEY = 'hcmc_tenant';
+const ACTIVITY_KEY = 'hcmc_last_activity';
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
 export function getUsers() {
   try {
@@ -46,6 +49,11 @@ export async function login(username, password) {
         const session = data.user;
         sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
         sessionStorage.setItem(TOKEN_KEY, data.token);
+        sessionStorage.setItem(ACTIVITY_KEY, String(Date.now()));
+        // Store tenant config if returned (multi-tenant mode)
+        if (data.tenant) {
+          sessionStorage.setItem(TENANT_KEY, JSON.stringify(data.tenant));
+        }
         return session;
       }
       // Server said invalid credentials
@@ -81,6 +89,8 @@ export async function login(username, password) {
 export function logout() {
   sessionStorage.removeItem(AUTH_KEY);
   sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TENANT_KEY);
+  sessionStorage.removeItem(ACTIVITY_KEY);
 }
 
 export function getCurrentUser() {
@@ -88,6 +98,12 @@ export function getCurrentUser() {
     const s = sessionStorage.getItem(AUTH_KEY);
     if (!s) return null;
     const session = JSON.parse(s);
+    // Check inactivity timeout
+    const lastActivity = parseInt(sessionStorage.getItem(ACTIVITY_KEY) || '0', 10);
+    if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
+      logout();
+      return null;
+    }
     // Check JWT expiry if token exists
     const token = sessionStorage.getItem(TOKEN_KEY);
     if (token) {
@@ -105,8 +121,31 @@ export function getCurrentUser() {
   } catch { return null; }
 }
 
+// Update activity timestamp — call on user interactions
+export function touchActivity() {
+  sessionStorage.setItem(ACTIVITY_KEY, String(Date.now()));
+}
+
 export function getToken() {
   return sessionStorage.getItem(TOKEN_KEY);
+}
+
+export function getAuthHeader() {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// ── Tenant Config (Multi-tenant) ──
+export function getTenantConfig() {
+  try {
+    const s = sessionStorage.getItem(TENANT_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch { return null; }
+}
+
+export function getTenantId() {
+  const t = getTenantConfig();
+  return t?.id || getCurrentUser()?.tenantId || null;
 }
 
 export function hasPermission(action) {

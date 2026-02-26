@@ -3,14 +3,19 @@
 // ══════════════════════════════════
 
 import { supabase } from './supabase';
+import { getTenantId } from './auth';
 
 const GAS_URL = import.meta.env.VITE_GAS_URL || '';
 
-// ── Supabase helpers ──
+// ── Supabase helpers (tenant-aware) ──
 async function sbSelect(table) {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.from(table).select('*');
+    let query = supabase.from(table).select('*');
+    // Filter by tenant if available (multi-tenant mode)
+    const tenantId = getTenantId();
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   } catch (err) { console.error(`Supabase select ${table}:`, err); return null; }
@@ -19,7 +24,10 @@ async function sbSelect(table) {
 async function sbUpsert(table, record) {
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase.from(table).upsert(record, { onConflict: 'id' });
+    // Auto-inject tenant_id if not present
+    const tenantId = getTenantId();
+    const rec = tenantId && !record.tenant_id ? { ...record, tenant_id: tenantId } : record;
+    const { data, error } = await supabase.from(table).upsert(rec, { onConflict: 'id' });
     if (error) throw error;
     return data;
   } catch (err) { console.error(`Supabase upsert ${table}:`, err); return null; }

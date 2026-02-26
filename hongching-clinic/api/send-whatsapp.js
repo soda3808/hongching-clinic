@@ -2,22 +2,26 @@
 // Body: { phone, message, type, store }
 // store determines which WhatsApp Business number to use
 
-export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+import { setCORS, handleOptions, requireAuth, rateLimit, validatePhone, sanitizeString, errorResponse } from './_middleware.js';
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
+export default async function handler(req, res) {
+  setCORS(req, res);
+  if (handleOptions(req, res)) return;
+
+  if (req.method !== 'POST') return errorResponse(res, 405, 'Method not allowed');
+
+  // Require authentication for WhatsApp sending
+  const auth = requireAuth(req);
+  if (!auth.authenticated) return errorResponse(res, 401, auth.error);
+
+  // Rate limit: 30 WhatsApp messages per minute
+  const rl = rateLimit(`whatsapp:${auth.user.userId}`, 30, 60000);
+  if (!rl.allowed) return errorResponse(res, 429, '發送過於頻繁');
 
   const { phone, message, type = 'text', store = '宋皇臺' } = req.body || {};
 
-  if (!phone || !message) {
-    return res.status(400).json({ success: false, error: 'Missing phone or message' });
-  }
+  if (!phone || !message) return errorResponse(res, 400, 'Missing phone or message');
+  if (!validatePhone(phone)) return errorResponse(res, 400, 'Invalid phone number');
 
   // Determine which WhatsApp phone ID to use based on store
   const phoneId = store === '太子'

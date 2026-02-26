@@ -3,7 +3,7 @@ import { loadAllData, saveAllLocal, subscribeToChanges, unsubscribe } from './ap
 import { SEED_DATA, fmtM, getMonth } from './data';
 import { exportCSV, exportJSON, importJSON } from './utils/export';
 import { PERMISSIONS, PAGE_PERMISSIONS, ROLE_LABELS, ROLE_TAGS } from './config';
-import { login, logout, getCurrentUser, hasPermission, filterByPermission, getStores } from './auth';
+import { login, logout, getCurrentUser, hasPermission, filterByPermission, getStores, touchActivity } from './auth';
 import Dashboard from './components/Dashboard';
 import Revenue from './components/Revenue';
 import Expenses from './components/Expenses';
@@ -32,6 +32,8 @@ import ElderlyVoucherPage from './components/ElderlyVoucherPage';
 import PublicBooking from './components/PublicBooking';
 import PublicCheckin from './components/PublicCheckin';
 import PublicInquiry from './components/PublicInquiry';
+import PrivacyCenter from './components/PrivacyCenter';
+import SuperAdmin from './components/SuperAdmin';
 import { logAction } from './utils/audit';
 
 const ALL_PAGES = [
@@ -59,6 +61,8 @@ const ALL_PAGES = [
   { id: 'ai', icon: '🤖', label: 'AI 助手', section: '分析', perm: 'viewDashboard' },
   { id: 'compare', icon: '🏢', label: '分店對比', section: '分析', perm: 'viewDashboard' },
   { id: 'survey', icon: '📋', label: '滿意度調查', section: '分析', perm: 'viewDashboard' },
+  { id: 'privacy', icon: '🔒', label: '私隱中心', section: '系統', perm: 'viewPrivacy' },
+  { id: 'superadmin', icon: '🛡️', label: 'Super Admin', section: '系統', perm: 'viewSuperAdmin' },
 ];
 
 // Mobile bottom tab config
@@ -408,7 +412,7 @@ function MainApp() {
     if (!user) return;
     const TIMEOUT = 30 * 60 * 1000;
     let timer = setTimeout(() => { logout(); setUser(null); }, TIMEOUT);
-    const reset = () => { clearTimeout(timer); timer = setTimeout(() => { logout(); setUser(null); }, TIMEOUT); };
+    const reset = () => { clearTimeout(timer); timer = setTimeout(() => { logout(); setUser(null); }, TIMEOUT); touchActivity(); };
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
     events.forEach(e => window.addEventListener(e, reset, { passive: true }));
     return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, reset)); };
@@ -657,6 +661,8 @@ function MainApp() {
           {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'compare' && <StoreComparePage data={filteredData} allData={data} showToast={showToast} />}
           {page === 'survey' && <SurveyPage data={filteredData} setData={setData} showToast={showToast} user={user} />}
+          {page === 'privacy' && <PrivacyCenter data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+          {page === 'superadmin' && <SuperAdmin showToast={showToast} user={user} />}
           {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
         </div>
       </div>

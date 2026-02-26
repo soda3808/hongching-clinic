@@ -21,13 +21,21 @@ export const ROLE_LABELS = { admin: '管理員', manager: '店長', doctor: '醫
 export const ROLE_TAGS = { admin: 'tag-overdue', manager: 'tag-fps', doctor: 'tag-paid', staff: 'tag-other' };
 
 export const PERMISSIONS = {
+  superadmin: {
+    viewAllStores: true, viewDashboard: true, editRevenue: true, editExpenses: true, editARAP: true,
+    viewPayroll: true, editPayroll: true, viewDoctorAnalytics: true, viewReports: true,
+    viewSettings: true, manageUsers: true, viewReceiptScanner: true, viewPatients: true, viewBookings: true,
+    viewEMR: true, editEMR: true, viewPackages: true, editPackages: true,
+    viewQueue: true, editQueue: true, viewBilling: true, editBilling: true,
+    viewLeave: true, viewPrivacy: true, viewSuperAdmin: true,
+  },
   admin: {
     viewAllStores: true, viewDashboard: true, editRevenue: true, editExpenses: true, editARAP: true,
     viewPayroll: true, editPayroll: true, viewDoctorAnalytics: true, viewReports: true,
     viewSettings: true, manageUsers: true, viewReceiptScanner: true, viewPatients: true, viewBookings: true,
     viewEMR: true, editEMR: true, viewPackages: true, editPackages: true,
     viewQueue: true, editQueue: true, viewBilling: true, editBilling: true,
-    viewLeave: true,
+    viewLeave: true, viewPrivacy: true, viewSuperAdmin: true,
   },
   manager: {
     viewAllStores: false, viewDashboard: true, editRevenue: true, editExpenses: true, editARAP: true,
@@ -80,6 +88,8 @@ export const PAGE_PERMISSIONS = {
   compare: 'viewDashboard',
   survey: 'viewDashboard',
   voucher: 'viewPatients',
+  privacy: 'viewPrivacy',
+  superadmin: 'viewSuperAdmin',
 };
 
 // ══════════════════════════════════
