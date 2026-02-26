@@ -58,7 +58,9 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   useFocusTrap(detail ? detailRef : nullRef);
 
   // ── Pick up pending consult from Queue ──
+  const pendingHandled = useRef(false);
   useEffect(() => {
+    if (pendingHandled.current) return;
     const pending = sessionStorage.getItem('hcmc_pending_consult');
     if (pending) {
       try {
@@ -67,18 +69,19 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         setForm(f => ({
           ...f,
           patientId: patient?.id || '',
-          patientName: p.patientName,
-          patientPhone: p.patientPhone || '',
+          patientName: p.patientName || '',
+          patientPhone: p.patientPhone || patient?.phone || '',
           doctor: p.doctor || f.doctor,
           store: p.store || f.store,
           date: p.date || new Date().toISOString().substring(0, 10),
         }));
-        setPatientSearch(p.patientName);
+        setPatientSearch(p.patientName || '');
         setShowAdd(true);
+        pendingHandled.current = true;
         sessionStorage.removeItem('hcmc_pending_consult');
       } catch { /* ignore */ }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }); // Run on every render until handled (handles Strict Mode double-render + async data)
 
   const consultations = data.consultations || [];
   const patients = data.patients || [];
