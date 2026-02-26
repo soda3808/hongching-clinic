@@ -2,7 +2,7 @@
 // HK Government $2000/year scheme for 65+ age patients
 
 import { useState, useMemo } from 'react';
-import { uid, fmtM } from '../data';
+import { uid, fmtM, getMonth } from '../data';
 import { savePatient } from '../api';
 
 const VOUCHER_LIMIT = 2000; // Annual limit
@@ -25,6 +25,7 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
   const [claimDesc, setClaimDesc] = useState('診金');
   const [showHistory, setShowHistory] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [showReport, setShowReport] = useState(false);
 
   const patients = data.patients || [];
 
@@ -63,9 +64,58 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
     totalRemaining: eligiblePatients.reduce((s, p) => s + p.remaining, 0),
   }), [eligiblePatients]);
 
+  // ── Compliance & Audit (#87) ──
+  const compliance = useMemo(() => {
+    // All claims this year across all patients
+    const allClaims = eligiblePatients.flatMap(p =>
+      (p.thisYearClaims || []).map(c => ({ ...c, patientName: p.name, patientAge: p.age, patientPhone: p.phone }))
+    );
+    // Monthly breakdown
+    const byMonth = {};
+    allClaims.forEach(c => {
+      const m = (c.date || '').substring(0, 7);
+      if (!byMonth[m]) byMonth[m] = { count: 0, amount: 0 };
+      byMonth[m].count++;
+      byMonth[m].amount += Number(c.amount || 0);
+    });
+    const monthly = Object.entries(byMonth).sort((a, b) => a[0].localeCompare(b[0]));
+    // By purpose
+    const byPurpose = {};
+    allClaims.forEach(c => {
+      byPurpose[c.desc || '其他'] = (byPurpose[c.desc || '其他'] || 0) + Number(c.amount || 0);
+    });
+    // By store
+    const byStore = {};
+    allClaims.forEach(c => {
+      byStore[c.store || '宋皇臺'] = (byStore[c.store || '宋皇臺'] || 0) + Number(c.amount || 0);
+    });
+    // Utilization rate
+    const utilization = eligiblePatients.length > 0
+      ? (eligiblePatients.filter(p => p.totalUsed > 0).length / eligiblePatients.length * 100).toFixed(0)
+      : 0;
+    // Avg claim per visit
+    const avgClaim = allClaims.length > 0
+      ? (allClaims.reduce((s, c) => s + Number(c.amount || 0), 0) / allClaims.length).toFixed(0)
+      : 0;
+    return { allClaims, monthly, byPurpose, byStore, utilization, avgClaim, totalClaims: allClaims.length };
+  }, [eligiblePatients]);
+
+  // ── Form Validation (#85) ──
+  const [claimError, setClaimError] = useState('');
+  const validateClaim = () => {
+    if (!claimAmount || isNaN(Number(claimAmount))) { setClaimError('請輸入有效金額'); return false; }
+    const amt = Number(claimAmount);
+    if (amt <= 0) { setClaimError('金額必須大於零'); return false; }
+    if (amt > showClaim.remaining) { setClaimError(`超出剩餘額度 ${fmtM(showClaim.remaining)}`); return false; }
+    if (amt > 2000) { setClaimError('單次申報不能超過 $2,000'); return false; }
+    setClaimError('');
+    return true;
+  };
+
   // Submit voucher claim
   const handleClaim = async () => {
-    if (!showClaim || !claimAmount || Number(claimAmount) <= 0) return;
+    if (!showClaim) return;
+    if (!validateClaim()) return;
     const amount = Number(claimAmount);
     const patient = patients.find(p => p.id === showClaim.id);
     if (!patient) return;
@@ -150,6 +200,30 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
         </div>
       </div>
 
+      {/* Compliance summary (#87) */}
+      <div className="grid-2" style={{ marginBottom: 0 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>使用率及統計</div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>使用率</div><div style={{ fontSize: 20, fontWeight: 800, color: Number(compliance.utilization) >= 50 ? 'var(--green-600)' : '#d97706' }}>{compliance.utilization}%</div></div>
+            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>申報次數</div><div style={{ fontSize: 20, fontWeight: 800, color: 'var(--teal-700)' }}>{compliance.totalClaims}</div></div>
+            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>平均每次</div><div style={{ fontSize: 20, fontWeight: 800, color: 'var(--teal-700)' }}>{fmtM(compliance.avgClaim)}</div></div>
+          </div>
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>用途分佈</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {Object.entries(compliance.byPurpose).sort((a, b) => b[1] - a[1]).map(([p, amt]) => (
+              <div key={p} style={{ padding: '4px 8px', background: 'var(--gray-50)', borderRadius: 6, textAlign: 'center' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal-700)' }}>{fmtM(amt)}</div>
+                <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{p}</div>
+              </div>
+            ))}
+            {!Object.keys(compliance.byPurpose).length && <div style={{ color: '#aaa', fontSize: 12 }}>暫無申報</div>}
+          </div>
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <input style={{ flex: 1, minWidth: 180 }} placeholder="搜尋長者姓名或電話..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -157,6 +231,56 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
           {[['all', '全部'], ['available', '有餘額'], ['exhausted', '已用完']].map(([k, l]) => (
             <button key={k} className={`preset-chip ${filterStatus === k ? 'active' : ''}`} onClick={() => setFilterStatus(k)}>{l}</button>
           ))}
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline btn-sm" onClick={() => {
+            if (!eligiblePatients.length) return showToast('沒有紀錄可匯出');
+            const headers = ['姓名','年齡','電話','店舖','已使用','剩餘','申報次數'];
+            const rows = eligiblePatients.map(p => [p.name, p.age, p.phone || '', p.store || '', p.totalUsed, p.remaining, (p.thisYearClaims || []).length]);
+            const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `elderly_voucher_${CURRENT_YEAR}.csv`;
+            a.click();
+            showToast('已匯出醫療券紀錄');
+          }}>匯出CSV</button>
+          <button className="btn btn-gold btn-sm" onClick={() => {
+            const w = window.open('', '_blank');
+            if (!w) return;
+            w.document.write(`<!DOCTYPE html><html><head><title>醫療券報告 ${CURRENT_YEAR}</title>
+              <style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:700px;margin:0 auto;font-size:13px}
+              h1{font-size:18px;text-align:center}
+              .sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}
+              h2{font-size:14px;border-bottom:2px solid #0e7490;padding-bottom:4px;margin-top:20px;color:#0e7490}
+              table{width:100%;border-collapse:collapse;margin-bottom:16px}
+              th,td{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}
+              th{background:#f8f8f8;font-weight:700}
+              .r{text-align:right}
+              .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+              .box{border:1px solid #ddd;border-radius:8px;padding:12px;text-align:center}
+              .box .n{font-size:22px;font-weight:800}
+              .box .l{font-size:10px;color:#888}
+              @media print{body{margin:0;padding:10mm}}
+              </style></head><body>
+              <h1>康晴綜合醫療中心 — 長者醫療券報告</h1>
+              <div class="sub">${CURRENT_YEAR}年度 | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
+              <div class="grid">
+                <div class="box"><div class="n" style="color:#0e7490">${stats.totalEligible}</div><div class="l">合資格長者</div></div>
+                <div class="box"><div class="n" style="color:#16a34a">${compliance.utilization}%</div><div class="l">使用率</div></div>
+                <div class="box"><div class="n" style="color:#d97706">${fmtM(stats.totalClaimed)}</div><div class="l">已申報</div></div>
+                <div class="box"><div class="n" style="color:#dc2626">${fmtM(stats.totalRemaining)}</div><div class="l">剩餘額度</div></div>
+              </div>
+              <h2>月度申報明細</h2>
+              <table><thead><tr><th>月份</th><th class="r">次數</th><th class="r">金額</th></tr></thead>
+              <tbody>${compliance.monthly.map(([m, d]) => `<tr><td>${m}</td><td class="r">${d.count}</td><td class="r">${fmtM(d.amount)}</td></tr>`).join('')}</tbody></table>
+              <h2>長者使用詳情</h2>
+              <table><thead><tr><th>姓名</th><th>年齡</th><th class="r">已使用</th><th class="r">剩餘</th></tr></thead>
+              <tbody>${eligiblePatients.slice(0, 50).map(p => `<tr><td>${p.name}</td><td>${p.age}歲</td><td class="r">${fmtM(p.totalUsed)}</td><td class="r">${fmtM(p.remaining)}</td></tr>`).join('')}</tbody></table>
+            </body></html>`);
+            w.document.close();
+            setTimeout(() => w.print(), 300);
+          }}>列印報告</button>
         </div>
       </div>
 
@@ -248,8 +372,8 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
               <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>申報金額 ($) *</label>
               <input type="number" min="1" max={showClaim.remaining} value={claimAmount}
                 onChange={e => setClaimAmount(e.target.value)} placeholder={`最高 ${showClaim.remaining}`} />
-              {Number(claimAmount) > showClaim.remaining && (
-                <div style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>超出剩餘額度！</div>
+              {(claimError || Number(claimAmount) > showClaim.remaining) && (
+                <div style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>{claimError || '超出剩餘額度！'}</div>
               )}
             </div>
 

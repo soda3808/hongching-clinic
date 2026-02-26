@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
-import { fmtM, fmt, getMonth } from '../data';
+import { fmtM, fmt, getMonth, DOCTORS } from '../data';
 
 const COLORS = { '宋皇臺': '#0e7490', '太子': '#8B6914' };
 
-export default function StoreComparePage({ data, allData }) {
+export default function StoreComparePage({ data, allData, showToast }) {
+  const [drillDown, setDrillDown] = useState(null); // { store, metric }
   const src = allData || data;
   const thisMonth = new Date().toISOString().substring(0, 7);
   const today = new Date().toISOString().substring(0, 10);
@@ -71,12 +72,91 @@ export default function StoreComparePage({ data, allData }) {
     ];
   }, [metrics]);
 
+  // Doctor breakdown by store (#84)
+  const doctorByStore = useMemo(() => {
+    return DOCTORS.map(doc => {
+      const row = { doctor: doc };
+      stores.forEach(store => {
+        const rev = (src.revenue || []).filter(r => r.store === store && r.doctor === doc && getMonth(r.date) === thisMonth);
+        row[store] = rev.reduce((s, r) => s + (r.amount || 0), 0);
+        row[store + '_count'] = rev.length;
+      });
+      row.total = (row['宋皇臺'] || 0) + (row['太子'] || 0);
+      return row;
+    }).filter(d => d.total > 0).sort((a, b) => b.total - a.total);
+  }, [src, thisMonth]);
+
+  // CSV Export
+  const exportCSV = () => {
+    const rows = [
+      ['指標', '宋皇臺', '太子', '差距'],
+      ['累計營業額', metrics['宋皇臺'].totalRev, metrics['太子'].totalRev, metrics['宋皇臺'].totalRev - metrics['太子'].totalRev],
+      ['本月營業額', metrics['宋皇臺'].monthRev, metrics['太子'].monthRev, metrics['宋皇臺'].monthRev - metrics['太子'].monthRev],
+      ['累計開支', metrics['宋皇臺'].totalExp, metrics['太子'].totalExp, metrics['宋皇臺'].totalExp - metrics['太子'].totalExp],
+      ['本月開支', metrics['宋皇臺'].monthExp, metrics['太子'].monthExp, metrics['宋皇臺'].monthExp - metrics['太子'].monthExp],
+      ['病人總數', metrics['宋皇臺'].patientCount, metrics['太子'].patientCount, metrics['宋皇臺'].patientCount - metrics['太子'].patientCount],
+      ['本月診症', metrics['宋皇臺'].monthConsultations, metrics['太子'].monthConsultations, metrics['宋皇臺'].monthConsultations - metrics['太子'].monthConsultations],
+      ['平均單價', metrics['宋皇臺'].avgTicket.toFixed(0), metrics['太子'].avgTicket.toFixed(0), (metrics['宋皇臺'].avgTicket - metrics['太子'].avgTicket).toFixed(0)],
+    ];
+    const csv = '\uFEFF' + rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `store_compare_${thisMonth}.csv`;
+    a.click();
+    showToast && showToast('已匯出分店對比報告');
+  };
+
+  // Print report
+  const printReport = () => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const compareRows = [
+      ['累計營業額', fmtM(metrics['宋皇臺'].totalRev), fmtM(metrics['太子'].totalRev)],
+      ['本月營業額', fmtM(metrics['宋皇臺'].monthRev), fmtM(metrics['太子'].monthRev)],
+      ['累計開支', fmtM(metrics['宋皇臺'].totalExp), fmtM(metrics['太子'].totalExp)],
+      ['本月開支', fmtM(metrics['宋皇臺'].monthExp), fmtM(metrics['太子'].monthExp)],
+      ['累計淨利', fmtM(metrics['宋皇臺'].totalRev - metrics['宋皇臺'].totalExp), fmtM(metrics['太子'].totalRev - metrics['太子'].totalExp)],
+      ['病人總數', metrics['宋皇臺'].patientCount, metrics['太子'].patientCount],
+      ['本月診症', metrics['宋皇臺'].monthConsultations, metrics['太子'].monthConsultations],
+      ['平均單價', fmtM(metrics['宋皇臺'].avgTicket), fmtM(metrics['太子'].avgTicket)],
+    ];
+    w.document.write(`<!DOCTYPE html><html><head><title>分店對比報告 ${thisMonth}</title>
+      <style>
+        body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:700px;margin:0 auto;font-size:13px}
+        h1{font-size:18px;text-align:center}
+        .sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}
+        table{width:100%;border-collapse:collapse;margin-bottom:16px}
+        th,td{padding:8px 10px;border-bottom:1px solid #eee;text-align:left}
+        th{background:#f8f8f8;font-weight:700}
+        .r{text-align:right}
+        .teal{color:#0e7490}
+        .gold{color:#8B6914}
+        @media print{body{margin:0;padding:10mm}}
+      </style></head><body>
+      <h1>康晴綜合醫療中心 — 分店對比報告</h1>
+      <div class="sub">${thisMonth} | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
+      <table>
+        <thead><tr><th>指標</th><th class="r teal">宋皇臺</th><th class="r gold">太子</th></tr></thead>
+        <tbody>${compareRows.map(([l,v1,v2]) => `<tr><td>${l}</td><td class="r teal">${v1}</td><td class="r gold">${v2}</td></tr>`).join('')}</tbody>
+      </table>
+      ${doctorByStore.length > 0 ? `
+        <h2 style="font-size:14px;border-bottom:2px solid #0e7490;padding-bottom:4px;margin-top:24px;color:#0e7490">醫師分店業績</h2>
+        <table>
+          <thead><tr><th>醫師</th><th class="r teal">宋皇臺</th><th class="r gold">太子</th><th class="r">合計</th></tr></thead>
+          <tbody>${doctorByStore.map(d => `<tr><td>${d.doctor}</td><td class="r teal">${fmtM(d['宋皇臺'])}</td><td class="r gold">${fmtM(d['太子'])}</td><td class="r" style="font-weight:700">${fmtM(d.total)}</td></tr>`).join('')}</tbody>
+        </table>` : ''}
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
   const renderCompareCard = (label, key, format = 'money') => (
-    <div className="card" style={{ padding: 16 }}>
-      <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 8, fontWeight: 600 }}>{label}</div>
+    <div className="card" style={{ padding: 16, cursor: key === 'monthRev' ? 'pointer' : 'default' }} onClick={() => key === 'monthRev' && setDrillDown({ store: '宋皇臺', label })}>
+      <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 8, fontWeight: 600 }}>{label}{key === 'monthRev' && <span style={{ fontSize: 10, marginLeft: 4, color: 'var(--teal-500)' }}>(點擊查看明細)</span>}</div>
       <div style={{ display: 'flex', gap: 16 }}>
         {stores.map(store => (
-          <div key={store} style={{ flex: 1, textAlign: 'center' }}>
+          <div key={store} style={{ flex: 1, textAlign: 'center', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setDrillDown({ store, label }); }}>
             <div style={{ fontSize: 11, color: COLORS[store], fontWeight: 600, marginBottom: 4 }}>{store}</div>
             <div style={{ fontSize: 20, fontWeight: 800, color: COLORS[store] }}>
               {format === 'money' ? fmtM(metrics[store][key]) : fmt(metrics[store][key])}
@@ -116,6 +196,15 @@ export default function StoreComparePage({ data, allData }) {
         <div className="stat-card red">
           <div className="stat-label">差距</div>
           <div className="stat-value red">{fmtM(Math.abs(metrics['宋皇臺'].monthRev - metrics['太子'].monthRev))}</div>
+        </div>
+      </div>
+
+      {/* Actions (#84) */}
+      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--gray-600)' }}>分店對比分析</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline btn-sm" onClick={exportCSV}>匯出CSV</button>
+          <button className="btn btn-gold btn-sm" onClick={printReport}>列印報告</button>
         </div>
       </div>
 
@@ -203,6 +292,63 @@ export default function StoreComparePage({ data, allData }) {
           </table>
         </div>
       </div>
+      {/* Doctor by Store (#84) */}
+      {doctorByStore.length > 0 && (
+        <div className="card" style={{ marginTop: 16, padding: 0 }}>
+          <div className="card-header"><h3>醫師分店業績 (本月)</h3></div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>醫師</th><th style={{ textAlign: 'right', color: COLORS['宋皇臺'] }}>宋皇臺</th><th style={{ textAlign: 'right' }}>筆數</th><th style={{ textAlign: 'right', color: COLORS['太子'] }}>太子</th><th style={{ textAlign: 'right' }}>筆數</th><th style={{ textAlign: 'right' }}>合計</th></tr>
+              </thead>
+              <tbody>
+                {doctorByStore.map(d => (
+                  <tr key={d.doctor}>
+                    <td style={{ fontWeight: 600 }}>{d.doctor}</td>
+                    <td className="money" style={{ color: COLORS['宋皇臺'] }}>{fmtM(d['宋皇臺'])}</td>
+                    <td className="money" style={{ color: 'var(--gray-400)' }}>{d['宋皇臺_count']}</td>
+                    <td className="money" style={{ color: COLORS['太子'] }}>{fmtM(d['太子'])}</td>
+                    <td className="money" style={{ color: 'var(--gray-400)' }}>{d['太子_count']}</td>
+                    <td className="money" style={{ fontWeight: 700 }}>{fmtM(d.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Drill-down Modal */}
+      {drillDown && (
+        <div className="modal-overlay" onClick={() => setDrillDown(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>{drillDown.store} — {drillDown.label} 明細</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setDrillDown(null)}>✕</button>
+            </div>
+            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th>日期</th><th>項目</th><th>醫師</th><th style={{ textAlign: 'right' }}>金額</th></tr></thead>
+                <tbody>
+                  {(src.revenue || [])
+                    .filter(r => r.store === drillDown.store && getMonth(r.date) === thisMonth)
+                    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+                    .slice(0, 50)
+                    .map((r, i) => (
+                      <tr key={i}>
+                        <td style={{ fontSize: 12 }}>{r.date}</td>
+                        <td style={{ fontSize: 12 }}>{r.item || r.name}</td>
+                        <td>{r.doctor}</td>
+                        <td className="money" style={{ color: 'var(--gold-700)' }}>{fmtM(r.amount)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 12 }}><button className="btn btn-outline" onClick={() => setDrillDown(null)}>關閉</button></div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

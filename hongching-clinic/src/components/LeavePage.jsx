@@ -152,8 +152,60 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
         <div className="tab-bar" style={{ marginBottom: 0 }}>
           <button className={`tab-btn ${tab === 'list' ? 'active' : ''}`} onClick={() => setTab('list')}>請假列表</button>
           <button className={`tab-btn ${tab === 'cal' ? 'active' : ''}`} onClick={() => setTab('cal')}>月曆</button>
+          {isAdmin && <button className={`tab-btn ${tab === 'balance' ? 'active' : ''}`} onClick={() => setTab('balance')}>假期餘額</button>}
         </div>
-        <button className="btn btn-teal" style={{ marginLeft: 'auto' }} onClick={() => setShowModal(true)}>+ 申請請假</button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button className="btn btn-outline btn-sm" onClick={() => {
+            if (!myLeaves.length) return showToast('沒有請假紀錄可匯出');
+            const headers = ['申請人','類別','開始日期','結束日期','天數','原因','狀態','審批人'];
+            const rows = [...myLeaves].sort((a,b) => (b.createdAt||'').localeCompare(a.createdAt||'')).map(l =>
+              [l.userName, l.type, l.startDate, l.endDate, l.days, l.reason || '', STATUS_LABELS[l.status] || l.status, l.approvedBy || '']
+            );
+            const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `leave_records_${new Date().toISOString().substring(0,10)}.csv`;
+            a.click();
+            showToast('已匯出請假紀錄');
+          }}>匯出CSV</button>
+          <button className="btn btn-gold btn-sm" onClick={() => {
+            const w = window.open('', '_blank');
+            if (!w) return;
+            // Balance for all staff
+            const staffBalance = {};
+            leaves.forEach(l => {
+              if (l.status !== 'approved') return;
+              if (!staffBalance[l.userName]) staffBalance[l.userName] = { annual: 0, sick: 0, personal: 0 };
+              if (l.type === '年假') staffBalance[l.userName].annual += l.days || 0;
+              else if (l.type === '病假') staffBalance[l.userName].sick += l.days || 0;
+              else if (l.type === '事假') staffBalance[l.userName].personal += l.days || 0;
+            });
+            w.document.write(`<!DOCTYPE html><html><head><title>請假報告</title>
+              <style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:700px;margin:0 auto;font-size:13px}
+              h1{font-size:18px;text-align:center}
+              .sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}
+              h2{font-size:14px;border-bottom:2px solid #0e7490;padding-bottom:4px;margin-top:20px;color:#0e7490}
+              table{width:100%;border-collapse:collapse;margin-bottom:16px}
+              th,td{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}
+              th{background:#f8f8f8;font-weight:700}
+              .r{text-align:right}
+              @media print{body{margin:0;padding:10mm}}
+              </style></head><body>
+              <h1>康晴綜合醫療中心 — 請假報告</h1>
+              <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
+              <h2>員工已用假期統計</h2>
+              <table><thead><tr><th>員工</th><th class="r">年假</th><th class="r">病假</th><th class="r">事假</th><th class="r">合計</th></tr></thead>
+              <tbody>${Object.entries(staffBalance).map(([name, b]) => `<tr><td>${name}</td><td class="r">${b.annual}</td><td class="r">${b.sick}</td><td class="r">${b.personal}</td><td class="r" style="font-weight:700">${b.annual + b.sick + b.personal}</td></tr>`).join('')}</tbody></table>
+              <h2>請假記錄</h2>
+              <table><thead><tr><th>申請人</th><th>類別</th><th>日期</th><th class="r">天數</th><th>狀態</th></tr></thead>
+              <tbody>${[...myLeaves].sort((a,b) => (b.startDate||'').localeCompare(a.startDate||'')).map(l => `<tr><td>${l.userName}</td><td>${l.type}</td><td>${l.startDate} ~ ${l.endDate}</td><td class="r">${l.days}</td><td>${STATUS_LABELS[l.status] || l.status}</td></tr>`).join('')}</tbody></table>
+            </body></html>`);
+            w.document.close();
+            setTimeout(() => w.print(), 300);
+          }}>列印報告</button>
+          <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 申請請假</button>
+        </div>
       </div>
 
       {/* List View */}
@@ -232,6 +284,46 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Balance Tab (#88) */}
+      {tab === 'balance' && isAdmin && (
+        <div className="card" style={{ padding: 0 }}>
+          <div className="card-header"><h3>全員假期餘額</h3></div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>員工</th><th style={{ textAlign: 'right' }}>年假餘額</th><th style={{ textAlign: 'right' }}>年假已用</th><th style={{ textAlign: 'right' }}>病假餘額</th><th style={{ textAlign: 'right' }}>病假已用</th><th style={{ textAlign: 'right' }}>事假餘額</th><th style={{ textAlign: 'right' }}>事假已用</th></tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const stored = getLeaveBalance();
+                  const users = [...new Set(leaves.map(l => l.userName).filter(Boolean))];
+                  if (!users.length) return <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>暫無紀錄</td></tr>;
+                  return users.map(name => {
+                    const userLeaves = leaves.filter(l => l.userName === name && l.status === 'approved');
+                    const usedA = userLeaves.filter(l => l.type === '年假').reduce((s, l) => s + (l.days || 0), 0);
+                    const usedS = userLeaves.filter(l => l.type === '病假').reduce((s, l) => s + (l.days || 0), 0);
+                    const usedP = userLeaves.filter(l => l.type === '事假').reduce((s, l) => s + (l.days || 0), 0);
+                    const userId = leaves.find(l => l.userName === name)?.userId;
+                    const bal = stored[userId] || DEFAULT_BALANCE;
+                    return (
+                      <tr key={name}>
+                        <td style={{ fontWeight: 600 }}>{name}</td>
+                        <td className="money" style={{ color: (bal.annual || DEFAULT_BALANCE.annual) - usedA <= 2 ? '#dc2626' : 'var(--green-600)' }}>{(bal.annual || DEFAULT_BALANCE.annual) - usedA}</td>
+                        <td className="money" style={{ color: 'var(--gray-400)' }}>{usedA}</td>
+                        <td className="money" style={{ color: (bal.sick || DEFAULT_BALANCE.sick) - usedS <= 2 ? '#dc2626' : 'var(--green-600)' }}>{(bal.sick || DEFAULT_BALANCE.sick) - usedS}</td>
+                        <td className="money" style={{ color: 'var(--gray-400)' }}>{usedS}</td>
+                        <td className="money" style={{ color: (bal.personal || DEFAULT_BALANCE.personal) - usedP <= 1 ? '#dc2626' : 'var(--green-600)' }}>{(bal.personal || DEFAULT_BALANCE.personal) - usedP}</td>
+                        <td className="money" style={{ color: 'var(--gray-400)' }}>{usedP}</td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

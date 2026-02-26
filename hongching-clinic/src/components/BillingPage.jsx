@@ -74,6 +74,34 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     dispensePending: list.filter(r => r.dispensingStatus === 'pending').length,
   }), [list]);
 
+  // ── Revenue Reconciliation (#83) ──
+  const reconciliation = useMemo(() => {
+    const dayQueue = queue.filter(r => r.date === filterDate);
+    const dayRevenue = (data.revenue || []).filter(r => r.date === filterDate);
+    // Queue-based billing
+    const billedFromQueue = dayQueue.filter(r => r.paymentStatus === 'paid').reduce((s, r) => s + Number(r.serviceFee || 0), 0);
+    // Revenue records for this day
+    const revenueTotal = dayRevenue.reduce((s, r) => s + Number(r.amount || 0), 0);
+    // Discrepancy
+    const discrepancy = revenueTotal - billedFromQueue;
+    // Payment method breakdown from revenue
+    const payBreak = {};
+    dayRevenue.forEach(r => {
+      const m = r.payment || '其他';
+      payBreak[m] = (payBreak[m] || 0) + Number(r.amount || 0);
+    });
+    // Outstanding (partial + pending)
+    const outstanding = dayQueue.filter(r => r.paymentStatus === 'pending' || r.paymentStatus === 'partial');
+    const outstandingTotal = outstanding.reduce((s, r) => {
+      const fee = Number(r.serviceFee || 0);
+      const paid = Number(r.paidAmount || 0);
+      return s + (fee - paid);
+    }, 0);
+    // Refunds
+    const refundTotal = dayQueue.filter(r => r.totalRefunded > 0).reduce((s, r) => s + Number(r.totalRefunded || 0), 0);
+    return { billedFromQueue, revenueTotal, discrepancy, payBreak, outstanding, outstandingTotal, refundTotal };
+  }, [queue, data.revenue, filterDate]);
+
   // Update dispensing status
   const updateDispensing = useCallback(async (item, newStatus) => {
     const updated = { ...item, dispensingStatus: newStatus };
@@ -509,6 +537,44 @@ export default function BillingPage({ data, setData, showToast, allData, user })
         </select>
         <button className="btn btn-outline" onClick={handleExport}>匯出Excel</button>
         <button className="btn btn-gold" onClick={() => printDailyClose()}>日結報告</button>
+      </div>
+
+      {/* Revenue Reconciliation (#83) */}
+      <div className="grid-2" style={{ marginBottom: 0 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>收入核對 ({filterDate})</div>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>帳單收費</div><div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)' }}>{fmtM(reconciliation.billedFromQueue)}</div></div>
+            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>營業紀錄</div><div style={{ fontSize: 18, fontWeight: 800, color: 'var(--green-600)' }}>{fmtM(reconciliation.revenueTotal)}</div></div>
+            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>差異</div><div style={{ fontSize: 18, fontWeight: 800, color: Math.abs(reconciliation.discrepancy) > 1 ? '#dc2626' : 'var(--green-600)' }}>{reconciliation.discrepancy > 0 ? '+' : ''}{fmtM(reconciliation.discrepancy)}</div></div>
+            {reconciliation.refundTotal > 0 && <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>退款</div><div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>-{fmtM(reconciliation.refundTotal)}</div></div>}
+          </div>
+          {Math.abs(reconciliation.discrepancy) > 1 && (
+            <div style={{ marginTop: 8, padding: 6, background: '#fef2f2', borderRadius: 6, fontSize: 11, color: '#dc2626' }}>
+              帳單收費與營業紀錄不一致，請核實
+            </div>
+          )}
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>付款方式明細</div>
+          {Object.keys(reconciliation.payBreak).length > 0 ? (
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {Object.entries(reconciliation.payBreak).sort((a, b) => b[1] - a[1]).map(([m, amt]) => (
+                <div key={m} style={{ textAlign: 'center', padding: '4px 8px', background: 'var(--gray-50)', borderRadius: 6 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal-700)' }}>{fmtM(amt)}</div>
+                  <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{m}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: '#aaa', fontSize: 12 }}>今日暫無收入紀錄</div>
+          )}
+          {reconciliation.outstandingTotal > 0 && (
+            <div style={{ marginTop: 8, padding: 6, background: '#fffbeb', borderRadius: 6, fontSize: 11, color: '#d97706' }}>
+              未收費餘額：{fmtM(reconciliation.outstandingTotal)}（{reconciliation.outstanding.length} 筆）
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Billing Table */}

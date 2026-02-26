@@ -125,6 +125,60 @@ export default function DoctorSchedule({ data, showToast, user }) {
           {DOCTORS.map(d => <option key={d}>{d}</option>)}
         </select>
         {isAdmin && !editing && <button className="btn btn-teal" onClick={() => setEditing(true)}>編輯排班</button>}
+        {!editing && (
+          <>
+            <button className="btn btn-outline btn-sm" onClick={() => {
+              const headers = ['醫師', ...DAYS.map(d => d.label)];
+              const rows = [];
+              DOCTORS.forEach(doc => {
+                SLOTS.forEach(slot => {
+                  const row = [`${doc} (${slot})`];
+                  DAYS.forEach(d => row.push(getSlot(doc, d.id, slot) || '休息'));
+                  rows.push(row);
+                });
+              });
+              const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = `doctor_schedule.csv`;
+              a.click();
+              showToast('已匯出排班表');
+            }}>匯出CSV</button>
+            <button className="btn btn-gold btn-sm" onClick={() => {
+              const w = window.open('', '_blank');
+              if (!w) return;
+              const docRows = DOCTORS.map(doc => {
+                return `<tr><td style="font-weight:700" rowspan="${SLOTS.length}">${doc}</td>` +
+                  SLOTS.map((slot, si) => {
+                    const cells = DAYS.map(d => {
+                      const val = getSlot(doc, d.id, slot) || '休息';
+                      const bg = val === '宋皇臺' ? '#f0fdfa' : val === '太子' ? '#FFF8E1' : '#f9fafb';
+                      const color = val === '宋皇臺' ? '#0e7490' : val === '太子' ? '#92400e' : '#9ca3af';
+                      return `<td style="background:${bg};color:${color};text-align:center;font-weight:600">${val}</td>`;
+                    }).join('');
+                    return si === 0 ? `<td>${slot}</td>${cells}</tr>` : `<tr><td>${slot}</td>${cells}</tr>`;
+                  }).join('');
+              }).join('');
+              w.document.write(`<!DOCTYPE html><html><head><title>醫師排班表</title>
+                <style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:900px;margin:0 auto;font-size:12px}
+                h1{font-size:18px;text-align:center}
+                .sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}
+                table{width:100%;border-collapse:collapse}
+                th,td{padding:6px 8px;border:1px solid #ddd}
+                th{background:#f0f0f0;font-weight:700}
+                @media print{body{margin:0;padding:10mm}}
+                </style></head><body>
+                <h1>康晴綜合醫療中心 — 醫師排班表</h1>
+                <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
+                <table><thead><tr><th>醫師</th><th>時段</th>${DAYS.map(d => `<th>${d.label}</th>`).join('')}</tr></thead>
+                <tbody>${docRows}</tbody></table>
+              </body></html>`);
+              w.document.close();
+              setTimeout(() => w.print(), 300);
+            }}>列印排班表</button>
+          </>
+        )}
         {isAdmin && !editing && (
           <button className="btn btn-outline" onClick={async () => {
             setAiLoading(true); setAiTip(null);

@@ -139,43 +139,60 @@ function useNotifications(data) {
 
     // Pending online bookings
     const pendingBookings = (data.bookings || []).filter(b => b.status === 'pending');
-    if (pendingBookings.length) notes.push({ icon: '🔔', title: `${pendingBookings.length} 個新預約待確認`, time: '待處理' });
+    if (pendingBookings.length) notes.push({ icon: '🔔', title: `${pendingBookings.length} 個新預約待確認`, time: '待處理', category: '預約', priority: 'high' });
 
     // New inquiries
     const newInquiries = (data.inquiries || []).filter(i => i.status === 'new');
-    if (newInquiries.length) notes.push({ icon: '💬', title: `${newInquiries.length} 個新客人查詢待回覆`, time: '待處理' });
+    if (newInquiries.length) notes.push({ icon: '💬', title: `${newInquiries.length} 個新客人查詢待回覆`, time: '待處理', category: '查詢', priority: 'high' });
 
     (data.arap || []).filter(a => a.type === 'receivable' && a.status === 'pending' && a.dueDate < today)
-      .forEach(a => notes.push({ icon: '🔴', title: `逾期應收：${a.party} ${fmtM(a.amount)}`, time: a.dueDate }));
+      .forEach(a => notes.push({ icon: '🔴', title: `逾期應收：${a.party} ${fmtM(a.amount)}`, time: a.dueDate, category: '財務', priority: 'high' }));
 
     const tmrBookings = (data.bookings || []).filter(b => b.date === tomorrow && b.status === 'confirmed');
-    if (tmrBookings.length) notes.push({ icon: '📅', title: `明日有 ${tmrBookings.length} 個預約`, time: '明天' });
+    if (tmrBookings.length) notes.push({ icon: '📅', title: `明日有 ${tmrBookings.length} 個預約`, time: '明天', category: '預約', priority: 'medium' });
 
     const thisRev = (data.revenue || []).filter(r => getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
     const lastRev = (data.revenue || []).filter(r => getMonth(r.date) === lastMonth).reduce((s, r) => s + Number(r.amount), 0);
-    if (lastRev > 0 && thisRev < lastRev) notes.push({ icon: '⚠️', title: `本月營業額 (${fmtM(thisRev)}) 低於上月 (${fmtM(lastRev)})`, time: thisMonth });
+    if (lastRev > 0 && thisRev < lastRev) notes.push({ icon: '⚠️', title: `本月營業額 (${fmtM(thisRev)}) 低於上月 (${fmtM(lastRev)})`, time: thisMonth, category: '財務', priority: 'medium' });
 
-    if (dayOfMonth >= 20 && dayOfMonth <= 25) notes.push({ icon: '💼', title: 'MPF 供款提醒：請於25日前完成供款', time: today });
+    if (dayOfMonth >= 20 && dayOfMonth <= 25) notes.push({ icon: '💼', title: 'MPF 供款提醒：請於25日前完成供款', time: today, category: '行政', priority: 'medium' });
 
     // Follow-up reminders
     const overdueFollowUps = (data.consultations || []).filter(c => c.followUpDate && c.followUpDate < today);
-    if (overdueFollowUps.length) notes.push({ icon: '📋', title: `${overdueFollowUps.length} 位病人覆診已逾期`, time: '覆診' });
+    if (overdueFollowUps.length) notes.push({ icon: '📋', title: `${overdueFollowUps.length} 位病人覆診已逾期`, time: '覆診', category: '醫療', priority: 'high' });
     const todayFollowUps = (data.consultations || []).filter(c => c.followUpDate === today);
-    if (todayFollowUps.length) notes.push({ icon: '🔔', title: `今日有 ${todayFollowUps.length} 位病人需要覆診`, time: '今日' });
+    if (todayFollowUps.length) notes.push({ icon: '🔔', title: `今日有 ${todayFollowUps.length} 位病人需要覆診`, time: '今日', category: '醫療', priority: 'high' });
 
     // Patient birthdays
     const todayMD = today.substring(5);
     const birthdayPatients = (data.patients || []).filter(p => p.dob && p.dob.substring(5) === todayMD);
-    if (birthdayPatients.length) notes.push({ icon: '🎂', title: `${birthdayPatients.map(p => p.name).join('、')} 今日生日`, time: '生日' });
+    if (birthdayPatients.length) notes.push({ icon: '🎂', title: `${birthdayPatients.map(p => p.name).join('、')} 今日生日`, time: '生日', category: 'CRM', priority: 'low' });
 
     // Low-stock inventory alerts
     const lowStockItems = (data.inventory || []).filter(i => Number(i.stock) < Number(i.minStock));
     if (lowStockItems.length) {
-      notes.push({ icon: '💊', title: `藥物庫存不足：${lowStockItems.length} 項低於安全庫存`, time: '庫存' });
+      notes.push({ icon: '💊', title: `藥物庫存不足：${lowStockItems.length} 項低於安全庫存`, time: '庫存', category: '庫存', priority: 'high' });
       lowStockItems.slice(0, 3).forEach(i => {
-        notes.push({ icon: '⚠️', title: `${i.name} — 現有 ${i.stock}${i.unit}（最低 ${i.minStock}${i.unit}）`, time: '低庫存' });
+        notes.push({ icon: '⚠️', title: `${i.name} — 現有 ${i.stock}${i.unit}（最低 ${i.minStock}${i.unit}）`, time: '低庫存', category: '庫存', priority: 'medium' });
       });
     }
+
+    // Low stock products
+    const lowStockProducts = (data.products || []).filter(p => p.active !== false && Number(p.stock) < Number(p.minStock));
+    if (lowStockProducts.length) notes.push({ icon: '📦', title: `${lowStockProducts.length} 個商品低庫存`, time: '庫存', category: '庫存', priority: 'medium' });
+
+    // Pending leaves
+    const pendingLeaves = (data.leaves || []).filter(l => l.status === 'pending');
+    if (pendingLeaves.length) notes.push({ icon: '✈️', title: `${pendingLeaves.length} 個請假申請待審批`, time: '待處理', category: '行政', priority: 'medium' });
+
+    // Queue alerts
+    const todayQueue = (data.queue || []).filter(q => q.date === today);
+    const waitingCount = todayQueue.filter(q => q.status === 'waiting').length;
+    if (waitingCount >= 5) notes.push({ icon: '🏥', title: `目前有 ${waitingCount} 位病人等候中`, time: '候診', category: '營運', priority: 'medium' });
+
+    // Sort by priority (high first)
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    notes.sort((a, b) => (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1));
 
     return notes;
   }, [data]);
@@ -563,13 +580,39 @@ function MainApp() {
                 🔔{unreadCount > 0 && <span className="notif-badge" aria-hidden="true">{unreadCount}</span>}
               </button>
               {showNotif && (
-                <div className="dropdown-menu notif-panel" style={{ right: 0, width: 320 }}>
+                <div className="dropdown-menu notif-panel" style={{ right: 0, width: 360, maxHeight: 480, overflowY: 'auto' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid var(--gray-100)' }}>
-                    <strong style={{ fontSize: 13 }}>通知</strong>
-                    <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={markAllRead}>全部已讀</button>
+                    <strong style={{ fontSize: 13 }}>通知 ({notifications.length})</strong>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={markAllRead}>全部已讀</button>
+                    </div>
                   </div>
+                  {notifications.length > 0 && (
+                    <div style={{ padding: '4px 12px', display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--gray-100)' }}>
+                      {(() => {
+                        const cats = [...new Set(notifications.map(n => n.category).filter(Boolean))];
+                        return cats.map(c => {
+                          const count = notifications.filter(n => n.category === c).length;
+                          return <span key={c} style={{ fontSize: 10, padding: '2px 6px', background: 'var(--gray-100)', borderRadius: 10, color: 'var(--gray-600)' }}>{c} {count}</span>;
+                        });
+                      })()}
+                    </div>
+                  )}
                   {notifications.map((n, i) => (
-                    <div key={i} className="dropdown-item" style={{ opacity: readNotifs.includes(i) ? 0.5 : 1, fontSize: 12 }}>{n.icon} {n.title}</div>
+                    <div key={i} className="dropdown-item" style={{
+                      opacity: readNotifs.includes(i) ? 0.5 : 1, fontSize: 12,
+                      borderLeft: n.priority === 'high' ? '3px solid #dc2626' : n.priority === 'medium' ? '3px solid #d97706' : '3px solid var(--gray-200)',
+                      display: 'flex', alignItems: 'center', gap: 8,
+                    }}>
+                      <span>{n.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div>{n.title}</div>
+                        <div style={{ fontSize: 10, color: 'var(--gray-400)', display: 'flex', gap: 6, marginTop: 2 }}>
+                          {n.category && <span>{n.category}</span>}
+                          <span>{n.time}</span>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                   {notifications.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'var(--gray-400)', fontSize: 12 }}>暫無通知</div>}
                 </div>
@@ -612,7 +655,7 @@ function MainApp() {
           {page === 'doc' && <DoctorAnalytics data={filteredData} user={user} />}
           {page === 'report' && <Reports data={filteredData} />}
           {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-          {page === 'compare' && <StoreComparePage data={filteredData} allData={data} />}
+          {page === 'compare' && <StoreComparePage data={filteredData} allData={data} showToast={showToast} />}
           {page === 'survey' && <SurveyPage data={filteredData} showToast={showToast} user={user} />}
           {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
         </div>
