@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { getClinicName, getClinicNameEn, getTenantSettings } from '../tenant';
 
 const EFFECTIVE_DATE = '2026-02-27';
 
@@ -181,6 +182,9 @@ export default function TermsOfService({ onBack }) {
   const [lang, setLang] = useState('zh');
   const contentRef = useRef(null);
   const [hoveredItem, setHoveredItem] = useState(null);
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+  const contactEmail = getTenantSettings()?.contactEmail || 'info@clinic.com';
 
   const toc = lang === 'zh' ? sections_zh : sections_en;
 
@@ -243,11 +247,11 @@ export default function TermsOfService({ onBack }) {
             <>
               <h1 style={styles.title}>服務條款</h1>
               <p style={styles.subtitle}>
-                生效日期：{EFFECTIVE_DATE} &nbsp;|&nbsp; 康晴綜合醫療中心（Hong Ching Integrated Medical Centre）
+                生效日期：{EFFECTIVE_DATE} &nbsp;|&nbsp; {clinicName}（{clinicNameEn}）
               </p>
 
               <p style={styles.paragraph}>
-                歡迎使用康晴綜合醫療中心提供的診所管理軟件即服務平台（「本平台」或「服務」）。使用本服務即表示閣下同意受以下條款約束。如閣下不同意本條款，請勿使用本服務。
+                歡迎使用{clinicName}提供的診所管理軟件即服務平台（「本平台」或「服務」）。使用本服務即表示閣下同意受以下條款約束。如閣下不同意本條款，請勿使用本服務。
               </p>
 
               <hr style={styles.divider} />
@@ -395,15 +399,15 @@ export default function TermsOfService({ onBack }) {
                 如對本服務條款有任何疑問，請聯繫：
               </p>
               <ul style={styles.list}>
-                <li style={styles.listItem}><strong>機構名稱：</strong>康晴綜合醫療中心</li>
-                <li style={styles.listItem}><strong>英文名稱：</strong>Hong Ching Integrated Medical Centre</li>
-                <li style={styles.listItem}><strong>電郵：</strong>info@hongching.com</li>
+                <li style={styles.listItem}><strong>機構名稱：</strong>{clinicName}</li>
+                <li style={styles.listItem}><strong>英文名稱：</strong>{clinicNameEn}</li>
+                <li style={styles.listItem}><strong>電郵：</strong>{contactEmail}</li>
                 <li style={styles.listItem}><strong>地區：</strong>香港特別行政區</li>
               </ul>
 
               <hr style={styles.divider} />
               <p style={{ ...styles.paragraph, fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>
-                &copy; {new Date().getFullYear()} 康晴綜合醫療中心。保留所有權利。
+                &copy; {new Date().getFullYear()} {clinicName}。保留所有權利。
               </p>
             </>
           ) : (
@@ -411,11 +415,11 @@ export default function TermsOfService({ onBack }) {
             <>
               <h1 style={styles.title}>Terms of Service</h1>
               <p style={styles.subtitle}>
-                Effective Date: {EFFECTIVE_DATE} &nbsp;|&nbsp; Hong Ching Integrated Medical Centre (康晴綜合醫療中心)
+                Effective Date: {EFFECTIVE_DATE} &nbsp;|&nbsp; {clinicNameEn} ({clinicName})
               </p>
 
               <p style={styles.paragraph}>
-                Welcome to the clinic management software-as-a-service platform ("Platform" or "Service") provided by Hong Ching Integrated Medical Centre. By using this Service, you agree to be bound by the following terms. If you do not agree, please do not use the Service.
+                Welcome to the clinic management software-as-a-service platform ("Platform" or "Service") provided by {clinicNameEn}. By using this Service, you agree to be bound by the following terms. If you do not agree, please do not use the Service.
               </p>
 
               <hr style={styles.divider} />
@@ -563,15 +567,15 @@ export default function TermsOfService({ onBack }) {
                 For any questions about these Terms of Service, please contact:
               </p>
               <ul style={styles.list}>
-                <li style={styles.listItem}><strong>Organization:</strong> Hong Ching Integrated Medical Centre</li>
-                <li style={styles.listItem}><strong>Chinese Name:</strong> 康晴綜合醫療中心</li>
-                <li style={styles.listItem}><strong>Email:</strong> info@hongching.com</li>
+                <li style={styles.listItem}><strong>Organization:</strong> {clinicNameEn}</li>
+                <li style={styles.listItem}><strong>Chinese Name:</strong> {clinicName}</li>
+                <li style={styles.listItem}><strong>Email:</strong> {contactEmail}</li>
                 <li style={styles.listItem}><strong>Location:</strong> Hong Kong SAR</li>
               </ul>
 
               <hr style={styles.divider} />
               <p style={{ ...styles.paragraph, fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>
-                &copy; {new Date().getFullYear()} Hong Ching Integrated Medical Centre. All rights reserved.
+                &copy; {new Date().getFullYear()} {clinicNameEn}. All rights reserved.
               </p>
             </>
           )}

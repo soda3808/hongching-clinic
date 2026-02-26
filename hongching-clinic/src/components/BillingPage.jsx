@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { saveQueue, saveRevenue, saveInventory } from '../api';
 import { uid, fmtM } from '../data';
 import { getDoctors } from '../data';
-import { getTenantStoreNames, getClinicName, getTenantStores } from '../tenant';
+import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantStores, getTenantSettings } from '../tenant';
 import { exportCSV } from '../utils/export';
 
 const DISPENSING_LABELS = {
@@ -480,7 +480,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     </head><body>
       <div class="center">
         <div class="bold" style="font-size:14px">${getClinicName()}</div>
-        <div class="small">HONG CHING MEDICAL CENTRE</div>
+        <div class="small">${getClinicNameEn().toUpperCase()}</div>
         <div class="small">${storeAddr}</div>
       </div>
       <div class="double-divider"></div>
@@ -514,7 +514,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
         <div>此收據可用作醫療費用扣稅憑證</div>
         <div>This receipt is valid for tax deduction purposes</div>
         <div style="margin-top:6px">多謝惠顧 Thank You</div>
-        <div style="margin-top:4px">www.hongchingmedical.com</div>
+        <div style="margin-top:4px">${getTenantSettings()?.website || ''}</div>
       </div>
     </body></html>`);
     w.document.close();
@@ -756,7 +756,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
         <div className="print-only" style={{ padding: 24, maxWidth: 280, margin: '0 auto', fontFamily: "'Microsoft YaHei', monospace" }}>
           <div style={{ textAlign: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 800 }}>{getClinicName()}</div>
-            <div style={{ fontSize: 9, color: '#666' }}>HONG CHING MEDICAL CENTRE</div>
+            <div style={{ fontSize: 9, color: '#666' }}>{getClinicNameEn().toUpperCase()}</div>
           </div>
           <div style={{ borderTop: '2px solid #000', margin: '6px 0' }} />
           <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 12 }}>正式收據 RECEIPT</div>

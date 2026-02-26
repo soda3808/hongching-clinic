@@ -76,6 +76,6 @@ export default async function handler(req, res) {
       });
     }
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: '伺服器錯誤，請稍後再試' });
   }
 }

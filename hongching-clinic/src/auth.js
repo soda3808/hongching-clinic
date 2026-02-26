@@ -70,14 +70,10 @@ export async function login(username, password) {
     const user = users.find(u => u.username === username && u.active);
     if (!user) return null;
     const hash = user.passwordHash || user.password;
-    // If it looks like a bcrypt hash, use bcrypt compare
-    if (hash && hash.startsWith('$2')) {
-      const valid = bcrypt.compareSync(password, hash);
-      if (!valid) return null;
-    } else if (hash !== password) {
-      // Legacy plaintext fallback for migrating users
-      return null;
-    }
+    // Only accept bcrypt hashes — no plaintext fallback
+    if (!hash || !hash.startsWith('$2')) return null;
+    const valid = bcrypt.compareSync(password, hash);
+    if (!valid) return null;
     const session = { userId: user.id, username: user.username, name: user.name, role: user.role, stores: user.stores };
     sessionStorage.setItem(AUTH_KEY, JSON.stringify(session));
     return session;

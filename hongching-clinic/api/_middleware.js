@@ -5,14 +5,17 @@ import jwt from 'jsonwebtoken';
 
 // ── CORS ──
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
-const DEFAULT_ORIGINS = ['https://hongching-clinic.vercel.app', 'http://localhost:5173', 'http://localhost:4173'];
+// Use APP_URL env var for production origin; fallback to localhost for development
+const DEFAULT_ORIGINS = [process.env.APP_URL, 'http://localhost:5173', 'http://localhost:4173'].filter(Boolean);
 
 export function setCORS(req, res) {
   const origin = req.headers?.origin || '';
   const allowed = [...DEFAULT_ORIGINS, ...ALLOWED_ORIGINS];
-  // Allow if origin matches whitelist, or fallback for non-browser requests
-  if (!origin || allowed.some(a => origin === a || origin.endsWith('.vercel.app'))) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  // Allow if origin matches whitelist or is our own Vercel preview deploy
+  const APP_NAME = process.env.VERCEL_PROJECT_NAME || '';
+  const isOwnVercel = origin.endsWith('.vercel.app') && origin.includes(APP_NAME);
+  if (!origin || allowed.some(a => origin === a) || isOwnVercel) {
+    res.setHeader('Access-Control-Allow-Origin', origin || allowed[0] || '');
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');

@@ -123,15 +123,13 @@ export default async function handler(req, res) {
       }
     }
 
+    // SECURITY: Never return the token in the response — only deliver via email
     return res.status(200).json({
       success: true,
-      token,
       emailSent,
       message: emailSent
-        ? '重設令牌已產生並已發送至電郵，有效期1小時'
-        : '重設令牌已產生，有效期1小時',
-      username: user.username,
-      displayName: user.display_name,
+        ? '重設連結已發送至你的電郵，有效期1小時'
+        : '如用戶存在，重設指示已處理。請聯絡管理員取得重設令牌。',
     });
   } catch (err) {
     return errorResponse(res, 500, '伺服器錯誤，請稍後再試');

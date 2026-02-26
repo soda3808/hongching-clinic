@@ -4,13 +4,15 @@
 
 import { createClient } from '@supabase/supabase-js';
 import jwt from 'jsonwebtoken';
+import { setCORS } from '../_middleware.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY
 );
 
-const JWT_SECRET = process.env.JWT_SECRET || 'hcmc-jwt-secret-2024';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) console.error('FATAL: JWT_SECRET not configured');
 
 function verifyAuth(req) {
   const auth = req.headers?.authorization;
@@ -23,12 +25,8 @@ function verifyAuth(req) {
 }
 
 export default async function handler(req, res) {
-  // CORS
-  const origin = req.headers?.origin || '';
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
+  // CORS — use shared middleware
+  setCORS(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 

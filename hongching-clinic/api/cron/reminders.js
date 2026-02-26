@@ -48,6 +48,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: 'WhatsApp not configured', bookings: bookings.length });
     }
 
+    // Fetch tenant name for personalized messages
+    let tenantName = '醫療中心';
+    if (bookings[0]?.tenant_id) {
+      try {
+        const { data: tenantRow } = await supabase
+          .from('tenants')
+          .select('name')
+          .eq('id', bookings[0].tenant_id)
+          .single();
+        if (tenantRow?.name) tenantName = tenantRow.name;
+      } catch { /* use default */ }
+    }
+
     const results = [];
     for (const b of bookings) {
       if (!b.patientPhone) continue;
@@ -59,7 +72,7 @@ export default async function handler(req, res) {
       if (phone.length === 8) phone = '852' + phone;
       if (!phone.startsWith('+')) phone = '+' + phone;
 
-      const message = `【康晴醫療中心】${b.patientName}你好！提醒你明天 ${b.time} 有預約（${b.doctor}，${b.store}）。請準時到達，謝謝！如需更改請致電診所。`;
+      const message = `【${tenantName}】${b.patientName}你好！提醒你明天 ${b.time} 有預約（${b.doctor}，${b.store}）。請準時到達，謝謝！如需更改請致電診所。`;
 
       try {
         const waRes = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
@@ -79,7 +92,7 @@ export default async function handler(req, res) {
         const waData = await waRes.json();
         results.push({ id: b.id, patient: b.patientName, status: waRes.ok ? 'sent' : 'failed' });
       } catch (err) {
-        results.push({ id: b.id, patient: b.patientName, status: 'error', error: err.message });
+        results.push({ id: b.id, patient: b.patientName, status: 'error' });
       }
     }
 
@@ -88,6 +101,6 @@ export default async function handler(req, res) {
       results,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: '伺服器錯誤' });
   }
 }

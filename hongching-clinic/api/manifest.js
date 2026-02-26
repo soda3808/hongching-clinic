@@ -23,8 +23,8 @@ export default async function handler(req, res) {
 
   // Default manifest (no tenant or lookup fails)
   const defaultManifest = {
-    name: '康晴綜合醫療中心管理系統',
-    short_name: '康晴醫療',
+    name: '診所管理系統',
+    short_name: '診所管理',
     description: 'Clinic Management System',
     start_url: '/',
     display: 'standalone',

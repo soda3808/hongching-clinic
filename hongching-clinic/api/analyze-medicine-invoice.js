@@ -111,6 +111,6 @@ export default async function handler(req, res) {
 
     return errorResponse(res, 200, 'Could not parse AI response');
   } catch (err) {
-    return errorResponse(res, 500, err.message);
+    return errorResponse(res, 500, '伺服器錯誤，請稍後再試');
   }
 }

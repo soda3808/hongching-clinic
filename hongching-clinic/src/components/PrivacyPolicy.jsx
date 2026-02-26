@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { getClinicName, getClinicNameEn, getTenantSettings } from '../tenant';
 
 const EFFECTIVE_DATE = '2026-02-27';
 
@@ -218,6 +219,9 @@ export default function PrivacyPolicy({ onBack }) {
   const [lang, setLang] = useState('zh');
   const contentRef = useRef(null);
   const [hoveredItem, setHoveredItem] = useState(null);
+  const clinicName = getClinicName();
+  const clinicNameEn = getClinicNameEn();
+  const privacyEmail = getTenantSettings()?.privacyEmail || getTenantSettings()?.contactEmail || 'privacy@clinic.com';
 
   const toc = lang === 'zh' ? sections_zh : sections_en;
 
@@ -280,7 +284,7 @@ export default function PrivacyPolicy({ onBack }) {
             <>
               <h1 style={styles.title}>私隱政策</h1>
               <p style={styles.subtitle}>
-                生效日期：{EFFECTIVE_DATE} &nbsp;|&nbsp; 康晴綜合醫療中心（Hong Ching Integrated Medical Centre）
+                生效日期：{EFFECTIVE_DATE} &nbsp;|&nbsp; {clinicName}（{clinicNameEn}）
               </p>
 
               <div style={styles.callout}>
@@ -558,9 +562,9 @@ export default function PrivacyPolicy({ onBack }) {
                 如閣下對本私隱政策有任何疑問、意見或投訴，或希望行使閣下的資料主體權利，請聯繫：
               </p>
               <ul style={styles.list}>
-                <li style={styles.listItem}><strong>機構名稱：</strong>康晴綜合醫療中心</li>
+                <li style={styles.listItem}><strong>機構名稱：</strong>{clinicName}</li>
                 <li style={styles.listItem}><strong>私隱專員：</strong>資料保護主任</li>
-                <li style={styles.listItem}><strong>電郵：</strong>privacy@hongching.com</li>
+                <li style={styles.listItem}><strong>電郵：</strong>{privacyEmail}</li>
                 <li style={styles.listItem}><strong>地區：</strong>香港特別行政區</li>
               </ul>
 
@@ -577,7 +581,7 @@ export default function PrivacyPolicy({ onBack }) {
 
               <hr style={styles.divider} />
               <p style={{ ...styles.paragraph, fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>
-                &copy; {new Date().getFullYear()} 康晴綜合醫療中心。保留所有權利。
+                &copy; {new Date().getFullYear()} {clinicName}。保留所有權利。
               </p>
             </>
           ) : (
@@ -585,7 +589,7 @@ export default function PrivacyPolicy({ onBack }) {
             <>
               <h1 style={styles.title}>Privacy Policy</h1>
               <p style={styles.subtitle}>
-                Effective Date: {EFFECTIVE_DATE} &nbsp;|&nbsp; Hong Ching Integrated Medical Centre (康晴綜合醫療中心)
+                Effective Date: {EFFECTIVE_DATE} &nbsp;|&nbsp; {clinicNameEn} ({clinicName})
               </p>
 
               <div style={styles.callout}>
@@ -863,9 +867,9 @@ export default function PrivacyPolicy({ onBack }) {
                 If you have any questions, comments, or complaints about this Privacy Policy, or wish to exercise your data subject rights, please contact:
               </p>
               <ul style={styles.list}>
-                <li style={styles.listItem}><strong>Organization:</strong> Hong Ching Integrated Medical Centre</li>
+                <li style={styles.listItem}><strong>Organization:</strong> {clinicNameEn}</li>
                 <li style={styles.listItem}><strong>Privacy Officer:</strong> Data Protection Officer</li>
-                <li style={styles.listItem}><strong>Email:</strong> privacy@hongching.com</li>
+                <li style={styles.listItem}><strong>Email:</strong> {privacyEmail}</li>
                 <li style={styles.listItem}><strong>Location:</strong> Hong Kong SAR</li>
               </ul>
 
@@ -882,7 +886,7 @@ export default function PrivacyPolicy({ onBack }) {
 
               <hr style={styles.divider} />
               <p style={{ ...styles.paragraph, fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>
-                &copy; {new Date().getFullYear()} Hong Ching Integrated Medical Centre. All rights reserved.
+                &copy; {new Date().getFullYear()} {clinicNameEn}. All rights reserved.
               </p>
             </>
           )}

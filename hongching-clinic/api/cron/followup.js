@@ -57,7 +57,15 @@ export default async function handler(req, res) {
       if (phone.length === 8) phone = '852' + phone;
       if (!phone.startsWith('+')) phone = '+' + phone;
 
-      const message = `【康晴醫療中心】${c.patientName}你好！你於 ${c.date} 嘅診症已過三天，想關心下你嘅情況。如有任何不適或需要覆診，歡迎隨時預約。祝早日康復！`;
+      // Use tenant name from consultation record or fetch from DB
+      let followupTenantName = '醫療中心';
+      if (!followupTenantName || followupTenantName === '醫療中心') {
+        try {
+          const { data: tRow } = await supabase.from('tenants').select('name').limit(1).single();
+          if (tRow?.name) followupTenantName = tRow.name;
+        } catch { /* use default */ }
+      }
+      const message = `【${followupTenantName}】${c.patientName}你好！你於 ${c.date} 嘅診症已過三天，想關心下你嘅情況。如有任何不適或需要覆診，歡迎隨時預約。祝早日康復！`;
 
       try {
         const waRes = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
@@ -76,7 +84,7 @@ export default async function handler(req, res) {
         });
         results.push({ id: c.id, patient: c.patientName, status: waRes.ok ? 'sent' : 'failed' });
       } catch (err) {
-        results.push({ id: c.id, patient: c.patientName, status: 'error', error: err.message });
+        results.push({ id: c.id, patient: c.patientName, status: 'error' });
       }
     }
 
@@ -85,6 +93,6 @@ export default async function handler(req, res) {
       results,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: '伺服器錯誤' });
   }
 }

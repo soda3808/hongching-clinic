@@ -4,6 +4,9 @@
 
 // Bcrypt hashes — original passwords removed for security
 // To update, use: node -e "require('bcryptjs').hash('newpass',10).then(h=>console.log(h))"
+// NOTE: These are legacy fallback credentials for backward compatibility when no tenant DB is configured.
+// In a multi-tenant deployment, users are managed per-tenant in the database.
+// The hardcoded store names (宋皇臺, 太子) below are fallback defaults only.
 export const DEFAULT_USERS = [
   { id: 'admin1', username: 'steven', passwordHash: '$2b$10$zQcoKwrA6nVPj5i.oQ2uk.scfm79UaLOsRYC37fS6cESMAECb1b0m', name: '林先生', role: 'admin', stores: ['all'], email: '', active: true },
   { id: 'mgr1', username: 'kaishing', passwordHash: '$2b$10$euZLNph3B44vWZCDj/SpbekAceKqyDrV0JcjSi053KZgSFgTiFjve', name: '常凱晴', role: 'manager', stores: ['宋皇臺', '太子'], email: '', active: true },
@@ -12,6 +15,7 @@ export const DEFAULT_USERS = [
   { id: 'staff1', username: 'yp', passwordHash: '$2b$10$euZLNph3B44vWZCDj/SpbekAceKqyDrV0JcjSi053KZgSFgTiFjve', name: '譚玉冰', role: 'staff', stores: ['宋皇臺'], email: '', active: true },
 ];
 
+// NOTE: Legacy fallback stores. In multi-tenant mode, stores come from the tenant config in the database.
 export const DEFAULT_STORES = [
   { id: 'tkw', name: '宋皇臺', address: '馬頭涌道97號美誠大廈地下', phone: '', active: true },
   { id: 'pe', name: '太子', address: '長沙灣道28號長康大廈地下', phone: '', active: true },

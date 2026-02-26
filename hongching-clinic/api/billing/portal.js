@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       return errorResponse(res, 400, '此租戶尚未設定 Stripe 帳戶。請先訂閱方案。');
     }
 
-    const appUrl = process.env.APP_URL || 'https://hongching-clinic.vercel.app';
+    const appUrl = process.env.APP_URL || 'https://app.example.com';
 
     // Create billing portal session
     const session = await stripeRequest('/billing_portal/sessions', {
@@ -84,6 +84,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('Stripe portal error:', err);
-    return errorResponse(res, 500, `開啟帳單管理失敗: ${err.message}`);
+    return errorResponse(res, 500, '開啟帳單管理失敗，請稍後再試');
   }
 }

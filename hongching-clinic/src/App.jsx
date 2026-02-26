@@ -127,11 +127,10 @@ function LoginPage({ onLogin, onShowLegal }) {
     setResetMsg('');
     try {
       const data = await requestPasswordReset(resetUsername.trim());
-      if (data.success && data.token) {
-        setResetToken(data.token);
-        setResetMsg(`重設令牌已產生 (${data.displayName || data.username})。請將以下令牌提供給用戶：`);
-      } else if (data.success) {
-        setResetMsg('如用戶存在，重設令牌已產生。');
+      if (data.success) {
+        setResetMsg(data.emailSent
+          ? '重設連結已發送至用戶電郵。'
+          : '如用戶存在，重設指示已處理。請聯絡用戶查看電郵。');
       } else {
         setResetError(data.error || '請求失敗');
       }
@@ -145,7 +144,8 @@ function LoginPage({ onLogin, onShowLegal }) {
     e.preventDefault();
     if (!resetTokenInput.trim()) { setResetError('請輸入重設令牌'); return; }
     if (!newPassword) { setResetError('請輸入新密碼'); return; }
-    if (newPassword.length < 6) { setResetError('密碼最少需要6個字元'); return; }
+    if (newPassword.length < 8) { setResetError('密碼最少需要8個字元（需包含大小寫字母及數字）'); return; }
+    if (!/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) { setResetError('密碼需包含大小寫字母及數字'); return; }
     if (newPassword !== confirmPassword) { setResetError('兩次密碼不一致'); return; }
     setResetLoading(true);
     setResetError('');
@@ -772,7 +772,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v6.3.0 • {new Date().getFullYear()}</span>
+          <span>v6.4.0 • {new Date().getFullYear()}</span>
         </div>
       </div>
 

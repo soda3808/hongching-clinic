@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 export default async function handler(req, res) {
   // Verify cron secret
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers.authorization !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

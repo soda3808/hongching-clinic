@@ -15,7 +15,7 @@ const RESEND_API_URL = 'https://api.resend.com/emails';
  */
 export async function sendEmail({ to, subject, html, text }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || 'noreply@hongching.com';
+  const from = process.env.RESEND_FROM || 'noreply@clinic.app';
 
   if (!apiKey) {
     console.warn('[Email] RESEND_API_KEY not configured — skipping email');
@@ -58,7 +58,9 @@ export async function sendEmail({ to, subject, html, text }) {
 
 // ── Shared HTML Layout ──
 
-function emailLayout({ title, body }) {
+function emailLayout({ title, body, clinicName, clinicNameEn }) {
+  const name = clinicName || '診所管理系統';
+  const nameEn = clinicNameEn || 'Clinic Management System';
   return `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -75,10 +77,10 @@ function emailLayout({ title, body }) {
           <tr>
             <td style="background-color:#1a6b4a;padding:24px 32px;text-align:center;">
               <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:600;letter-spacing:0.5px;">
-                康晴綜合醫療中心
+                ${name}
               </h1>
               <p style="margin:4px 0 0;color:#c8e6d8;font-size:12px;">
-                Hong Ching Integrated Medical Centre
+                ${nameEn}
               </p>
             </td>
           </tr>
@@ -96,7 +98,7 @@ function emailLayout({ title, body }) {
                 This is an automated email. Please do not reply directly.
               </p>
               <p style="margin:8px 0 0;color:#9ca3af;font-size:11px;">
-                &copy; 康晴綜合醫療中心 Hong Ching Integrated Medical Centre
+                &copy; ${name} ${nameEn}
               </p>
             </td>
           </tr>
@@ -156,12 +158,14 @@ export function passwordResetEmail({ name, token, expiresIn = '1 小時 / 1 hour
  * @param {string} [params.loginUrl] - Login URL
  * @returns {{ subject: string, html: string }}
  */
-export function welcomeEmail({ tenantName, adminName, loginUrl = 'https://hongching-clinic.vercel.app' }) {
+export function welcomeEmail({ tenantName, adminName, loginUrl }) {
+  const appUrl = loginUrl || process.env.APP_URL || 'https://app.example.com';
   const subject = `歡迎加入 ${tenantName} | Welcome to ${tenantName}`;
   const html = emailLayout({
     title: subject,
+    clinicName: tenantName,
     body: `
-      <h2 style="margin:0 0 16px;color:#111827;font-size:18px;">歡迎使用康晴診所管理系統</h2>
+      <h2 style="margin:0 0 16px;color:#111827;font-size:18px;">歡迎使用診所管理系統</h2>
       <p style="color:#374151;font-size:14px;line-height:1.7;margin:0 0 20px;">
         ${adminName} 你好，<br /><br />
         恭喜！你的診所 <strong>${tenantName}</strong> 已成功開通。<br />
@@ -181,7 +185,7 @@ export function welcomeEmail({ tenantName, adminName, loginUrl = 'https://hongch
         </tr>
       </table>
       <div style="text-align:center;margin:0 0 20px;">
-        <a href="${loginUrl}" style="display:inline-block;background-color:#1a6b4a;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:14px;font-weight:600;">
+        <a href="${appUrl}" style="display:inline-block;background-color:#1a6b4a;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:6px;font-size:14px;font-weight:600;">
           登入系統 Log In
         </a>
       </div>
@@ -206,7 +210,7 @@ export function welcomeEmail({ tenantName, adminName, loginUrl = 'https://hongch
  * @param {string} [params.clinicName] - Clinic name override
  * @returns {{ subject: string, html: string }}
  */
-export function appointmentReminderEmail({ patientName, date, time, doctor, store, clinicName = '康晴綜合醫療中心' }) {
+export function appointmentReminderEmail({ patientName, date, time, doctor, store, clinicName = '診所' }) {
   const subject = `預約提醒 | Appointment Reminder - ${clinicName}`;
   const html = emailLayout({
     title: subject,

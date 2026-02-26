@@ -36,8 +36,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Build email from template
-    const clinicName = '康晴綜合醫療中心';
+    // Build email from template — use tenant name if available from auth context
+    const clinicName = auth?.user?.tenantName || '診所';
     const { subject, html } = appointmentReminderEmail({
       patientName,
       date,

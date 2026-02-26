@@ -1,6 +1,6 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
 import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, DOCTORS, linearRegression } from '../data';
-import { getClinicName, getTenantStoreNames } from '../tenant';
+import { getClinicName, getClinicNameEn, getTenantStoreNames } from '../tenant';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 // Lazy-loaded sub-reports for code splitting
@@ -109,7 +109,7 @@ export default function Reports({ data }) {
         <div style={{ borderBottom: '3px solid var(--teal-700)', paddingBottom: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)' }}>{getClinicName()}</div>
-            <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>HONG CHING INTERNATIONAL MEDICAL CENTRE</div>
+            <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>{getClinicNameEn().toUpperCase()}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 16, fontWeight: 800 }}>月結報表</div>
@@ -724,7 +724,7 @@ export default function Reports({ data }) {
       h3,h4{color:#0e7490}.footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
       @media print{body{padding:10px}}
     </style></head><body>
-      <div class="report-header"><h1>${getClinicName()}</h1><p>HONG CHING INTERNATIONAL MEDICAL CENTRE</p><p>${tabLabel?.icon || ''} ${tabLabel?.label || ''} | ${selectedStore === 'all' ? '全店合計' : selectedStore} | 生成：${new Date().toLocaleString('zh-HK')}</p></div>
+      <div class="report-header"><h1>${getClinicName()}</h1><p>${getClinicNameEn().toUpperCase()}</p><p>${tabLabel?.icon || ''} ${tabLabel?.label || ''} | ${selectedStore === 'all' ? '全店合計' : selectedStore} | 生成：${new Date().toLocaleString('zh-HK')}</p></div>
       ${el.innerHTML}
       <div class="footer">報表由系統自動生成 | 僅供內部參考</div>
     </body></html>`);

@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   const tenantId = auth.user.tenantId;
   if (!tenantId) return errorResponse(res, 400, '找不到租戶 ID');
 
-  const appUrl = process.env.APP_URL || 'https://hongching-clinic.vercel.app';
+  const appUrl = process.env.APP_URL || 'https://app.example.com';
 
   try {
     // Build checkout session params
@@ -90,6 +90,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('Stripe checkout error:', err);
-    return errorResponse(res, 500, `建立付款頁面失敗: ${err.message}`);
+    return errorResponse(res, 500, '建立付款頁面失敗，請稍後再試');
   }
 }

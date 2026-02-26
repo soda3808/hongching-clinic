@@ -28,7 +28,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: 'Missing message' });
   }
 
-  const systemPrompt = `你是康晴綜合醫療中心的數據分析AI助手。用戶會問你關於診所營運數據的問題，你需要根據提供的數據摘要來回答。
+  // Extract clinic name from context if available, or use generic
+  const clinicName = context._clinicName || '診所';
+
+  const systemPrompt = `你是${clinicName}的數據分析AI助手。用戶會問你關於診所營運數據的問題，你需要根據提供的數據摘要來回答。
 
 你的職責：
 1. 分析營業額、開支、病人、庫存、預約等數據
@@ -86,6 +89,6 @@ ${JSON.stringify(context, null, 2)}`;
     return res.status(200).json({ success: true, reply });
   } catch (err) {
     console.error('AI chat error:', err);
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: '伺服器錯誤，請稍後再試' });
   }
 }

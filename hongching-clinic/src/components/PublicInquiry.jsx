@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { uid } from '../data';
-import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
+import { getClinicName, getClinicNameEn, getTenantStores, getTenantSettings } from '../tenant';
 
 const INQUIRY_TYPES = ['一般查詢', '預約查詢', '收費查詢', '診症查詢', '其他'];
 
@@ -104,11 +104,19 @@ export default function PublicInquiry() {
           {stores.map(s => (
             <div key={s.name}>{s.name}店{s.address ? `：${s.address}` : ''}</div>
           ))}
-          <div style={{ marginTop: 4 }}>營業時間：星期一至六 10:00-20:00</div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 12 }}>
-            <a href="https://www.hongchingmedical.com" target="_blank" rel="noopener noreferrer" style={{ color: '#0e7490', textDecoration: 'none' }}>🌐 官網</a>
-            <a href="https://www.instagram.com/hongchingmed" target="_blank" rel="noopener noreferrer" style={{ color: '#0e7490', textDecoration: 'none' }}>📸 Instagram</a>
-          </div>
+          <div style={{ marginTop: 4 }}>營業時間：{getTenantSettings()?.businessHours || '請聯繫診所查詢'}</div>
+          {(() => {
+            const settings = getTenantSettings();
+            const website = settings?.website;
+            const instagram = settings?.instagram;
+            if (!website && !instagram) return null;
+            return (
+              <div style={{ marginTop: 8, display: 'flex', gap: 12 }}>
+                {website && <a href={website.startsWith('http') ? website : `https://${website}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0e7490', textDecoration: 'none' }}>🌐 官網</a>}
+                {instagram && <a href={instagram.startsWith('http') ? instagram : `https://www.instagram.com/${instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0e7490', textDecoration: 'none' }}>📸 Instagram</a>}
+              </div>
+            );
+          })()}
         </div>
 
         <p style={{ fontSize: 10, color: '#999', textAlign: 'center', marginTop: 16 }}>

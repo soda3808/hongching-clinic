@@ -143,6 +143,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('Onboarding error:', err);
-    return errorResponse(res, 500, `新增租戶失敗: ${err.message}`);
+    return errorResponse(res, 500, '新增租戶失敗，請稍後再試');
   }
 }

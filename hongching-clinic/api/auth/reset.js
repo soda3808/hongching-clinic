@@ -22,7 +22,10 @@ export default async function handler(req, res) {
 
   const { token, newPassword } = req.body || {};
   if (!token || !newPassword) return errorResponse(res, 400, '缺少令牌或新密碼');
-  if (newPassword.length < 6) return errorResponse(res, 400, '密碼最少需要6個字元');
+  if (newPassword.length < 8) return errorResponse(res, 400, '密碼最少需要8個字元');
+  if (!/[a-z]/.test(newPassword) || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+    return errorResponse(res, 400, '密碼需包含大小寫字母及數字');
+  }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;

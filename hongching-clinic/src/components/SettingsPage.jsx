@@ -459,31 +459,37 @@ export default function SettingsPage({ data, setData, showToast, user }) {
       {/* Promo Tools */}
       {tab === 'promo' && (
         <>
-          <div className="card">
-            <div className="card-header"><h3>📱 線上預約 QR Code</h3></div>
-            <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 16 }}>
-              病人掃描此 QR Code 即可打開線上預約頁面。
-            </p>
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://hongching-clinic.vercel.app/booking')}`}
-                alt="Booking QR Code"
-                style={{ width: 200, height: 200, borderRadius: 8, border: '2px solid var(--gray-200)' }}
-              />
-              <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
-                https://hongching-clinic.vercel.app/booking
+          {(() => {
+            const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+            const bookingUrl = `${appUrl}/booking`;
+            return (
+              <div className="card">
+                <div className="card-header"><h3>📱 線上預約 QR Code</h3></div>
+                <p style={{ fontSize: 13, color: 'var(--gray-500)', marginBottom: 16 }}>
+                  病人掃描此 QR Code 即可打開線上預約頁面。
+                </p>
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(bookingUrl)}`}
+                    alt="Booking QR Code"
+                    style={{ width: 200, height: 200, borderRadius: 8, border: '2px solid var(--gray-200)' }}
+                  />
+                  <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 8 }}>
+                    {bookingUrl}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  <a
+                    href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&format=png&data=${encodeURIComponent(bookingUrl)}`}
+                    download="booking-qr.png"
+                    className="btn btn-teal"
+                  >
+                    📥 下載 QR Code (PNG)
+                  </a>
+                </div>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              <a
-                href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&format=png&data=${encodeURIComponent('https://hongching-clinic.vercel.app/booking')}`}
-                download="hcmc-booking-qr.png"
-                className="btn btn-teal"
-              >
-                📥 下載 QR Code (PNG)
-              </a>
-            </div>
-          </div>
+            );
+          })()}
           <div className="card">
             <div className="card-header"><h3>🖨️ 宣傳單張預覽</h3></div>
             <div className="promo-flyer" id="promo-flyer">
@@ -505,14 +511,20 @@ export default function SettingsPage({ data, setData, showToast, user }) {
               <div style={{ fontSize: 12, marginBottom: 16 }}>
                 <div>🕐 營業時間：星期一至六 10:00 - 20:00</div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent('https://hongching-clinic.vercel.app/booking')}`}
-                  alt="QR"
-                  style={{ width: 120, height: 120 }}
-                />
-                <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 4 }}>掃碼即可線上預約</div>
-              </div>
+              {(() => {
+                const flyerAppUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+                const flyerBookingUrl = `${flyerAppUrl}/booking`;
+                return (
+                  <div style={{ textAlign: 'center' }}>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(flyerBookingUrl)}`}
+                      alt="QR"
+                      style={{ width: 120, height: 120 }}
+                    />
+                    <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 4 }}>掃碼即可線上預約</div>
+                  </div>
+                );
+              })()}
             </div>
             <button className="btn btn-outline" onClick={() => { const w = window.open('', '_blank'); if (!w) { showToast('請允許彈出視窗'); return; } w.document.write('<html><head><title>宣傳單張</title><style>body{font-family:sans-serif;padding:40px;max-width:500px;margin:0 auto}</style></head><body>' + document.getElementById('promo-flyer').innerHTML + '</body></html>'); w.document.close(); w.print(); }} style={{ marginTop: 12 }}>
               🖨️ 列印宣傳單張

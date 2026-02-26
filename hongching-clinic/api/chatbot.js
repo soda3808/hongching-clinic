@@ -4,13 +4,33 @@
 // Returns: { success, reply, action }
 // action can be: 'reply', 'book', 'pricing', 'hours', 'address'
 
-import { setCORS, handleOptions, rateLimit, getClientIP, errorResponse } from './_middleware.js';
+import { setCORS, handleOptions, rateLimit, getClientIP, errorResponse, requireAuth } from './_middleware.js';
+
+// Helper to fetch tenant info from Supabase by tenantId
+async function getTenantInfo(tenantId) {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key || !tenantId) return null;
+  try {
+    const res = await fetch(
+      `${url}/rest/v1/tenants?id=eq.${tenantId}&select=name,name_en,stores,doctors,services,settings&limit=1`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows?.[0] || null;
+  } catch { return null; }
+}
 
 export default async function handler(req, res) {
   setCORS(req, res);
   if (handleOptions(req, res)) return;
 
   if (req.method !== 'POST') return errorResponse(res, 405, 'Method not allowed');
+
+  // Require authenticated user
+  const auth = requireAuth(req);
+  if (!auth.authenticated) return errorResponse(res, 401, '未授權');
 
   // Rate limit: 20 chatbot requests per minute per IP
   const ip = getClientIP(req);
@@ -23,28 +43,45 @@ export default async function handler(req, res) {
   }
 
   const { message, context = {} } = req.body || {};
+  const tenantId = auth.user?.tenantId;
   if (!message) {
     return res.status(400).json({ success: false, error: 'Missing message' });
   }
 
-  const systemPrompt = `你是康晴綜合醫療中心的AI助理。你負責透過WhatsApp回覆患者的查詢。
+  // Fetch tenant info dynamically from DB
+  const tenant = await getTenantInfo(tenantId);
+  const clinicName = tenant?.name || '診所';
+  const clinicNameEn = tenant?.name_en || 'Medical Centre';
+  const stores = tenant?.stores || [];
+  const doctors = tenant?.doctors || [];
+  const services = tenant?.services || [];
+  const businessHours = tenant?.settings?.businessHours || '10:00-20:00';
+
+  // Build store info string
+  const storeInfo = stores.map(s => {
+    const name = typeof s === 'string' ? s : s.name;
+    const addr = typeof s === 'string' ? '' : (s.address || '');
+    return `- ${name}店：${addr}`;
+  }).join('\n') || '- 請聯繫診所查詢地址';
+
+  // Build doctor info string
+  const doctorInfo = doctors.length ? doctors.join('、') : '請聯繫診所查詢';
+
+  // Build pricing string from services
+  const pricingInfo = services.length
+    ? services.map(s => `- ${s.label}：$${s.fee}`).join('\n')
+    : '- 請聯繫診所查詢收費';
+
+  const systemPrompt = `你是${clinicName}的AI助理。你負責透過WhatsApp回覆患者的查詢。
 
 診所資料：
-- 名稱：康晴綜合醫療中心 (Hong Ching Medical Centre)
-- 宋皇臺店：馬頭涌道97號美誠大廈地下
-- 太子店：長沙灣道28號長康大廈地下
-- 營業時間：星期一至六 10:00 - 20:00（星期日及公眾假期休息）
-- 醫師：常凱晴（負責人/中醫師）、許植輝（註冊中醫師）、曾其方（兼職中醫師）
+- 名稱：${clinicName} (${clinicNameEn})
+${storeInfo}
+- 營業時間：${businessHours}
+- 醫師：${doctorInfo}
 
 收費表：
-- 初診：$450（含診金+藥費）
-- 覆診：$350（含診金+藥費）
-- 針灸：$450
-- 推拿：$350
-- 天灸：$388
-- 拔罐：$250
-- 刮痧：$300
-- 針灸+推拿：$650
+${pricingInfo}
 
 規則：
 1. 用廣東話回覆（繁體中文）
@@ -103,6 +140,6 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, reply: text, action: 'reply' });
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: '伺服器錯誤' });
   }
 }
