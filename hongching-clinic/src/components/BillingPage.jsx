@@ -150,10 +150,97 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     showToast('已匯出帳單');
   };
 
-  // Print receipt
+  // Generate sequential receipt number
+  const getReceiptNo = (item) => {
+    const dateStr = (item.date || '').replace(/-/g, '');
+    const storeCode = item.store === '太子' ? 'PE' : 'TKW';
+    // Use queue position for sequential number
+    const dayItems = queue.filter(q => q.date === item.date && q.store === item.store && q.paymentStatus === 'paid');
+    const idx = dayItems.findIndex(q => q.id === item.id);
+    const seq = String(idx >= 0 ? idx + 1 : dayItems.length + 1).padStart(3, '0');
+    return `HC-${storeCode}-${dateStr}-${seq}`;
+  };
+
+  // Print professional receipt in new window
   const printReceipt = (item) => {
     setReceiptItem(item);
-    setTimeout(() => window.print(), 300);
+    const clinicInfo = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
+    const brNo = clinicInfo?.brNo || '________';
+    const receiptNo = getReceiptNo(item);
+    const storeAddr = item.store === '太子'
+      ? (clinicInfo?.addr2 || '太子彌敦道788號利安大廈1樓B室')
+      : (clinicInfo?.addr1 || '九龍宋皇臺道38號傲寓地下5號舖');
+
+    // Parse services into itemized list
+    const services = (item.services || '').split(/[,、+]/).map(s => s.trim()).filter(Boolean);
+    const consultFee = Number(item.consultFee || 0);
+    const medFee = Number(item.medicineFee || 0);
+    const totalFee = Number(item.serviceFee || 0);
+    // If not itemized, treat total as single item
+    const hasBreakdown = consultFee > 0 || medFee > 0;
+
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>收據 ${receiptNo}</title>
+      <style>
+        @page { size: 80mm auto; margin: 2mm; }
+        body { font-family: 'Microsoft YaHei', 'PingFang TC', monospace; margin: 0; padding: 8mm; max-width: 76mm; font-size: 11px; color: #000; }
+        .center { text-align: center; }
+        .bold { font-weight: 800; }
+        .divider { border-top: 1px dashed #000; margin: 6px 0; }
+        .double-divider { border-top: 2px solid #000; margin: 6px 0; }
+        .row { display: flex; justify-content: space-between; margin: 2px 0; }
+        .row-label { min-width: 55px; }
+        .right { text-align: right; }
+        .total { font-size: 14px; font-weight: 800; }
+        .small { font-size: 9px; color: #666; }
+        table { width: 100%; border-collapse: collapse; }
+        table td { padding: 2px 0; font-size: 11px; }
+        table .amt { text-align: right; }
+        @media print { body { margin: 0; padding: 4mm; } }
+      </style>
+    </head><body>
+      <div class="center">
+        <div class="bold" style="font-size:14px">康晴綜合醫療中心</div>
+        <div class="small">HONG CHING MEDICAL CENTRE</div>
+        <div class="small">${storeAddr}</div>
+      </div>
+      <div class="double-divider"></div>
+      <div class="center bold" style="font-size:12px">正式收據 RECEIPT</div>
+      <div class="divider"></div>
+      <div class="row"><span>收據編號：</span><span class="bold">${receiptNo}</span></div>
+      <div class="row"><span>日期：</span><span>${item.date}</span></div>
+      <div class="row"><span>時間：</span><span>${item.completedAt || item.registeredAt || '-'}</span></div>
+      <div class="row"><span>商業登記：</span><span>${brNo}</span></div>
+      <div class="divider"></div>
+      <div class="row"><span class="row-label">病人姓名：</span><span>${item.patientName}</span></div>
+      <div class="row"><span class="row-label">主診醫師：</span><span>${item.doctor}</span></div>
+      <div class="row"><span class="row-label">掛號編號：</span><span>${item.queueNo || '-'}</span></div>
+      <div class="divider"></div>
+      <div class="bold" style="margin-bottom:4px">收費項目：</div>
+      <table>
+        ${hasBreakdown ? `
+          ${consultFee > 0 ? `<tr><td>診金 Consultation Fee</td><td class="amt">$${consultFee.toLocaleString()}</td></tr>` : ''}
+          ${medFee > 0 ? `<tr><td>藥費 Medicine Fee</td><td class="amt">$${medFee.toLocaleString()}</td></tr>` : ''}
+          ${totalFee - consultFee - medFee > 0 ? `<tr><td>其他 Others</td><td class="amt">$${(totalFee - consultFee - medFee).toLocaleString()}</td></tr>` : ''}
+        ` : `
+          ${services.map(s => `<tr><td>${s}</td><td class="amt"></td></tr>`).join('')}
+          <tr><td>費用 Fee</td><td class="amt">$${totalFee.toLocaleString()}</td></tr>
+        `}
+      </table>
+      <div class="double-divider"></div>
+      <div class="row total"><span>合計 TOTAL：</span><span>HK$ ${totalFee.toLocaleString()}</span></div>
+      <div class="row"><span>付款方式：</span><span>${item.paymentMethod || 'FPS'}</span></div>
+      <div class="divider"></div>
+      <div class="center small" style="margin-top:8px">
+        <div>此收據可用作醫療費用扣稅憑證</div>
+        <div>This receipt is valid for tax deduction purposes</div>
+        <div style="margin-top:6px">多謝惠顧 Thank You</div>
+        <div style="margin-top:4px">www.hongchingmedical.com</div>
+      </div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
   };
 
   return (
@@ -257,29 +344,34 @@ export default function BillingPage({ data, setData, showToast, allData, user })
         </div>
       </div>
 
-      {/* Print-only receipt */}
+      {/* Print-only receipt (fallback) */}
       {receiptItem && (
-        <div className="print-only" style={{ padding: 24 }}>
-          <div style={{ textAlign: 'center', marginBottom: 16 }}>
-            <img src="/logo.jpg" alt="康晴綜合醫療中心" style={{ height: 48 }} />
-            <h2 style={{ fontSize: 18, marginTop: 8 }}>收據 Receipt</h2>
-            <p style={{ fontSize: 11, color: '#888' }}>康晴綜合醫療中心 HONG CHING MEDICAL CENTRE</p>
+        <div className="print-only" style={{ padding: 24, maxWidth: 280, margin: '0 auto', fontFamily: "'Microsoft YaHei', monospace" }}>
+          <div style={{ textAlign: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 14, fontWeight: 800 }}>康晴綜合醫療中心</div>
+            <div style={{ fontSize: 9, color: '#666' }}>HONG CHING MEDICAL CENTRE</div>
           </div>
-          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+          <div style={{ borderTop: '2px solid #000', margin: '6px 0' }} />
+          <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 12 }}>正式收據 RECEIPT</div>
+          <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+          <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
             <tbody>
-              <tr><td style={{ padding: '4px 0', fontWeight: 600 }}>號碼</td><td>{receiptItem.queueNo}</td></tr>
-              <tr><td style={{ padding: '4px 0', fontWeight: 600 }}>日期</td><td>{receiptItem.date}</td></tr>
-              <tr><td style={{ padding: '4px 0', fontWeight: 600 }}>病人</td><td>{receiptItem.patientName}</td></tr>
-              <tr><td style={{ padding: '4px 0', fontWeight: 600 }}>醫師</td><td>{receiptItem.doctor}</td></tr>
-              <tr><td style={{ padding: '4px 0', fontWeight: 600 }}>店舖</td><td>{receiptItem.store}</td></tr>
-              <tr><td style={{ padding: '4px 0', fontWeight: 600 }}>服務</td><td>{receiptItem.services}</td></tr>
+              <tr><td style={{ padding: '2px 0' }}>收據編號：</td><td style={{ textAlign: 'right', fontWeight: 700 }}>{getReceiptNo(receiptItem)}</td></tr>
+              <tr><td style={{ padding: '2px 0' }}>日期：</td><td style={{ textAlign: 'right' }}>{receiptItem.date}</td></tr>
+              <tr><td style={{ padding: '2px 0' }}>病人：</td><td style={{ textAlign: 'right' }}>{receiptItem.patientName}</td></tr>
+              <tr><td style={{ padding: '2px 0' }}>醫師：</td><td style={{ textAlign: 'right' }}>{receiptItem.doctor}</td></tr>
+              <tr><td style={{ padding: '2px 0' }}>掛號：</td><td style={{ textAlign: 'right' }}>{receiptItem.queueNo}</td></tr>
             </tbody>
           </table>
-          <div style={{ borderTop: '2px solid #333', marginTop: 12, paddingTop: 8, fontSize: 16, fontWeight: 800, textAlign: 'right' }}>
-            合計：{fmtM(receiptItem.serviceFee)}
+          <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+          <div style={{ fontSize: 11, marginBottom: 4, fontWeight: 700 }}>收費項目：</div>
+          <div style={{ fontSize: 11 }}>{receiptItem.services}</div>
+          <div style={{ borderTop: '2px solid #000', marginTop: 8, paddingTop: 6, fontSize: 14, fontWeight: 800, display: 'flex', justifyContent: 'space-between' }}>
+            <span>合計 TOTAL：</span><span>HK$ {Number(receiptItem.serviceFee).toLocaleString()}</span>
           </div>
-          <div style={{ textAlign: 'center', marginTop: 24, fontSize: 11, color: '#888' }}>
-            <p>多謝惠顧 Thank you</p>
+          <div style={{ textAlign: 'center', marginTop: 12, fontSize: 9, color: '#888' }}>
+            <div>此收據可用作醫療費用扣稅憑證</div>
+            <div style={{ marginTop: 4 }}>多謝惠顧 Thank You</div>
           </div>
         </div>
       )}

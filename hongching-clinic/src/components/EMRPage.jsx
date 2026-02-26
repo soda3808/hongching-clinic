@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef } from 'react';
 import { saveConsultation, deleteConsultation, openWhatsApp } from '../api';
-import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS } from '../data';
+import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
-import { checkInteractions } from '../utils/drugInteractions';
+import { checkInteractions, getHerbSafetyInfo, checkDosage, getSafetyBadges } from '../utils/drugInteractions';
 import VoiceButton from './VoiceButton';
+import MedicineLabel from './MedicineLabel';
 
 const EMPTY_RX = { herb: '', dosage: '' };
 const EMPTY_FORM = {
@@ -12,6 +13,7 @@ const EMPTY_FORM = {
   subjective: '', objective: '', assessment: '', plan: '',
   tcmDiagnosis: '', tcmPattern: '', tongue: '', pulse: '',
   prescription: [{ ...EMPTY_RX }], formulaName: '', formulaDays: 3, formulaInstructions: '每日一劑，水煎服',
+  prescriptionType: 'decoction', granuleDosesPerDay: 2, specialNotes: '',
   treatments: [], acupuncturePoints: '',
   followUpDate: '', followUpNotes: '', fee: 0,
 };
@@ -33,6 +35,8 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
   const [activeHerbIdx, setActiveHerbIdx] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [showLabel, setShowLabel] = useState(null);
+  const [acupointMeridian, setAcupointMeridian] = useState('all');
 
   const addRef = useRef(null);
   const detailRef = useRef(null);
@@ -111,6 +115,17 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
   const removeRxRow = (i) => setForm(f => ({ ...f, prescription: f.prescription.filter((_, j) => j !== i) }));
 
   const loadFormula = (name) => {
+    // Try expanded DB first, then backward-compatible
+    const dbFormula = TCM_FORMULAS_DB.find(f => f.name === name);
+    if (dbFormula) {
+      setForm(f => ({
+        ...f,
+        prescription: dbFormula.herbs.map(h => ({ herb: h.h, dosage: h.d })),
+        formulaName: dbFormula.name,
+      }));
+      showToast(`已載入 ${dbFormula.name}（${dbFormula.src}）`);
+      return;
+    }
     const formula = TCM_FORMULAS.find(f => f.name === name);
     if (!formula) return;
     setForm(f => ({
@@ -133,11 +148,11 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
 
   const currentAcupoints = form.acupuncturePoints ? form.acupuncturePoints.split('、').map(s => s.trim()).filter(Boolean) : [];
 
-  // ── Herb autocomplete matches ──
+  // ── Herb autocomplete matches (expanded DB with safety info) ──
   const getHerbMatches = (idx) => {
     const q = (herbSearch[idx] || '').toLowerCase();
     if (!q) return [];
-    return TCM_HERBS.filter(h => h.includes(q)).slice(0, 6);
+    return TCM_HERBS_DB.filter(h => h.n.includes(q) || h.py.includes(q)).slice(0, 8);
   };
 
   // ── Save ──
@@ -456,9 +471,18 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               <div style={{ marginBottom: 16 }}>
                 <label>穴位</label>
                 <input value={form.acupuncturePoints} onChange={e => setForm(f => ({ ...f, acupuncturePoints: e.target.value }))} placeholder="輸入穴位或點擊下方選取" style={{ marginBottom: 6 }} />
-                <div className="preset-bar">
-                  {ACUPOINTS.map(pt => (
-                    <button type="button" key={pt} className={`preset-chip ${currentAcupoints.includes(pt) ? 'active' : ''}`} onClick={() => toggleAcupoint(pt)}>{pt}</button>
+                <div style={{ marginBottom: 4 }}>
+                  <select style={{ width: 'auto', fontSize: 11, padding: '3px 6px' }} value={acupointMeridian} onChange={e => setAcupointMeridian(e.target.value)}>
+                    <option value="all">常用穴位</option>
+                    {MERIDIANS.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="preset-bar" style={{ maxHeight: 120, overflowY: 'auto' }}>
+                  {(acupointMeridian === 'all'
+                    ? ACUPOINTS_DB.filter(a => ['合谷','足三里','三陰交','太衝','內關','外關','曲池','肩井','風池','百會','大椎','命門','腎俞','肝俞','脾俞','肺俞','心俞','委中','環跳','陽陵泉','陰陵泉','太溪','崑崙','中脘','關元','氣海','天樞','血海','列缺','迎香','地倉','頰車','太陽','印堂'].includes(a.name))
+                    : ACUPOINTS_DB.filter(a => a.mer === acupointMeridian)
+                  ).map(pt => (
+                    <button type="button" key={pt.name} className={`preset-chip ${currentAcupoints.includes(pt.name) ? 'active' : ''}`} onClick={() => toggleAcupoint(pt.name)} title={`${pt.code} ${pt.ind}`}>{pt.name}</button>
                   ))}
                 </div>
               </div>
@@ -468,8 +492,14 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
                 <h4 style={{ margin: 0, fontSize: 13 }}>處方</h4>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <select style={{ width: 'auto', fontSize: 12, padding: '4px 8px' }} value="" onChange={e => { if (e.target.value) loadFormula(e.target.value); }}>
-                    <option value="">從模板載入...</option>
-                    {TCM_FORMULAS.map(f => <option key={f.name} value={f.name}>{f.name} ({f.indication})</option>)}
+                    <option value="">從方劑庫載入 ({TCM_FORMULAS_DB.length} 方)...</option>
+                    {FORMULA_CATEGORIES.map(cat => (
+                      <optgroup key={cat} label={cat}>
+                        {TCM_FORMULAS_DB.filter(f => f.cat === cat).map(f => (
+                          <option key={f.name} value={f.name}>{f.name}（{f.src}）- {f.ind?.substring(0, 20)}</option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                   <button type="button" className="btn btn-outline btn-sm" onClick={handleAiSuggest} disabled={aiLoading} style={{ fontSize: 11 }}>
                     {aiLoading ? '分析中...' : '🤖 AI 處方建議'}
@@ -493,11 +523,25 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
                   {aiSuggestion.caution && <div style={{ marginTop: 4, color: 'var(--red-600)' }}>⚠️ {aiSuggestion.caution}</div>}
                 </div>
               )}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
+                  <input type="radio" name="rxType" checked={form.prescriptionType === 'decoction'} onChange={() => setForm(f => ({ ...f, prescriptionType: 'decoction', formulaInstructions: '每日一劑，水煎服' }))} /> 飲片（煎藥）
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, cursor: 'pointer' }}>
+                  <input type="radio" name="rxType" checked={form.prescriptionType === 'granule'} onChange={() => setForm(f => ({ ...f, prescriptionType: 'granule', formulaInstructions: '每日沖服' }))} /> 顆粒（濃縮藥粉）
+                </label>
+              </div>
               <div className="grid-3" style={{ marginBottom: 8 }}>
                 <div><label>方名</label><input value={form.formulaName} onChange={e => setForm(f => ({ ...f, formulaName: e.target.value }))} placeholder="處方名稱" /></div>
                 <div><label>天數</label><input type="number" min="1" value={form.formulaDays} onChange={e => setForm(f => ({ ...f, formulaDays: e.target.value }))} /></div>
                 <div><label>服法</label><input value={form.formulaInstructions} onChange={e => setForm(f => ({ ...f, formulaInstructions: e.target.value }))} /></div>
               </div>
+              {form.prescriptionType === 'granule' && (
+                <div className="grid-2" style={{ marginBottom: 8 }}>
+                  <div><label>每日次數</label><input type="number" min="1" max="4" value={form.granuleDosesPerDay} onChange={e => setForm(f => ({ ...f, granuleDosesPerDay: Number(e.target.value) }))} /></div>
+                  <div><label>特別注意</label><input value={form.specialNotes || ''} onChange={e => setForm(f => ({ ...f, specialNotes: e.target.value }))} placeholder="如忌口、特殊服法等" /></div>
+                </div>
+              )}
               <div className="table-wrap" style={{ marginBottom: 8 }}>
                 <table>
                   <thead><tr><th>藥材</th><th>劑量</th><th></th></tr></thead>
@@ -510,11 +554,17 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
                             onFocus={() => { setHerbSearch(s => ({ ...s, [i]: rx.herb })); setActiveHerbIdx(i); }}
                             onBlur={() => setTimeout(() => setActiveHerbIdx(null), 200)} />
                           {activeHerbIdx === i && getHerbMatches(i).length > 0 && (
-                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 160, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
                               {getHerbMatches(i).map(h => (
-                                <div key={h} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 13 }}
-                                  onMouseDown={() => { updateRx(i, 'herb', h); setHerbSearch(s => ({ ...s, [i]: '' })); setActiveHerbIdx(null); }}>
-                                  {h}
+                                <div key={h.n} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                  onMouseDown={() => { updateRx(i, 'herb', h.n); if (!form.prescription[i].dosage) updateRx(i, 'dosage', `${h.dMax}g`); setHerbSearch(s => ({ ...s, [i]: '' })); setActiveHerbIdx(null); }}>
+                                  <span>{h.n} <span style={{ color: '#999', fontSize: 11 }}>{h.py}</span></span>
+                                  <span style={{ fontSize: 10, display: 'flex', gap: 3 }}>
+                                    <span style={{ color: '#888' }}>{h.dMin}-{h.dMax}g</span>
+                                    {h.tox > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}>{['','小毒','有毒','大毒'][h.tox]}</span>}
+                                    {h.sch1 && <span style={{ background: '#dc2626', color: '#fff', padding: '0 3px', borderRadius: 2 }}>附表一</span>}
+                                    {h.preg > 0 && <span style={{ color: '#d97706' }}>孕{['','慎','忌','禁'][h.preg]}</span>}
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -578,6 +628,7 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
               <h3 style={{ margin: 0 }}>診症詳情 -- {detail.patientName}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button className="btn btn-teal btn-sm" onClick={handlePrint}>列印處方</button>
+                <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => setShowLabel(detail)}>藥袋標籤</button>
                 <button className="btn btn-green btn-sm" onClick={() => handleReferral(detail)}>轉介信</button>
                 {detail.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }} onClick={() => sendMedReminder(detail)}>💊 WhatsApp 服藥提醒</button>}
                 <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
@@ -671,6 +722,9 @@ export default function EMRPage({ data, setData, showToast, allData, user }) {
 
       {/* Delete confirm */}
       {deleteId && <ConfirmModal message="確認刪除此診症紀錄？此操作無法復原。" onConfirm={handleDelete} onCancel={() => setDeleteId(null)} />}
+
+      {/* Medicine Label */}
+      {showLabel && <MedicineLabel consultation={showLabel} onClose={() => setShowLabel(null)} showToast={showToast} />}
     </>
   );
 }

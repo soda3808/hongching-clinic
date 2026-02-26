@@ -45,47 +45,36 @@ export function getMembershipTier(totalSpent) {
   return tier;
 }
 
-// ── TCM Herbs Database ──
-export const TCM_HERBS = [
-  '黃芪','當歸','川芎','白芍','熟地','生地','人參','黨參','白朮','茯苓',
-  '甘草','柴胡','半夏','陳皮','枳殼','香附','桃仁','紅花','丹參','三七',
-  '枸杞子','菊花','金銀花','連翹','板藍根','黃芩','黃連','黃柏','蒼朮','厚朴',
-  '山藥','蓮子','薏苡仁','砂仁','木香','延胡索','杜仲','續斷','牛膝','獨活',
-  '羌活','防風','荊芥','桂枝','麻黃','石膏','知母','天麻','鉤藤','葛根',
-  '北沙參','麥冬','玉竹','百合','五味子','酸棗仁','遠志','龍骨','牡蠣','珍珠母',
-  '附子','肉桂','乾薑','吳茱萸','小茴香','丁香','艾葉','益母草','澤瀉','車前子',
-  '大黃','芒硝','火麻仁','肉蓯蓉','何首烏','阿膠','雞血藤','白芷','細辛','蒼耳子',
-];
+// ── TCM Expanded Databases (re-exported for backward compatibility) ──
+import { TCM_HERBS_DB, HERB_CATEGORIES, searchHerbs, formatHerbInfo } from './data/herbs';
+import { TCM_FORMULAS_DB, FORMULA_CATEGORIES, searchFormulas, getFormulasByCategory } from './data/formulas';
+import { ACUPOINTS_DB, MERIDIANS, searchAcupoints, getAcupointsByMeridian } from './data/acupoints';
+import { GRANULE_PRODUCTS, GRANULE_SUPPLIERS, searchGranules, convertToGranule } from './data/granules';
 
-// ── TCM Formula Templates ──
-export const TCM_FORMULAS = [
-  { name: '四物湯', herbs: [{herb:'熟地',dosage:'12g'},{herb:'當歸',dosage:'10g'},{herb:'白芍',dosage:'10g'},{herb:'川芎',dosage:'6g'}], indication: '血虛、月經不調' },
-  { name: '四君子湯', herbs: [{herb:'人參',dosage:'10g'},{herb:'白朮',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'}], indication: '脾胃氣虛' },
-  { name: '六味地黃丸', herbs: [{herb:'熟地',dosage:'24g'},{herb:'山藥',dosage:'12g'},{herb:'茯苓',dosage:'9g'},{herb:'澤瀉',dosage:'9g'},{herb:'牛膝',dosage:'9g'},{herb:'枸杞子',dosage:'9g'}], indication: '腎陰虛' },
-  { name: '補陽還五湯', herbs: [{herb:'黃芪',dosage:'120g'},{herb:'當歸',dosage:'6g'},{herb:'川芎',dosage:'4.5g'},{herb:'桃仁',dosage:'3g'},{herb:'紅花',dosage:'3g'},{herb:'白芍',dosage:'4.5g'},{herb:'生地',dosage:'3g'}], indication: '中風後遺症、氣虛血瘀' },
-  { name: '逍遙散', herbs: [{herb:'柴胡',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'白芍',dosage:'10g'},{herb:'白朮',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'},{herb:'生地',dosage:'6g'},{herb:'薏苡仁',dosage:'6g'}], indication: '肝鬱脾虛' },
-  { name: '小柴胡湯', herbs: [{herb:'柴胡',dosage:'12g'},{herb:'黃芩',dosage:'9g'},{herb:'半夏',dosage:'9g'},{herb:'人參',dosage:'6g'},{herb:'甘草',dosage:'5g'},{herb:'生地',dosage:'3g'},{herb:'大黃',dosage:'3g'}], indication: '少陽病、寒熱往來' },
-  { name: '桂枝湯', herbs: [{herb:'桂枝',dosage:'9g'},{herb:'白芍',dosage:'9g'},{herb:'甘草',dosage:'6g'},{herb:'生地',dosage:'3g'},{herb:'大黃',dosage:'3g'}], indication: '太陽中風' },
-  { name: '麻黃湯', herbs: [{herb:'麻黃',dosage:'6g'},{herb:'桂枝',dosage:'4g'},{herb:'甘草',dosage:'3g'},{herb:'杏仁',dosage:'9g'}], indication: '太陽傷寒' },
-  { name: '銀翹散', herbs: [{herb:'金銀花',dosage:'15g'},{herb:'連翹',dosage:'15g'},{herb:'荊芥',dosage:'6g'},{herb:'薏苡仁',dosage:'6g'},{herb:'甘草',dosage:'5g'},{herb:'桔梗',dosage:'6g'}], indication: '風熱感冒' },
-  { name: '天王補心丹', herbs: [{herb:'人參',dosage:'10g'},{herb:'麥冬',dosage:'10g'},{herb:'五味子',dosage:'6g'},{herb:'當歸',dosage:'10g'},{herb:'生地',dosage:'15g'},{herb:'酸棗仁',dosage:'10g'},{herb:'遠志',dosage:'6g'}], indication: '心陰不足、失眠多夢' },
-  { name: '歸脾湯', herbs: [{herb:'黨參',dosage:'12g'},{herb:'黃芪',dosage:'12g'},{herb:'白朮',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'龍骨',dosage:'10g'},{herb:'酸棗仁',dosage:'10g'},{herb:'遠志',dosage:'6g'},{herb:'甘草',dosage:'5g'}], indication: '心脾兩虛' },
-  { name: '獨活寄生湯', herbs: [{herb:'獨活',dosage:'9g'},{herb:'桑寄生',dosage:'12g'},{herb:'杜仲',dosage:'10g'},{herb:'牛膝',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'川芎',dosage:'6g'},{herb:'白芍',dosage:'10g'},{herb:'熟地',dosage:'12g'},{herb:'人參',dosage:'6g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'},{herb:'桂枝',dosage:'6g'},{herb:'防風',dosage:'6g'},{herb:'細辛',dosage:'3g'},{herb:'秦艽',dosage:'10g'}], indication: '風寒濕痹、腰膝痠痛' },
-  { name: '血府逐瘀湯', herbs: [{herb:'桃仁',dosage:'12g'},{herb:'紅花',dosage:'9g'},{herb:'當歸',dosage:'9g'},{herb:'川芎',dosage:'4.5g'},{herb:'白芍',dosage:'6g'},{herb:'生地',dosage:'9g'},{herb:'柴胡',dosage:'3g'},{herb:'枳殼',dosage:'6g'},{herb:'甘草',dosage:'3g'},{herb:'桔梗',dosage:'4.5g'},{herb:'牛膝',dosage:'9g'}], indication: '胸中血瘀' },
-  { name: '溫膽湯', herbs: [{herb:'半夏',dosage:'6g'},{herb:'陳皮',dosage:'9g'},{herb:'茯苓',dosage:'6g'},{herb:'甘草',dosage:'3g'},{herb:'枳殼',dosage:'6g'},{herb:'竹茹',dosage:'6g'}], indication: '痰熱擾心' },
-  { name: '二陳湯', herbs: [{herb:'半夏',dosage:'10g'},{herb:'陳皮',dosage:'10g'},{herb:'茯苓',dosage:'10g'},{herb:'甘草',dosage:'5g'}], indication: '濕痰咳嗽' },
-  { name: '補中益氣湯', herbs: [{herb:'黃芪',dosage:'15g'},{herb:'人參',dosage:'10g'},{herb:'白朮',dosage:'10g'},{herb:'當歸',dosage:'10g'},{herb:'陳皮',dosage:'6g'},{herb:'柴胡',dosage:'6g'},{herb:'甘草',dosage:'5g'}], indication: '中氣下陷' },
-];
+// Backward-compatible simple arrays
+export const TCM_HERBS = TCM_HERBS_DB.map(h => h.n);
+
+// Re-export expanded databases
+export { TCM_HERBS_DB, HERB_CATEGORIES, searchHerbs, formatHerbInfo };
+export { TCM_FORMULAS_DB, FORMULA_CATEGORIES, searchFormulas, getFormulasByCategory };
+export { ACUPOINTS_DB, MERIDIANS, searchAcupoints, getAcupointsByMeridian };
+export { GRANULE_PRODUCTS, GRANULE_SUPPLIERS, searchGranules, convertToGranule };
+
+// ── TCM Formula Templates (backward-compatible format from expanded DB) ──
+export const TCM_FORMULAS = TCM_FORMULAS_DB.map(f => ({
+  name: f.name,
+  herbs: f.herbs.map(h => ({ herb: h.h, dosage: h.d })),
+  indication: f.ind,
+  category: f.cat,
+  source: f.src,
+  contraindication: f.contra,
+}));
 
 // ── TCM Treatment Types ──
 export const TCM_TREATMENTS = ['內服中藥','針灸','推拿','天灸','拔罐','刮痧','艾灸','耳穴','其他'];
 
-// ── Common Acupuncture Points ──
-export const ACUPOINTS = [
-  '合谷','足三里','三陰交','太衝','內關','外關','曲池','肩井','風池','百會',
-  '大椎','命門','腎俞','肝俞','脾俞','肺俞','心俞','委中','環跳','陽陵泉',
-  '陰陵泉','太溪','崑崙','中脘','關元','氣海','神闕','天樞','血海','膈俞',
-];
+// ── Common Acupuncture Points (backward-compatible from expanded DB) ──
+export const ACUPOINTS = ACUPOINTS_DB.map(a => a.name);
 
 export const EXPENSE_CATEGORIES = {
   '固定成本': ['租金', '管理費', '保險', '牌照/註冊'],

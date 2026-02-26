@@ -28,6 +28,7 @@ import ReceiptScanner from './components/ReceiptScanner';
 import AIChatPage from './components/AIChatPage';
 import StoreComparePage from './components/StoreComparePage';
 import SurveyPage from './components/SurveyPage';
+import ElderlyVoucherPage from './components/ElderlyVoucherPage';
 import PublicBooking from './components/PublicBooking';
 import PublicCheckin from './components/PublicCheckin';
 import PublicInquiry from './components/PublicInquiry';
@@ -48,6 +49,7 @@ const ALL_PAGES = [
   { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
   { id: 'billing', icon: '💵', label: '配藥/收費', section: '營運', perm: 'viewBilling' },
   { id: 'products', icon: '🛍️', label: '商品管理', section: '營運', perm: 'editExpenses' },
+  { id: 'voucher', icon: '🧓', label: '長者醫療券', section: '病人', perm: 'viewPatients' },
   { id: 'sickleave', icon: '📄', label: '假紙記錄', section: '病人', perm: 'viewEMR' },
   { id: 'pay', icon: '📋', label: '糧單', section: '人事', perm: 'viewPayroll' },
   { id: 'schedule', icon: '🕐', label: '醫師排班', section: '人事', perm: 'viewDoctorAnalytics' },
@@ -548,6 +550,7 @@ function MainApp() {
           {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} />}
           {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'products' && <ProductPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
+          {page === 'voucher' && <ElderlyVoucherPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
           {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
           {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}

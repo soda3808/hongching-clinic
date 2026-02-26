@@ -79,6 +79,7 @@ export const PAGE_PERMISSIONS = {
   ai: 'viewDashboard',
   compare: 'viewDashboard',
   survey: 'viewDashboard',
+  voucher: 'viewPatients',
 };
 
 // ══════════════════════════════════
