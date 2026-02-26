@@ -43,6 +43,20 @@ export default function InventoryPage({ data, setData, showToast }) {
   const [showPO, setShowPO] = useState(false);
   const [transferItem, setTransferItem] = useState(null);
   const [transferQty, setTransferQty] = useState('');
+  // ── Supplier Directory (#110) ──
+  const [showSuppliers, setShowSuppliers] = useState(false);
+  const [supplierList, setSupplierList] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_suppliers') || '[]'); } catch { return []; }
+  });
+  const [supplierModal, setSupplierModal] = useState(false);
+  const [editSupplierItem, setEditSupplierItem] = useState(null);
+  const [supplierForm, setSupplierForm] = useState({ name: '', contactPerson: '', phone: '', email: '', address: '', paymentTerms: '', leadTimeDays: '', notes: '' });
+  // ── Stock Movement History (#111) ──
+  const [showMovements, setShowMovements] = useState(false);
+  const [movements, setMovements] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_stock_movements') || '[]'); } catch { return []; }
+  });
+  const [movementFilter, setMovementFilter] = useState('all');
   const fileInputRef = useRef(null);
 
   const modalRef = useRef(null);
@@ -51,6 +65,14 @@ export default function InventoryPage({ data, setData, showToast }) {
   useFocusTrap(restockItem ? restockRef : nullRef);
 
   const inventory = data.inventory || [];
+
+  // ── Movement Logger (#111) ──
+  const logMovement = (type, itemName, qty, unit, details = '') => {
+    const entry = { id: uid(), date: new Date().toISOString(), type, itemName, qty, unit, details };
+    const updated = [entry, ...movements].slice(0, 500); // keep last 500
+    setMovements(updated);
+    localStorage.setItem('hcmc_stock_movements', JSON.stringify(updated));
+  };
 
   // ── Stats ──
   const stats = useMemo(() => {
@@ -156,14 +178,23 @@ export default function InventoryPage({ data, setData, showToast }) {
     setData({ ...data, inventory: updated });
     setShowModal(false);
     setSaving(false);
+    if (editItem) {
+      const oldStock = Number(editItem.stock);
+      const newStock = record.stock;
+      if (oldStock !== newStock) logMovement('調整', record.name, newStock - oldStock, record.unit, `${oldStock} → ${newStock}`);
+    } else {
+      logMovement('新增', record.name, record.stock, record.unit, '新品項入庫');
+    }
     showToast(editItem ? '已更新存貨' : '已新增存貨');
   };
 
   // ── Delete ──
   const handleDelete = async () => {
     if (!deleteId) return;
+    const item = inventory.find(r => r.id === deleteId);
     await deleteInventory(deleteId);
     setData({ ...data, inventory: inventory.filter(r => r.id !== deleteId) });
+    if (item) logMovement('刪除', item.name, -Number(item.stock), item.unit, '品項刪除');
     showToast('已刪除');
     setDeleteId(null);
   };
@@ -188,6 +219,7 @@ export default function InventoryPage({ data, setData, showToast }) {
     if (restockCost) updated.costPerUnit = parseFloat(restockCost);
     await saveInventory(updated);
     setData({ ...data, inventory: inventory.map(r => r.id === updated.id ? updated : r) });
+    logMovement('入貨', restockItem.name, qty, restockItem.unit, `${restockItem.stock} → ${updated.stock}${restockCost ? ` | 成本更新 ${fmtM(parseFloat(restockCost))}` : ''}`);
     showToast(`已入貨 ${qty}${restockItem.unit}，現有庫存 ${updated.stock}${restockItem.unit}`);
     setRestockItem(null);
   };
@@ -217,6 +249,10 @@ export default function InventoryPage({ data, setData, showToast }) {
       }
     }
     setData({ ...data, inventory: updated });
+    batchSelected.forEach(id => {
+      const item = inventory.find(r => r.id === id);
+      if (item) logMovement('批量入貨', item.name, qty, item.unit, `批量 +${qty}`);
+    });
     showToast(`已批量入貨 ${batchSelected.length} 項，每項 +${qty}`);
     setShowBatchRestock(false);
     setBatchSelected([]);
@@ -270,6 +306,7 @@ export default function InventoryPage({ data, setData, showToast }) {
       };
       await saveInventory(item);
       setData(prev => ({ ...prev, inventory: [...(prev.inventory || []), item] }));
+      logMovement('匯入', item.name, item.stock, item.unit, '批量匯入');
       added++;
     }
     showToast(`已匯入 ${added} 項藥材`);
@@ -338,10 +375,58 @@ export default function InventoryPage({ data, setData, showToast }) {
       updatedInv = inventory.map(r => r.id === updatedSource.id ? updatedSource : r).concat(newItem);
     }
     setData({ ...data, inventory: updatedInv });
+    logMovement('轉倉', transferItem.name, qty, transferItem.unit, `${fromStore} → ${toStore}`);
     showToast(`已將 ${qty}${transferItem.unit} ${transferItem.name} 從${fromStore}轉至${toStore}`);
     setTransferItem(null);
     setTransferQty('');
   };
+
+  // ── Supplier Directory (#110) ──
+  const saveSupplierList = (list) => {
+    setSupplierList(list);
+    localStorage.setItem('hcmc_suppliers', JSON.stringify(list));
+  };
+
+  const openAddSupplier = () => {
+    setEditSupplierItem(null);
+    setSupplierForm({ name: '', contactPerson: '', phone: '', email: '', address: '', paymentTerms: '', leadTimeDays: '', notes: '' });
+    setSupplierModal(true);
+  };
+
+  const openEditSupplier = (s) => {
+    setEditSupplierItem(s);
+    setSupplierForm({ ...s });
+    setSupplierModal(true);
+  };
+
+  const handleSaveSupplier = () => {
+    if (!supplierForm.name) return showToast('請填寫供應商名稱');
+    if (editSupplierItem) {
+      saveSupplierList(supplierList.map(s => s.id === editSupplierItem.id ? { ...supplierForm, id: editSupplierItem.id } : s));
+      showToast('已更新供應商');
+    } else {
+      saveSupplierList([...supplierList, { ...supplierForm, id: uid(), createdAt: new Date().toISOString().substring(0, 10) }]);
+      showToast('已新增供應商');
+    }
+    setSupplierModal(false);
+  };
+
+  const deleteSupplierById = (id) => {
+    saveSupplierList(supplierList.filter(s => s.id !== id));
+    showToast('已刪除供應商');
+  };
+
+  const supplierStats = useMemo(() => {
+    const map = {};
+    supplierList.forEach(s => { map[s.name] = { items: 0, value: 0 }; });
+    inventory.forEach(r => {
+      if (r.supplier && map[r.supplier]) {
+        map[r.supplier].items++;
+        map[r.supplier].value += Number(r.stock) * Number(r.costPerUnit);
+      }
+    });
+    return map;
+  }, [supplierList, inventory]);
 
   // ── Export CSV ──
   const handleExport = () => {
@@ -454,6 +539,8 @@ export default function InventoryPage({ data, setData, showToast }) {
           <button className="btn btn-green" onClick={() => setShowBatchRestock(true)}>批量入貨 ({batchSelected.length})</button>
         )}
         <button className="btn btn-outline" onClick={() => setShowReport(!showReport)}>{showReport ? '隱藏報表' : '庫存報表'}</button>
+        <button className="btn btn-outline" onClick={() => setShowSuppliers(!showSuppliers)}>供應商目錄 ({supplierList.length})</button>
+        <button className="btn btn-outline" onClick={() => setShowMovements(!showMovements)}>變動紀錄 ({movements.length})</button>
       </div>
 
       {/* Category Report */}
@@ -635,7 +722,10 @@ export default function InventoryPage({ data, setData, showToast }) {
               <div className="grid-3" style={{ marginBottom: 12 }}>
                 <div>
                   <label>供應商</label>
-                  <input value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} placeholder="供應商名稱" />
+                  <input list="supplier-list" value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} placeholder="選擇或輸入供應商" />
+                  <datalist id="supplier-list">
+                    {supplierList.map(s => <option key={s.id} value={s.name} />)}
+                  </datalist>
                 </div>
                 <div>
                   <label>店舖</label>
@@ -847,6 +937,185 @@ export default function InventoryPage({ data, setData, showToast }) {
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-gold" onClick={handleTransfer}>確認轉倉</button>
               <button className="btn btn-outline" onClick={() => setTransferItem(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════ */}
+      {/* Stock Movement History (#111)   */}
+      {/* ════════════════════════════════ */}
+      {showMovements && (
+        <div className="card">
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>庫存變動紀錄</h3>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select style={{ width: 'auto', fontSize: 12 }} value={movementFilter} onChange={e => setMovementFilter(e.target.value)}>
+                <option value="all">全部類型</option>
+                <option value="入貨">入貨</option>
+                <option value="批量入貨">批量入貨</option>
+                <option value="轉倉">轉倉</option>
+                <option value="調整">調整</option>
+                <option value="新增">新增</option>
+                <option value="刪除">刪除</option>
+                <option value="匯入">匯入</option>
+              </select>
+              {movements.length > 0 && (
+                <button className="btn btn-outline btn-sm" onClick={() => {
+                  const cols = [
+                    { key: 'date', label: '日期' }, { key: 'type', label: '類型' },
+                    { key: 'itemName', label: '品名' }, { key: 'qty', label: '數量' },
+                    { key: 'unit', label: '單位' }, { key: 'details', label: '詳情' },
+                  ];
+                  exportCSV(movements, cols, `stock_movements_${new Date().toISOString().substring(0, 10)}.csv`);
+                  showToast('變動紀錄已匯出');
+                }}>匯出CSV</button>
+              )}
+              {movements.length > 0 && (
+                <button className="btn btn-red btn-sm" onClick={() => { setMovements([]); localStorage.removeItem('hcmc_stock_movements'); showToast('已清除紀錄'); }}>清除</button>
+              )}
+            </div>
+          </div>
+          {!movements.length ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#aaa' }}>未有變動紀錄</div>
+          ) : (
+            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table>
+                <thead><tr><th>時間</th><th>類型</th><th>品名</th><th>數量變動</th><th>詳情</th></tr></thead>
+                <tbody>
+                  {movements
+                    .filter(m => movementFilter === 'all' || m.type === movementFilter)
+                    .slice(0, 100)
+                    .map(m => (
+                    <tr key={m.id}>
+                      <td style={{ fontSize: 11, whiteSpace: 'nowrap' }}>{new Date(m.date).toLocaleString('zh-HK', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                      <td>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600,
+                          background: m.type === '入貨' || m.type === '批量入貨' ? '#dcfce7' : m.type === '轉倉' ? '#fef3c7' : m.type === '刪除' ? '#fef2f2' : m.type === '匯入' ? '#dbeafe' : '#f3f4f6',
+                          color: m.type === '入貨' || m.type === '批量入貨' ? '#166534' : m.type === '轉倉' ? '#92400e' : m.type === '刪除' ? '#991b1b' : m.type === '匯入' ? '#1e40af' : '#374151',
+                        }}>{m.type}</span>
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{m.itemName}</td>
+                      <td style={{ color: Number(m.qty) > 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                        {Number(m.qty) > 0 ? '+' : ''}{m.qty} {m.unit}
+                      </td>
+                      <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{m.details}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {movements.length > 0 && (
+            <div style={{ padding: '8px 16px', fontSize: 11, color: 'var(--gray-500)', borderTop: '1px solid var(--gray-100)' }}>
+              共 {movements.filter(m => movementFilter === 'all' || m.type === movementFilter).length} 條紀錄 | 顯示最近 100 條
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════ */}
+      {/* Supplier Directory (#110)       */}
+      {/* ════════════════════════════════ */}
+      {showSuppliers && (
+        <div className="card">
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>供應商目錄</h3>
+            <button className="btn btn-teal btn-sm" onClick={openAddSupplier}>+ 新增供應商</button>
+          </div>
+          {!supplierList.length ? (
+            <div style={{ padding: 40, textAlign: 'center', color: '#aaa' }}>未有供應商紀錄，請新增</div>
+          ) : (
+            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+              <table>
+                <thead>
+                  <tr><th>供應商名稱</th><th>聯絡人</th><th>電話</th><th>電郵</th><th>付款條件</th><th>交貨天數</th><th>關聯品項</th><th style={{ textAlign: 'right' }}>關聯貨值</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                  {supplierList.map(s => {
+                    const st = supplierStats[s.name] || { items: 0, value: 0 };
+                    return (
+                      <tr key={s.id}>
+                        <td style={{ fontWeight: 600 }}>{s.name}</td>
+                        <td>{s.contactPerson || '-'}</td>
+                        <td>{s.phone ? <a href={`tel:${s.phone}`} style={{ color: 'var(--teal-600)' }}>{s.phone}</a> : '-'}</td>
+                        <td style={{ fontSize: 11 }}>{s.email || '-'}</td>
+                        <td style={{ fontSize: 11 }}>{s.paymentTerms || '-'}</td>
+                        <td>{s.leadTimeDays ? `${s.leadTimeDays} 天` : '-'}</td>
+                        <td><span className="tag tag-paid">{st.items} 項</span></td>
+                        <td className="money">{fmtM(st.value)}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {s.phone && <button className="btn btn-green btn-sm" onClick={() => window.open(`https://wa.me/852${s.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`${s.name} 你好，我係康晴綜合醫療中心，想查詢藥材供應事宜。`)}`, '_blank')}>WhatsApp</button>}
+                            <button className="btn btn-outline btn-sm" onClick={() => openEditSupplier(s)}>編輯</button>
+                            <button className="btn btn-red btn-sm" onClick={() => deleteSupplierById(s.id)}>刪除</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {supplierList.length > 0 && (
+            <div style={{ padding: '8px 16px', fontSize: 11, color: 'var(--gray-500)', borderTop: '1px solid var(--gray-100)' }}>
+              共 {supplierList.length} 間供應商 | 關聯 {Object.values(supplierStats).reduce((s, v) => s + v.items, 0)} 項存貨 | 總貨值 {fmtM(Object.values(supplierStats).reduce((s, v) => s + v.value, 0))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Supplier Add/Edit Modal */}
+      {supplierModal && (
+        <div className="modal-overlay" onClick={() => setSupplierModal(false)} role="dialog" aria-modal="true" aria-label={editSupplierItem ? '編輯供應商' : '新增供應商'}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3>{editSupplierItem ? '編輯供應商' : '新增供應商'}</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setSupplierModal(false)} aria-label="關閉">✕</button>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label>供應商名稱 *</label>
+              <input value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })} placeholder="例: 同仁堂" autoFocus />
+            </div>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label>聯絡人</label>
+                <input value={supplierForm.contactPerson} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })} placeholder="聯絡人姓名" />
+              </div>
+              <div>
+                <label>電話</label>
+                <input value={supplierForm.phone} onChange={e => setSupplierForm({ ...supplierForm, phone: e.target.value })} placeholder="例: 98765432" />
+              </div>
+            </div>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label>電郵</label>
+                <input type="email" value={supplierForm.email} onChange={e => setSupplierForm({ ...supplierForm, email: e.target.value })} placeholder="supplier@example.com" />
+              </div>
+              <div>
+                <label>地址</label>
+                <input value={supplierForm.address} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} placeholder="供應商地址" />
+              </div>
+            </div>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label>付款條件</label>
+                <input value={supplierForm.paymentTerms} onChange={e => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value })} placeholder="例: 月結30天" />
+              </div>
+              <div>
+                <label>交貨天數</label>
+                <input type="number" min="0" value={supplierForm.leadTimeDays} onChange={e => setSupplierForm({ ...supplierForm, leadTimeDays: e.target.value })} placeholder="例: 7" />
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label>備註</label>
+              <textarea rows={2} value={supplierForm.notes} onChange={e => setSupplierForm({ ...supplierForm, notes: e.target.value })} placeholder="其他備註" style={{ width: '100%', resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-teal" onClick={handleSaveSupplier}>{editSupplierItem ? '更新供應商' : '新增供應商'}</button>
+              <button className="btn btn-outline" onClick={() => setSupplierModal(false)}>取消</button>
             </div>
           </div>
         </div>

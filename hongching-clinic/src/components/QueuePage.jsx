@@ -256,6 +256,41 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
     if (onNavigate) onNavigate('emr');
   };
 
+  // ── WhatsApp Queue Notification (#112) ──
+  const [notifiedIds, setNotifiedIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_queue_notified') || '{}'); } catch { return {}; }
+  });
+
+  const notifyPatient = (item, type) => {
+    if (!item.patientPhone) return showToast('此病人無電話號碼');
+    const phone = item.patientPhone.replace(/\D/g, '');
+    const messages = {
+      ready: `${item.patientName} 你好，我係康晴綜合醫療中心。你嘅號碼 ${item.queueNo} 即將到你，請準備入診症室。醫師：${item.doctor}。`,
+      dispensing: `${item.patientName} 你好，你嘅藥已配好，請到櫃檯取藥及結帳。號碼：${item.queueNo}。`,
+      completed: `${item.patientName} 你好，感謝你今日嚟診。如有任何不適，歡迎致電查詢。祝早日康復！康晴綜合醫療中心`,
+      reminder: `${item.patientName} 你好，你目前排隊號碼為 ${item.queueNo}，前面仲有約 ${todayQueue.filter(r => r.status === 'waiting' && (r.queueNo || '') < (item.queueNo || '')).length} 位。預計等候時間約 ${Math.max(5, todayQueue.filter(r => r.status === 'waiting' && (r.queueNo || '') < (item.queueNo || '')).length * (avgWaitTime || 15))} 分鐘。`,
+    };
+    const msg = messages[type] || messages.ready;
+    window.open(`https://wa.me/852${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+    // Track notification
+    const key = `${item.id}_${type}`;
+    const updated = { ...notifiedIds, [key]: new Date().toISOString() };
+    setNotifiedIds(updated);
+    localStorage.setItem('hcmc_queue_notified', JSON.stringify(updated));
+    showToast(`已開啟 WhatsApp 通知 ${item.patientName}`);
+  };
+
+  const isNotified = (itemId, type) => !!notifiedIds[`${itemId}_${type}`];
+
+  const batchNotifyWaiting = () => {
+    const waiting = todayQueue.filter(r => r.status === 'waiting' && r.patientPhone && !isNotified(r.id, 'reminder'));
+    if (!waiting.length) return showToast('沒有可通知的等候病人');
+    waiting.slice(0, 5).forEach((item, i) => {
+      setTimeout(() => notifyPatient(item, 'reminder'), i * 800);
+    });
+    if (waiting.length > 5) showToast(`已通知首 5 位，剩餘 ${waiting.length - 5} 位請稍後再發`);
+  };
+
   // Delete
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -370,6 +405,9 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
           {STORES.map(s => <option key={s}>{s}</option>)}
         </select>
         <div style={{ flex: 1 }} />
+        {stats.waiting > 0 && (
+          <button className="btn btn-green btn-sm" onClick={batchNotifyWaiting}>WhatsApp 通知等候中 ({stats.waiting})</button>
+        )}
         <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 快速掛號</button>
       </div>
 
@@ -418,7 +456,10 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                   <td>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                       {r.status === 'waiting' && (
-                        <button className="btn btn-green btn-sm" onClick={() => startConsultation(r)}>開始診症</button>
+                        <>
+                          <button className="btn btn-green btn-sm" onClick={() => startConsultation(r)}>開始診症</button>
+                          {r.patientPhone && <button className="btn btn-outline btn-sm" onClick={() => notifyPatient(r, 'ready')} title="WhatsApp 叫號通知" style={isNotified(r.id, 'ready') ? { background: '#dcfce7' } : {}}>📱{isNotified(r.id, 'ready') ? '✓' : ''}</button>}
+                        </>
                       )}
                       {r.status === 'in-consultation' && (
                         <>
@@ -427,10 +468,16 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                         </>
                       )}
                       {r.status === 'dispensing' && (
-                        <button className="btn btn-teal btn-sm" onClick={() => updateStatus(r, 'billing')}>收費</button>
+                        <>
+                          <button className="btn btn-teal btn-sm" onClick={() => updateStatus(r, 'billing')}>收費</button>
+                          {r.patientPhone && <button className="btn btn-outline btn-sm" onClick={() => notifyPatient(r, 'dispensing')} title="WhatsApp 取藥通知" style={isNotified(r.id, 'dispensing') ? { background: '#dcfce7' } : {}}>📱{isNotified(r.id, 'dispensing') ? '✓' : ''}</button>}
+                        </>
                       )}
                       {r.status === 'billing' && (
                         <button className="btn btn-green btn-sm" onClick={() => updateStatus(r, 'completed')}>完成</button>
+                      )}
+                      {r.status === 'completed' && r.patientPhone && (
+                        <button className="btn btn-outline btn-sm" onClick={() => notifyPatient(r, 'completed')} title="WhatsApp 感謝通知" style={isNotified(r.id, 'completed') ? { background: '#dcfce7' } : {}}>📱{isNotified(r.id, 'completed') ? '✓' : ''}</button>
                       )}
                       <button className="btn btn-outline btn-sm" onClick={() => printConsentForm(r)} title="同意書">📄</button>
                       {r.status !== 'completed' && (

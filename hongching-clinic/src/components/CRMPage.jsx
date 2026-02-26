@@ -284,6 +284,52 @@ export default function CRMPage({ data, setData, showToast }) {
     return summary;
   }, [engagementData]);
 
+  // ── Birthday Detection ──
+  const birthdayData = useMemo(() => {
+    const today = new Date();
+    const todayMD = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const upcoming = [];
+    const todayBdays = [];
+    patients.forEach(p => {
+      if (!p.dob) return;
+      const dobDate = new Date(p.dob);
+      if (isNaN(dobDate.getTime())) return;
+      const md = `${String(dobDate.getMonth() + 1).padStart(2, '0')}-${String(dobDate.getDate()).padStart(2, '0')}`;
+      const age = today.getFullYear() - dobDate.getFullYear();
+      if (md === todayMD) {
+        todayBdays.push({ ...p, age, daysUntil: 0 });
+      } else {
+        // Next birthday
+        let nextBday = new Date(today.getFullYear(), dobDate.getMonth(), dobDate.getDate());
+        if (nextBday < today) nextBday.setFullYear(nextBday.getFullYear() + 1);
+        const daysUntil = Math.ceil((nextBday - today) / 86400000);
+        if (daysUntil <= 30) {
+          upcoming.push({ ...p, age: age + (nextBday.getFullYear() > today.getFullYear() ? 1 : 0), daysUntil });
+        }
+      }
+    });
+    upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
+    return { todayBdays, upcoming };
+  }, [patients]);
+
+  // ── Follow-up Automation ──
+  const followUpData = useMemo(() => {
+    const today = new Date().toISOString().substring(0, 10);
+    const cons = data.consultations || [];
+    const overdue = [];
+    const upcoming = [];
+    cons.forEach(c => {
+      if (!c.followUpDate) return;
+      const patient = patients.find(p => p.id === c.patientId || p.name === c.patientName);
+      const entry = { ...c, patientPhone: patient?.phone || c.patientPhone || '', daysOverdue: Math.floor((new Date() - new Date(c.followUpDate)) / 86400000) };
+      if (c.followUpDate < today) overdue.push(entry);
+      else if (c.followUpDate <= new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10)) upcoming.push(entry);
+    });
+    overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
+    upcoming.sort((a, b) => a.followUpDate.localeCompare(b.followUpDate));
+    return { overdue, upcoming };
+  }, [data.consultations, patients]);
+
   // Batch WhatsApp
   const [batchSegment, setBatchSegment] = useState('流失風險');
   const handleBatchSend = (segment, template) => {
@@ -310,6 +356,12 @@ export default function CRMPage({ data, setData, showToast }) {
         <button className={`tab-btn${tab === 'chat' ? ' active' : ''}`} onClick={() => setTab('chat')}>對話</button>
         <button className={`tab-btn${tab === 'quick' ? ' active' : ''}`} onClick={() => setTab('quick')}>快速操作</button>
         <button className={`tab-btn${tab === 'engage' ? ' active' : ''}`} onClick={() => setTab('engage')}>客群分析</button>
+        <button className={`tab-btn${tab === 'birthday' ? ' active' : ''}`} onClick={() => setTab('birthday')}>
+          🎂 生日{birthdayData.todayBdays.length > 0 ? ` (${birthdayData.todayBdays.length})` : ''}
+        </button>
+        <button className={`tab-btn${tab === 'followup' ? ' active' : ''}`} onClick={() => setTab('followup')}>
+          📋 跟進{followUpData.overdue.length > 0 ? ` (${followUpData.overdue.length})` : ''}
+        </button>
         <button className={`tab-btn${tab === 'settings' ? ' active' : ''}`} onClick={() => setTab('settings')}>設定</button>
       </div>
 
@@ -751,6 +803,174 @@ export default function CRMPage({ data, setData, showToast }) {
       )}
 
       {/* ── Tab 4: Settings ── */}
+      {/* ── Birthday Tab ── */}
+      {tab === 'birthday' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Today's birthdays */}
+          {birthdayData.todayBdays.length > 0 && (
+            <div className="card" style={{ border: '2px solid #f59e0b', background: '#fffbeb' }}>
+              <div className="card-header"><h3 style={{ color: '#d97706' }}>🎂 今日壽星 ({birthdayData.todayBdays.length})</h3></div>
+              {birthdayData.todayBdays.map(p => (
+                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #fde68a' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>🎉 {p.name}</span>
+                    <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--gray-500)' }}>{p.age} 歲</span>
+                    {p.phone && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--gray-400)' }}>{p.phone}</span>}
+                  </div>
+                  {p.phone && (
+                    <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
+                      openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！🎂🎉\n\n祝你生日快樂！感謝你一直以來的支持！\n\n為答謝你的信任，我們特別送上生日優惠：\n🎁 診金8折優惠（本月有效）\n\n歡迎預約：📞 WhatsApp 或致電預約\n祝身體健康，萬事如意！🙏`);
+                      showToast(`已開啟 WhatsApp 祝賀 ${p.name}`);
+                    }}>🎂 發送祝福</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {birthdayData.todayBdays.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', padding: 24, color: 'var(--gray-400)' }}>今日沒有壽星</div>
+          )}
+
+          {/* Upcoming birthdays */}
+          <div className="card">
+            <div className="card-header"><h3>📅 即將來臨的生日 (30天內)</h3></div>
+            {birthdayData.upcoming.length > 0 ? (
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>病人</th><th>生日日期</th><th>年齡</th><th>電話</th><th>倒數</th><th>操作</th></tr></thead>
+                  <tbody>
+                    {birthdayData.upcoming.map(p => (
+                      <tr key={p.id}>
+                        <td style={{ fontWeight: 600 }}>{p.name}</td>
+                        <td>{p.dob}</td>
+                        <td>{p.age} 歲</td>
+                        <td>{p.phone || '-'}</td>
+                        <td style={{ fontWeight: 700, color: p.daysUntil <= 3 ? '#dc2626' : p.daysUntil <= 7 ? '#d97706' : 'var(--teal-600)' }}>
+                          {p.daysUntil} 天
+                        </td>
+                        <td>
+                          {p.phone && (
+                            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
+                              openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！🎂\n\n提前祝你生日快樂！感謝你一直以來的支持！\n🎁 生日月份專享診金8折優惠\n\n歡迎預約！🙏`);
+                            }}>📱 提前祝福</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 24, color: 'var(--gray-400)' }}>未來 30 天沒有生日</div>
+            )}
+          </div>
+
+          {/* Batch birthday greetings */}
+          {birthdayData.todayBdays.filter(p => p.phone).length > 1 && (
+            <div className="card" style={{ padding: 12 }}>
+              <button className="btn btn-gold" onClick={() => {
+                const targets = birthdayData.todayBdays.filter(p => p.phone);
+                targets.forEach((p, i) => {
+                  setTimeout(() => {
+                    openWhatsApp(p.phone, `【康晴醫療中心】${p.name}你好！🎂🎉\n\n祝你生日快樂！\n🎁 生日優惠：診金8折（本月有效）\n\n歡迎預約！🙏`);
+                  }, i * 1500);
+                });
+                showToast(`已批量發送 ${targets.length} 個生日祝福`);
+              }}>🎂 批量發送今日生日祝福 ({birthdayData.todayBdays.filter(p => p.phone).length}人)</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Follow-up Tab ── */}
+      {tab === 'followup' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Stats */}
+          <div className="stats-grid">
+            <div className="stat-card red"><div className="stat-label">逾期覆診</div><div className="stat-value red">{followUpData.overdue.length}</div></div>
+            <div className="stat-card gold"><div className="stat-label">本週覆診</div><div className="stat-value gold">{followUpData.upcoming.length}</div></div>
+          </div>
+
+          {/* Overdue follow-ups */}
+          {followUpData.overdue.length > 0 && (
+            <div className="card" style={{ border: '1px solid #fecaca' }}>
+              <div className="card-header"><h3 style={{ color: '#dc2626' }}>⚠️ 逾期未覆診 ({followUpData.overdue.length})</h3></div>
+              <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+                <table>
+                  <thead><tr><th>病人</th><th>覆診日</th><th>逾期天數</th><th>診斷</th><th>醫師</th><th>操作</th></tr></thead>
+                  <tbody>
+                    {followUpData.overdue.map(c => (
+                      <tr key={c.id}>
+                        <td style={{ fontWeight: 600 }}>{c.patientName}</td>
+                        <td style={{ color: '#dc2626' }}>{c.followUpDate}</td>
+                        <td style={{ fontWeight: 700, color: '#dc2626' }}>{c.daysOverdue} 天</td>
+                        <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{c.tcmDiagnosis || c.assessment || '-'}</td>
+                        <td>{c.doctor}</td>
+                        <td>
+                          {c.patientPhone && (
+                            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
+                              const msg = `【康晴醫療中心】${c.patientName}你好！\n\n溫馨提醒：你的覆診日期（${c.followUpDate}）已過期。\n\n${c.tcmDiagnosis ? `上次診斷：${c.tcmDiagnosis}` : ''}\n${c.followUpNotes ? `醫囑：${c.followUpNotes}` : ''}\n\n為確保治療效果，建議儘快安排覆診。\n歡迎致電或 WhatsApp 預約。🙏`;
+                              openWhatsApp(c.patientPhone, msg);
+                              showToast(`已開啟覆診提醒 ${c.patientName}`);
+                            }}>📱 覆診提醒</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {followUpData.overdue.filter(c => c.patientPhone).length > 1 && (
+                <div style={{ padding: 8 }}>
+                  <button className="btn btn-outline btn-sm" onClick={() => {
+                    const targets = followUpData.overdue.filter(c => c.patientPhone);
+                    targets.slice(0, 10).forEach((c, i) => {
+                      setTimeout(() => {
+                        openWhatsApp(c.patientPhone, `【康晴醫療中心】${c.patientName}你好！溫馨提醒你的覆診日期已過期（${c.followUpDate}）。建議儘快安排覆診，以確保治療效果。歡迎預約！🙏`);
+                      }, i * 1500);
+                    });
+                    showToast(`已批量發送 ${Math.min(targets.length, 10)} 個覆診提醒`);
+                  }}>批量發送覆診提醒 ({followUpData.overdue.filter(c => c.patientPhone).length}人)</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Upcoming follow-ups */}
+          {followUpData.upcoming.length > 0 && (
+            <div className="card">
+              <div className="card-header"><h3>📅 本週覆診 ({followUpData.upcoming.length})</h3></div>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>病人</th><th>覆診日</th><th>診斷</th><th>醫師</th><th>操作</th></tr></thead>
+                  <tbody>
+                    {followUpData.upcoming.map(c => (
+                      <tr key={c.id}>
+                        <td style={{ fontWeight: 600 }}>{c.patientName}</td>
+                        <td style={{ color: 'var(--teal-600)', fontWeight: 600 }}>{c.followUpDate}</td>
+                        <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{c.tcmDiagnosis || '-'}</td>
+                        <td>{c.doctor}</td>
+                        <td>
+                          {c.patientPhone && (
+                            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
+                              openWhatsApp(c.patientPhone, `【康晴醫療中心】${c.patientName}你好！\n\n提醒你即將到來的覆診：${c.followUpDate}\n${c.followUpNotes ? `醫囑：${c.followUpNotes}` : ''}\n\n歡迎提前預約時間。🙏`);
+                            }}>📱 提醒</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {followUpData.overdue.length === 0 && followUpData.upcoming.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>暫無需要跟進的覆診</div>
+          )}
+        </div>
+      )}
+
       {tab === 'settings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 

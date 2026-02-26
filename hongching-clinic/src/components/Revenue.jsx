@@ -171,6 +171,84 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
     return { revenue: rev, expenses: exp, profit: rev - exp, margin: rev > 0 ? ((rev - exp) / rev * 100) : 0 };
   }, [plData]);
 
+  // ── Recurring Revenue Templates ──
+  const [templates, setTemplates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_rev_templates') || '[]'); } catch { return []; }
+  });
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const saveTemplate = () => {
+    if (!form.name || !form.amount) return showToast('請先填寫姓名和金額');
+    const tmpl = { id: uid(), name: form.name, item: form.item, amount: form.amount, payment: form.payment, doctor: form.doctor, store: form.store, note: form.note };
+    const updated = [...templates, tmpl];
+    setTemplates(updated);
+    localStorage.setItem('hcmc_rev_templates', JSON.stringify(updated));
+    showToast('已儲存常用範本');
+  };
+
+  const applyTemplate = (tmpl) => {
+    setForm(f => ({ ...f, name: tmpl.name, item: tmpl.item, amount: tmpl.amount, payment: tmpl.payment, doctor: tmpl.doctor, store: tmpl.store, note: tmpl.note }));
+    setShowTemplates(false);
+    showToast('已套用範本');
+  };
+
+  const deleteTemplate = (id) => {
+    const updated = templates.filter(t => t.id !== id);
+    setTemplates(updated);
+    localStorage.setItem('hcmc_rev_templates', JSON.stringify(updated));
+  };
+
+  // ── Receipt Printing ──
+  const printReceipt = (r) => {
+    const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
+    const clinicName = clinic.name || '康晴綜合醫療中心';
+    const clinicNameEn = clinic.nameEn || 'Hong Ching International Medical Centre';
+    const addr = r.store === '太子' ? (clinic.addr2 || '太子彌敦道788號利安大廈1樓B室') : (clinic.addr1 || '九龍宋皇臺道38號傲寓地下5號舖');
+    const receiptNo = `RC${r.date.replace(/-/g, '')}${r.id.substring(0, 4).toUpperCase()}`;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>收據 ${receiptNo}</title>
+      <style>
+        @page{size:80mm auto;margin:5mm}
+        body{font-family:'Microsoft YaHei',sans-serif;font-size:12px;color:#333;max-width:300px;margin:0 auto;padding:10px}
+        .center{text-align:center}
+        .clinic{font-size:14px;font-weight:800;color:#0e7490;margin:0}
+        .clinic-en{font-size:9px;color:#888;margin:2px 0 6px}
+        .divider{border-top:1px dashed #ccc;margin:8px 0}
+        .row{display:flex;justify-content:space-between;padding:3px 0;font-size:11px}
+        .row .label{color:#666}.row .value{font-weight:600}
+        .total{font-size:16px;font-weight:800;color:#0e7490;text-align:center;padding:8px 0}
+        .footer{text-align:center;font-size:9px;color:#aaa;margin-top:10px}
+        .receipt-no{font-size:10px;color:#888;text-align:center}
+      </style></head><body>
+      <div class="center">
+        <div class="clinic">${clinicName}</div>
+        <div class="clinic-en">${clinicNameEn}</div>
+        <div style="font-size:10px;color:#666">${addr}</div>
+      </div>
+      <div class="divider"></div>
+      <div class="receipt-no">收據編號：${receiptNo}</div>
+      <div class="divider"></div>
+      <div class="row"><span class="label">日期：</span><span class="value">${r.date}</span></div>
+      <div class="row"><span class="label">病人：</span><span class="value">${r.name}</span></div>
+      <div class="row"><span class="label">醫師：</span><span class="value">${r.doctor}</span></div>
+      <div class="row"><span class="label">店舖：</span><span class="value">${r.store}</span></div>
+      <div class="divider"></div>
+      <div class="row"><span class="label">項目：</span><span class="value">${r.item || '診症服務'}</span></div>
+      ${r.note ? `<div class="row"><span class="label">備註：</span><span class="value">${r.note}</span></div>` : ''}
+      <div class="divider"></div>
+      <div class="total">合計：$${Number(r.amount).toLocaleString()}</div>
+      <div class="row"><span class="label">付款方式：</span><span class="value">${r.payment}</span></div>
+      <div class="divider"></div>
+      <div class="footer">
+        多謝惠顧！祝身體健康！<br/>
+        ${new Date().toLocaleString('zh-HK')}
+      </div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
   const payTag = (p) => {
     if (p === '現金') return <span className="tag tag-cash">現金</span>;
     if (p === 'FPS') return <span className="tag tag-fps">FPS</span>;
@@ -205,12 +283,27 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
             </select>
           </div>
           <div><label>備註</label><input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} /></div>
-          <div style={{ display: 'flex', alignItems: 'end' }}>
+          <div style={{ display: 'flex', alignItems: 'end', gap: 4 }}>
             <button className="btn btn-green" onClick={handleAdd} disabled={saving} style={{ flex: 1 }}>
               {saving ? '儲存中...' : '+ 新增'}
             </button>
+            <button className="btn btn-outline btn-sm" onClick={saveTemplate} title="儲存為範本" style={{ padding: '8px' }}>💾</button>
+            {templates.length > 0 && (
+              <button className="btn btn-outline btn-sm" onClick={() => setShowTemplates(!showTemplates)} title="常用範本" style={{ padding: '8px' }}>📋</button>
+            )}
           </div>
         </div>
+        {/* Templates */}
+        {showTemplates && templates.length > 0 && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            {templates.map(t => (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: 'var(--teal-50)', border: '1px solid var(--teal-200)', cursor: 'pointer', fontSize: 12 }}>
+                <span onClick={() => applyTemplate(t)} style={{ fontWeight: 600 }}>{t.name} — {t.item || '診症'} ${t.amount}</span>
+                <span onClick={() => deleteTemplate(t.id)} style={{ color: 'var(--red-500)', cursor: 'pointer', marginLeft: 4, fontWeight: 700 }}>✕</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Records */}
@@ -250,10 +343,11 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
                 <th>付款</th>
                 <th>醫師</th>
                 <th>備註</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {!list.length && <tr><td colSpan={10} className="empty" style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
+              {!list.length && <tr><td colSpan={11} className="empty" style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
               {list.map(r => (
                 editRow?.id === r.id ? (
                   <tr key={r.id} style={{ background: 'var(--teal-50)' }}>
@@ -289,6 +383,7 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
                     <td>{payTag(r.payment)}</td>
                     <td>{r.doctor}</td>
                     <td style={{ color: 'var(--gray-400)', fontSize: 11 }}>{r.note}</td>
+                    <td><button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => printReceipt(r)} title="列印收據">🖨️</button></td>
                   </tr>
                 )
               ))}

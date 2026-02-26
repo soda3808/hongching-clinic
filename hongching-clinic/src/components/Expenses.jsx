@@ -187,6 +187,54 @@ export default function Expenses({ data, setData, showToast }) {
     return map;
   }, [data.expenses, thisMonthKey]);
 
+  const [showVariance, setShowVariance] = useState(false);
+
+  // ── Budget Variance Analysis (#113) ──
+  const varianceAnalysis = useMemo(() => {
+    const thisMonth = thisMonthKey;
+    // Last month
+    const d = new Date(); d.setMonth(d.getMonth() - 1);
+    const lastMonth = d.toISOString().substring(0, 7);
+    d.setMonth(d.getMonth() - 1);
+    const twoMonthsAgo = d.toISOString().substring(0, 7);
+
+    const byMonth = (monthKey) => {
+      const map = {};
+      data.expenses.filter(r => getMonth(r.date) === monthKey).forEach(r => {
+        map[r.category] = (map[r.category] || 0) + Number(r.amount);
+      });
+      return map;
+    };
+
+    const thisData = byMonth(thisMonth);
+    const lastData = byMonth(lastMonth);
+    const twoAgoData = byMonth(twoMonthsAgo);
+    const totalThis = Object.values(thisData).reduce((s, v) => s + v, 0);
+    const totalLast = Object.values(lastData).reduce((s, v) => s + v, 0);
+    const totalBudget = Object.values(budgets).reduce((s, v) => s + v, 0);
+
+    const categories = [...new Set([...Object.keys(budgets), ...Object.keys(thisData), ...Object.keys(lastData)])].sort();
+    const rows = categories.map(cat => {
+      const budget = budgets[cat] || 0;
+      const actual = thisData[cat] || 0;
+      const lastActual = lastData[cat] || 0;
+      const twoAgoActual = twoAgoData[cat] || 0;
+      const variance = budget > 0 ? actual - budget : 0;
+      const variancePct = budget > 0 ? ((actual - budget) / budget * 100) : 0;
+      const momChange = lastActual > 0 ? ((actual - lastActual) / lastActual * 100) : (actual > 0 ? 100 : 0);
+      return { cat, budget, actual, lastActual, twoAgoActual, variance, variancePct, momChange };
+    });
+
+    const overBudget = rows.filter(r => r.budget > 0 && r.actual > r.budget);
+    const underBudget = rows.filter(r => r.budget > 0 && r.actual <= r.budget * 0.5);
+    const avg3m = categories.map(cat => ({
+      cat,
+      avg: ((thisData[cat] || 0) + (lastData[cat] || 0) + (twoAgoData[cat] || 0)) / 3,
+    })).filter(r => r.avg > 0).sort((a, b) => b.avg - a.avg);
+
+    return { rows, totalThis, totalLast, totalBudget, overBudget, underBudget, avg3m, thisMonth, lastMonth };
+  }, [data.expenses, budgets, thisMonthKey]);
+
   const saveBudget = (cat, amount) => {
     const updated = { ...budgets, [cat]: amount };
     setBudgets(updated);
@@ -265,6 +313,7 @@ export default function Expenses({ data, setData, showToast }) {
             <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleOCR(e.target.files[0]); e.target.value = ''; }} />
           </label>
           <button className="btn btn-outline" onClick={() => setShowBudget(!showBudget)}>📊 {showBudget ? '隱藏預算' : '預算管理'}</button>
+          <button className="btn btn-outline" onClick={() => setShowVariance(!showVariance)}>📈 {showVariance ? '隱藏分析' : '預算偏差分析'}</button>
         </div>
       </div>
 
@@ -292,6 +341,134 @@ export default function Expenses({ data, setData, showToast }) {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Budget Variance Analysis (#113) */}
+      {showVariance && (
+        <div className="card">
+          <div className="card-header"><h3>📈 預算偏差分析 ({varianceAnalysis.thisMonth})</h3></div>
+          {/* Summary Cards */}
+          <div className="stats-grid" style={{ marginBottom: 12 }}>
+            <div className="stat-card teal"><div className="stat-label">本月預算</div><div className="stat-value teal">{fmtM(varianceAnalysis.totalBudget)}</div></div>
+            <div className="stat-card red"><div className="stat-label">本月實際</div><div className="stat-value red">{fmtM(varianceAnalysis.totalThis)}</div></div>
+            <div className={`stat-card ${varianceAnalysis.totalThis > varianceAnalysis.totalBudget ? 'red' : 'green'}`}>
+              <div className="stat-label">偏差</div>
+              <div className={`stat-value ${varianceAnalysis.totalThis > varianceAnalysis.totalBudget ? 'red' : 'green'}`}>
+                {varianceAnalysis.totalBudget > 0 ? `${varianceAnalysis.totalThis > varianceAnalysis.totalBudget ? '+' : ''}${fmtM(varianceAnalysis.totalThis - varianceAnalysis.totalBudget)}` : '-'}
+              </div>
+            </div>
+            <div className={`stat-card ${varianceAnalysis.totalThis > varianceAnalysis.totalLast ? 'red' : 'green'}`}>
+              <div className="stat-label">較上月</div>
+              <div className={`stat-value ${varianceAnalysis.totalThis > varianceAnalysis.totalLast ? 'red' : 'green'}`}>
+                {varianceAnalysis.totalLast > 0 ? `${((varianceAnalysis.totalThis - varianceAnalysis.totalLast) / varianceAnalysis.totalLast * 100).toFixed(0)}%` : '-'}
+              </div>
+            </div>
+          </div>
+
+          {/* Alert Cards */}
+          {(varianceAnalysis.overBudget.length > 0 || varianceAnalysis.underBudget.length > 0) && (
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+              {varianceAnalysis.overBudget.length > 0 && (
+                <div style={{ flex: 1, minWidth: 200, padding: 10, background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca', fontSize: 12 }}>
+                  <div style={{ fontWeight: 700, color: '#dc2626', marginBottom: 4 }}>超支類別 ({varianceAnalysis.overBudget.length})</div>
+                  {varianceAnalysis.overBudget.map(r => (
+                    <div key={r.cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>{r.cat}</span>
+                      <span style={{ color: '#dc2626', fontWeight: 600 }}>+{fmtM(r.variance)} ({r.variancePct.toFixed(0)}%)</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {varianceAnalysis.underBudget.length > 0 && (
+                <div style={{ flex: 1, minWidth: 200, padding: 10, background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 12 }}>
+                  <div style={{ fontWeight: 700, color: '#16a34a', marginBottom: 4 }}>低使用率類別 ({varianceAnalysis.underBudget.length})</div>
+                  {varianceAnalysis.underBudget.map(r => (
+                    <div key={r.cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span>{r.cat}</span>
+                      <span style={{ color: '#16a34a' }}>使用 {r.budget > 0 ? (r.actual / r.budget * 100).toFixed(0) : 0}%</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Detailed Variance Table */}
+          <div className="table-wrap" style={{ maxHeight: 350, overflowY: 'auto' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>類別</th>
+                  <th style={{ textAlign: 'right' }}>預算</th>
+                  <th style={{ textAlign: 'right' }}>本月實際</th>
+                  <th style={{ textAlign: 'right' }}>偏差</th>
+                  <th style={{ textAlign: 'right' }}>偏差%</th>
+                  <th style={{ textAlign: 'right' }}>上月</th>
+                  <th style={{ textAlign: 'right' }}>月增減%</th>
+                  <th>進度</th>
+                </tr>
+              </thead>
+              <tbody>
+                {varianceAnalysis.rows.filter(r => r.budget > 0 || r.actual > 0).map(r => (
+                  <tr key={r.cat}>
+                    <td style={{ fontWeight: 600 }}>{r.cat}</td>
+                    <td className="money">{r.budget > 0 ? fmtM(r.budget) : '-'}</td>
+                    <td className="money" style={{ color: 'var(--red-600)' }}>{fmtM(r.actual)}</td>
+                    <td className="money" style={{ color: r.variance > 0 ? '#dc2626' : r.variance < 0 ? '#16a34a' : 'var(--gray-400)', fontWeight: r.variance !== 0 ? 600 : 400 }}>
+                      {r.budget > 0 ? `${r.variance > 0 ? '+' : ''}${fmtM(r.variance)}` : '-'}
+                    </td>
+                    <td style={{ textAlign: 'right', fontSize: 11, color: r.variancePct > 0 ? '#dc2626' : r.variancePct < 0 ? '#16a34a' : 'var(--gray-400)' }}>
+                      {r.budget > 0 ? `${r.variancePct > 0 ? '+' : ''}${r.variancePct.toFixed(0)}%` : '-'}
+                    </td>
+                    <td className="money" style={{ color: 'var(--gray-500)' }}>{r.lastActual > 0 ? fmtM(r.lastActual) : '-'}</td>
+                    <td style={{ textAlign: 'right', fontSize: 11, color: r.momChange > 10 ? '#dc2626' : r.momChange < -10 ? '#16a34a' : 'var(--gray-400)' }}>
+                      {r.lastActual > 0 ? `${r.momChange > 0 ? '+' : ''}${r.momChange.toFixed(0)}%` : '-'}
+                    </td>
+                    <td style={{ minWidth: 80 }}>
+                      {r.budget > 0 && (
+                        <div style={{ height: 6, background: 'var(--gray-100)', borderRadius: 3 }}>
+                          <div style={{ width: `${Math.min(r.actual / r.budget * 100, 100)}%`, height: '100%', background: r.actual > r.budget ? '#dc2626' : r.actual > r.budget * 0.8 ? '#d97706' : '#16a34a', borderRadius: 3 }} />
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {varianceAnalysis.rows.filter(r => r.budget > 0 || r.actual > 0).length > 0 && (
+                  <tr style={{ fontWeight: 700, background: 'var(--gray-50)' }}>
+                    <td>合計</td>
+                    <td className="money">{fmtM(varianceAnalysis.totalBudget)}</td>
+                    <td className="money" style={{ color: 'var(--red-600)' }}>{fmtM(varianceAnalysis.totalThis)}</td>
+                    <td className="money" style={{ color: varianceAnalysis.totalThis > varianceAnalysis.totalBudget ? '#dc2626' : '#16a34a' }}>
+                      {varianceAnalysis.totalBudget > 0 ? `${varianceAnalysis.totalThis > varianceAnalysis.totalBudget ? '+' : ''}${fmtM(varianceAnalysis.totalThis - varianceAnalysis.totalBudget)}` : '-'}
+                    </td>
+                    <td style={{ textAlign: 'right', fontSize: 11 }}>
+                      {varianceAnalysis.totalBudget > 0 ? `${((varianceAnalysis.totalThis - varianceAnalysis.totalBudget) / varianceAnalysis.totalBudget * 100).toFixed(0)}%` : '-'}
+                    </td>
+                    <td className="money" style={{ color: 'var(--gray-500)' }}>{fmtM(varianceAnalysis.totalLast)}</td>
+                    <td style={{ textAlign: 'right', fontSize: 11 }}>
+                      {varianceAnalysis.totalLast > 0 ? `${((varianceAnalysis.totalThis - varianceAnalysis.totalLast) / varianceAnalysis.totalLast * 100).toFixed(0)}%` : '-'}
+                    </td>
+                    <td />
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 3-Month Average */}
+          {varianceAnalysis.avg3m.length > 0 && (
+            <div style={{ marginTop: 12, padding: 12, background: 'var(--gray-50)', borderRadius: 8, fontSize: 12 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--gray-600)' }}>3個月平均開支 (建議預算參考)</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {varianceAnalysis.avg3m.slice(0, 8).map(r => (
+                  <span key={r.cat} style={{ background: '#fff', padding: '4px 10px', borderRadius: 12, border: '1px solid var(--gray-200)' }}>
+                    {r.cat}: <strong>{fmtM(Math.round(r.avg))}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
