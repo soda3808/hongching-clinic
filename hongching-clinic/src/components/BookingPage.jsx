@@ -155,27 +155,58 @@ export default function BookingPage({ data, setData, showToast }) {
     localStorage.setItem('hcmc_reminders_sent', JSON.stringify(updated));
   };
 
+  const buildReminderText = (b, dayText) => {
+    const clinic = getClinicName();
+    return `【${clinic}】${b.patientName}你好！提醒你${dayText}預約：\n` +
+      `日期: ${b.date} ${b.time}\n` +
+      `醫師: ${b.doctor}\n` +
+      `地點: ${b.store}\n` +
+      `類型: ${b.type}\n` +
+      `請準時到達，如需更改請提前聯絡。多謝！`;
+  };
+
+  // Batch reminders: queue one at a time, user clicks through each
+  const batchQueueRef = useRef([]);
+  const [batchIdx, setBatchIdx] = useState(-1);
+
   const sendBatchReminders = () => {
     const withPhone = tomorrowBookings.filter(b => b.patientPhone);
     if (!withPhone.length) return showToast('明日預約暫無電話記錄');
     const unsent = withPhone.filter(b => !isReminderSent(b.id));
     if (!unsent.length) return showToast('明日預約已全部發送提醒');
-    unsent.forEach((b, i) => {
-      setTimeout(() => {
-        const text = `【${getClinicName()}】${b.patientName}你好！提醒你明日預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
-        openWhatsApp(b.patientPhone, text);
-      }, i * 1500);
-    });
-    markReminderSent(unsent.map(b => b.id));
-    showToast(`已逐一開啟 ${unsent.length} 位病人的 WhatsApp 提醒`);
+    // Send the first one immediately, queue the rest
+    const first = unsent[0];
+    openWhatsApp(first.patientPhone, buildReminderText(first, '明日'));
+    markReminderSent([first.id]);
+    if (unsent.length > 1) {
+      batchQueueRef.current = unsent.slice(1);
+      setBatchIdx(0);
+      showToast(`已開啟第 1/${unsent.length} 位。點擊「下一位」繼續發送。`);
+    } else {
+      showToast('已開啟 WhatsApp 提醒');
+    }
+  };
+
+  const sendNextBatchReminder = () => {
+    const queue = batchQueueRef.current;
+    if (!queue.length) return;
+    const b = queue.shift();
+    openWhatsApp(b.patientPhone, buildReminderText(b, '明日'));
+    markReminderSent([b.id]);
+    setBatchIdx(i => i + 1);
+    if (queue.length === 0) {
+      setBatchIdx(-1);
+      showToast('全部提醒已發送完畢！');
+    } else {
+      showToast(`已發送，餘下 ${queue.length} 位`);
+    }
   };
 
   const sendSingleReminder = (b) => {
     if (!b.patientPhone) return showToast('此預約沒有電話號碼');
     const daysUntil = Math.ceil((new Date(b.date) - new Date()) / 86400000);
     const dayText = daysUntil === 1 ? '明日' : daysUntil === 2 ? '後日' : `${b.date}`;
-    const text = `【${getClinicName()}】${b.patientName}你好！提醒你${dayText}預約：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
-    openWhatsApp(b.patientPhone, text);
+    openWhatsApp(b.patientPhone, buildReminderText(b, dayText));
     markReminderSent([b.id]);
     showToast('已開啟 WhatsApp 提醒');
   };
@@ -255,7 +286,12 @@ export default function BookingPage({ data, setData, showToast }) {
   };
 
   const sendBookingWA = (b) => {
-    const text = `【${getClinicName()}】${b.patientName}你好！你嘅預約已確認：\n📅 ${b.date} ${b.time}\n👨‍⚕️ ${b.doctor}\n📍 ${b.store}\n類型：${b.type}\n請準時到達，如需更改請提前聯絡。多謝！`;
+    const text = `【${getClinicName()}】${b.patientName}你好！你嘅預約已確認：\n` +
+      `日期: ${b.date} ${b.time}\n` +
+      `醫師: ${b.doctor}\n` +
+      `地點: ${b.store}\n` +
+      `類型: ${b.type}\n` +
+      `請準時到達，如需更改請提前聯絡。多謝！`;
     openWhatsApp(b.patientPhone, text);
     showToast('已開啟 WhatsApp');
   };
@@ -347,9 +383,14 @@ export default function BookingPage({ data, setData, showToast }) {
               📱 提醒中心 ({upcomingBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
             </button>
           )}
-          {tomorrowBookings.length > 0 && (
+          {tomorrowBookings.length > 0 && batchIdx < 0 && (
             <button className="btn btn-sm btn-outline" style={{ fontSize: 12 }} onClick={sendBatchReminders}>
               批量提醒明日 ({tomorrowBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
+            </button>
+          )}
+          {batchIdx >= 0 && batchQueueRef.current.length > 0 && (
+            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 12, animation: 'pulse 1.5s infinite' }} onClick={sendNextBatchReminder}>
+              下一位 ({batchQueueRef.current.length} 位餘下)
             </button>
           )}
           <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 新增預約</button>
