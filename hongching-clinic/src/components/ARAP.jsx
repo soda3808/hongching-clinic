@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { saveARAP, deleteRecord } from '../api';
-import { uid, fmtM, fmt } from '../data';
+import { uid, fmtM, fmt, getMonth } from '../data';
 import ConfirmModal from './ConfirmModal';
 
 export default function ARAP({ data, setData, showToast }) {
@@ -8,6 +8,8 @@ export default function ARAP({ data, setData, showToast }) {
   const [form, setForm] = useState({ type: 'receivable', date: new Date().toISOString().split('T')[0], party: '', amount: '', desc: '', dueDate: '', status: '未收' });
   const [deleteId, setDeleteId] = useState(null);
   const [showAging, setShowAging] = useState(false);
+  const [agingFilter, setAgingFilter] = useState(null);
+  const [reminderTarget, setReminderTarget] = useState(null);
 
   const arap = data.arap || [];
 
@@ -109,6 +111,88 @@ export default function ARAP({ data, setData, showToast }) {
     setTimeout(() => w.print(), 300);
   };
 
+  // ── CSV Export ──
+  const exportCSV = () => {
+    const typeLabel = tab === 'receivable' ? '應收' : '應付';
+    const rows = [['日期', '對象', '金額', '到期日', '狀態', '描述', '帳齡']];
+    const today = new Date();
+    list.forEach(r => {
+      let aging = '-';
+      if (r.dueDate && r.status !== '已收' && r.status !== '已付') {
+        const days = Math.floor((today - new Date(r.dueDate)) / 86400000);
+        aging = days <= 0 ? '未到期' : `逾期${days}天`;
+      }
+      rows.push([r.date, r.party, r.amount, r.dueDate || '', r.status, r.desc || '', aging]);
+    });
+    const csv = '\uFEFF' + rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${typeLabel}帳_${new Date().toISOString().substring(0, 10)}.csv`;
+    a.click();
+    showToast('已匯出 CSV');
+  };
+
+  // ── Monthly Trend ──
+  const monthlyTrend = useMemo(() => {
+    const months = {};
+    list.forEach(r => {
+      const m = (r.date || '').substring(0, 7);
+      if (!m) return;
+      if (!months[m]) months[m] = { total: 0, paid: 0, pending: 0, count: 0 };
+      months[m].total += Number(r.amount);
+      months[m].count++;
+      if (r.status === '已收' || r.status === '已付') months[m].paid += Number(r.amount);
+      else months[m].pending += Number(r.amount);
+    });
+    return Object.entries(months).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+  }, [list]);
+
+  // ── WhatsApp Reminder ──
+  const sendReminder = (r) => {
+    const typeLabel = tab === 'receivable' ? '應收' : '應付';
+    const days = r.dueDate ? Math.floor((new Date() - new Date(r.dueDate)) / 86400000) : 0;
+    const msg = `康晴綜合醫療中心 付款提醒\n\n${r.party} 您好，\n\n您有一筆${typeLabel}款項尚未處理：\n金額：$${Number(r.amount).toLocaleString()}\n到期日：${r.dueDate || '未設定'}\n${days > 0 ? `已逾期 ${days} 天` : ''}\n描述：${r.desc || '-'}\n\n請儘快處理，謝謝！`;
+    setReminderTarget({ ...r, message: msg });
+  };
+
+  const printReminderLetter = (r) => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const days = r.dueDate ? Math.floor((new Date() - new Date(r.dueDate)) / 86400000) : 0;
+    w.document.write(`<!DOCTYPE html><html><head><title>付款提醒</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:40px;max-width:600px;margin:0 auto}
+      h1{color:#0e7490;font-size:20px;border-bottom:3px solid #0e7490;padding-bottom:10px}
+      .info{margin:20px 0;line-height:2}
+      .amount{font-size:24px;color:#dc2626;font-weight:800}
+      .footer{margin-top:40px;padding-top:16px;border-top:1px solid #ddd;font-size:11px;color:#888;text-align:center}
+    </style></head><body>
+      <h1>康晴綜合醫療中心 — 付款提醒通知</h1>
+      <p>日期：${new Date().toISOString().substring(0, 10)}</p>
+      <div class="info">
+        <p><strong>${r.party}</strong> 閣下：</p>
+        <p>根據本中心紀錄，閣下有以下款項尚未處理：</p>
+        <p>金額：<span class="amount">$${Number(r.amount).toLocaleString()}</span></p>
+        <p>到期日：${r.dueDate || '未設定'}</p>
+        ${days > 0 ? `<p style="color:#dc2626;font-weight:700">已逾期 ${days} 天</p>` : ''}
+        <p>描述：${r.desc || '-'}</p>
+        <p style="margin-top:24px">敬請儘快安排付款，如已付款請忽略此通知。</p>
+        <p>如有任何疑問，請聯絡本中心。</p>
+      </div>
+      <div class="footer">康晴綜合醫療中心</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
+  // ── Filtered list with aging bucket ──
+  const displayList = useMemo(() => {
+    if (!agingFilter) return list;
+    const bucket = agingData.find(b => b.key === agingFilter);
+    if (!bucket) return list;
+    const ids = new Set(bucket.items.map(r => r.id));
+    return list.filter(r => ids.has(r.id));
+  }, [list, agingFilter, agingData]);
+
   const statusTag = (r) => {
     if (r.status === '已收' || r.status === '已付') return <span className="tag tag-paid">{r.status}</span>;
     if (isOverdue(r.dueDate, r.status)) return <span className="tag tag-overdue">逾期</span>;
@@ -162,17 +246,19 @@ export default function ARAP({ data, setData, showToast }) {
         </div>
       </div>
 
-      {/* Aging Analysis (#69) */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+      {/* Action bar */}
+      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="btn btn-outline" onClick={() => setShowAging(!showAging)}>{showAging ? '隱藏' : '📊'} 帳齡分析</button>
         {showAging && <button className="btn btn-teal btn-sm" onClick={printAgingReport}>🖨️ 列印報告</button>}
+        <button className="btn btn-outline btn-sm" onClick={exportCSV}>📥 CSV 匯出</button>
+        {agingFilter && <button className="btn btn-outline btn-sm" onClick={() => setAgingFilter(null)}>✕ 清除篩選</button>}
       </div>
       {showAging && (
         <div className="card">
           <div className="card-header"><h3>📊 {tab === 'receivable' ? '應收' : '應付'}帳齡分析</h3></div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
             {agingData.map(b => (
-              <div key={b.key} style={{ flex: 1, minWidth: 120, padding: 12, borderRadius: 8, border: `2px solid ${b.color}20`, background: `${b.color}08`, textAlign: 'center' }}>
+              <div key={b.key} onClick={() => setAgingFilter(agingFilter === b.key ? null : b.key)} style={{ flex: 1, minWidth: 120, padding: 12, borderRadius: 8, border: `2px solid ${agingFilter === b.key ? b.color : b.color + '20'}`, background: agingFilter === b.key ? b.color + '15' : b.color + '08', textAlign: 'center', cursor: 'pointer', transition: 'all .2s' }}>
                 <div style={{ fontSize: 11, color: b.color, fontWeight: 600 }}>{b.label}</div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: b.color }}>{fmtM(b.total)}</div>
                 <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{b.items.length} 筆</div>
@@ -195,10 +281,35 @@ export default function ARAP({ data, setData, showToast }) {
         </div>
       )}
 
+      {/* Monthly Trend */}
+      {monthlyTrend.length > 1 && (
+        <div className="card">
+          <div className="card-header"><h3>📈 {tab === 'receivable' ? '應收' : '應付'}月度趨勢</h3></div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 120, padding: '0 8px' }}>
+            {(() => { const maxVal = Math.max(...monthlyTrend.map(([, d]) => d.total), 1); return monthlyTrend.map(([m, d]) => (
+              <div key={m} style={{ flex: 1, textAlign: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--teal-700)' }}>{fmtM(d.total)}</div>
+                  <div style={{ position: 'relative', width: '100%', maxWidth: 40, margin: '0 auto' }}>
+                    <div style={{ height: Math.max((d.paid / maxVal) * 80, 2), background: '#16a34a', borderRadius: '4px 4px 0 0' }} title={`已收/付: ${fmtM(d.paid)}`} />
+                    <div style={{ height: Math.max((d.pending / maxVal) * 80, 2), background: '#d97706', borderRadius: '0 0 4px 4px' }} title={`待處理: ${fmtM(d.pending)}`} />
+                  </div>
+                  <div style={{ fontSize: 9, color: 'var(--gray-400)' }}>{m.substring(5)}</div>
+                </div>
+              </div>
+            )); })()}
+          </div>
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8, fontSize: 10, color: 'var(--gray-400)' }}>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#16a34a', marginRight: 4 }} />已收/付</span>
+            <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#d97706', marginRight: 4 }} />待處理</span>
+          </div>
+        </div>
+      )}
+
       {/* Records */}
       <div className="card">
         <div className="card-header">
-          <h3>📋 {tab === 'receivable' ? '應收' : '應付'}帳列表 ({list.length} 筆 | 待處理 {fmtM(totalPending)})</h3>
+          <h3>📋 {tab === 'receivable' ? '應收' : '應付'}帳列表 ({displayList.length}{agingFilter ? ` / ${list.length}` : ''} 筆 | 待處理 {fmtM(totalPending)})</h3>
         </div>
         <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
           <table>
@@ -206,8 +317,8 @@ export default function ARAP({ data, setData, showToast }) {
               <tr><th></th><th>日期</th><th>{tab === 'receivable' ? '應收對象' : '應付對象'}</th><th style={{ textAlign: 'right' }}>金額</th><th>到期日</th><th>狀態</th><th>描述</th><th>操作</th></tr>
             </thead>
             <tbody>
-              {!list.length && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
-              {list.sort((a, b) => (a.status === '已收' || a.status === '已付' ? 1 : -1)).map(r => (
+              {!displayList.length && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
+              {[...displayList].sort((a, b) => (a.status === '已收' || a.status === '已付' ? 1 : -1)).map(r => (
                 <tr key={r.id} style={{ opacity: r.status === '已收' || r.status === '已付' ? .5 : 1 }}>
                   <td><span onClick={() => setDeleteId(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
                   <td>{String(r.date).substring(0, 10)}</td>
@@ -216,11 +327,19 @@ export default function ARAP({ data, setData, showToast }) {
                   <td style={{ color: isOverdue(r.dueDate, r.status) ? 'var(--red-500)' : 'inherit', fontWeight: isOverdue(r.dueDate, r.status) ? 700 : 400 }}>{r.dueDate || '-'}</td>
                   <td>{statusTag(r)}</td>
                   <td style={{ color: 'var(--gray-400)', fontSize: 11 }}>{r.desc}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {(r.status !== '已收' && r.status !== '已付') && (
-                      <button className="btn btn-teal btn-sm" onClick={() => handleStatus(r.id, tab === 'receivable' ? '已收' : '已付')}>
-                        ✓ {tab === 'receivable' ? '已收款' : '已付款'}
-                      </button>
+                      <>
+                        <button className="btn btn-teal btn-sm" onClick={() => handleStatus(r.id, tab === 'receivable' ? '已收' : '已付')}>
+                          ✓ {tab === 'receivable' ? '已收' : '已付'}
+                        </button>
+                        {tab === 'receivable' && isOverdue(r.dueDate, r.status) && (
+                          <>
+                            <button className="btn btn-outline btn-sm" onClick={() => sendReminder(r)} title="WhatsApp 提醒">📱</button>
+                            <button className="btn btn-outline btn-sm" onClick={() => printReminderLetter(r)} title="列印提醒信">📄</button>
+                          </>
+                        )}
+                      </>
                     )}
                   </td>
                 </tr>
@@ -229,6 +348,39 @@ export default function ARAP({ data, setData, showToast }) {
           </table>
         </div>
       </div>
+
+      {/* WhatsApp Reminder Modal */}
+      {reminderTarget && (
+        <div className="modal-overlay" onClick={() => setReminderTarget(null)} role="dialog" aria-modal="true" aria-label="付款提醒">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3>📱 付款提醒</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setReminderTarget(null)}>✕</button>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label>對象: <strong>{reminderTarget.party}</strong></label>
+              <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>金額: {fmtM(reminderTarget.amount)} | 到期日: {reminderTarget.dueDate || '-'}</div>
+            </div>
+            <textarea
+              value={reminderTarget.message}
+              onChange={e => setReminderTarget({ ...reminderTarget, message: e.target.value })}
+              rows={8}
+              style={{ width: '100%', fontSize: 13, lineHeight: 1.6 }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button className="btn btn-green" onClick={() => {
+                const phone = (reminderTarget.party || '').replace(/\D/g, '');
+                const url = `https://wa.me/852${phone}?text=${encodeURIComponent(reminderTarget.message)}`;
+                window.open(url, '_blank');
+                setReminderTarget(null);
+                showToast('已開啟 WhatsApp');
+              }}>📱 WhatsApp 發送</button>
+              <button className="btn btn-outline" onClick={() => { printReminderLetter(reminderTarget); setReminderTarget(null); }}>🖨️ 列印提醒信</button>
+              <button className="btn btn-outline" onClick={() => setReminderTarget(null)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteId && <ConfirmModal message={`確認刪除此${tab === 'receivable' ? '應收' : '應付'}帳紀錄？此操作無法復原。`} onConfirm={handleDel} onCancel={() => setDeleteId(null)} />}
     </>

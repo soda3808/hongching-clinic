@@ -14,6 +14,9 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [showImport, setShowImport] = useState(false);
   const [importData, setImportData] = useState([]);
   const [importErrors, setImportErrors] = useState([]);
+  const [selected, setSelected] = useState(new Set());
+  const [showBatchWA, setShowBatchWA] = useState(false);
+  const [batchMsg, setBatchMsg] = useState('');
 
   const patients = data.patients || [];
   const thisMonth = new Date().toISOString().substring(0, 7);
@@ -42,6 +45,43 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
       .filter(p => p.lastVisit && p.lastVisit < ninetyDaysAgo && (p.totalVisits || 0) >= 2)
       .length;
   }, [patients, ninetyDaysAgo]);
+
+  // ── Patient LTV & RFM Segmentation (#93) ──
+  const segmentation = useMemo(() => {
+    const today = new Date();
+    const segments = { vip: [], highValue: [], regular: [], newPatient: [], atRisk: [], dormant: [] };
+    const patientsWithLTV = patients.map(p => {
+      const spent = Number(p.totalSpent || 0);
+      const visits = Number(p.totalVisits || 0);
+      const daysSince = p.lastVisit ? Math.floor((today - new Date(p.lastVisit)) / 86400000) : 999;
+      // RFM scores (1-5)
+      const recency = daysSince <= 14 ? 5 : daysSince <= 30 ? 4 : daysSince <= 60 ? 3 : daysSince <= 120 ? 2 : 1;
+      const frequency = visits >= 12 ? 5 : visits >= 8 ? 4 : visits >= 4 ? 3 : visits >= 2 ? 2 : 1;
+      const monetary = spent >= 5000 ? 5 : spent >= 3000 ? 4 : spent >= 1500 ? 3 : spent >= 500 ? 2 : 1;
+      const rfmScore = recency + frequency + monetary;
+      // Segment
+      let segment = 'regular';
+      if (rfmScore >= 13) segment = 'vip';
+      else if (rfmScore >= 10) segment = 'highValue';
+      else if (visits <= 1 && daysSince <= 30) segment = 'newPatient';
+      else if (daysSince > 90) segment = 'dormant';
+      else if (daysSince > 60 || (recency <= 2 && frequency >= 3)) segment = 'atRisk';
+      segments[segment].push(p);
+      return { ...p, ltv: spent, rfmScore, recency, frequency, monetary, segment };
+    });
+    const totalLTV = patientsWithLTV.reduce((s, p) => s + p.ltv, 0);
+    const avgLTV = patients.length ? Math.round(totalLTV / patients.length) : 0;
+    return { segments, totalLTV, avgLTV, top10: [...patientsWithLTV].sort((a, b) => b.ltv - a.ltv).slice(0, 10) };
+  }, [patients]);
+
+  const SEGMENT_CONFIG = {
+    vip: { label: 'VIP', color: '#7c3aed', bg: '#f5f3ff' },
+    highValue: { label: '高價值', color: '#0e7490', bg: '#ecfeff' },
+    regular: { label: '正常', color: '#16a34a', bg: '#f0fdf4' },
+    newPatient: { label: '新病人', color: '#2563eb', bg: '#eff6ff' },
+    atRisk: { label: '流失風險', color: '#d97706', bg: '#fffbeb' },
+    dormant: { label: '沉睡', color: '#9ca3af', bg: '#f9fafb' },
+  };
 
   const filtered = useMemo(() => {
     let list = [...patients];
@@ -270,6 +310,35 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         </div>
       )}
 
+      {/* LTV & Segmentation (#93) */}
+      <div className="grid-2" style={{ marginBottom: 0 }}>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>客戶分群</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {Object.entries(SEGMENT_CONFIG).map(([key, cfg]) => (
+              <div key={key} style={{ padding: '4px 10px', background: cfg.bg, borderRadius: 8, textAlign: 'center', minWidth: 60 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: cfg.color }}>{segmentation.segments[key].length}</div>
+                <div style={{ fontSize: 9, color: cfg.color }}>{cfg.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--gray-400)' }}>
+            平均 LTV：{fmtM(segmentation.avgLTV)} · 總 LTV：{fmtM(segmentation.totalLTV)}
+          </div>
+        </div>
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>TOP 10 高價值病人</div>
+          <div style={{ maxHeight: 120, overflowY: 'auto' }}>
+            {segmentation.top10.map((p, i) => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 11, borderBottom: '1px solid var(--gray-100)' }}>
+                <span><span style={{ fontWeight: 700, color: i < 3 ? '#d97706' : 'var(--gray-500)', marginRight: 4 }}>{i + 1}.</span>{p.name}</span>
+                <span style={{ fontWeight: 600, color: 'var(--teal-700)' }}>{fmtM(p.ltv)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Search & Filter */}
       <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <input style={{ flex: 1, minWidth: 200 }} placeholder="🔍 搜尋姓名或電話..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -287,19 +356,46 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         </select>
       </div>
 
+      {/* Batch Actions (#95) */}
+      {selected.size > 0 && (
+        <div className="card" style={{ padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--teal-700)' }}>已選 {selected.size} 位病人</span>
+          <button className="btn btn-teal btn-sm" onClick={() => {
+            const selPatients = filtered.filter(p => selected.has(p.id));
+            const withPhone = selPatients.filter(p => p.phone);
+            if (!withPhone.length) return showToast('所選病人沒有電話號碼');
+            setBatchMsg(`親愛的病人，康晴綜合醫療中心祝您身體健康！如需預約，歡迎致電或WhatsApp聯繫我們。`);
+            setShowBatchWA(true);
+          }}>批量 WhatsApp</button>
+          <button className="btn btn-outline btn-sm" onClick={() => {
+            const selPatients = filtered.filter(p => selected.has(p.id));
+            const headers = ['姓名','電話','性別','年齡','主診醫師','店舖','首次到診','最後到診','總次數','累計消費'];
+            const rows = selPatients.map(p => [p.name, p.phone, p.gender, calcAge(p.dob), p.doctor, p.store, p.firstVisit, p.lastVisit, p.totalVisits, p.totalSpent || 0]);
+            const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `patients_selected_${new Date().toISOString().substring(0,10)}.csv`; a.click();
+            showToast(`已匯出 ${selPatients.length} 位病人`);
+          }}>匯出所選</button>
+          <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())}>取消選擇</button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="card" style={{ padding: 0 }}>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
+                <th style={{ width: 30 }}><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={e => setSelected(e.target.checked ? new Set(filtered.map(p => p.id)) : new Set())} /></th>
                 <th>姓名</th><th>電話</th><th>性別</th><th>年齡</th><th>主診醫師</th>
                 <th>首次到診</th><th>最後到診</th><th>總次數</th><th>累計消費</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(p => (
-                <tr key={p.id}>
+                <tr key={p.id} style={{ background: selected.has(p.id) ? 'var(--teal-50)' : undefined }}>
+                  <td><input type="checkbox" checked={selected.has(p.id)} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(p.id) : s.delete(p.id); setSelected(s); }} /></td>
                   <td><span style={{ color: 'var(--teal-700)', cursor: 'pointer', fontWeight: 600 }} onClick={() => setDetail(p)}>{p.name}</span></td>
                   <td>{p.phone}</td>
                   <td>{p.gender}</td>
@@ -311,11 +407,43 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   <td className="money">{fmtM(p.totalSpent || 0)}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無病人紀錄</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無病人紀錄</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Batch WhatsApp Modal (#95) */}
+      {showBatchWA && (
+        <div className="modal-overlay" onClick={() => setShowBatchWA(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <h3>批量 WhatsApp ({filtered.filter(p => selected.has(p.id) && p.phone).length} 位)</h3>
+            <div style={{ marginBottom: 12 }}>
+              <label>訊息內容</label>
+              <textarea rows={4} value={batchMsg} onChange={e => setBatchMsg(e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 12, fontSize: 11, color: 'var(--gray-400)' }}>
+              將逐一開啟 WhatsApp 對話窗口，每位病人一個
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-teal" onClick={() => {
+                const targets = filtered.filter(p => selected.has(p.id) && p.phone);
+                targets.forEach((p, i) => {
+                  setTimeout(() => {
+                    const phone = p.phone.replace(/[^0-9]/g, '');
+                    const fullPhone = phone.startsWith('852') ? phone : `852${phone}`;
+                    window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(batchMsg)}`, '_blank');
+                  }, i * 800);
+                });
+                showToast(`正在開啟 ${targets.length} 個 WhatsApp 對話`);
+                setShowBatchWA(false);
+                setSelected(new Set());
+              }}>發送 ({filtered.filter(p => selected.has(p.id) && p.phone).length})</button>
+              <button className="btn btn-outline" onClick={() => setShowBatchWA(false)}>取消</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Detail Modal */}
       {detail && (() => {

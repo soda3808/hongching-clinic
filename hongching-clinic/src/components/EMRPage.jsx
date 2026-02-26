@@ -29,6 +29,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   const [customEnd, setCustomEnd] = useState('');
   const [filterDoc, setFilterDoc] = useState('all');
   const [filterStore, setFilterStore] = useState('all');
+  const [filterHerb, setFilterHerb] = useState('');
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientDD, setShowPatientDD] = useState(false);
   const [herbSearch, setHerbSearch] = useState({});
@@ -143,15 +144,27 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     let list = [...consultations];
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter(c => (c.patientName || '').toLowerCase().includes(q));
+      list = list.filter(c =>
+        (c.patientName || '').toLowerCase().includes(q) ||
+        (c.tcmDiagnosis || '').toLowerCase().includes(q) ||
+        (c.tcmPattern || '').toLowerCase().includes(q) ||
+        (c.assessment || '').toLowerCase().includes(q) ||
+        (c.subjective || '').toLowerCase().includes(q) ||
+        (c.plan || '').toLowerCase().includes(q) ||
+        (c.formulaName || '').toLowerCase().includes(q)
+      );
     }
     if (filterDoc !== 'all') list = list.filter(c => c.doctor === filterDoc);
     if (filterStore !== 'all') list = list.filter(c => c.store === filterStore);
+    if (filterHerb) {
+      const hq = filterHerb.toLowerCase();
+      list = list.filter(c => (c.prescription || []).some(rx => (rx.herb || '').toLowerCase().includes(hq)));
+    }
     if (filterDate === 'today') list = list.filter(c => c.date === today);
     else if (filterDate === 'week') list = list.filter(c => c.date >= weekStart && c.date <= weekEnd);
     else if (filterDate === 'custom' && customStart && customEnd) list = list.filter(c => c.date >= customStart && c.date <= customEnd);
     return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  }, [consultations, search, filterDoc, filterStore, filterDate, today, weekStart, weekEnd, customStart, customEnd]);
+  }, [consultations, search, filterDoc, filterStore, filterHerb, filterDate, today, weekStart, weekEnd, customStart, customEnd]);
 
   // ── Patient autocomplete ──
   const patientMatches = useMemo(() => {
@@ -541,7 +554,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
       {/* Filters */}
       <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input style={{ flex: 1, minWidth: 180 }} placeholder="搜尋病人姓名..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input style={{ flex: 1, minWidth: 160 }} placeholder="搜尋病人/診斷/證型/方劑..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input style={{ width: 120 }} placeholder="篩選藥材..." value={filterHerb} onChange={e => setFilterHerb(e.target.value)} />
         <div className="preset-bar" style={{ marginBottom: 0 }}>
           {[['all', '全部'], ['today', '今日'], ['week', '本週'], ['custom', '自選']].map(([k, l]) => (
             <button key={k} className={`preset-chip ${filterDate === k ? 'active' : ''}`} onClick={() => setFilterDate(k)}>{l}</button>
@@ -562,6 +576,20 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
           <option value="all">所有店舖</option>
           <option>宋皇臺</option><option>太子</option>
         </select>
+        <button className="btn btn-outline btn-sm" onClick={() => {
+          if (!filtered.length) return showToast('沒有診症紀錄可匯出');
+          const headers = ['日期','病人','醫師','店舖','中醫診斷','證型','處方','劑數','治療','覆診日期'];
+          const rows = filtered.map(c => [
+            c.date, c.patientName, c.doctor, c.store, c.tcmDiagnosis || '', c.tcmPattern || '',
+            (c.prescription || []).map(rx => `${rx.herb}${rx.dosage ? ' ' + rx.dosage : ''}`).join('、'),
+            c.formulaDays || '', (c.treatments || []).join('、'), c.followUpDate || ''
+          ]);
+          const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = `consultations_${new Date().toISOString().substring(0,10)}.csv`; a.click();
+          showToast('已匯出診症紀錄');
+        }}>匯出CSV</button>
       </div>
 
       {/* Table */}

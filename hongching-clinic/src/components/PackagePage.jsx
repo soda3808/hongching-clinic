@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { savePackage, saveEnrollment } from '../api';
-import { uid, fmtM, DOCTORS, MEMBERSHIP_TIERS, getMembershipTier, TCM_TREATMENTS } from '../data';
+import { uid, fmtM, getMonth, DOCTORS, MEMBERSHIP_TIERS, getMembershipTier, TCM_TREATMENTS } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
@@ -74,6 +74,89 @@ export default function PackagePage({ data, setData, showToast, allData }) {
       })
       .sort((a, b) => b.totalSpent - a.totalSpent);
   }, [patients]);
+
+  // ── Analytics Data ──
+  const analytics = useMemo(() => {
+    // Package popularity
+    const byPackage = packages.map(p => {
+      const enr = enrollments.filter(e => e.packageId === p.id);
+      const revenue = enr.length * Number(p.price || 0);
+      const avgUtil = enr.length > 0
+        ? enr.reduce((s, e) => s + (e.totalSessions > 0 ? (e.usedSessions / e.totalSessions) * 100 : 0), 0) / enr.length
+        : 0;
+      const activeCount = enr.filter(e => getEnrollmentStatus(e) === 'active').length;
+      return { name: p.name, id: p.id, enrollCount: enr.length, revenue, avgUtil, activeCount, price: Number(p.price || 0), sessions: p.sessions };
+    }).sort((a, b) => b.enrollCount - a.enrollCount);
+
+    // Monthly enrollment trend
+    const monthlyMap = {};
+    enrollments.forEach(e => {
+      const m = (e.purchaseDate || '').substring(0, 7);
+      if (!m) return;
+      if (!monthlyMap[m]) monthlyMap[m] = { count: 0, revenue: 0 };
+      monthlyMap[m].count++;
+      const pkg = packages.find(p => p.id === e.packageId);
+      monthlyMap[m].revenue += pkg ? Number(pkg.price) : 0;
+    });
+    const monthlyTrend = Object.entries(monthlyMap).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+
+    // Expiring soon (within 30 days)
+    const today = new Date();
+    const d30 = new Date(Date.now() + 30 * 86400000).toISOString().substring(0, 10);
+    const todayStr = today.toISOString().substring(0, 10);
+    const expiringSoon = enrichedEnrollments.filter(e => e.status === 'active' && e.expiryDate && e.expiryDate <= d30 && e.expiryDate >= todayStr);
+    const lowUsage = enrichedEnrollments.filter(e => e.status === 'active' && e.totalSessions > 0 && (e.usedSessions / e.totalSessions) < 0.3);
+
+    // Store breakdown
+    const byStore = {};
+    enrollments.forEach(e => {
+      const st = e.store || '未知';
+      if (!byStore[st]) byStore[st] = { count: 0, revenue: 0 };
+      byStore[st].count++;
+      const pkg = packages.find(p => p.id === e.packageId);
+      byStore[st].revenue += pkg ? Number(pkg.price) : 0;
+    });
+
+    return { byPackage, monthlyTrend, expiringSoon, lowUsage, byStore };
+  }, [packages, enrollments, enrichedEnrollments]);
+
+  // ── CSV Export ──
+  const exportEnrollCSV = () => {
+    const rows = [['病人', '套餐', '店舖', '購買日期', '到期日', '已用/總次數', '狀態']];
+    enrichedEnrollments.forEach(e => {
+      rows.push([e.patientName, e.packageName, e.store, e.purchaseDate, e.expiryDate, `${e.usedSessions}/${e.totalSessions}`, STATUS_LABELS[e.status] || e.status]);
+    });
+    const csv = '\uFEFF' + rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `套餐登記_${new Date().toISOString().substring(0, 10)}.csv`;
+    a.click();
+  };
+
+  const printEnrollReport = () => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const rows = enrichedEnrollments.map(e => `<tr><td>${e.patientName}</td><td>${e.packageName}</td><td>${e.store}</td><td>${e.purchaseDate}</td><td>${e.expiryDate}</td><td>${e.usedSessions}/${e.totalSessions}</td><td>${STATUS_LABELS[e.status]}</td></tr>`).join('');
+    const pkgRows = analytics.byPackage.map(p => `<tr><td>${p.name}</td><td style="text-align:right">${p.enrollCount}</td><td style="text-align:right">${p.activeCount}</td><td style="text-align:right">${fmtM(p.revenue)}</td><td style="text-align:right">${p.avgUtil.toFixed(0)}%</td></tr>`).join('');
+    w.document.write(`<!DOCTYPE html><html><head><title>套餐分析報告</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:900px;margin:0 auto}
+      h1{color:#0e7490;font-size:18px;border-bottom:3px solid #0e7490;padding-bottom:8px}
+      h3{color:#0e7490;font-size:14px;margin-top:20px}
+      table{width:100%;border-collapse:collapse;font-size:11px;margin:8px 0}
+      th{background:#0e7490;color:#fff;padding:5px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}
+      .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
+    </style></head><body>
+      <h1>康晴綜合醫療中心 — 套餐分析報告</h1>
+      <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0, 10)} | 總套餐：${packages.length} | 總登記：${enrollments.length}</p>
+      <h3>套餐業績</h3>
+      <table><thead><tr><th>套餐名稱</th><th style="text-align:right">登記數</th><th style="text-align:right">活躍</th><th style="text-align:right">總收入</th><th style="text-align:right">使用率</th></tr></thead><tbody>${pkgRows}</tbody></table>
+      <h3>登記明細</h3>
+      <table><thead><tr><th>病人</th><th>套餐</th><th>店舖</th><th>購買日</th><th>到期日</th><th>進度</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="footer">此報表由系統自動生成</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
 
   // ── Patient search autocomplete ──
   const filteredPatients = useMemo(() => {
@@ -191,6 +274,7 @@ export default function PackagePage({ data, setData, showToast, allData }) {
         <button className={`tab-btn ${tab === 'packages' ? 'active' : ''}`} onClick={() => setTab('packages')}>套餐管理</button>
         <button className={`tab-btn ${tab === 'enrollments' ? 'active' : ''}`} onClick={() => setTab('enrollments')}>會員管理</button>
         <button className={`tab-btn ${tab === 'tiers' ? 'active' : ''}`} onClick={() => setTab('tiers')}>會員等級</button>
+        <button className={`tab-btn ${tab === 'analytics' ? 'active' : ''}`} onClick={() => setTab('analytics')}>📊 分析</button>
       </div>
 
       {/* ════════════════════════════════ */}
@@ -252,7 +336,9 @@ export default function PackagePage({ data, setData, showToast, allData }) {
       {/* ════════════════════════════════ */}
       {tab === 'enrollments' && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16, gap: 8 }}>
+            <button className="btn btn-outline btn-sm" onClick={exportEnrollCSV}>📥 CSV</button>
+            <button className="btn btn-outline btn-sm" onClick={printEnrollReport}>🖨️ 列印報告</button>
             <button className="btn btn-teal" onClick={openAddEnroll}>+ 新增登記</button>
           </div>
 
@@ -361,6 +447,150 @@ export default function PackagePage({ data, setData, showToast, allData }) {
               </table>
             </div>
           </div>
+        </>
+      )}
+
+      {/* ════════════════════════════════ */}
+      {/* Tab 4: Analytics                */}
+      {/* ════════════════════════════════ */}
+      {tab === 'analytics' && (
+        <>
+          {/* Alert Cards */}
+          {(analytics.expiringSoon.length > 0 || analytics.lowUsage.length > 0) && (
+            <div className="stats-grid">
+              {analytics.expiringSoon.length > 0 && (
+                <div className="stat-card red">
+                  <div className="stat-label">即將到期 (30天內)</div>
+                  <div className="stat-value red">{analytics.expiringSoon.length}</div>
+                  <div className="stat-sub">{analytics.expiringSoon.slice(0, 3).map(e => e.patientName).join('、')}{analytics.expiringSoon.length > 3 ? '...' : ''}</div>
+                </div>
+              )}
+              {analytics.lowUsage.length > 0 && (
+                <div className="stat-card gold">
+                  <div className="stat-label">低使用率 (&lt;30%)</div>
+                  <div className="stat-value gold">{analytics.lowUsage.length}</div>
+                  <div className="stat-sub">{analytics.lowUsage.slice(0, 3).map(e => e.patientName).join('、')}{analytics.lowUsage.length > 3 ? '...' : ''}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Package Performance Table */}
+          <div className="card">
+            <div className="card-header"><h3>🏆 套餐業績排名</h3></div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>套餐</th><th style={{ textAlign: 'right' }}>登記數</th><th style={{ textAlign: 'right' }}>活躍</th><th style={{ textAlign: 'right' }}>總收入</th><th style={{ textAlign: 'right' }}>每次單價</th><th style={{ textAlign: 'right' }}>使用率</th><th>使用率</th></tr>
+                </thead>
+                <tbody>
+                  {analytics.byPackage.map(p => (
+                    <tr key={p.id}>
+                      <td style={{ fontWeight: 600 }}>{p.name}</td>
+                      <td style={{ textAlign: 'right' }}>{p.enrollCount}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--teal-600)' }}>{p.activeCount}</td>
+                      <td className="money">{fmtM(p.revenue)}</td>
+                      <td style={{ textAlign: 'right', color: 'var(--gray-500)', fontSize: 12 }}>{p.sessions > 0 ? fmtM(p.price / p.sessions) : '-'}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: p.avgUtil >= 70 ? '#16a34a' : p.avgUtil >= 40 ? '#d97706' : '#dc2626' }}>{p.avgUtil.toFixed(0)}%</td>
+                      <td style={{ width: 100 }}>
+                        <div style={{ height: 8, background: 'var(--gray-200)', borderRadius: 4 }}>
+                          <div style={{ width: `${Math.min(p.avgUtil, 100)}%`, height: '100%', borderRadius: 4, background: p.avgUtil >= 70 ? '#16a34a' : p.avgUtil >= 40 ? '#d97706' : '#dc2626' }} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {analytics.byPackage.length === 0 && <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無數據</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Monthly Enrollment Trend */}
+          {analytics.monthlyTrend.length > 1 && (
+            <div className="card">
+              <div className="card-header"><h3>📈 月度登記趨勢</h3></div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 130, padding: '0 8px' }}>
+                {(() => { const maxV = Math.max(...analytics.monthlyTrend.map(([, d]) => d.revenue), 1); return analytics.monthlyTrend.map(([m, d]) => (
+                  <div key={m} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--teal-700)' }}>{fmtM(d.revenue)}</div>
+                    <div style={{ fontSize: 9, color: 'var(--gray-500)' }}>{d.count}人</div>
+                    <div style={{ height: Math.max((d.revenue / maxV) * 80, 4), background: 'linear-gradient(180deg, #0d9488, #0e7490)', borderRadius: 4, margin: '4px auto', maxWidth: 40 }} />
+                    <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{m.substring(5)}</div>
+                  </div>
+                )); })()}
+              </div>
+            </div>
+          )}
+
+          {/* Store Breakdown */}
+          {Object.keys(analytics.byStore).length > 0 && (
+            <div className="card">
+              <div className="card-header"><h3>🏪 店舖分佈</h3></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+                {Object.entries(analytics.byStore).map(([store, d]) => (
+                  <div key={store} style={{ padding: 16, borderRadius: 8, border: '1px solid var(--gray-200)', textAlign: 'center' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal-700)' }}>{store}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--teal-600)', margin: '4px 0' }}>{d.count}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>登記數</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--green-600)', marginTop: 4 }}>{fmtM(d.revenue)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>總收入</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Expiring Soon Detail */}
+          {analytics.expiringSoon.length > 0 && (
+            <div className="card">
+              <div className="card-header"><h3>⏰ 即將到期登記 (30天內)</h3></div>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>病人</th><th>套餐</th><th>到期日</th><th>進度</th><th>剩餘天數</th></tr></thead>
+                  <tbody>
+                    {analytics.expiringSoon.map(e => {
+                      const daysLeft = Math.ceil((new Date(e.expiryDate) - new Date()) / 86400000);
+                      return (
+                        <tr key={e.id}>
+                          <td style={{ fontWeight: 600 }}>{e.patientName}</td>
+                          <td>{e.packageName}</td>
+                          <td style={{ color: daysLeft <= 7 ? '#dc2626' : '#d97706', fontWeight: 600 }}>{e.expiryDate}</td>
+                          <td>{e.usedSessions}/{e.totalSessions}</td>
+                          <td style={{ fontWeight: 700, color: daysLeft <= 7 ? '#dc2626' : '#d97706' }}>{daysLeft} 天</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Low Usage Detail */}
+          {analytics.lowUsage.length > 0 && (
+            <div className="card">
+              <div className="card-header"><h3>📉 低使用率登記 (&lt;30%)</h3></div>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>病人</th><th>套餐</th><th>進度</th><th>使用率</th><th>到期日</th></tr></thead>
+                  <tbody>
+                    {analytics.lowUsage.map(e => {
+                      const util = e.totalSessions > 0 ? (e.usedSessions / e.totalSessions) * 100 : 0;
+                      return (
+                        <tr key={e.id}>
+                          <td style={{ fontWeight: 600 }}>{e.patientName}</td>
+                          <td>{e.packageName}</td>
+                          <td>{e.usedSessions}/{e.totalSessions}</td>
+                          <td style={{ fontWeight: 700, color: '#dc2626' }}>{util.toFixed(0)}%</td>
+                          <td>{e.expiryDate}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
 

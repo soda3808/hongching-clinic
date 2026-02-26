@@ -585,8 +585,110 @@ export default function Reports({ data }) {
           </table>
         </div>
 
-        <div style={{ fontSize: 11, color: 'var(--gray-400)', padding: '8px 12px', background: 'var(--gray-50)', borderRadius: 6, border: '1px solid var(--gray-200)' }}>
-          * 預測基於線性回歸模型，僅供參考
+        {/* Budget vs Actual (#92) */}
+        {(() => {
+          const budgets = (() => { try { return JSON.parse(localStorage.getItem('hcmc_budgets') || '{}'); } catch { return {}; } })();
+          const recentMonths = sorted.slice(-6);
+          if (!recentMonths.length) return null;
+          return (
+            <>
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8, marginTop: 16 }}>預算 vs 實際 (近6個月)</h4>
+              <div className="table-wrap" style={{ marginBottom: 16 }}>
+                <table>
+                  <thead><tr><th>月份</th><th style={{ textAlign: 'right' }}>實際</th><th style={{ textAlign: 'right' }}>預算</th><th style={{ textAlign: 'right' }}>差異</th><th style={{ textAlign: 'right' }}>達成率</th></tr></thead>
+                  <tbody>
+                    {recentMonths.map(([m, actual]) => {
+                      const budget = Number(budgets[m] || budgets.default || 0);
+                      const diff = actual - budget;
+                      const rate = budget > 0 ? (actual / budget * 100).toFixed(0) : '-';
+                      return (
+                        <tr key={m}>
+                          <td style={{ fontWeight: 600 }}>{monthLabel(m)}</td>
+                          <td className="money">{fmtM(actual)}</td>
+                          <td className="money" style={{ color: 'var(--gray-400)' }}>{budget > 0 ? fmtM(budget) : '未設定'}</td>
+                          <td className="money" style={{ color: diff >= 0 ? 'var(--green-600)' : '#dc2626' }}>{budget > 0 ? `${diff >= 0 ? '+' : ''}${fmtM(diff)}` : '-'}</td>
+                          <td className="money" style={{ color: Number(rate) >= 100 ? 'var(--green-600)' : Number(rate) >= 80 ? '#d97706' : '#dc2626', fontWeight: 700 }}>{rate !== '-' ? `${rate}%` : '-'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Seasonal Pattern (#92) */}
+        {sorted.length >= 6 && (() => {
+          const monthMap = {};
+          sorted.forEach(([m, total]) => {
+            const mo = parseInt(m.split('-')[1]);
+            if (!monthMap[mo]) monthMap[mo] = [];
+            monthMap[mo].push(total);
+          });
+          const seasonalAvg = Object.entries(monthMap).map(([mo, vals]) => ({
+            month: `${mo}月`,
+            avg: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length),
+            count: vals.length,
+          })).sort((a, b) => parseInt(a.month) - parseInt(b.month));
+          const maxAvg = Math.max(...seasonalAvg.map(s => s.avg)) || 1;
+          return (
+            <>
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8, marginTop: 16 }}>季節性分析</h4>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 100, marginBottom: 8 }}>
+                {seasonalAvg.map(s => (
+                  <div key={s.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ fontSize: 8, color: 'var(--gray-400)' }}>{fmtM(s.avg)}</div>
+                    <div style={{ width: '100%', height: Math.max(4, (s.avg / maxAvg) * 80), background: s.avg === maxAvg ? 'var(--green-500)' : 'var(--teal-500)', borderRadius: '3px 3px 0 0', minWidth: 16 }} />
+                    <div style={{ fontSize: 9, color: 'var(--gray-500)', marginTop: 2 }}>{s.month}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--gray-400)', marginBottom: 16 }}>
+                旺季：{seasonalAvg.sort((a, b) => b.avg - a.avg).slice(0, 3).map(s => s.month).join('、')} |
+                淡季：{seasonalAvg.sort((a, b) => a.avg - b.avg).slice(0, 3).map(s => s.month).join('、')}
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Expense Trend (#92) */}
+        {(() => {
+          const exp = filterStore(data.expenses || []);
+          const expMonthly = {};
+          exp.forEach(r => { const m = getMonth(r.date); if (m) expMonthly[m] = (expMonthly[m] || 0) + Number(r.amount); });
+          const expSorted = Object.entries(expMonthly).sort((a, b) => a[0].localeCompare(b[0])).slice(-6);
+          if (!expSorted.length) return null;
+          return (
+            <>
+              <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 8, marginTop: 16 }}>收支對比 (近6個月)</h4>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>月份</th><th style={{ textAlign: 'right' }}>營業額</th><th style={{ textAlign: 'right' }}>開支</th><th style={{ textAlign: 'right' }}>淨利</th><th style={{ textAlign: 'right' }}>利潤率</th></tr></thead>
+                  <tbody>
+                    {expSorted.map(([m, expTotal]) => {
+                      const revTotal = monthlyTotals[m] || 0;
+                      const net = revTotal - expTotal;
+                      const margin = revTotal > 0 ? (net / revTotal * 100).toFixed(1) : 0;
+                      return (
+                        <tr key={m}>
+                          <td style={{ fontWeight: 600 }}>{monthLabel(m)}</td>
+                          <td className="money" style={{ color: 'var(--green-600)' }}>{fmtM(revTotal)}</td>
+                          <td className="money" style={{ color: '#dc2626' }}>{fmtM(expTotal)}</td>
+                          <td className="money" style={{ fontWeight: 700, color: net >= 0 ? 'var(--green-600)' : '#dc2626' }}>{fmtM(net)}</td>
+                          <td className="money" style={{ color: Number(margin) >= 30 ? 'var(--green-600)' : Number(margin) >= 10 ? '#d97706' : '#dc2626' }}>{margin}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          );
+        })()}
+
+        <div style={{ fontSize: 11, color: 'var(--gray-400)', padding: '8px 12px', background: 'var(--gray-50)', borderRadius: 6, border: '1px solid var(--gray-200)', marginTop: 16 }}>
+          * 預測基於線性回歸模型，僅供參考。設定月度預算可在「設定」頁面進行。
         </div>
       </div>
     );

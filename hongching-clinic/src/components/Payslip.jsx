@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { saveExpense } from '../api';
-import { uid, fmtM, fmt, EMPLOYEES } from '../data';
+import { uid, fmtM, fmt, EMPLOYEES, DOCTORS, getMonth } from '../data';
 
-export default function Payslip({ data, setData, showToast }) {
+export default function Payslip({ data, setData, showToast, allData }) {
   const [empId, setEmpId] = useState('hui');
   const [form, setForm] = useState({ period: 'Feb 2026', revenue: 0, bonus: 0, allow: 0, deduct: 0 });
 
@@ -178,6 +178,54 @@ export default function Payslip({ data, setData, showToast }) {
           </tbody>
         </table>
       </div>
+
+      {/* Staff Performance Dashboard (#94) */}
+      {(() => {
+        const src = allData || data;
+        const thisMonth = new Date().toISOString().substring(0, 7);
+        const today = new Date().toISOString().substring(0, 10);
+        const doctorPerf = DOCTORS.map(doc => {
+          const monthRev = (src.revenue || []).filter(r => r.doctor === doc && getMonth(r.date) === thisMonth);
+          const monthConsult = (src.consultations || []).filter(c => c.doctor === doc && getMonth(c.date) === thisMonth);
+          const todayQueue = (src.queue || []).filter(q => q.doctor === doc && q.date === today);
+          const revenue = monthRev.reduce((s, r) => s + Number(r.amount || 0), 0);
+          const consultCount = monthConsult.length;
+          const todayPatients = todayQueue.length;
+          const avgPerConsult = consultCount > 0 ? Math.round(revenue / consultCount) : 0;
+          // Target from localStorage
+          const targets = (() => { try { return JSON.parse(localStorage.getItem('hcmc_doctor_targets') || '{}'); } catch { return {}; } })();
+          const target = Number(targets[doc] || 0);
+          const achievement = target > 0 ? Math.round(revenue / target * 100) : null;
+          return { doc, revenue, consultCount, todayPatients, avgPerConsult, target, achievement };
+        });
+        return (
+          <div className="card" style={{ marginTop: 16, padding: 0 }}>
+            <div className="card-header"><h3>本月醫師績效一覽 ({thisMonth})</h3></div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>醫師</th><th style={{ textAlign: 'right' }}>本月營業額</th><th style={{ textAlign: 'right' }}>診症數</th><th style={{ textAlign: 'right' }}>平均單價</th><th style={{ textAlign: 'right' }}>目標</th><th style={{ textAlign: 'right' }}>達成率</th><th style={{ textAlign: 'right' }}>今日病人</th></tr>
+                </thead>
+                <tbody>
+                  {doctorPerf.map(d => (
+                    <tr key={d.doc}>
+                      <td style={{ fontWeight: 600 }}>{d.doc}</td>
+                      <td className="money" style={{ color: 'var(--gold-700)', fontWeight: 600 }}>{fmtM(d.revenue)}</td>
+                      <td className="money">{d.consultCount}</td>
+                      <td className="money">{fmtM(d.avgPerConsult)}</td>
+                      <td className="money" style={{ color: 'var(--gray-400)' }}>{d.target > 0 ? fmtM(d.target) : '未設'}</td>
+                      <td className="money" style={{ fontWeight: 700, color: d.achievement === null ? 'var(--gray-400)' : d.achievement >= 100 ? 'var(--green-600)' : d.achievement >= 80 ? '#d97706' : '#dc2626' }}>
+                        {d.achievement !== null ? `${d.achievement}%` : '-'}
+                      </td>
+                      <td className="money">{d.todayPatients}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }

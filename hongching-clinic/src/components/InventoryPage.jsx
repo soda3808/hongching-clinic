@@ -58,7 +58,17 @@ export default function InventoryPage({ data, setData, showToast }) {
     const lowStock = inventory.filter(r => Number(r.stock) < Number(r.minStock)).length;
     const totalValue = inventory.reduce((s, r) => s + Number(r.stock) * Number(r.costPerUnit), 0);
     const categories = new Set(inventory.map(r => r.category)).size;
-    return { total, lowStock, totalValue, categories };
+    // Expiry tracking (#91)
+    const today = new Date().toISOString().substring(0, 10);
+    const in7 = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().substring(0, 10); })();
+    const in30 = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10); })();
+    const in90 = (() => { const d = new Date(); d.setDate(d.getDate() + 90); return d.toISOString().substring(0, 10); })();
+    const expired = inventory.filter(r => r.expiryDate && r.expiryDate <= today);
+    const expiring7 = inventory.filter(r => r.expiryDate && r.expiryDate > today && r.expiryDate <= in7);
+    const expiring30 = inventory.filter(r => r.expiryDate && r.expiryDate > today && r.expiryDate <= in30);
+    const expiring90 = inventory.filter(r => r.expiryDate && r.expiryDate > today && r.expiryDate <= in90);
+    const expiredValue = expired.reduce((s, r) => s + Number(r.stock) * Number(r.costPerUnit), 0);
+    return { total, lowStock, totalValue, categories, expired, expiring7, expiring30, expiring90, expiredValue };
   }, [inventory]);
 
   // ── Filtered & sorted list ──
@@ -379,6 +389,45 @@ export default function InventoryPage({ data, setData, showToast }) {
         <div className="stat-card gold"><div className="stat-label">存貨總值</div><div className="stat-value gold">{fmtM(stats.totalValue)}</div></div>
         <div className="stat-card green"><div className="stat-label">分類數</div><div className="stat-value green">{stats.categories}</div></div>
       </div>
+
+      {/* Expiry Alerts (#91) */}
+      {(stats.expired.length > 0 || stats.expiring7.length > 0 || stats.expiring30.length > 0) && (
+        <div className="card" style={{ padding: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--gray-600)' }}>到期提醒</div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {stats.expired.length > 0 && (
+              <div style={{ padding: '6px 12px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca', cursor: 'pointer' }} onClick={() => setFilterStatus('expired')}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>{stats.expired.length}</div>
+                <div style={{ fontSize: 10, color: '#991b1b' }}>已過期</div>
+                <div style={{ fontSize: 9, color: '#b91c1c' }}>損失 {fmtM(stats.expiredValue)}</div>
+              </div>
+            )}
+            {stats.expiring7.length > 0 && (
+              <div style={{ padding: '6px 12px', background: '#fffbeb', borderRadius: 8, border: '1px solid #fde68a', cursor: 'pointer' }} onClick={() => setFilterStatus('expiring')}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#d97706' }}>{stats.expiring7.length}</div>
+                <div style={{ fontSize: 10, color: '#92400e' }}>7日內到期</div>
+              </div>
+            )}
+            {stats.expiring30.length > 0 && (
+              <div style={{ padding: '6px 12px', background: '#f0f9ff', borderRadius: 8, border: '1px solid #bae6fd' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#0369a1' }}>{stats.expiring30.length}</div>
+                <div style={{ fontSize: 10, color: '#0c4a6e' }}>30日內到期</div>
+              </div>
+            )}
+            {stats.expiring90.length > 0 && (
+              <div style={{ padding: '6px 12px', background: 'var(--gray-50)', borderRadius: 8, border: '1px solid var(--gray-200)' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-600)' }}>{stats.expiring90.length}</div>
+                <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>90日內到期</div>
+              </div>
+            )}
+          </div>
+          {stats.expired.length > 0 && (
+            <div style={{ marginTop: 8, fontSize: 11, color: '#dc2626' }}>
+              已過期：{stats.expired.slice(0, 5).map(r => r.name).join('、')}{stats.expired.length > 5 ? ` 等${stats.expired.length}項` : ''}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
