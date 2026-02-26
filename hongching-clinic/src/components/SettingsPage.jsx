@@ -412,6 +412,64 @@ export default function SettingsPage({ data, setData, showToast, user }) {
                 <option value="create">新增</option><option value="update">更新</option><option value="delete">刪除</option>
               </select>
               <button className="btn btn-outline btn-sm" onClick={() => { clearAuditLog(); showToast('記錄已清除'); }}>清除記錄</button>
+              <button className="btn btn-teal btn-sm" onClick={() => {
+                if (!filteredLogs.length) return showToast('沒有記錄可匯出');
+                const headers = ['時間','用戶','操作','目標','詳情'];
+                const rows = filteredLogs.map(log => [
+                  new Date(log.ts).toLocaleString('zh-HK'),
+                  log.userName || '',
+                  ACTION_LABELS[log.action] || log.action || '',
+                  log.target || '',
+                  (log.detail || '').replace(/,/g, '，')
+                ]);
+                const csv = '\uFEFF' + [headers, ...rows].map(r => r.join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url;
+                a.download = `audit_log_${new Date().toISOString().substring(0,10)}.csv`;
+                a.click(); URL.revokeObjectURL(url);
+                showToast(`已匯出 ${filteredLogs.length} 條記錄`);
+              }}>📥 匯出 CSV</button>
+              <button className="btn btn-outline btn-sm" onClick={() => {
+                const w = window.open('', '_blank');
+                if (!w) return;
+                const trs = filteredLogs.slice(0, 500).map(log =>
+                  `<tr><td style="white-space:nowrap">${new Date(log.ts).toLocaleString('zh-HK')}</td><td style="font-weight:600">${log.userName||''}</td><td>${ACTION_LABELS[log.action]||log.action||''}</td><td>${log.target||''}</td><td style="font-size:10px;color:#888">${log.detail||''}</td></tr>`
+                ).join('');
+                w.document.write(`<!DOCTYPE html><html><head><title>審計日誌</title><style>
+                  body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:1000px;margin:0 auto}
+                  h1{color:#0e7490;font-size:18px;border-bottom:3px solid #0e7490;padding-bottom:8px}
+                  table{width:100%;border-collapse:collapse;font-size:11px}
+                  th{background:#0e7490;color:#fff;padding:6px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}
+                  .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
+                </style></head><body>
+                  <h1>康晴綜合醫療中心 — 審計日誌</h1>
+                  <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0,10)} | 共 ${filteredLogs.length} 條記錄</p>
+                  <table><thead><tr><th>時間</th><th>用戶</th><th>操作</th><th>目標</th><th>詳情</th></tr></thead><tbody>${trs}</tbody></table>
+                  <div class="footer">此報表由系統自動生成</div>
+                </body></html>`);
+                w.document.close();
+                setTimeout(() => w.print(), 300);
+              }}>🖨️ 列印</button>
+            </div>
+            {/* Audit Stats */}
+            <div className="stats-grid" style={{ marginBottom: 12 }}>
+              {(() => {
+                const userCounts = {}; const actionCounts = {};
+                filteredLogs.forEach(log => {
+                  userCounts[log.userName] = (userCounts[log.userName] || 0) + 1;
+                  actionCounts[ACTION_LABELS[log.action] || log.action] = (actionCounts[ACTION_LABELS[log.action] || log.action] || 0) + 1;
+                });
+                const topUser = Object.entries(userCounts).sort((a,b) => b[1]-a[1])[0];
+                const topAction = Object.entries(actionCounts).sort((a,b) => b[1]-a[1])[0];
+                const todayCount = filteredLogs.filter(l => l.ts && l.ts.startsWith(new Date().toISOString().substring(0,10))).length;
+                return (<>
+                  <div className="stat-card teal"><div className="stat-label">篩選結果</div><div className="stat-value teal">{filteredLogs.length}</div><div className="stat-sub">共 {logs.length} 條</div></div>
+                  <div className="stat-card green"><div className="stat-label">今日操作</div><div className="stat-value green">{todayCount}</div></div>
+                  <div className="stat-card gold"><div className="stat-label">最活躍用戶</div><div className="stat-value gold" style={{fontSize:16}}>{topUser ? topUser[0] : '-'}</div><div className="stat-sub">{topUser ? `${topUser[1]} 次` : ''}</div></div>
+                  <div className="stat-card red"><div className="stat-label">最多操作</div><div className="stat-value red" style={{fontSize:16}}>{topAction ? topAction[0] : '-'}</div><div className="stat-sub">{topAction ? `${topAction[1]} 次` : ''}</div></div>
+                </>);
+              })()}
             </div>
             <div className="card" style={{ padding:0 }}>
               <div className="card-header"><h3>操作記錄 ({filteredLogs.length}/{logs.length})</h3></div>

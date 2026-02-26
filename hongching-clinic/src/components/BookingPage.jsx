@@ -215,6 +215,39 @@ export default function BookingPage({ data, setData, showToast }) {
     showToast(`${b.patientName} 已加入排隊`);
   };
 
+  // ── Print Weekly Schedule (#71) ──
+  const printWeeklySchedule = () => {
+    const dates = getWeekDates(calWeek);
+    const dayLabels = ['一', '二', '三', '四', '五', '六', '日'];
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const timeSlots = HOURS.filter((_, i) => i % 2 === 0); // every hour
+    const cells = timeSlots.map(time => {
+      const nextTime = HOURS[HOURS.indexOf(time) + 2] || '21:00';
+      return `<tr><td style="font-size:10px;color:#888;text-align:right;padding:4px 6px;width:50px">${time}</td>` +
+        dates.map(d => {
+          const items = bookings.filter(b => b.date === d && b.time >= time && b.time < nextTime && b.status !== 'cancelled');
+          return `<td style="border:1px solid #eee;padding:2px;font-size:9px;vertical-align:top;min-width:100px">${
+            items.map(b => `<div style="background:${DOC_COLORS[b.doctor] || '#888'};color:#fff;padding:1px 4px;border-radius:3px;margin:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.time} ${b.patientName}</div>`).join('')
+          }</td>`;
+        }).join('') + '</tr>';
+    }).join('');
+    w.document.write(`<!DOCTYPE html><html><head><title>週排班表</title><style>
+      @page{size:A4 landscape;margin:10mm}body{font-family:'Microsoft YaHei',sans-serif;padding:10px}
+      h1{color:#0e7490;font-size:16px;margin:0 0 8px}table{width:100%;border-collapse:collapse}
+      th{background:#0e7490;color:#fff;padding:6px;font-size:11px;text-align:center}
+      .footer{text-align:center;font-size:9px;color:#aaa;margin-top:10px}
+    </style></head><body>
+      <h1>康晴綜合醫療中心 — 週預約排班表</h1>
+      <p style="font-size:11px;color:#888">${dates[0]} ~ ${dates[6]}</p>
+      <table><thead><tr><th></th>${dates.map((d, i) => `<th>星期${dayLabels[i]}<br/>${d.substring(5)}</th>`).join('')}</tr></thead><tbody>${cells}</tbody></table>
+      <div style="margin-top:8px;font-size:10px;display:flex;gap:12px">${DOCTORS.map(d => `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:3px;background:${DOC_COLORS[d] || '#888'}"></span>${d}</span>`).join('')}</div>
+      <div class="footer">列印時間: ${new Date().toLocaleString('zh-HK')}</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
   const shiftWeek = (dir) => {
     const d = new Date(calWeek);
     d.setDate(d.getDate() + dir * 7);
@@ -321,7 +354,10 @@ export default function BookingPage({ data, setData, showToast }) {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <button className="btn btn-outline btn-sm" onClick={() => shiftWeek(-1)}>← 上週</button>
-            <strong>{weekDates[0]} ~ {weekDates[6]}</strong>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <strong>{weekDates[0]} ~ {weekDates[6]}</strong>
+              <button className="btn btn-teal btn-sm" onClick={printWeeklySchedule}>🖨️ 列印</button>
+            </div>
             <button className="btn btn-outline btn-sm" onClick={() => shiftWeek(1)}>下週 →</button>
           </div>
           <div style={{ overflowX: 'auto' }}>

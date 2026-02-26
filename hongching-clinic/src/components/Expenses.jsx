@@ -147,6 +147,29 @@ export default function Expenses({ data, setData, showToast }) {
     setShowRecurring(false);
   };
 
+  // ── Auto-Generate All Recurring (#68) ──
+  const autoGenerateRecurring = async () => {
+    if (!recurringTemplates.length) return showToast('暫無常用開支模板');
+    const firstOfMonth = new Date(); firstOfMonth.setDate(1);
+    const monthKey = firstOfMonth.toISOString().substring(0, 7);
+    // Check what's already been generated this month
+    const existingMerchants = new Set(data.expenses.filter(r => getMonth(r.date) === monthKey && r.isRecurring).map(r => r.merchant));
+    const toGenerate = recurringTemplates.filter(t => !existingMerchants.has(t.merchant));
+    if (!toGenerate.length) return showToast('本月所有常用開支已生成');
+    setSaving(true);
+    const dateStr = firstOfMonth.toISOString().split('T')[0];
+    let added = 0;
+    for (const tmpl of toGenerate) {
+      const rec = { ...tmpl, id: uid(), date: dateStr, amount: parseFloat(tmpl.amount), receipt: '', isRecurring: true };
+      await saveExpense(rec);
+      setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
+      added++;
+    }
+    showToast(`已自動生成 ${added} 筆本月常用開支`);
+    setSaving(false);
+    setShowRecurring(false);
+  };
+
   const deleteRecurring = (id) => {
     const updated = recurringTemplates.filter(t => t.id !== id);
     setRecurringTemplates(updated);
@@ -278,7 +301,10 @@ export default function Expenses({ data, setData, showToast }) {
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3>常用開支</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowRecurring(false)}>✕</button>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className="btn btn-teal btn-sm" onClick={autoGenerateRecurring} disabled={saving}>📋 一鍵生成本月</button>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowRecurring(false)}>✕</button>
+              </div>
             </div>
             {recurringTemplates.map(t => (
               <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--gray-100)' }}>
@@ -352,7 +378,7 @@ export default function Expenses({ data, setData, showToast }) {
                   <td>{r.receipt ? <a href={r.receipt} target="_blank" rel="noopener" title="查看收據" style={{ fontSize: 16 }}>🧾</a> : <span style={{ color: '#ddd' }}>-</span>}</td>
                   <td>{String(r.date).substring(0, 10)}</td>
                   <td>{r.store}</td>
-                  <td style={{ fontWeight: 600 }}>{r.merchant || '-'}</td>
+                  <td style={{ fontWeight: 600 }}>{r.merchant || '-'}{r.isRecurring && <span style={{ fontSize: 9, color: 'var(--teal-600)', marginLeft: 4 }}>🔄</span>}</td>
                   <td><span style={{ background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600 }}>{r.category}</span></td>
                   <td className="money" style={{ color: 'var(--red-600)' }}>{fmtM(r.amount)}</td>
                   <td>{r.payment}</td>

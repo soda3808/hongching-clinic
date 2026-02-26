@@ -215,6 +215,65 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {onNavigate && <button className="btn btn-teal btn-sm" onClick={() => { setDetail(null); onNavigate('emr'); }}>開診</button>}
+                <button className="btn btn-outline btn-sm" onClick={() => {
+                  const p = detail;
+                  const tier = getMembershipTier(p.totalSpent || 0);
+                  const cons = (data.consultations || []).filter(c => c.patientId === p.id || c.patientName === p.name).sort((a, b) => b.date.localeCompare(a.date));
+                  const visits = (data.revenue || []).filter(r => r.name === p.name).sort((a, b) => b.date.localeCompare(a.date));
+                  const books = (data.bookings || []).filter(b => b.patientName === p.name).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                  const enrolls = (data.enrollments || []).filter(e => e.patientId === p.id && e.status === 'active');
+                  const w = window.open('', '_blank');
+                  if (!w) return;
+                  const consRows = cons.slice(0, 30).map(c => `<tr><td>${c.date}</td><td>${c.doctor||''}</td><td>${c.tcmDiagnosis||c.assessment||'-'}</td><td>${c.tcmPattern||'-'}</td><td>${(c.treatments||[]).join('、')||'-'}</td><td>${c.formulaName||'-'} ${c.formulaDays?c.formulaDays+'帖':''}</td></tr>`).join('');
+                  const visitRows = visits.slice(0, 30).map(r => `<tr><td>${String(r.date).substring(0,10)}</td><td>${r.item||''}</td><td style="text-align:right">$${Number(r.amount).toLocaleString()}</td><td>${r.doctor||''}</td><td>${r.store||''}</td></tr>`).join('');
+                  w.document.write(`<!DOCTYPE html><html><head><title>病人檔案 — ${p.name}</title><style>
+                    body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:800px;margin:0 auto;font-size:12px}
+                    h1{color:#0e7490;font-size:18px;border-bottom:3px solid #0e7490;padding-bottom:8px}
+                    h2{font-size:14px;color:#0e7490;margin:16px 0 8px;border-bottom:1px solid #ccc;padding-bottom:4px}
+                    table{width:100%;border-collapse:collapse;margin-bottom:12px}
+                    th{background:#0e7490;color:#fff;padding:5px 8px;text-align:left;font-size:11px}td{padding:4px 8px;border-bottom:1px solid #eee}
+                    .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 16px;margin-bottom:16px}
+                    .info-grid div{padding:4px 0;border-bottom:1px solid #f3f4f6}
+                    .alert{background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:10px;margin-bottom:12px}
+                    .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-weight:700;font-size:11px}
+                    .footer{text-align:center;font-size:9px;color:#aaa;margin-top:24px}
+                    @media print{body{padding:15px}}
+                  </style></head><body>
+                    <h1>康晴綜合醫療中心 — 病人檔案</h1>
+                    <p style="color:#888;margin-bottom:16px">列印日期：${new Date().toISOString().substring(0,10)}</p>
+                    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+                      <span style="font-size:22px;font-weight:800">${p.name}</span>
+                      <span class="badge" style="color:${tier.color};background:${tier.bg};border:1px solid ${tier.color}">${tier.name}</span>
+                    </div>
+                    <div class="info-grid">
+                      <div><strong>電話：</strong>${p.phone||'-'}</div>
+                      <div><strong>性別：</strong>${p.gender||'-'}</div>
+                      <div><strong>出生日期：</strong>${p.dob||'-'}</div>
+                      <div><strong>地址：</strong>${p.address||'-'}</div>
+                      <div><strong>主診醫師：</strong>${p.doctor||'-'}</div>
+                      <div><strong>店舖：</strong>${p.store||'-'}</div>
+                      <div><strong>血型：</strong>${p.bloodType||'-'}</div>
+                      <div><strong>首次到診：</strong>${p.firstVisit||'-'}</div>
+                      <div><strong>最後到診：</strong>${p.lastVisit||'-'}</div>
+                      <div><strong>總就診次數：</strong>${p.totalVisits||0} 次</div>
+                      <div><strong>累計消費：</strong>$${Number(p.totalSpent||0).toLocaleString()}</div>
+                      <div><strong>會員等級：</strong>${tier.name}${tier.discount>0?' ('+tier.discount*100+'%折扣)':''}</div>
+                    </div>
+                    ${(p.allergies||p.chronicConditions||p.medications)?`<div class="alert">
+                      <div style="font-weight:700;color:#991b1b;margin-bottom:4px">⚠️ 醫療警示</div>
+                      ${p.allergies&&p.allergies!=='無'?`<div><strong>過敏：</strong>${p.allergies}</div>`:''}
+                      ${p.chronicConditions?`<div><strong>慢性病：</strong>${p.chronicConditions}</div>`:''}
+                      ${p.medications?`<div><strong>長期用藥：</strong>${p.medications}</div>`:''}
+                    </div>`:''}
+                    ${p.notes?`<div style="padding:8px;background:#f9fafb;border-radius:6px;margin-bottom:12px"><strong>備註：</strong>${p.notes}</div>`:''}
+                    ${enrolls.length?`<h2>活躍套餐</h2>${enrolls.map(e=>{const pkg=(data.packages||[]).find(pk=>pk.id===e.packageId);return `<div style="padding:6px 0;border-bottom:1px solid #eee">${pkg?.name||'套餐'} — 已用 ${e.usedSessions}/${e.totalSessions} 次 | 到期：${e.expiryDate||'-'}</div>`;}).join('')}`:''}
+                    ${cons.length?`<h2>診症紀錄 (${cons.length})</h2><table><thead><tr><th>日期</th><th>醫師</th><th>診斷</th><th>辨證</th><th>治療</th><th>處方</th></tr></thead><tbody>${consRows}</tbody></table>`:''}
+                    ${visits.length?`<h2>消費紀錄 (${visits.length})</h2><table><thead><tr><th>日期</th><th>項目</th><th style="text-align:right">金額</th><th>醫師</th><th>店舖</th></tr></thead><tbody>${visitRows}</tbody></table>`:''}
+                    <div class="footer">此檔案由系統自動生成 — 僅供內部使用</div>
+                  </body></html>`);
+                  w.document.close();
+                  setTimeout(() => w.print(), 300);
+                }}>🖨️ 列印檔案</button>
                 <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕</button>
               </div>
             </div>

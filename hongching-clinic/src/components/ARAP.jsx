@@ -7,6 +7,7 @@ export default function ARAP({ data, setData, showToast }) {
   const [tab, setTab] = useState('receivable');
   const [form, setForm] = useState({ type: 'receivable', date: new Date().toISOString().split('T')[0], party: '', amount: '', desc: '', dueDate: '', status: '未收' });
   const [deleteId, setDeleteId] = useState(null);
+  const [showAging, setShowAging] = useState(false);
 
   const arap = data.arap || [];
 
@@ -55,6 +56,57 @@ export default function ARAP({ data, setData, showToast }) {
     if (!dueDate) return false;
     const due = new Date(dueDate); due.setHours(23, 59, 59, 999);
     return due < new Date();
+  };
+
+  // ── Aging Analysis (#69) ──
+  const agingData = useMemo(() => {
+    const today = new Date();
+    const buckets = { current: [], d30: [], d60: [], d90: [], d90plus: [] };
+    const pending = list.filter(r => r.status !== '已收' && r.status !== '已付');
+    pending.forEach(r => {
+      if (!r.dueDate) { buckets.current.push(r); return; }
+      const due = new Date(r.dueDate);
+      const days = Math.floor((today - due) / 86400000);
+      if (days <= 0) buckets.current.push(r);
+      else if (days <= 30) buckets.d30.push(r);
+      else if (days <= 60) buckets.d60.push(r);
+      else if (days <= 90) buckets.d90.push(r);
+      else buckets.d90plus.push(r);
+    });
+    const sum = (arr) => arr.reduce((s, r) => s + Number(r.amount), 0);
+    return [
+      { label: '未到期', key: 'current', items: buckets.current, total: sum(buckets.current), color: '#16a34a' },
+      { label: '1-30天', key: 'd30', items: buckets.d30, total: sum(buckets.d30), color: '#d97706' },
+      { label: '31-60天', key: 'd60', items: buckets.d60, total: sum(buckets.d60), color: '#ea580c' },
+      { label: '61-90天', key: 'd90', items: buckets.d90, total: sum(buckets.d90), color: '#dc2626' },
+      { label: '90天+', key: 'd90plus', items: buckets.d90plus, total: sum(buckets.d90plus), color: '#991b1b' },
+    ];
+  }, [list]);
+
+  const printAgingReport = () => {
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const typeLabel = tab === 'receivable' ? '應收' : '應付';
+    const rows = agingData.map(b => `<tr><td style="font-weight:600;color:${b.color}">${b.label}</td><td style="text-align:right">${b.items.length}</td><td style="text-align:right;font-weight:700">${fmtM(b.total)}</td></tr>`).join('');
+    const detailRows = agingData.filter(b => b.items.length).map(b =>
+      `<tr style="background:#f3f4f6"><td colspan="4" style="font-weight:700;color:${b.color}">${b.label} (${b.items.length}筆)</td></tr>` +
+      b.items.map(r => `<tr><td>${r.party}</td><td style="text-align:right">${fmtM(r.amount)}</td><td>${r.dueDate || '-'}</td><td>${r.desc || '-'}</td></tr>`).join('')
+    ).join('');
+    w.document.write(`<!DOCTYPE html><html><head><title>${typeLabel}帳齡分析</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:800px;margin:0 auto}
+      h1{color:#0e7490;font-size:18px;border-bottom:3px solid #0e7490;padding-bottom:8px}
+      table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}
+      th{background:#0e7490;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}
+      .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
+    </style></head><body>
+      <h1>康晴綜合醫療中心 — ${typeLabel}帳齡分析</h1>
+      <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0, 10)}</p>
+      <h3>摘要</h3><table><thead><tr><th>帳齡</th><th style="text-align:right">筆數</th><th style="text-align:right">金額</th></tr></thead><tbody>${rows}</tbody></table>
+      <h3>明細</h3><table><thead><tr><th>對象</th><th style="text-align:right">金額</th><th>到期日</th><th>描述</th></tr></thead><tbody>${detailRows}</tbody></table>
+      <div class="footer">此報表由系統自動生成</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
   };
 
   const statusTag = (r) => {
@@ -109,6 +161,39 @@ export default function ARAP({ data, setData, showToast }) {
           <button className="btn btn-green" onClick={handleAdd}>+ 新增</button>
         </div>
       </div>
+
+      {/* Aging Analysis (#69) */}
+      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <button className="btn btn-outline" onClick={() => setShowAging(!showAging)}>{showAging ? '隱藏' : '📊'} 帳齡分析</button>
+        {showAging && <button className="btn btn-teal btn-sm" onClick={printAgingReport}>🖨️ 列印報告</button>}
+      </div>
+      {showAging && (
+        <div className="card">
+          <div className="card-header"><h3>📊 {tab === 'receivable' ? '應收' : '應付'}帳齡分析</h3></div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            {agingData.map(b => (
+              <div key={b.key} style={{ flex: 1, minWidth: 120, padding: 12, borderRadius: 8, border: `2px solid ${b.color}20`, background: `${b.color}08`, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: b.color, fontWeight: 600 }}>{b.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: b.color }}>{fmtM(b.total)}</div>
+                <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{b.items.length} 筆</div>
+              </div>
+            ))}
+          </div>
+          {agingData.filter(b => b.items.length > 0 && b.key !== 'current').map(b => (
+            <div key={b.key} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: b.color, marginBottom: 4 }}>{b.label} 逾期</div>
+              {b.items.map(r => (
+                <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', fontSize: 12, borderBottom: '1px solid var(--gray-100)' }}>
+                  <span style={{ fontWeight: 600 }}>{r.party}</span>
+                  <span>{r.desc || ''}</span>
+                  <span style={{ color: b.color, fontWeight: 700 }}>{fmtM(r.amount)}</span>
+                  <span style={{ color: 'var(--gray-400)' }}>{r.dueDate}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Records */}
       <div className="card">

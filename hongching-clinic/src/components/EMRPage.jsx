@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { saveConsultation, deleteConsultation, openWhatsApp, saveQueue } from '../api';
+import { saveConsultation, deleteConsultation, openWhatsApp, saveQueue, saveEnrollment } from '../api';
 import { uid, fmtM, DOCTORS, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
@@ -166,6 +166,31 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     setShowPatientDD(false);
   };
 
+  // ── Package Usage Tracking (#70) ──
+  const activePackages = useMemo(() => {
+    if (!form.patientId && !form.patientName) return [];
+    const enrollments = data.enrollments || [];
+    const packages = data.packages || [];
+    const today = new Date().toISOString().substring(0, 10);
+    return enrollments.filter(e => {
+      if (e.patientId !== form.patientId && e.patientName !== form.patientName) return false;
+      if (e.usedSessions >= e.totalSessions) return false;
+      if (e.expiryDate && e.expiryDate < today) return false;
+      return true;
+    }).map(e => ({
+      ...e,
+      packageName: (packages.find(p => p.id === e.packageId) || {}).name || '未知套餐',
+      remaining: e.totalSessions - (e.usedSessions || 0),
+    }));
+  }, [form.patientId, form.patientName, data.enrollments, data.packages]);
+
+  const deductPackageSession = async (enrollment) => {
+    const updated = { ...enrollment, usedSessions: (enrollment.usedSessions || 0) + 1 };
+    await saveEnrollment(updated);
+    setData(d => ({ ...d, enrollments: (d.enrollments || []).map(e => e.id === updated.id ? updated : e) }));
+    showToast(`${enrollment.packageName || '套餐'} 已扣減 1 次（餘 ${updated.totalSessions - updated.usedSessions} 次）`);
+  };
+
   // ── Treatment toggle ──
   const toggleTreatment = (t) => {
     setForm(f => {
@@ -310,7 +335,87 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     if (onNavigate) onNavigate('billing');
   };
 
-  // ── Print ──
+  // ── Print Prescription (#66) ──
+  const printPrescription = (item) => {
+    const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
+    const rxRows = (item.prescription || []).filter(r => r.herb).map((r, i) => `<tr><td style="text-align:center">${i + 1}</td><td style="font-weight:600">${r.herb}</td><td style="text-align:center">${r.dosage}</td></tr>`).join('');
+    const w = window.open('', '_blank');
+    if (!w) return showToast('請允許彈出視窗');
+    w.document.write(`<!DOCTYPE html><html><head><title>處方箋 - ${item.patientName}</title><style>
+      @page{size:A5;margin:15mm}body{font-family:'Microsoft YaHei',sans-serif;padding:20px;max-width:500px;margin:0 auto;color:#333}
+      .header{text-align:center;border-bottom:3px double #0e7490;padding-bottom:10px;margin-bottom:12px}
+      .header h1{font-size:16px;color:#0e7490;margin:0}.header p{font-size:10px;color:#888;margin:2px 0}
+      .title{text-align:center;font-size:16px;font-weight:800;color:#0e7490;margin:10px 0;letter-spacing:3px}
+      .info{font-size:12px;margin:8px 0;display:flex;flex-wrap:wrap;gap:8px}
+      .info span{background:#f0fdfa;padding:3px 8px;border-radius:4px}
+      table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+      th{background:#0e7490;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}
+      tr:nth-child(even){background:#f9fafb}.note{font-size:11px;color:#555;margin:10px 0;padding:8px;background:#fffbeb;border-radius:6px;border-left:3px solid #d97706}
+      .sig{margin-top:40px;display:flex;justify-content:space-between}.sig-box{text-align:center;width:150px}
+      .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:4px;font-size:10px}
+      .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
+    </style></head><body>
+      <div class="header"><h1>${clinic.name || '康晴綜合醫療中心'}</h1><p>${clinic.nameEn || 'HONG CHING INTERNATIONAL MEDICAL CENTRE'}</p></div>
+      <div class="title">處 方 箋</div>
+      <div class="info"><span>病人：<strong>${item.patientName}</strong></span><span>日期：${item.date}</span><span>醫師：${item.doctor}</span><span>店舖：${item.store}</span></div>
+      ${item.tcmDiagnosis ? `<div class="info"><span>診斷：<strong>${item.tcmDiagnosis}</strong></span>${item.tcmPattern ? `<span>證型：${item.tcmPattern}</span>` : ''}</div>` : ''}
+      ${item.formulaName ? `<div style="font-size:13px;font-weight:700;color:#0e7490;margin:8px 0">方劑：${item.formulaName}${item.formulaDays ? ` (${item.formulaDays}天)` : ''}</div>` : ''}
+      <table><thead><tr><th style="width:30px">#</th><th>藥材</th><th style="width:80px;text-align:center">劑量</th></tr></thead><tbody>${rxRows}</tbody></table>
+      <div class="note"><strong>服法：</strong>${item.formulaInstructions || '每日一劑，水煎服'}${item.specialNotes ? `<br/><strong>注意：</strong>${item.specialNotes}` : ''}</div>
+      ${(item.treatments || []).length ? `<div style="font-size:11px;margin:8px 0"><strong>治療：</strong>${item.treatments.join('、')}</div>` : ''}
+      ${item.acupuncturePoints ? `<div style="font-size:11px;margin:8px 0"><strong>穴位：</strong>${item.acupuncturePoints}</div>` : ''}
+      ${item.followUpDate ? `<div style="font-size:12px;margin:8px 0;padding:6px;background:#f0fdfa;border-radius:4px"><strong>覆診：</strong>${item.followUpDate}${item.followUpNotes ? ` — ${item.followUpNotes}` : ''}</div>` : ''}
+      <div class="sig"><div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div class="sig-line">診所蓋章</div></div></div>
+      <div class="footer">此處方箋由系統生成 | ${clinic.name || '康晴綜合醫療中心'}</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
+  // ── Print SOAP Note (#66) ──
+  const printSOAPNote = (item) => {
+    const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
+    const rxRows = (item.prescription || []).filter(r => r.herb).map((r, i) => `<tr><td>${i + 1}</td><td>${r.herb}</td><td>${r.dosage}</td></tr>`).join('');
+    const w = window.open('', '_blank');
+    if (!w) return showToast('請允許彈出視窗');
+    w.document.write(`<!DOCTYPE html><html><head><title>SOAP 病歷 - ${item.patientName}</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:30px 40px;max-width:750px;margin:0 auto;color:#333}
+      .header{text-align:center;border-bottom:3px solid #0e7490;padding-bottom:12px;margin-bottom:16px}
+      .header h1{font-size:18px;color:#0e7490;margin:0}.header p{font-size:11px;color:#888;margin:3px 0}
+      .title{text-align:center;font-size:16px;font-weight:800;color:#0e7490;margin:12px 0}
+      .meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:16px;padding:10px;background:#f9fafb;border-radius:6px}
+      .soap{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+      .soap-box{padding:12px;border-radius:6px;border-left:4px solid #0e7490;background:#f0fdfa;min-height:60px}
+      .soap-box h4{font-size:12px;color:#0e7490;margin:0 0 6px}.soap-box p{font-size:12px;margin:0;white-space:pre-wrap}
+      .section{margin:12px 0;font-size:12px}.section h4{font-size:12px;font-weight:700;margin:0 0 6px;color:#555}
+      table{width:100%;border-collapse:collapse;font-size:11px;margin:8px 0}
+      th{background:#f3f4f6;padding:5px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}
+      .sig{margin-top:40px;display:flex;justify-content:space-between}.sig-box{text-align:center;width:180px}
+      .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:4px;font-size:10px}
+      .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
+      @media print{body{padding:15px}}
+    </style></head><body>
+      <div class="header"><h1>${clinic.name || '康晴綜合醫療中心'}</h1><p>${clinic.nameEn || 'HONG CHING INTERNATIONAL MEDICAL CENTRE'}</p></div>
+      <div class="title">診症紀錄 (SOAP Note)</div>
+      <div class="meta"><div><strong>病人：</strong>${item.patientName}</div><div><strong>日期：</strong>${item.date}</div><div><strong>醫師：</strong>${item.doctor}</div><div><strong>電話：</strong>${item.patientPhone || '-'}</div><div><strong>店舖：</strong>${item.store}</div><div><strong>診金：</strong>$${item.fee || 0}</div></div>
+      <div class="soap">
+        <div class="soap-box"><h4>S — Subjective 主訴</h4><p>${item.subjective || '-'}</p></div>
+        <div class="soap-box"><h4>O — Objective 客觀</h4><p>${item.objective || '-'}</p></div>
+        <div class="soap-box"><h4>A — Assessment 評估</h4><p>${item.assessment || '-'}</p></div>
+        <div class="soap-box"><h4>P — Plan 計劃</h4><p>${item.plan || '-'}</p></div>
+      </div>
+      <div class="section"><h4>中醫辨證</h4><div>診斷：<strong>${item.tcmDiagnosis || '-'}</strong> | 證型：<strong>${item.tcmPattern || '-'}</strong> | 舌象：${item.tongue || '-'} | 脈象：${item.pulse || '-'}</div></div>
+      ${(item.treatments || []).length ? `<div class="section"><h4>治療方式</h4><div>${item.treatments.join('、')}</div></div>` : ''}
+      ${item.acupuncturePoints ? `<div class="section"><h4>穴位</h4><div>${item.acupuncturePoints}</div></div>` : ''}
+      ${rxRows ? `<div class="section"><h4>處方${item.formulaName ? ' — ' + item.formulaName : ''}${item.formulaDays ? ' (' + item.formulaDays + '天)' : ''}</h4><table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rxRows}</tbody></table><div>服法：${item.formulaInstructions || '每日一劑，水煎服'}</div></div>` : ''}
+      ${item.followUpDate ? `<div class="section" style="padding:8px;background:#f0fdfa;border-radius:6px"><h4>覆診安排</h4><div>${item.followUpDate}${item.followUpNotes ? ' — ' + item.followUpNotes : ''}</div></div>` : ''}
+      <div class="sig"><div class="sig-box"><div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div class="sig-line">診所蓋章</div></div></div>
+      <div class="footer">此病歷由系統生成 | ${clinic.name || '康晴綜合醫療中心'} | ${new Date().toLocaleString('zh-HK')}</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
+
   const handlePrint = () => { window.print(); };
 
   // ── WhatsApp med reminder ──
@@ -536,6 +641,19 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 <div><label>店舖</label><select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))}><option>宋皇臺</option><option>太子</option></select></div>
                 <div><label>診金 ($)</label><input type="number" min="0" value={form.fee} onChange={e => setForm(f => ({ ...f, fee: e.target.value }))} /></div>
               </div>
+
+              {/* Active Packages (#70) */}
+              {activePackages.length > 0 && (
+                <div style={{ marginBottom: 12, padding: 10, background: 'var(--green-50)', border: '1px solid var(--green-100)', borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-700)', marginBottom: 6 }}>🎫 有效套餐</div>
+                  {activePackages.map(p => (
+                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 12 }}>
+                      <span><strong>{p.packageName}</strong> — 餘 <strong>{p.remaining}</strong>/{p.totalSessions} 次 {p.expiryDate && <span style={{ color: 'var(--gray-400)' }}>(到期: {p.expiryDate})</span>}</span>
+                      <button type="button" className="btn btn-green btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => deductPackageSession(p)}>扣減 1 次</button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* SOAP Notes */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
@@ -776,7 +894,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>診症詳情 -- {detail.patientName}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-teal btn-sm" onClick={handlePrint}>列印處方</button>
+                <button className="btn btn-teal btn-sm" onClick={() => printPrescription(detail)}>列印處方</button>
+                <button className="btn btn-outline btn-sm" onClick={() => printSOAPNote(detail)}>列印SOAP</button>
                 <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => setShowLabel(detail)}>藥袋標籤</button>
                 <button className="btn btn-gold btn-sm" onClick={() => sendToBilling(detail)}>送往配藥收費</button>
                 <button className="btn btn-green btn-sm" onClick={() => handleReferral(detail)}>轉介信</button>

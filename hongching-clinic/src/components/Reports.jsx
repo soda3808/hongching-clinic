@@ -591,7 +591,34 @@ export default function Reports({ data }) {
     );
   };
 
+  // ── Enhanced Print (#67) ──
   const handlePrint = () => window.print();
+  const handleExportReport = () => {
+    const el = document.querySelector('.content .card');
+    if (!el) return;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const tabLabel = REPORT_GROUPS.flatMap(g => g.tabs).find(t => t.id === reportType);
+    w.document.write(`<!DOCTYPE html><html><head><title>${tabLabel?.label || '報表'} — 康晴醫療中心</title><style>
+      body{font-family:'Microsoft YaHei',sans-serif;padding:20px 30px;color:#333;max-width:900px;margin:0 auto}
+      .report-header{text-align:center;border-bottom:3px solid #0e7490;padding-bottom:12px;margin-bottom:16px}
+      .report-header h1{font-size:18px;color:#0e7490;margin:0}
+      .report-header p{font-size:11px;color:#888;margin:2px 0}
+      table{width:100%;border-collapse:collapse;font-size:11px;margin:12px 0}
+      th{background:#0e7490;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}
+      tr:nth-child(even){background:#f9fafb}.money{text-align:right;font-family:monospace}
+      .stat-card{display:inline-block;padding:12px 20px;border:1px solid #ddd;border-radius:8px;margin:4px;text-align:center}
+      .stat-label{font-size:10px;color:#888}.stat-value{font-size:18px;font-weight:800}
+      h3,h4{color:#0e7490}.footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
+      @media print{body{padding:10px}}
+    </style></head><body>
+      <div class="report-header"><h1>康晴綜合醫療中心</h1><p>HONG CHING INTERNATIONAL MEDICAL CENTRE</p><p>${tabLabel?.icon || ''} ${tabLabel?.label || ''} | ${selectedStore === 'all' ? '兩店合計' : selectedStore} | 生成：${new Date().toLocaleString('zh-HK')}</p></div>
+      ${el.innerHTML}
+      <div class="footer">報表由系統自動生成 | 僅供內部參考</div>
+    </body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
+  };
 
   const showMonthFilter = ['monthly', 'doctor', 'patient', 'consultrate', 'regstats', 'treatment', 'serviceusage', 'paymethod'].includes(reportType);
 
@@ -627,8 +654,9 @@ export default function Reports({ data }) {
             <option value="all">兩店合計</option><option>宋皇臺</option><option>太子</option>
           </select>
         </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <button className="btn btn-teal" onClick={handlePrint}>🖨️ 列印報表</button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+          <button className="btn btn-teal" onClick={handleExportReport}>🖨️ 列印報表</button>
+          <button className="btn btn-outline" onClick={handlePrint}>快速列印</button>
         </div>
       </div>
 
