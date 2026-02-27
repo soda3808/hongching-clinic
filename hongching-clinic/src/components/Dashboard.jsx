@@ -11,6 +11,34 @@ export default function Dashboard({ data, onNavigate }) {
   const [briefing, setBriefing] = useState(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
 
+  // Daily Operations Checklist
+  const todayDate = new Date().toISOString().substring(0, 10);
+  const DEFAULT_CHECKLIST = [
+    { id: 'open1', phase: 'morning', label: '開門/開燈/開冷氣', order: 1 },
+    { id: 'open2', phase: 'morning', label: '檢查當日預約名單', order: 2 },
+    { id: 'open3', phase: 'morning', label: '準備候診區/診間', order: 3 },
+    { id: 'open4', phase: 'morning', label: '檢查藥材庫存', order: 4 },
+    { id: 'open5', phase: 'morning', label: '發送今日預約提醒', order: 5 },
+    { id: 'close1', phase: 'evening', label: '核對今日收入', order: 6 },
+    { id: 'close2', phase: 'evening', label: '處理未完成掛號', order: 7 },
+    { id: 'close3', phase: 'evening', label: '補記診症紀錄', order: 8 },
+    { id: 'close4', phase: 'evening', label: '明日預約確認', order: 9 },
+    { id: 'close5', phase: 'evening', label: '關燈/鎖門', order: 10 },
+  ];
+  const [checklist, setChecklist] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('hcmc_checklist') || '{}');
+      if (saved.date === todayDate) return saved;
+    } catch {}
+    return { date: todayDate, items: DEFAULT_CHECKLIST.map(c => ({ ...c, done: false })) };
+  });
+  const toggleCheckItem = (id) => {
+    const updated = { ...checklist, items: checklist.items.map(c => c.id === id ? { ...c, done: !c.done } : c) };
+    setChecklist(updated);
+    localStorage.setItem('hcmc_checklist', JSON.stringify(updated));
+  };
+  const checklistProgress = checklist.items.length > 0 ? Math.round((checklist.items.filter(c => c.done).length / checklist.items.length) * 100) : 0;
+
   // AI Daily Briefing - load once per day
   const todayKey = new Date().toISOString().substring(0, 10);
   useEffect(() => {
@@ -264,6 +292,37 @@ export default function Dashboard({ data, onNavigate }) {
         {!briefing && !briefingLoading && (
           <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>撳「生成簡報」獲取今日 AI 分析</div>
         )}
+      </div>
+
+      {/* Daily Operations Checklist */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 14, color: 'var(--teal-700)' }}>
+            {new Date().getHours() < 14 ? '🌅 開店清單' : '🌙 收店清單'}
+          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 80, height: 6, borderRadius: 3, background: 'var(--gray-100)' }}>
+              <div style={{ width: `${checklistProgress}%`, height: '100%', borderRadius: 3, background: checklistProgress === 100 ? '#16a34a' : '#0e7490', transition: 'width 0.3s' }} />
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: checklistProgress === 100 ? 'var(--green-700)' : 'var(--teal-700)' }}>{checklistProgress}%</span>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          {['morning', 'evening'].map(phase => (
+            <div key={phase}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-400)', marginBottom: 4 }}>{phase === 'morning' ? '☀️ 開店' : '🌙 收店'}</div>
+              {checklist.items.filter(c => c.phase === phase).map(c => (
+                <div key={c.id} onClick={() => toggleCheckItem(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', cursor: 'pointer', fontSize: 12 }}>
+                  <span style={{ width: 18, height: 18, borderRadius: 4, border: c.done ? 'none' : '2px solid var(--gray-300)', background: c.done ? '#16a34a' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, flexShrink: 0 }}>
+                    {c.done && '✓'}
+                  </span>
+                  <span style={{ color: c.done ? 'var(--gray-400)' : 'var(--gray-700)', textDecoration: c.done ? 'line-through' : 'none' }}>{c.label}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        {checklistProgress === 100 && <div style={{ marginTop: 8, padding: '6px 12px', background: 'var(--green-50)', borderRadius: 6, fontSize: 12, color: 'var(--green-700)', fontWeight: 600, textAlign: 'center' }}>全部完成！辛苦了！</div>}
       </div>
 
       {/* Quick Actions */}

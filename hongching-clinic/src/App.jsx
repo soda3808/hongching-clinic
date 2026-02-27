@@ -774,7 +774,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v6.5.0 • {new Date().getFullYear()}</span>
+          <span>v6.6.0 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
