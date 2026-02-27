@@ -75,6 +75,14 @@ const PrescriptionPrintEN = lazy(() => import('./components/PrescriptionPrintEN'
 const QueueSlip = lazy(() => import('./components/QueueSlip'));
 const PrescriptionRefill = lazy(() => import('./components/PrescriptionRefill'));
 const CustomerAnalytics = lazy(() => import('./components/CustomerAnalytics'));
+const InterClinicTransfer = lazy(() => import('./components/InterClinicTransfer'));
+const SupplierManagement = lazy(() => import('./components/SupplierManagement'));
+const ReferralTracking = lazy(() => import('./components/ReferralTracking'));
+const LabResults = lazy(() => import('./components/LabResults'));
+const MedicalCertificate = lazy(() => import('./components/MedicalCertificate'));
+const DrugInteraction = lazy(() => import('./components/DrugInteraction'));
+const AppointmentReminder = lazy(() => import('./components/AppointmentReminder'));
+const IncomeStatement = lazy(() => import('./components/IncomeStatement'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -137,6 +145,14 @@ const ALL_PAGES = [
   { id: 'billingsub', icon: '💳', label: '訂閱管理', section: '系統', perm: 'viewSettings' },
   { id: 'privacy', icon: '🔒', label: '私隱中心', section: '系統', perm: 'viewPrivacy' },
   { id: 'superadmin', icon: '🛡️', label: 'Super Admin', section: '系統', perm: 'viewSuperAdmin' },
+  { id: 'transfer', icon: '🔄', label: '跨店調撥', section: '營運', perm: 'editExpenses' },
+  { id: 'supplier', icon: '🏭', label: '供應商管理', section: '營運', perm: 'editExpenses' },
+  { id: 'referral', icon: '🔗', label: '轉介追蹤', section: '病人', perm: 'viewEMR' },
+  { id: 'labresult', icon: '🧪', label: '化驗報告', section: '病人', perm: 'viewEMR' },
+  { id: 'medcert', icon: '📃', label: '醫療證明', section: '病人', perm: 'viewEMR' },
+  { id: 'drugcheck', icon: '⚠️', label: '藥物相互作用', section: '營運', perm: 'viewBilling' },
+  { id: 'reminder', icon: '⏰', label: '預約提醒', section: '客戶', perm: 'viewBookings' },
+  { id: 'pnl', icon: '📊', label: '損益表', section: '分析', perm: 'viewReports' },
 ];
 
 // Mobile bottom tab config
@@ -960,6 +976,14 @@ function MainApp() {
             {page === 'queueslip' && <QueueSlip data={filteredData} showToast={showToast} user={user} />}
             {page === 'refill' && <PrescriptionRefill data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'custanalytics' && <CustomerAnalytics data={filteredData} showToast={showToast} user={user} />}
+            {page === 'transfer' && <InterClinicTransfer data={filteredData} showToast={showToast} user={user} />}
+            {page === 'supplier' && <SupplierManagement data={filteredData} showToast={showToast} user={user} />}
+            {page === 'referral' && <ReferralTracking data={filteredData} showToast={showToast} user={user} />}
+            {page === 'labresult' && <LabResults data={filteredData} showToast={showToast} user={user} />}
+            {page === 'medcert' && <MedicalCertificate data={filteredData} showToast={showToast} user={user} />}
+            {page === 'drugcheck' && <DrugInteraction data={filteredData} showToast={showToast} user={user} />}
+            {page === 'reminder' && <AppointmentReminder data={filteredData} showToast={showToast} user={user} />}
+            {page === 'pnl' && <IncomeStatement data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
