@@ -573,7 +573,7 @@ export default function App() {
 function MainApp() {
   const [user, setUser] = useState(() => getCurrentUser());
   const [page, setPage] = useState('');
-  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [], queue: [], sickleaves: [], leaves: [], products: [], productSales: [], inquiries: [], communications: [] });
+  const [data, setData] = useState({ revenue: [], expenses: [], arap: [], patients: [], bookings: [], payslips: [], consultations: [], packages: [], enrollments: [], conversations: [], inventory: [], queue: [], sickleaves: [], leaves: [], products: [], productSales: [], inquiries: [], communications: [], waitlist: [] });
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -668,7 +668,7 @@ function MainApp() {
     try {
       const d = await loadAllData();
       if (d && (d.revenue?.length || d.expenses?.length || d.patients?.length)) {
-        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[], queue: d.queue||[], sickleaves: d.sickleaves||[], leaves: d.leaves||[], products: d.products||[], productSales: d.productSales||[], inquiries: d.inquiries||[], communications: d.communications||[] });
+        setData({ revenue: d.revenue||[], expenses: d.expenses||[], arap: d.arap||[], patients: d.patients||[], bookings: d.bookings||[], payslips: d.payslips||[], consultations: d.consultations||[], packages: d.packages||[], enrollments: d.enrollments||[], conversations: d.conversations||[], inventory: d.inventory||[], queue: d.queue||[], sickleaves: d.sickleaves||[], leaves: d.leaves||[], products: d.products||[], productSales: d.productSales||[], inquiries: d.inquiries||[], communications: d.communications||[], waitlist: d.waitlist||[] });
       } else {
         setData(SEED_DATA);
         saveAllLocal(SEED_DATA);

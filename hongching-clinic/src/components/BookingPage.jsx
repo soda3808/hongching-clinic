@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { saveBooking, updateBookingStatus, openWhatsApp, saveQueue } from '../api';
+import { saveBooking, updateBookingStatus, openWhatsApp, saveQueue, saveWaitlist, deleteWaitlist } from '../api';
 import { uid, getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
@@ -42,6 +42,9 @@ export default function BookingPage({ data, setData, showToast }) {
   const [calWeek, setCalWeek] = useState(new Date().toISOString().substring(0, 10));
   const [form, setForm] = useState({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:getDefaultStore(), type:'覆診', notes:'' });
   const [showReminderPanel, setShowReminderPanel] = useState(false);
+  const [showWaitlistPanel, setShowWaitlistPanel] = useState(false);
+  const [showWaitlistForm, setShowWaitlistForm] = useState(null); // {date, time, doctor} or null
+  const [wlForm, setWlForm] = useState({ patientName: '', patientPhone: '', notes: '' });
   const [remindersSent, setRemindersSent] = useState(() => {
     try { return JSON.parse(localStorage.getItem('hcmc_reminders_sent') || '{}'); } catch { return {}; }
   });
@@ -97,6 +100,78 @@ export default function BookingPage({ data, setData, showToast }) {
       avgDaily: bookings.length > 0 ? (bookings.length / 30).toFixed(1) : '0',
     };
   }, [bookings]);
+
+  // ── Waitlist Management ──
+  const waitlist = data.waitlist || [];
+  const activeWaitlist = useMemo(() => waitlist.filter(w => w.status === 'waiting'), [waitlist]);
+
+  const getWaitlistCount = (date, time, doctor) => {
+    return activeWaitlist.filter(w => w.date === date && w.time === time && w.doctor === doctor).length;
+  };
+
+  const totalWaitlistCount = activeWaitlist.length;
+
+  const handleAddToWaitlist = async (e) => {
+    e.preventDefault();
+    if (!wlForm.patientName || !showWaitlistForm) return showToast('請填寫病人姓名');
+    const record = {
+      id: uid(),
+      patientName: wlForm.patientName,
+      patientPhone: wlForm.patientPhone,
+      date: showWaitlistForm.date,
+      time: showWaitlistForm.time,
+      doctor: showWaitlistForm.doctor,
+      store: showWaitlistForm.store || getDefaultStore(),
+      notes: wlForm.notes,
+      status: 'waiting',
+      createdAt: new Date().toISOString(),
+    };
+    await saveWaitlist(record);
+    setData({ ...data, waitlist: [...waitlist, record] });
+    setShowWaitlistForm(null);
+    setWlForm({ patientName: '', patientPhone: '', notes: '' });
+    showToast(`${record.patientName} 已加入候補名單`);
+  };
+
+  const handleRemoveWaitlist = async (id) => {
+    await deleteWaitlist(id);
+    setData({ ...data, waitlist: waitlist.filter(w => w.id !== id) });
+    showToast('已從候補名單移除');
+  };
+
+  const handlePromoteWaitlist = async (wl) => {
+    // Promote waitlist entry to a confirmed booking
+    const record = {
+      id: uid(),
+      patientName: wl.patientName,
+      patientPhone: wl.patientPhone,
+      date: wl.date,
+      time: wl.time,
+      doctor: wl.doctor,
+      store: wl.store,
+      type: '覆診',
+      duration: 30,
+      notes: wl.notes ? `(候補) ${wl.notes}` : '(候補轉正)',
+      status: 'confirmed',
+      createdAt: new Date().toISOString(),
+    };
+    await saveBooking(record);
+    // Update waitlist entry status
+    const updatedWl = { ...wl, status: 'promoted' };
+    await saveWaitlist(updatedWl);
+    setData({
+      ...data,
+      bookings: [...bookings, record],
+      waitlist: waitlist.map(w => w.id === wl.id ? updatedWl : w),
+    });
+    showToast(`${wl.patientName} 已轉為正式預約`);
+    // Send WhatsApp notification if phone available
+    if (wl.patientPhone) {
+      const text = `【${getClinicName()}】${wl.patientName}你好！你嘅候補預約已確認：\n` +
+        `日期: ${wl.date} ${wl.time}\n醫師: ${wl.doctor}\n地點: ${wl.store}\n請準時到達！`;
+      openWhatsApp(wl.patientPhone, text);
+    }
+  };
 
   const getDateRange = () => {
     if (filterDate === 'today') return [today, today];
@@ -236,6 +311,16 @@ export default function BookingPage({ data, setData, showToast }) {
     const updated = bookings.map(b => b.id === id ? { ...b, status } : b);
     setData({ ...data, bookings: updated });
     showToast(`已更新為${STATUS_LABELS[status]}`);
+    // If cancelled, check waitlist and notify
+    if (status === 'cancelled') {
+      const cancelled = bookings.find(b => b.id === id);
+      if (cancelled) {
+        const waiting = activeWaitlist.filter(w => w.date === cancelled.date && w.doctor === cancelled.doctor);
+        if (waiting.length > 0) {
+          showToast(`有 ${waiting.length} 位候補中，可前往候補名單處理`);
+        }
+      }
+    }
   };
 
   // ── Appointment Card Printing (#48) ──
@@ -355,11 +440,12 @@ export default function BookingPage({ data, setData, showToast }) {
   return (
     <>
       {/* Stats */}
-      <div className="stats-grid">
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
         <div className="stat-card teal"><div className="stat-label">今日預約</div><div className="stat-value teal">{stats.today}</div></div>
         <div className="stat-card green"><div className="stat-label">已完成</div><div className="stat-value green">{stats.completed}</div></div>
         <div className="stat-card gold"><div className="stat-label">待到</div><div className="stat-value gold">{stats.pending}</div></div>
         <div className="stat-card red"><div className="stat-label">未到 No-show</div><div className="stat-value red">{stats.noshow}</div></div>
+        <div className="stat-card" style={{ borderLeft: '4px solid #d97706' }}><div className="stat-label">候補中</div><div className="stat-value" style={{ color: '#d97706' }}>{totalWaitlistCount}</div></div>
       </div>
 
       {/* Smart Scheduling Hints */}
@@ -376,6 +462,9 @@ export default function BookingPage({ data, setData, showToast }) {
         <div className="tab-bar" style={{ marginBottom: 0 }}>
           <button className={`tab-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}>📋 列表視圖</button>
           <button className={`tab-btn ${view === 'calendar' ? 'active' : ''}`} onClick={() => setView('calendar')}>📅 日曆視圖</button>
+          <button className={`tab-btn ${view === 'waitlist' ? 'active' : ''}`} onClick={() => setView('waitlist')} style={{ position: 'relative' }}>
+            ⏳ 候補名單{totalWaitlistCount > 0 && <span style={{ marginLeft: 4, background: '#dc2626', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>{totalWaitlistCount}</span>}
+          </button>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {upcomingBookings.length > 0 && (
@@ -534,6 +623,7 @@ export default function BookingPage({ data, setData, showToast }) {
                   <div style={{ padding: '4px 6px', fontSize: 10, color: 'var(--gray-400)', borderBottom: '1px solid var(--gray-100)', textAlign: 'right' }}>{time}</div>
                   {weekDates.map(d => {
                     const cell = bookings.filter(b => b.date === d && b.time === time && b.status !== 'cancelled');
+                    const wlCount = DOCTORS.reduce((sum, doc) => sum + getWaitlistCount(d, time, doc), 0);
                     return (
                       <div key={d} style={{ borderBottom: '1px solid var(--gray-100)', borderLeft: '1px solid var(--gray-100)', padding: 2, minHeight: 28, cursor: 'pointer', background: d === today ? 'var(--teal-50)' : '' }}
                         onClick={() => { setForm({...form, date: d, time}); setShowModal(true); }}>
@@ -542,12 +632,103 @@ export default function BookingPage({ data, setData, showToast }) {
                             {b.patientName} ({b.type})
                           </div>
                         ))}
+                        {wlCount > 0 && <div style={{ fontSize: 8, color: '#d97706', fontWeight: 700, textAlign: 'right' }}>⏳{wlCount}候補</div>}
                       </div>
                     );
                   })}
                 </React.Fragment>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waitlist View */}
+      {view === 'waitlist' && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h3 style={{ margin: 0, fontSize: 15, color: 'var(--teal-700)' }}>⏳ 候補名單</h3>
+            <button className="btn btn-teal btn-sm" onClick={() => setShowWaitlistForm({ date: tomorrow, time: '10:00', doctor: DOCTORS[0], store: getDefaultStore() })}>+ 新增候補</button>
+          </div>
+          {activeWaitlist.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>暫無候補預約</div>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>日期</th><th>時間</th><th>病人</th><th>電話</th><th>醫師</th><th>店舖</th><th>備註</th><th>加入時間</th><th>操作</th></tr></thead>
+                <tbody>
+                  {activeWaitlist.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(w => {
+                    // Check if slot now has availability
+                    const conflicts = checkConflict(w.date, w.time, w.doctor, 30);
+                    const hasSlot = conflicts.length === 0;
+                    return (
+                      <tr key={w.id} style={hasSlot ? { background: '#f0fdf4' } : {}}>
+                        <td>{w.date}</td>
+                        <td>{w.time}</td>
+                        <td style={{ fontWeight: 600 }}>{w.patientName}</td>
+                        <td>{w.patientPhone || '-'}</td>
+                        <td>{w.doctor}</td>
+                        <td>{w.store}</td>
+                        <td style={{ fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.notes || '-'}</td>
+                        <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{w.createdAt ? new Date(w.createdAt).toLocaleDateString('zh-HK') : '-'}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            {hasSlot && <button className="btn btn-teal btn-sm" onClick={() => handlePromoteWaitlist(w)} title="轉為正式預約">✓ 確認</button>}
+                            {w.patientPhone && (
+                              <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
+                                const text = hasSlot
+                                  ? `【${getClinicName()}】${w.patientName}你好！你嘅候補時段已有空位：\n${w.date} ${w.time} ${w.doctor}\n請盡快回覆確認！`
+                                  : `【${getClinicName()}】${w.patientName}你好！你目前在候補名單中 (${w.date} ${w.time})，我哋會有空位時通知你。`;
+                                openWhatsApp(w.patientPhone, text);
+                              }}>WA</button>
+                            )}
+                            <button className="btn btn-outline btn-sm" style={{ color: '#dc2626' }} onClick={() => handleRemoveWaitlist(w.id)}>✕</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* Summary */}
+          {activeWaitlist.length > 0 && (
+            <div style={{ marginTop: 10, fontSize: 11, color: 'var(--gray-500)', display: 'flex', gap: 16 }}>
+              <span>共 {activeWaitlist.length} 位候補</span>
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                {activeWaitlist.filter(w => checkConflict(w.date, w.time, w.doctor, 30).length === 0).length} 位有空位可確認
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Waitlist Add Form Modal */}
+      {showWaitlistForm && (
+        <div className="modal-overlay" onClick={() => setShowWaitlistForm(null)} role="dialog" aria-modal="true" aria-label="新增候補">
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>新增候補預約</h3>
+            <form onSubmit={handleAddToWaitlist}>
+              <div className="grid-2" style={{ marginBottom: 12 }}>
+                <div><label>病人姓名 *</label><input value={wlForm.patientName} onChange={e => setWlForm({ ...wlForm, patientName: e.target.value })} placeholder="病人姓名" autoFocus /></div>
+                <div><label>電話</label><input value={wlForm.patientPhone} onChange={e => setWlForm({ ...wlForm, patientPhone: e.target.value })} placeholder="電話（用作通知）" /></div>
+              </div>
+              <div className="grid-3" style={{ marginBottom: 12 }}>
+                <div><label>希望日期</label><input type="date" value={showWaitlistForm.date} onChange={e => setShowWaitlistForm({ ...showWaitlistForm, date: e.target.value })} /></div>
+                <div><label>希望時間</label><select value={showWaitlistForm.time} onChange={e => setShowWaitlistForm({ ...showWaitlistForm, time: e.target.value })}>{HOURS.map(t => <option key={t}>{t}</option>)}</select></div>
+                <div><label>醫師</label><select value={showWaitlistForm.doctor} onChange={e => setShowWaitlistForm({ ...showWaitlistForm, doctor: e.target.value })}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label>店舖</label>
+                <select value={showWaitlistForm.store} onChange={e => setShowWaitlistForm({ ...showWaitlistForm, store: e.target.value })}>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}</select>
+              </div>
+              <div style={{ marginBottom: 12 }}><label>備註</label><input value={wlForm.notes} onChange={e => setWlForm({ ...wlForm, notes: e.target.value })} placeholder="特別要求或備註" /></div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="submit" className="btn btn-teal">加入候補</button>
+                <button type="button" className="btn btn-outline" onClick={() => setShowWaitlistForm(null)}>取消</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -575,6 +756,11 @@ export default function BookingPage({ data, setData, showToast }) {
               <div style={{ marginBottom: 12 }}><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="submit" className="btn btn-teal">確認預約</button>
+                <button type="button" className="btn btn-sm" style={{ background: '#d97706', color: '#fff' }} onClick={() => {
+                  setShowModal(false);
+                  setShowWaitlistForm({ date: form.date, time: form.time, doctor: form.doctor, store: form.store });
+                  setWlForm({ patientName: form.patientName, patientPhone: form.patientPhone, notes: form.notes });
+                }}>⏳ 加入候補</button>
                 <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>取消</button>
               </div>
             </form>
