@@ -5,11 +5,16 @@ import { getClinicName } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 
-const LEAVE_TYPES = ['年假', '病假', '事假'];
+const LEAVE_TYPES = ['年假', '病假', '事假', '補假', '產假', '婚假'];
 const DEFAULT_BALANCE = { annual: 12, sick: 14, personal: 5 };
-const TYPE_TAGS = { '年假': 'tag-paid', '病假': 'tag-overdue', '事假': 'tag-pending-orange' };
+const TYPE_TAGS = { '年假': 'tag-paid', '病假': 'tag-overdue', '事假': 'tag-pending-orange', '補假': 'tag-other', '產假': 'tag-paid', '婚假': 'tag-paid' };
+const TYPE_COLORS = { '年假': { bg: '#dcfce7', color: '#166534' }, '病假': { bg: '#fef2f2', color: '#991b1b' }, '事假': { bg: '#fef9c3', color: '#92400e' }, '補假': { bg: '#ede9fe', color: '#5b21b6' }, '產假': { bg: '#fce7f3', color: '#9d174d' }, '婚假': { bg: '#fdf2f8', color: '#be185d' } };
 const STATUS_TAGS = { pending: 'tag-pending-orange', approved: 'tag-paid', rejected: 'tag-overdue' };
 const STATUS_LABELS = { pending: '待審批', approved: '已批准', rejected: '已拒絕' };
+const HK_HOLIDAYS_2025 = ['2025-01-01','2025-01-29','2025-01-30','2025-01-31','2025-02-01','2025-04-04','2025-04-18','2025-04-19','2025-04-21','2025-05-01','2025-05-05','2025-05-31','2025-07-01','2025-10-01','2025-10-07','2025-10-29','2025-12-25','2025-12-26'];
+const HK_HOLIDAYS_2026 = ['2026-01-01','2026-02-17','2026-02-18','2026-02-19','2026-02-20','2026-04-04','2026-04-03','2026-04-06','2026-05-01','2026-05-24','2026-06-19','2026-07-01','2026-10-01','2026-10-26','2026-10-19','2026-12-25','2026-12-26'];
+const HK_HOLIDAYS = new Set([...HK_HOLIDAYS_2025, ...HK_HOLIDAYS_2026]);
+const MONTH_LABELS = ['', '一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
 
 function getLeaveBalance() {
   try { return JSON.parse(localStorage.getItem('hcmc_leave_balance')) || {}; } catch { return {}; }
@@ -153,6 +158,7 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
         <div className="tab-bar" style={{ marginBottom: 0 }}>
           <button className={`tab-btn ${tab === 'list' ? 'active' : ''}`} onClick={() => setTab('list')}>請假列表</button>
           <button className={`tab-btn ${tab === 'cal' ? 'active' : ''}`} onClick={() => setTab('cal')}>月曆</button>
+          <button className={`tab-btn ${tab === 'timeline' ? 'active' : ''}`} onClick={() => setTab('timeline')}>團隊時間線</button>
           {isAdmin && <button className={`tab-btn ${tab === 'balance' ? 'active' : ''}`} onClick={() => setTab('balance')}>假期餘額</button>}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
@@ -253,41 +259,150 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
       )}
 
       {/* Calendar View */}
-      {tab === 'cal' && (
+      {tab === 'cal' && (() => {
+        const today = new Date().toISOString().substring(0, 10);
+        const [cy, cm] = calMonth.split('-').map(Number);
+        return (
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <button className="btn btn-outline btn-sm" onClick={prevMonth}>&lt;</button>
-            <h3 style={{ fontSize: 16, fontWeight: 700 }}>{calMonth}</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 700 }}>{cy}年 {MONTH_LABELS[cm]}</h3>
             <button className="btn btn-outline btn-sm" onClick={nextMonth}>&gt;</button>
+          </div>
+          {/* Legend */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 10, fontSize: 10, flexWrap: 'wrap' }}>
+            {Object.entries(TYPE_COLORS).map(([type, c]) => (
+              <span key={type} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: c.bg, border: `1px solid ${c.color}` }} />
+                <span style={{ color: c.color, fontWeight: 600 }}>{type}</span>
+              </span>
+            ))}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: '#fee2e2', border: '1px solid #f87171' }} />
+              <span style={{ color: '#dc2626', fontWeight: 600 }}>公眾假期</span>
+            </span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, fontSize: 12 }}>
             {['日', '一', '二', '三', '四', '五', '六'].map(d => (
-              <div key={d} style={{ textAlign: 'center', fontWeight: 700, padding: 6, color: 'var(--gray-500)', background: 'var(--gray-50)' }}>{d}</div>
+              <div key={d} style={{ textAlign: 'center', fontWeight: 700, padding: 6, color: d === '日' || d === '六' ? '#dc2626' : 'var(--gray-500)', background: 'var(--gray-50)' }}>{d}</div>
             ))}
-            {calendarDays.map((cell, i) => (
+            {calendarDays.map((cell, i) => {
+              const isToday = cell?.date === today;
+              const isHoliday = cell && HK_HOLIDAYS.has(cell.date);
+              const isWeekend = cell && (new Date(cell.date).getDay() === 0 || new Date(cell.date).getDay() === 6);
+              return (
               <div key={i} style={{
-                minHeight: 60, padding: 4, border: '1px solid var(--gray-100)', borderRadius: 4,
-                background: cell?.leaves?.length ? 'var(--teal-50)' : '#fff',
+                minHeight: 68, padding: 4, border: isToday ? '2px solid #0e7490' : '1px solid var(--gray-100)', borderRadius: 4,
+                background: isHoliday ? '#fee2e2' : cell?.leaves?.length ? '#f0fdfa' : isWeekend ? '#fafafa' : '#fff',
               }}>
                 {cell && (
                   <>
-                    <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 2 }}>{cell.day}</div>
-                    {cell.leaves.map(l => (
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2, color: isToday ? '#0e7490' : isHoliday || isWeekend ? '#dc2626' : '#333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>{cell.day}</span>
+                      {isToday && <span style={{ fontSize: 8, padding: '1px 4px', background: '#0e7490', color: '#fff', borderRadius: 3 }}>今日</span>}
+                    </div>
+                    {isHoliday && <div style={{ fontSize: 8, color: '#dc2626', fontWeight: 600 }}>公眾假期</div>}
+                    {cell.leaves.map(l => {
+                      const tc = TYPE_COLORS[l.type] || TYPE_COLORS['事假'];
+                      return (
                       <div key={l.id} style={{
                         fontSize: 9, padding: '1px 4px', borderRadius: 3, marginBottom: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        background: l.type === '年假' ? '#dcfce7' : l.type === '病假' ? '#fef2f2' : '#fef9c3',
-                        color: l.type === '年假' ? '#166534' : l.type === '病假' ? '#991b1b' : '#92400e',
+                        background: tc.bg, color: tc.color,
                       }}>
-                        {l.userName}
+                        {l.userName} ({l.type})
                       </div>
-                    ))}
+                    );})}
                   </>
                 )}
               </div>
-            ))}
+            );})}
           </div>
         </div>
-      )}
+        );
+      })()}
+
+      {/* Team Timeline (Gantt) View */}
+      {tab === 'timeline' && (() => {
+        const [ty, tm] = calMonth.split('-').map(Number);
+        const daysInMonth = new Date(ty, tm, 0).getDate();
+        const today = new Date().toISOString().substring(0, 10);
+        const todayNum = today.startsWith(calMonth) ? parseInt(today.substring(8)) : -1;
+        const staff = [...new Set(leaves.map(l => l.userName).filter(Boolean))].sort();
+        const monthLeaves = leaves.filter(l => l.status === 'approved' && l.startDate?.substring(0, 7) <= calMonth && l.endDate?.substring(0, 7) >= calMonth);
+        return (
+        <div className="card" style={{ overflowX: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <button className="btn btn-outline btn-sm" onClick={prevMonth}>&lt;</button>
+            <h3 style={{ fontSize: 16, fontWeight: 700 }}>{ty}年 {MONTH_LABELS[tm]} — 團隊假期概覽</h3>
+            <button className="btn btn-outline btn-sm" onClick={nextMonth}>&gt;</button>
+          </div>
+          {!staff.length ? (
+            <div style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>暫無已批准假期紀錄</div>
+          ) : (
+            <div style={{ minWidth: Math.max(600, daysInMonth * 28 + 100) }}>
+              {/* Header row — days */}
+              <div style={{ display: 'flex', borderBottom: '2px solid var(--gray-200)', paddingBottom: 4, marginBottom: 4 }}>
+                <div style={{ width: 90, minWidth: 90, fontWeight: 700, fontSize: 11, color: 'var(--gray-500)' }}>員工</div>
+                {Array.from({ length: daysInMonth }, (_, d) => {
+                  const dayNum = d + 1;
+                  const dateStr = `${calMonth}-${String(dayNum).padStart(2, '0')}`;
+                  const dow = new Date(ty, tm - 1, dayNum).getDay();
+                  const isWe = dow === 0 || dow === 6;
+                  const isH = HK_HOLIDAYS.has(dateStr);
+                  return (
+                    <div key={d} style={{
+                      flex: 1, textAlign: 'center', fontSize: 10, fontWeight: dayNum === todayNum ? 800 : 600,
+                      color: dayNum === todayNum ? '#0e7490' : isH ? '#dc2626' : isWe ? '#f87171' : '#666',
+                      background: dayNum === todayNum ? '#ecfeff' : 'transparent', borderRadius: 3, padding: '2px 0',
+                    }}>
+                      {dayNum}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Staff rows */}
+              {staff.map(name => {
+                const sl = monthLeaves.filter(l => l.userName === name);
+                return (
+                  <div key={name} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--gray-100)', minHeight: 28 }}>
+                    <div style={{ width: 90, minWidth: 90, fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                    {Array.from({ length: daysInMonth }, (_, d) => {
+                      const dayNum = d + 1;
+                      const dateStr = `${calMonth}-${String(dayNum).padStart(2, '0')}`;
+                      const leave = sl.find(l => l.startDate <= dateStr && l.endDate >= dateStr);
+                      const tc = leave ? (TYPE_COLORS[leave.type] || TYPE_COLORS['事假']) : null;
+                      return (
+                        <div key={d} style={{
+                          flex: 1, height: 22, margin: '0 1px', borderRadius: 3,
+                          background: leave ? tc.bg : dayNum === todayNum ? '#ecfeff' : 'transparent',
+                          border: leave ? `1px solid ${tc.color}40` : 'none',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }} title={leave ? `${leave.type}: ${leave.startDate}~${leave.endDate}` : ''}>
+                          {leave && <span style={{ fontSize: 8, color: tc.color, fontWeight: 700 }}>{leave.type.charAt(0)}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {/* Summary row */}
+              <div style={{ display: 'flex', alignItems: 'center', borderTop: '2px solid var(--gray-200)', minHeight: 28, marginTop: 4, paddingTop: 4 }}>
+                <div style={{ width: 90, minWidth: 90, fontSize: 11, fontWeight: 700, color: 'var(--teal-700)' }}>放假人數</div>
+                {Array.from({ length: daysInMonth }, (_, d) => {
+                  const dateStr = `${calMonth}-${String(d + 1).padStart(2, '0')}`;
+                  const count = monthLeaves.filter(l => l.startDate <= dateStr && l.endDate >= dateStr).length;
+                  return (
+                    <div key={d} style={{ flex: 1, textAlign: 'center', fontSize: 10, fontWeight: 700, color: count >= 2 ? '#dc2626' : count === 1 ? '#d97706' : '#ccc' }}>
+                      {count || ''}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+        );
+      })()}
 
       {/* Balance Tab (#88) */}
       {tab === 'balance' && isAdmin && (
