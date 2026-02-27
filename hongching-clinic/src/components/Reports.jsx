@@ -32,6 +32,7 @@ const BranchComparison = lazy(() => import('./reports/BranchComparison'));
 const StaffKPIReport = lazy(() => import('./reports/StaffKPIReport'));
 const TreatmentProgress = lazy(() => import('./reports/TreatmentProgress'));
 const CashFlowForecast = lazy(() => import('./reports/CashFlowForecast'));
+const MonthlyExecutiveReport = lazy(() => import('./reports/MonthlyExecutiveReport'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -53,6 +54,7 @@ const REPORT_GROUPS = [
     { id: 'kpi', icon: '🎯', label: '系統KPI' },
     { id: 'branch', icon: '🏢', label: '分店比較' },
     { id: 'cashflow', icon: '💰', label: '現金流預測' },
+    { id: 'executive', icon: '📋', label: '管理報告' },
   ]},
   { label: '醫師', tabs: [
     { id: 'doctor', icon: '👨‍⚕️', label: '醫師績效' },
@@ -843,6 +845,7 @@ export default function Reports({ data }) {
         {reportType === 'staffkpi' && <StaffKPIReport data={data} />}
         {reportType === 'progress' && <TreatmentProgress data={data} />}
         {reportType === 'cashflow' && <CashFlowForecast data={data} />}
+        {reportType === 'executive' && <MonthlyExecutiveReport data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>
