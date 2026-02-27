@@ -53,6 +53,22 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   const [newDoctor, setNewDoctor] = useState('');
   const [themeColor, setThemeColor] = useState(() => getTenantSettings()?.primaryColor || '#0e7490');
 
+  // Doctor schedule
+  const [docSchedule, setDocSchedule] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_doc_schedule')) || {}; } catch { return {}; }
+  });
+  const DOW_LABELS = ['一', '二', '三', '四', '五', '六', '日'];
+  const toggleDocSchedule = (doctor, day, store) => {
+    setDocSchedule(prev => {
+      const key = `${doctor}_${day}`;
+      const next = { ...prev };
+      if (next[key] === store) delete next[key];
+      else next[key] = store;
+      localStorage.setItem('hcmc_doc_schedule', JSON.stringify(next));
+      return next;
+    });
+  };
+
   // Audit filters
   const [auditSearch, setAuditSearch] = useState('');
   const [auditDateFrom, setAuditDateFrom] = useState('');
@@ -258,6 +274,46 @@ export default function SettingsPage({ data, setData, showToast, user }) {
                 setNewDoctor('');
               }}>新增</button>
             </div>
+          </div>
+
+          {/* Doctor Schedule Timetable */}
+          <div className="card">
+            <div className="card-header"><h3>📅 醫師排班表</h3></div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '6px 8px', background: 'var(--gray-50)' }}>醫師</th>
+                    {DOW_LABELS.map(d => (
+                      <th key={d} style={{ textAlign: 'center', padding: '6px 8px', background: 'var(--gray-50)', minWidth: 60 }}>{d}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenantConfig.doctors.map(doc => (
+                    <tr key={doc}>
+                      <td style={{ fontWeight: 700, padding: '6px 8px', borderBottom: '1px solid var(--gray-100)' }}>{doc}</td>
+                      {DOW_LABELS.map((_, di) => {
+                        const key = `${doc}_${di}`;
+                        const assigned = docSchedule[key] || '';
+                        const storeNames = getTenantStoreNames();
+                        return (
+                          <td key={di} style={{ textAlign: 'center', padding: '4px', borderBottom: '1px solid var(--gray-100)' }}>
+                            <select value={assigned} onChange={e => toggleDocSchedule(doc, di, e.target.value)}
+                              style={{ width: '100%', padding: '3px 2px', fontSize: 10, borderRadius: 4, border: '1px solid var(--gray-200)',
+                                background: assigned ? '#ecfdf5' : '#fff', color: assigned ? '#166534' : '#999', fontWeight: assigned ? 700 : 400 }}>
+                              <option value="">休息</option>
+                              {storeNames.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 6 }}>選擇每位醫師每天的診所位置，留空為休息日</div>
           </div>
 
           {/* Business Settings */}
