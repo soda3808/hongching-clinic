@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { savePatient, openWhatsApp } from '../api';
+import { savePatient, openWhatsApp, saveCommunication } from '../api';
 import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
+import { getCurrentUser } from '../auth';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 
 const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'' };
@@ -18,8 +19,11 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [selected, setSelected] = useState(new Set());
   const [showBatchWA, setShowBatchWA] = useState(false);
   const [batchMsg, setBatchMsg] = useState('');
+  const [showCommLog, setShowCommLog] = useState(false);
+  const [commForm, setCommForm] = useState({ type: 'phone', notes: '' });
 
   const patients = data.patients || [];
+  const communications = data.communications || [];
   const thisMonth = new Date().toISOString().substring(0, 7);
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().substring(0, 10);
 
@@ -116,6 +120,33 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
     showToast('已新增病人');
   };
 
+  // ── Communication Log ──
+  const logCommunication = async (patientId, patientName) => {
+    if (!commForm.notes.trim()) return showToast('請填寫溝通內容');
+    const user = getCurrentUser();
+    const record = {
+      id: uid(), patientId, patientName,
+      type: commForm.type, notes: commForm.notes.trim(),
+      date: new Date().toISOString().substring(0, 10),
+      time: new Date().toTimeString().substring(0, 5),
+      staff: user?.displayName || user?.username || '員工',
+      createdAt: new Date().toISOString(),
+    };
+    await saveCommunication(record);
+    setData(prev => ({ ...prev, communications: [...(prev.communications || []), record] }));
+    setCommForm({ type: 'phone', notes: '' });
+    setShowCommLog(false);
+    showToast('已記錄溝通');
+  };
+
+  const COMM_TYPES = [
+    { value: 'phone', icon: '📞', label: '電話' },
+    { value: 'whatsapp', icon: '📱', label: 'WhatsApp' },
+    { value: 'walkin', icon: '🏥', label: '到店' },
+    { value: 'email', icon: '📧', label: '電郵' },
+    { value: 'other', icon: '📝', label: '其他' },
+  ];
+
   // ── CSV Import ──
   const handleCSVFile = (e) => {
     const file = e.target.files[0];
@@ -192,6 +223,11 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
     if (!detail) return [];
     return (data.bookings || []).filter(b => b.patientName === detail.name).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [detail, data.bookings]);
+
+  const commHistory = useMemo(() => {
+    if (!detail) return [];
+    return communications.filter(c => c.patientId === detail.id || c.patientName === detail.name).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  }, [detail, communications]);
 
   return (
     <>
@@ -464,6 +500,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 {noShowCount > 0 && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: noShowCount >= 3 ? '#dc262618' : '#d9770618', color: noShowCount >= 3 ? '#dc2626' : '#d97706', fontWeight: 700 }}>NS×{noShowCount} {noShowCount >= 3 ? '高風險' : ''}</span>}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => setShowCommLog(!showCommLog)}>📝 記錄溝通</button>
                 {onNavigate && <button className="btn btn-teal btn-sm" onClick={() => { setDetail(null); onNavigate('emr'); }}>開診</button>}
                 <button className="btn btn-outline btn-sm" onClick={() => {
                   const p = detail;
@@ -569,11 +606,32 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 })}
               </div>
             )}
+            {/* ── Communication Log Form ── */}
+            {showCommLog && (
+              <div style={{ marginBottom: 16, padding: 12, background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#7c3aed', marginBottom: 8 }}>記錄溝通</div>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  {COMM_TYPES.map(t => (
+                    <button key={t.value} onClick={() => setCommForm(f => ({ ...f, type: t.value }))}
+                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: commForm.type === t.value ? '2px solid #7c3aed' : '1px solid #ddd', background: commForm.type === t.value ? '#ede9fe' : '#fff', color: commForm.type === t.value ? '#7c3aed' : '#666' }}>
+                      {t.icon} {t.label}
+                    </button>
+                  ))}
+                </div>
+                <textarea value={commForm.notes} onChange={e => setCommForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="溝通內容（例如：提醒覆診、跟進治療、回覆查詢...）"
+                  style={{ width: '100%', minHeight: 60, padding: 8, borderRadius: 6, border: '1px solid #ddd', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }} />
+                <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
+                  <button className="btn btn-sm btn-outline" onClick={() => setShowCommLog(false)}>取消</button>
+                  <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => logCommunication(detail.id, detail.name)}>儲存</button>
+                </div>
+              </div>
+            )}
             {/* ── Visit Timeline ── */}
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診時間線 ({consultations.length + visitHistory.length + bookingHistory.length} 筆紀錄)</h4>
+            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診時間線 ({consultations.length + visitHistory.length + bookingHistory.length + commHistory.length} 筆紀錄)</h4>
             {/* Timeline Stats Summary */}
-            {consultations.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 }}>
+            {(consultations.length > 0 || commHistory.length > 0) && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 12 }}>
                 <div style={{ padding: 8, background: 'var(--teal-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
                   <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--teal-700)' }}>{consultations.length}</div>
                   <div style={{ color: 'var(--teal-600)' }}>診症次數</div>
@@ -586,6 +644,10 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--gold-700)' }}>{[...new Set(consultations.map(c => c.tcmDiagnosis).filter(Boolean))].length}</div>
                   <div style={{ color: 'var(--gold-700)' }}>診斷種類</div>
                 </div>
+                <div style={{ padding: 8, background: '#f5f3ff', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: '#7c3aed' }}>{commHistory.length}</div>
+                  <div style={{ color: '#7c3aed' }}>溝通紀錄</div>
+                </div>
                 <div style={{ padding: 8, background: 'var(--red-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
                   <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--red-600)' }}>{consultations.filter(c => c.icd10Code).length}</div>
                   <div style={{ color: 'var(--red-600)' }}>ICD-10 編碼</div>
@@ -593,19 +655,20 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               </div>
             )}
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-              {consultations.length === 0 && visitHistory.length === 0 && bookingHistory.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24, fontSize: 13 }}>暫無就診紀錄</div>
+              {consultations.length === 0 && visitHistory.length === 0 && bookingHistory.length === 0 && commHistory.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24, fontSize: 13 }}>暫無紀錄</div>
               )}
               {/* Merge and sort by date */}
               {[
                 ...consultations.map(c => ({ type: 'emr', date: c.date, data: c })),
                 ...visitHistory.filter(r => !consultations.find(c => c.date === r.date && c.patientName === r.name)).map(r => ({ type: 'rev', date: String(r.date).substring(0, 10), data: r })),
                 ...bookingHistory.filter(b => !consultations.find(c => c.date === b.date)).map(b => ({ type: 'booking', date: b.date, data: b })),
+                ...commHistory.map(c => ({ type: 'comm', date: c.date, data: c })),
               ].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--gray-100)' }}>
                   {/* Timeline dot */}
                   <div style={{ minWidth: 44, textAlign: 'center' }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.type === 'emr' ? '#0e7490' : item.type === 'booking' ? '#7c3aed' : '#d97706', margin: '4px auto 4px' }} />
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.type === 'emr' ? '#0e7490' : item.type === 'booking' ? '#7c3aed' : item.type === 'comm' ? '#16a34a' : '#d97706', margin: '4px auto 4px' }} />
                     <div style={{ fontSize: 10, color: '#999' }}>{item.date}</div>
                   </div>
                   {/* Content */}
@@ -633,6 +696,14 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                         <span style={{ fontWeight: 600, color: '#7c3aed' }}>📅 預約 — {item.data.type}</span>
                         <span style={{ marginLeft: 8 }}>{item.data.time} | {item.data.doctor} | {item.data.store}</span>
                         <span style={{ marginLeft: 8, fontSize: 11 }} className={`tag ${item.data.status === 'completed' ? 'tag-paid' : item.data.status === 'cancelled' ? 'tag-overdue' : 'tag-other'}`}>{item.data.status === 'completed' ? '已完成' : item.data.status === 'cancelled' ? '已取消' : item.data.status === 'no-show' ? '未到' : '已確認'}</span>
+                      </div>
+                    ) : item.type === 'comm' ? (
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#16a34a', marginBottom: 2 }}>
+                          {(COMM_TYPES.find(t => t.value === item.data.type) || COMM_TYPES[4]).icon} {(COMM_TYPES.find(t => t.value === item.data.type) || COMM_TYPES[4]).label}
+                          <span style={{ fontWeight: 400, color: '#888', marginLeft: 8, fontSize: 11 }}>{item.data.time} | {item.data.staff}</span>
+                        </div>
+                        <div style={{ color: '#444' }}>{item.data.notes}</div>
                       </div>
                     ) : (
                       <div>
