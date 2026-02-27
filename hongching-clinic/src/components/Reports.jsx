@@ -26,6 +26,7 @@ const StaffPerformance = lazy(() => import('./reports/StaffPerformance'));
 const AgingReport = lazy(() => import('./reports/AgingReport'));
 const SatisfactionReport = lazy(() => import('./reports/SatisfactionReport'));
 const ReferralAnalytics = lazy(() => import('./reports/ReferralAnalytics'));
+const NoShowAnalytics = lazy(() => import('./reports/NoShowAnalytics'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -60,6 +61,7 @@ const REPORT_GROUPS = [
     { id: 'outcome', icon: '🎯', label: '治療成效' },
     { id: 'satisfaction', icon: '😊', label: '滿意度' },
     { id: 'referral', icon: '🔗', label: '轉介分析' },
+    { id: 'noshow', icon: '❌', label: '缺席分析' },
     { id: 'rxsummary', icon: '📜', label: '處方報表' },
   ]},
   { label: '營運', tabs: [
@@ -825,6 +827,7 @@ export default function Reports({ data }) {
         {reportType === 'aging' && <AgingReport data={data} />}
         {reportType === 'satisfaction' && <SatisfactionReport data={data} />}
         {reportType === 'referral' && <ReferralAnalytics data={data} />}
+        {reportType === 'noshow' && <NoShowAnalytics data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>

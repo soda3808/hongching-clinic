@@ -438,6 +438,41 @@ export default function Dashboard({ data, onNavigate }) {
         );
       })()}
 
+      {/* Budget Tracker */}
+      {(() => {
+        const budgets = (() => { try { return JSON.parse(localStorage.getItem('hcmc_budgets')) || {}; } catch { return {}; } })();
+        const thisMonth = new Date().toISOString().substring(0, 7);
+        const monthExp = (data.expenses || []).filter(e => e.date && e.date.substring(0, 7) === thisMonth);
+        const catSpending = {};
+        monthExp.forEach(e => { catSpending[e.category || '其他'] = (catSpending[e.category || '其他'] || 0) + Number(e.amount || 0); });
+        const hasBudgets = Object.keys(budgets).length > 0;
+        const overBudget = Object.entries(budgets).filter(([cat, limit]) => (catSpending[cat] || 0) > limit * 0.8);
+        if (!hasBudgets) return null;
+        return (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><h3>💰 支出預算追蹤</h3></div>
+          <div style={{ display: 'grid', gap: 6, padding: '4px 0' }}>
+            {Object.entries(budgets).sort((a, b) => (catSpending[b[0]] || 0) / b[1] - (catSpending[a[0]] || 0) / a[1]).map(([cat, limit]) => {
+              const spent = catSpending[cat] || 0;
+              const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+              const over = spent > limit;
+              return (
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span style={{ minWidth: 80, fontWeight: 600 }}>{cat}</span>
+                  <div style={{ flex: 1, height: 8, background: 'var(--gray-100)', borderRadius: 4 }}>
+                    <div style={{ width: `${pct}%`, height: '100%', background: over ? '#dc2626' : pct > 80 ? '#d97706' : '#16a34a', borderRadius: 4 }} />
+                  </div>
+                  <span style={{ minWidth: 90, textAlign: 'right', fontWeight: 600, color: over ? '#dc2626' : pct > 80 ? '#d97706' : 'var(--gray-600)' }}>
+                    {fmtM(spent)}/{fmtM(limit)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        );
+      })()}
+
       {/* P&L Table */}
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header"><h3>📊 損益表 P&L Statement</h3></div>
