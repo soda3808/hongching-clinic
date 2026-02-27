@@ -316,6 +316,47 @@ export default function SettingsPage({ data, setData, showToast, user }) {
             <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 6 }}>選擇每位醫師每天的診所位置，留空為休息日</div>
           </div>
 
+          {/* Appointment Reminder Settings */}
+          <div className="card">
+            <div className="card-header"><h3>📱 預約提醒設定</h3></div>
+            {(() => {
+              const defaults = { daysBefore: 1, templateBooking: '【{clinic}】{name}你好！提醒你{dayText}預約：\n日期: {date} {time}\n醫師: {doctor}\n地點: {store}\n請準時到達，如需更改請提前聯絡。多謝！',
+                templateFollowUp: '【{clinic}】{name}你好！你的覆診日期將近，建議儘快預約覆診。如需協助請回覆此訊息。',
+                templateBirthday: '【{clinic}】{name}你好！祝你生日快樂！🎂 我們為你送上生日優惠，歡迎預約！' };
+              let rs;
+              try { rs = { ...defaults, ...JSON.parse(localStorage.getItem('hcmc_reminder_settings') || '{}') }; } catch { rs = defaults; }
+              const save = (key, val) => {
+                const updated = { ...rs, [key]: val };
+                localStorage.setItem('hcmc_reminder_settings', JSON.stringify(updated));
+              };
+              return (
+                <div style={{ fontSize: 12 }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontWeight: 600, marginBottom: 4, display: 'block' }}>提前提醒天數</label>
+                    <select defaultValue={rs.daysBefore} onChange={e => save('daysBefore', Number(e.target.value))} style={{ width: 120 }}>
+                      <option value={1}>1天前</option>
+                      <option value={2}>2天前</option>
+                      <option value={3}>3天前</option>
+                    </select>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontWeight: 600, marginBottom: 4, display: 'block' }}>預約提醒模板</label>
+                    <textarea defaultValue={rs.templateBooking} onBlur={e => save('templateBooking', e.target.value)} style={{ width: '100%', minHeight: 80, padding: 8, borderRadius: 6, border: '1px solid var(--gray-200)', fontSize: 11, boxSizing: 'border-box' }} />
+                    <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>可用變數：{'{clinic}'} {'{name}'} {'{date}'} {'{time}'} {'{doctor}'} {'{store}'} {'{dayText}'}</div>
+                  </div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontWeight: 600, marginBottom: 4, display: 'block' }}>覆診提醒模板</label>
+                    <textarea defaultValue={rs.templateFollowUp} onBlur={e => save('templateFollowUp', e.target.value)} style={{ width: '100%', minHeight: 60, padding: 8, borderRadius: 6, border: '1px solid var(--gray-200)', fontSize: 11, boxSizing: 'border-box' }} />
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ fontWeight: 600, marginBottom: 4, display: 'block' }}>生日祝賀模板</label>
+                    <textarea defaultValue={rs.templateBirthday} onBlur={e => save('templateBirthday', e.target.value)} style={{ width: '100%', minHeight: 60, padding: 8, borderRadius: 6, border: '1px solid var(--gray-200)', fontSize: 11, boxSizing: 'border-box' }} />
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           {/* Business Settings */}
           <div className="card">
             <div className="card-header"><h3>⚙️ 營業設定</h3></div>
