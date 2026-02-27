@@ -16,6 +16,8 @@ const PackageReport = lazy(() => import('./reports/PackageReport'));
 const KPIDashboard = lazy(() => import('./reports/KPIDashboard'));
 const DrugSafetyReport = lazy(() => import('./reports/DrugSafetyReport'));
 const ClinicalAnalytics = lazy(() => import('./reports/ClinicalAnalytics'));
+const HerbAnalytics = lazy(() => import('./reports/HerbAnalytics'));
+const ProfitLoss = lazy(() => import('./reports/ProfitLoss'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -28,6 +30,7 @@ const COLORS = ['#0e7490', '#16a34a', '#DAA520', '#dc2626', '#7C3AED', '#0284c7'
 const REPORT_GROUPS = [
   { label: '財務', tabs: [
     { id: 'monthly', icon: '📅', label: '月結報表' },
+    { id: 'pnl', icon: '💹', label: '損益表' },
     { id: 'tax', icon: '🏛️', label: '稅務/年結' },
     { id: 'yoy', icon: '📊', label: '按年比較' },
     { id: 'forecast', icon: '📈', label: '營業預測' },
@@ -48,6 +51,7 @@ const REPORT_GROUPS = [
   { label: '營運', tabs: [
     { id: 'clinical', icon: '📊', label: '臨床分析' },
     { id: 'rxstats', icon: '💊', label: '藥物處方' },
+    { id: 'herbanalytics', icon: '🌿', label: '藥材分析' },
     { id: 'drugsafety', icon: '⚠️', label: '藥物安全量' },
     { id: 'serviceusage', icon: '🔧', label: '服務頻率' },
     { id: 'packagereport', icon: '🎫', label: '醫療計劃' },
@@ -795,6 +799,8 @@ export default function Reports({ data }) {
         {reportType === 'kpi' && <KPIDashboard data={data} />}
         {reportType === 'drugsafety' && <DrugSafetyReport data={data} />}
         {reportType === 'clinical' && <ClinicalAnalytics data={data} />}
+        {reportType === 'herbanalytics' && <HerbAnalytics data={data} />}
+        {reportType === 'pnl' && <ProfitLoss data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>

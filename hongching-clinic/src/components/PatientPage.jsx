@@ -571,6 +571,27 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             )}
             {/* ── Visit Timeline ── */}
             <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診時間線 ({consultations.length + visitHistory.length + bookingHistory.length} 筆紀錄)</h4>
+            {/* Timeline Stats Summary */}
+            {consultations.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 12 }}>
+                <div style={{ padding: 8, background: 'var(--teal-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--teal-700)' }}>{consultations.length}</div>
+                  <div style={{ color: 'var(--teal-600)' }}>診症次數</div>
+                </div>
+                <div style={{ padding: 8, background: 'var(--green-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--green-700)' }}>{[...new Set(consultations.map(c => c.doctor).filter(Boolean))].length}</div>
+                  <div style={{ color: 'var(--green-600)' }}>就診醫師</div>
+                </div>
+                <div style={{ padding: 8, background: 'var(--gold-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--gold-700)' }}>{[...new Set(consultations.map(c => c.tcmDiagnosis).filter(Boolean))].length}</div>
+                  <div style={{ color: 'var(--gold-700)' }}>診斷種類</div>
+                </div>
+                <div style={{ padding: 8, background: 'var(--red-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--red-600)' }}>{consultations.filter(c => c.icd10Code).length}</div>
+                  <div style={{ color: 'var(--red-600)' }}>ICD-10 編碼</div>
+                </div>
+              </div>
+            )}
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
               {consultations.length === 0 && visitHistory.length === 0 && bookingHistory.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24, fontSize: 13 }}>暫無就診紀錄</div>
@@ -591,10 +612,11 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   <div style={{ flex: 1, fontSize: 12 }}>
                     {item.type === 'emr' ? (
                       <>
-                        <div style={{ fontWeight: 700, color: '#0e7490', marginBottom: 2 }}>
-                          {item.data.tcmDiagnosis || item.data.assessment || '診症'} — {item.data.doctor}
+                        <div style={{ fontWeight: 700, color: '#0e7490', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span>{item.data.tcmDiagnosis || item.data.assessment || '診症'} — {item.data.doctor}</span>
+                          {item.data.icd10Code && <span style={{ fontSize: 9, padding: '1px 5px', background: '#eff6ff', color: '#1e40af', borderRadius: 3 }}>ICD-10: {item.data.icd10Code}</span>}
                         </div>
-                        {item.data.tcmPattern && <div style={{ color: '#666' }}>辨證：{item.data.tcmPattern}</div>}
+                        {item.data.tcmPattern && <div style={{ color: '#666' }}>辨證：{item.data.tcmPattern}{item.data.cmZhengCode ? ` (${item.data.cmZhengCode})` : ''}</div>}
                         {(item.data.treatments || []).length > 0 && <div>治療：{item.data.treatments.join('、')}</div>}
                         {item.data.formulaName && <div style={{ fontWeight: 600 }}>處方：{item.data.formulaName} ({item.data.formulaDays || '-'}帖)</div>}
                         {(item.data.prescription || []).length > 0 && (
