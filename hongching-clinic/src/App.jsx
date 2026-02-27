@@ -45,6 +45,13 @@ const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const BillingSettings = lazy(() => import('./components/BillingSettings'));
 const EHealthPage = lazy(() => import('./components/EHealthPage'));
 const DailyClosing = lazy(() => import('./components/DailyClosing'));
+const MyFormulas = lazy(() => import('./components/MyFormulas'));
+const DispensingLog = lazy(() => import('./components/DispensingLog'));
+const PurchaseOrders = lazy(() => import('./components/PurchaseOrders'));
+const RegistrationQueue = lazy(() => import('./components/RegistrationQueue'));
+const PrescriptionPrint = lazy(() => import('./components/PrescriptionPrint'));
+const VitalSigns = lazy(() => import('./components/VitalSigns'));
+const PrescriptionHistory = lazy(() => import('./components/PrescriptionHistory'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -56,11 +63,18 @@ const ALL_PAGES = [
   { id: 'booking', icon: '📅', label: '預約系統', section: '病人', perm: 'viewBookings' },
   { id: 'queue', icon: '🎫', label: '掛號排隊', section: '病人', perm: 'viewQueue' },
   { id: 'emr', icon: '🏥', label: '電子病歷', section: '病人', perm: 'viewEMR' },
+  { id: 'formulas', icon: '💊', label: '我的處方', section: '病人', perm: 'viewEMR' },
+  { id: 'rxhistory', icon: '📜', label: '處方報表', section: '病人', perm: 'viewEMR' },
+  { id: 'vitals', icon: '❤️', label: '健康資訊', section: '病人', perm: 'viewEMR' },
   { id: 'package', icon: '🎫', label: '套餐/會員', section: '病人', perm: 'viewPackages' },
   { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
   { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
   { id: 'medscan', icon: '📦', label: '採購掃描', section: '營運', perm: 'editExpenses' },
+  { id: 'purchase', icon: '📦', label: '進貨管理', section: '營運', perm: 'editExpenses' },
   { id: 'billing', icon: '💵', label: '配藥/收費', section: '營運', perm: 'viewBilling' },
+  { id: 'dispensing', icon: '📋', label: '開藥日誌', section: '營運', perm: 'viewBilling' },
+  { id: 'rxprint', icon: '🖨️', label: '處方列印', section: '營運', perm: 'viewBilling' },
+  { id: 'regqueue', icon: '🏥', label: '掛號列表', section: '營運', perm: 'viewQueue' },
   { id: 'products', icon: '🛍️', label: '商品管理', section: '營運', perm: 'editExpenses' },
   { id: 'closing', icon: '🧮', label: '日結對賬', section: '營運', perm: 'editRevenue' },
   { id: 'voucher', icon: '🧓', label: '長者醫療券', section: '病人', perm: 'viewPatients' },
@@ -869,7 +883,14 @@ function MainApp() {
             {page === 'billing' && <BillingPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'products' && <ProductPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'voucher' && <ElderlyVoucherPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
-            {page === 'closing' && <DailyClosing data={filteredData} showToast={showToast} />}
+            {page === 'closing' && <DailyClosing data={filteredData} showToast={showToast} user={user} />}
+            {page === 'formulas' && <MyFormulas showToast={showToast} user={user} />}
+            {page === 'dispensing' && <DispensingLog data={filteredData} showToast={showToast} user={user} />}
+            {page === 'purchase' && <PurchaseOrders data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'regqueue' && <RegistrationQueue data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'rxprint' && <PrescriptionPrint data={filteredData} showToast={showToast} user={user} />}
+            {page === 'vitals' && <VitalSigns data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'rxhistory' && <PrescriptionHistory data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}

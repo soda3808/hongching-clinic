@@ -4,7 +4,10 @@ import { getClinicName } from '../tenant';
 
 const PAYMENT_METHODS = ['現金', 'FPS', '信用卡', 'PayMe', '八達通', '長者醫療券', '其他'];
 
-export default function DailyClosing({ data, showToast }) {
+function loadLocks() { try { return JSON.parse(localStorage.getItem('hcmc_settlement_locks') || '[]'); } catch { return []; } }
+function saveLocks(arr) { localStorage.setItem('hcmc_settlement_locks', JSON.stringify(arr)); }
+
+export default function DailyClosing({ data, showToast, user }) {
   const today = new Date().toISOString().substring(0, 10);
   const STORE_NAMES = getStoreNames();
   const [selectedDate, setSelectedDate] = useState(today);
@@ -14,6 +17,7 @@ export default function DailyClosing({ data, showToast }) {
   const [closings, setClosings] = useState(() => {
     try { return JSON.parse(localStorage.getItem('hcmc_daily_closings') || '[]'); } catch { return []; }
   });
+  const [locks, setLocks] = useState(loadLocks);
   const [tab, setTab] = useState('current'); // current | history
 
   const dayRevenue = useMemo(() => {
@@ -91,6 +95,26 @@ export default function DailyClosing({ data, showToast }) {
 
   const existingClosing = closings.find(c => c.date === selectedDate && (selectedStore === 'all' || c.store === selectedStore));
 
+  // Settlement lock logic
+  const currentLock = locks.find(l => l.date === selectedDate && (l.store === selectedStore || l.store === 'all'));
+  const isLocked = !!currentLock;
+
+  const handleLock = () => {
+    if (!existingClosing) return showToast('請先完成日結才能鎖定');
+    const lock = { id: Date.now().toString(36), date: selectedDate, store: selectedStore, lockedAt: new Date().toISOString(), lockedBy: user?.name || 'system' };
+    const updated = [...locks, lock];
+    setLocks(updated);
+    saveLocks(updated);
+    showToast(`已鎖定 ${selectedDate} 結算`);
+  };
+
+  const handleUnlock = () => {
+    const updated = locks.filter(l => !(l.date === selectedDate && (l.store === selectedStore || l.store === 'all')));
+    setLocks(updated);
+    saveLocks(updated);
+    showToast(`已解鎖 ${selectedDate} 結算`);
+  };
+
   const printDailyReport = () => {
     const w = window.open('', '_blank');
     if (!w) return;
@@ -149,11 +173,26 @@ export default function DailyClosing({ data, showToast }) {
               </select>
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              {isLocked ? (
+                <button className="btn btn-outline btn-sm" onClick={handleUnlock} style={{ color: '#dc2626', borderColor: '#dc2626' }}>🔓 解鎖結算</button>
+              ) : (
+                <button className="btn btn-outline btn-sm" onClick={handleLock} style={{ color: '#16a34a', borderColor: '#16a34a' }}>🔒 鎖定結算</button>
+              )}
               <button className="btn btn-outline btn-sm" onClick={printDailyReport}>🖨️ 列印報表</button>
             </div>
           </div>
 
-          {existingClosing && (
+          {isLocked && (
+            <div className="card" style={{ background: '#fef2f2', border: '1px solid #ef4444', padding: 12, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 18 }}>🔒</span>
+              <div>
+                <strong style={{ color: '#dc2626' }}>此日結算已鎖定</strong>
+                <span style={{ marginLeft: 8, color: '#888' }}>由 {currentLock.lockedBy} 於 {new Date(currentLock.lockedAt).toLocaleString('zh-HK')} 鎖定</span>
+                <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>鎖定後不可修改營業紀錄及開支。如需修改請先解鎖。</div>
+              </div>
+            </div>
+          )}
+          {existingClosing && !isLocked && (
             <div className="card" style={{ background: '#f0fdf4', border: '1px solid #16a34a', padding: 12, fontSize: 12 }}>
               此日已完成日結 ({new Date(existingClosing.closedAt).toLocaleString('zh-HK')})
               {existingClosing.discrepancy !== 0 && <span style={{ marginLeft: 8, color: existingClosing.discrepancy < 0 ? '#dc2626' : '#16a34a', fontWeight: 700 }}>差異: {fmtM(existingClosing.discrepancy)}</span>}
@@ -261,7 +300,7 @@ export default function DailyClosing({ data, showToast }) {
               <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="記錄任何異常或備註..." style={{ marginTop: 4 }} />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-teal" onClick={handleSaveClosing}>確認日結</button>
+              <button className="btn btn-teal" onClick={handleSaveClosing} disabled={isLocked}>確認日結</button>
               <button className="btn btn-outline" onClick={() => { setActualAmounts({}); setNotes(''); }}>清除</button>
             </div>
           </div>
@@ -276,7 +315,7 @@ export default function DailyClosing({ data, showToast }) {
           ) : (
             <div className="table-wrap">
               <table>
-                <thead><tr><th>日期</th><th>店舖</th><th style={{ textAlign: 'right' }}>應收</th><th style={{ textAlign: 'right' }}>實收</th><th style={{ textAlign: 'right' }}>差異</th><th>交易數</th><th>備註</th><th>結算時間</th></tr></thead>
+                <thead><tr><th>日期</th><th>店舖</th><th style={{ textAlign: 'right' }}>應收</th><th style={{ textAlign: 'right' }}>實收</th><th style={{ textAlign: 'right' }}>差異</th><th>交易數</th><th>鎖定</th><th>備註</th><th>結算時間</th></tr></thead>
                 <tbody>
                   {closings.map(c => (
                     <tr key={c.id}>
@@ -288,6 +327,7 @@ export default function DailyClosing({ data, showToast }) {
                         {fmtM(c.discrepancy)}
                       </td>
                       <td style={{ textAlign: 'center' }}>{c.transactionCount}</td>
+                      <td style={{ textAlign: 'center' }}>{locks.find(l => l.date === c.date && (l.store === c.store || l.store === 'all')) ? <span style={{ color: '#dc2626' }}>🔒</span> : <span style={{ color: '#ccc' }}>-</span>}</td>
                       <td style={{ fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.notes || '-'}</td>
                       <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{c.closedAt ? new Date(c.closedAt).toLocaleString('zh-HK') : '-'}</td>
                     </tr>
