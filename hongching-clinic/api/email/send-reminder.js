@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   if (auth.authorized === false) return errorResponse(res, 403, auth.error);
 
   // Rate limit: 20 emails per minute per user
-  const rl = rateLimit(`email-reminder:${auth.user.userId}`, 20, 60000);
+  const rl = await rateLimit(`email-reminder:${auth.user.userId}`, 20, 60000);
   if (!rl.allowed) {
     res.setHeader('Retry-After', rl.retryAfter);
     return errorResponse(res, 429, '發送過於頻繁，請稍後再試');

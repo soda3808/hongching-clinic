@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
   // Rate limit: 20 chatbot requests per minute per IP
   const ip = getClientIP(req);
-  const rl = rateLimit(`chatbot:${ip}`, 20, 60000);
+  const rl = await rateLimit(`chatbot:${ip}`, 20, 60000);
   if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁');
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

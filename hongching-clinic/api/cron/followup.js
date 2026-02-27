@@ -50,7 +50,9 @@ export default async function handler(req, res) {
     for (const c of consultations) {
       if (!c.patientPhone) continue;
 
-      const phoneId = c.store === '太子' ? phoneIdPe : phoneIdTkw;
+      // Dynamic phone ID from WHATSAPP_PHONE_MAP or legacy env vars
+      const phoneMap = (() => { try { return JSON.parse(process.env.WHATSAPP_PHONE_MAP || '{}'); } catch { return {}; } })();
+      const phoneId = phoneMap[c.store] || phoneIdTkw || phoneIdPe;
       if (!phoneId) continue;
 
       let phone = c.patientPhone.replace(/[\s\-()]/g, '');

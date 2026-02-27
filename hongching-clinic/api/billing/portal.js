@@ -47,7 +47,7 @@ export default async function handler(req, res) {
 
   // Rate limit: 10 portal requests per hour per IP
   const ip = getClientIP(req);
-  const rl = rateLimit(`billing-portal:${ip}`, 10, 3600000);
+  const rl = await rateLimit(`billing-portal:${ip}`, 10, 3600000);
   if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁，請稍後再試');
 
   // Auth: admin, manager, or superadmin

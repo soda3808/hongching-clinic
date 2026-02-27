@@ -2,6 +2,7 @@
 // Used by all Vercel serverless endpoints for CORS, validation, rate limiting, auth
 
 import jwt from 'jsonwebtoken';
+import { Redis } from '@upstash/redis';
 
 // ── CORS ──
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
@@ -52,10 +53,45 @@ export function sanitizeString(str, maxLen = 500) {
   return str.trim().substring(0, maxLen).replace(/<[^>]*>/g, '');
 }
 
-// ── Rate Limiting (in-memory, per-instance) ──
+// ── Rate Limiting (Upstash Redis persistent, with in-memory fallback) ──
+// Redis is required for serverless where each invocation may be a different instance.
+// Falls back to in-memory if UPSTASH_REDIS_REST_URL is not configured.
+
+let redis = null;
+try {
+  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+    redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  }
+} catch { /* Redis not available — use fallback */ }
+
+// In-memory fallback (only effective within a single warm instance)
 const rateLimitMap = new Map();
 
-export function rateLimit(key, maxRequests = 60, windowMs = 60000) {
+export async function rateLimit(key, maxRequests = 60, windowMs = 60000) {
+  // Try Redis first (persistent across serverless invocations)
+  if (redis) {
+    try {
+      const redisKey = `rl:${key}`;
+      const windowSec = Math.ceil(windowMs / 1000);
+      const count = await redis.incr(redisKey);
+      // Set TTL only on first increment (when count === 1)
+      if (count === 1) {
+        await redis.expire(redisKey, windowSec);
+      }
+      if (count > maxRequests) {
+        const ttl = await redis.ttl(redisKey);
+        return { allowed: false, remaining: 0, retryAfter: ttl > 0 ? ttl : windowSec };
+      }
+      return { allowed: true, remaining: maxRequests - count };
+    } catch {
+      // Redis error — fall through to in-memory
+    }
+  }
+
+  // In-memory fallback
   const now = Date.now();
   const record = rateLimitMap.get(key);
   if (!record || now - record.start > windowMs) {
@@ -68,14 +104,6 @@ export function rateLimit(key, maxRequests = 60, windowMs = 60000) {
   }
   return { allowed: true, remaining: maxRequests - record.count };
 }
-
-// Clean up old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, val] of rateLimitMap) {
-    if (now - val.start > 300000) rateLimitMap.delete(key);
-  }
-}, 300000);
 
 // ── JWT Auth ──
 export function requireAuth(req) {

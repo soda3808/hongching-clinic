@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   // Rate limit: 5 inquiries per minute per IP
   const ip = getClientIP(req);
-  const rl = rateLimit(`inquiry:${ip}`, 5, 60000);
+  const rl = await rateLimit(`inquiry:${ip}`, 5, 60000);
   if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁');
 
   const { id, name, phone, type, message, tenantId } = req.body || {};

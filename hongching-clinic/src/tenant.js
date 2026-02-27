@@ -9,24 +9,18 @@ import { getTenantConfig } from './auth';
 const TENANT_SLUG_KEY = 'hcmc_tenant_slug';
 const TENANT_KEY = 'hcmc_tenant';
 
-// Fallback defaults (used when tenant config not loaded / legacy mode)
+// Fallback defaults (used when tenant config not loaded from DB)
 const FALLBACK = {
-  name: '康晴綜合醫療中心',
-  nameEn: 'Hong Ching Medical Centre',
+  name: '診所管理系統',
+  nameEn: 'Clinic Management System',
   stores: [
-    { name: '宋皇臺', address: '馬頭涌道97號美誠大廈地下' },
-    { name: '太子', address: '長沙灣道28號長康大廈地下' },
+    { name: '分店A', address: '' },
   ],
-  doctors: ['許植輝', '曾其方', '常凱晴'],
+  doctors: ['醫師A'],
   services: [
     { label: '診金', fee: 350, active: true },
     { label: '針灸', fee: 450, active: true },
     { label: '推拿', fee: 350, active: true },
-    { label: '天灸', fee: 388, active: true },
-    { label: '拔罐', fee: 250, active: true },
-    { label: '刮痧', fee: 300, active: true },
-    { label: '針灸+推拿', fee: 650, active: true },
-    { label: '初診', fee: 450, active: true },
   ],
   settings: { businessHours: '10:00-20:00' },
 };
@@ -277,7 +271,7 @@ export function getTenantSettings() {
 
 export function getTenantSlug() {
   const t = getTenantConfig();
-  return t?.slug || 'hongching';
+  return t?.slug || 'default';
 }
 
 export function isTenantLoaded() {

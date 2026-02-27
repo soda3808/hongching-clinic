@@ -65,7 +65,9 @@ export default async function handler(req, res) {
     for (const b of bookings) {
       if (!b.patientPhone) continue;
 
-      const phoneId = b.store === '太子' ? phoneIdPe : phoneIdTkw;
+      // Dynamic phone ID from WHATSAPP_PHONE_MAP or legacy env vars
+      const phoneMap = (() => { try { return JSON.parse(process.env.WHATSAPP_PHONE_MAP || '{}'); } catch { return {}; } })();
+      const phoneId = phoneMap[b.store] || phoneIdTkw || phoneIdPe;
       if (!phoneId) continue;
 
       let phone = b.patientPhone.replace(/[\s\-()]/g, '');

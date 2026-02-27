@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   if (!auth.authenticated) return errorResponse(res, 401, auth.error);
 
   // Rate limit: 15 AI requests per minute (matches Gemini free tier)
-  const rl = rateLimit(`ai:${auth.user.userId}`, 15, 60000);
+  const rl = await rateLimit(`ai:${auth.user.userId}`, 15, 60000);
   if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁，請稍後再試');
 
   const apiKey = process.env.GOOGLE_AI_KEY;

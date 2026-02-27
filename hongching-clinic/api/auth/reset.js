@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   // Rate limit: 10 attempts per hour per IP
   const ip = getClientIP(req);
-  const rl = rateLimit(`reset:${ip}`, 10, 3600000);
+  const rl = await rateLimit(`reset:${ip}`, 10, 3600000);
   if (!rl.allowed) {
     res.setHeader('Retry-After', rl.retryAfter);
     return errorResponse(res, 429, '請求過於頻繁，請稍後再試');

@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
   // Rate limit: 3 onboarding requests per hour per IP
   const ip = getClientIP(req);
-  const rl = rateLimit(`onboard:${ip}`, 3, 3600000);
+  const rl = await rateLimit(`onboard:${ip}`, 3, 3600000);
   if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁');
 
   // Require superadmin auth

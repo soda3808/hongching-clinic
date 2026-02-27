@@ -10,14 +10,11 @@ import { setCORS, handleOptions, rateLimit, getClientIP, sanitizeString, errorRe
 const JWT_SECRET = process.env.JWT_SECRET;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET; // For RLS-compatible tokens
 
-// Fallback user metadata for backward compatibility (used if DB users table not ready)
-const USER_META = {
-  steven:   { id: 'admin1', name: '林先生',  role: 'admin',   stores: ['all'] },
-  kaishing: { id: 'mgr1',   name: '常凱晴',  role: 'manager', stores: ['宋皇臺', '太子'] },
-  drhu:     { id: 'doc1',   name: '許植輝',  role: 'doctor',  stores: ['宋皇臺'] },
-  drtsang:  { id: 'doc2',   name: '曾其方',  role: 'doctor',  stores: ['太子'] },
-  yp:       { id: 'staff1', name: '譚玉冰',  role: 'staff',   stores: ['宋皇臺'] },
-};
+// Fallback user metadata from env var (legacy, used if DB users table not ready)
+// Format: JSON object keyed by username, e.g. {"admin":{"id":"a1","name":"Admin","role":"admin","stores":["all"]}}
+const USER_META = (() => {
+  try { return JSON.parse(process.env.USER_META || '{}'); } catch { return {}; }
+})();
 
 // ── Login attempt tracking (in-memory) ──
 const loginAttempts = new Map();
@@ -62,7 +59,7 @@ export default async function handler(req, res) {
 
   // Rate limit by IP: 10 login attempts per minute
   const ip = getClientIP(req);
-  const rl = rateLimit(`login:${ip}`, 10, 60000);
+  const rl = await rateLimit(`login:${ip}`, 10, 60000);
   if (!rl.allowed) {
     res.setHeader('Retry-After', rl.retryAfter);
     return errorResponse(res, 429, '請求過於頻繁，請稍後再試');
