@@ -10,6 +10,10 @@ export default function Dashboard({ data, onNavigate }) {
   const [store, setStore] = useState('all');
   const [briefing, setBriefing] = useState(null);
   const [briefingLoading, setBriefingLoading] = useState(false);
+  const [revGoal, setRevGoal] = useState(() => {
+    try { return Number(localStorage.getItem('hcmc_rev_goal')) || 200000; } catch { return 200000; }
+  });
+  const [editingGoal, setEditingGoal] = useState(false);
 
   // Daily Operations Checklist
   const todayDate = new Date().toISOString().substring(0, 10);
@@ -388,6 +392,51 @@ export default function Dashboard({ data, onNavigate }) {
           </div>
         </div>
       </div>
+
+      {/* Revenue Goal Tracker */}
+      {(() => {
+        const goalPct = revGoal > 0 ? Math.min((thisRev / revGoal) * 100, 100) : 0;
+        const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+        const dayOfMonth = new Date().getDate();
+        const dailyPace = revGoal > 0 ? (revGoal - thisRev) / Math.max(daysInMonth - dayOfMonth, 1) : 0;
+        const expectedPct = (dayOfMonth / daysInMonth) * 100;
+        const onTrack = goalPct >= expectedPct;
+        return (
+          <div className="card" style={{ marginBottom: 16, border: onTrack ? '1px solid var(--green-200)' : '1px solid var(--gold-200)', background: onTrack ? 'var(--green-50)' : '' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h3 style={{ margin: 0, fontSize: 14, color: 'var(--teal-700)' }}>🎯 本月營業目標</h3>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {editingGoal ? (
+                  <>
+                    <input type="number" value={revGoal} onChange={e => setRevGoal(Number(e.target.value))} style={{ width: 100, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--gray-300)' }} />
+                    <button className="btn btn-teal btn-sm" style={{ fontSize: 10 }} onClick={() => { localStorage.setItem('hcmc_rev_goal', revGoal); setEditingGoal(false); }}>確定</button>
+                  </>
+                ) : (
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => setEditingGoal(true)}>修改目標</button>
+                )}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ height: 16, borderRadius: 8, background: 'var(--gray-200)', position: 'relative', overflow: 'hidden' }}>
+                  <div style={{ width: `${goalPct}%`, height: '100%', borderRadius: 8, background: goalPct >= 100 ? '#16a34a' : onTrack ? '#0e7490' : '#d97706', transition: 'width 0.5s' }} />
+                  {/* Expected position marker */}
+                  <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${expectedPct}%`, width: 2, background: '#333', opacity: 0.3 }} />
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', minWidth: 80 }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: goalPct >= 100 ? 'var(--green-700)' : 'var(--teal-700)' }}>{goalPct.toFixed(0)}%</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+              <span>實際 <strong style={{ color: 'var(--gold-700)' }}>{fmtM(thisRev)}</strong> / 目標 <strong>{fmtM(revGoal)}</strong></span>
+              <span>差距 <strong style={{ color: thisRev >= revGoal ? 'var(--green-700)' : 'var(--red-600)' }}>{fmtM(revGoal - thisRev)}</strong></span>
+              <span>日均需 <strong style={{ color: dailyPace > 0 ? 'var(--gold-700)' : 'var(--green-700)' }}>{dailyPace > 0 ? fmtM(dailyPace) : '已達標'}</strong></span>
+            </div>
+            {goalPct >= 100 && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--green-700)', fontWeight: 700, textAlign: 'center' }}>目標已達成！超出 {fmtM(thisRev - revGoal)}</div>}
+          </div>
+        );
+      })()}
 
       {/* P&L Table */}
       <div className="card" style={{ marginBottom: 16 }}>

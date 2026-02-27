@@ -355,6 +355,49 @@ export default function CRMPage({ data, setData, showToast }) {
     showToast(`已開啟 WhatsApp（共 ${Math.min(targets.length, 10)} 個）`);
   };
 
+  // ── Seasonal Campaigns ──
+  const seasonalCampaigns = useMemo(() => {
+    const month = new Date().getMonth() + 1; // 1-12
+    const campaigns = [
+      { id: 'tianjiu-summer', label: '三伏天灸', season: [6, 7, 8], icon: '☀️', color: '#dc2626',
+        desc: '夏季天灸療程推廣，適合哮喘、鼻敏感、體質虛寒患者',
+        template: `【${clinicName}】{name}你好！☀️\n\n今年三伏天灸療程現正接受預約！\n\n天灸適合：鼻敏感、哮喘、易感冒、手腳冰冷\n\n早鳥優惠：3次療程套餐特價\n📞 立即預約，名額有限！`,
+        targetDiags: ['鼻敏感', '哮喘', '體虛', '感冒', '鼻炎', '過敏'] },
+      { id: 'tianjiu-winter', label: '三九天灸', season: [12, 1, 2], icon: '❄️', color: '#0e7490',
+        desc: '冬季天灸療程推廣，鞏固體質',
+        template: `【${clinicName}】{name}你好！❄️\n\n三九天灸療程現正接受預約！\n\n冬季養生，鞏固體質，預防來年春季易發病。\n\n📞 歡迎預約！`,
+        targetDiags: ['鼻敏感', '哮喘', '體虛', '感冒'] },
+      { id: 'spring-liver', label: '春季養肝', season: [2, 3, 4], icon: '🌱', color: '#16a34a',
+        desc: '春季養肝護肝調理',
+        template: `【${clinicName}】{name}你好！🌱\n\n春季養肝好時機！中醫認為春應肝木，是調理肝氣的最佳季節。\n\n我哋推出春季養肝調理療程，適合經常熬夜、壓力大、易怒的朋友。\n\n📞 歡迎預約諮詢！`,
+        targetDiags: ['失眠', '肝氣', '頭痛', '壓力', '鬱'] },
+      { id: 'summer-heat', label: '夏季清熱', season: [5, 6, 7, 8], icon: '🌞', color: '#d97706',
+        desc: '夏季清熱祛濕調理',
+        template: `【${clinicName}】{name}你好！🌞\n\n夏季炎熱潮濕，容易上火、濕重。\n\n我哋特設夏季清熱祛濕療程，助你消暑養生！\n\n📞 歡迎預約！`,
+        targetDiags: ['濕', '上火', '皮膚', '腸胃', '暑'] },
+      { id: 'autumn-lung', label: '秋季潤肺', season: [9, 10, 11], icon: '🍂', color: '#8B6914',
+        desc: '秋季潤肺養陰',
+        template: `【${clinicName}】{name}你好！🍂\n\n秋燥傷肺，是潤肺養陰的好時節。\n\n推薦秋季潤肺調理，適合乾咳、皮膚乾燥、鼻敏感朋友。\n\n📞 歡迎預約！`,
+        targetDiags: ['咳嗽', '乾咳', '鼻敏感', '皮膚', '燥'] },
+      { id: 'winter-kidney', label: '冬季補腎', season: [11, 12, 1, 2], icon: '🌨️', color: '#7C3AED',
+        desc: '冬季補腎養精固本',
+        template: `【${clinicName}】{name}你好！🌨️\n\n冬季是補腎養精的最佳季節！\n\n推薦冬季進補調理，適合腰膝酸軟、手腳冰冷、疲倦乏力。\n\n📞 歡迎預約！`,
+        targetDiags: ['腎虛', '腰痛', '疲倦', '冷', '虛'] },
+    ];
+    return campaigns.filter(c => c.season.includes(month));
+  }, [clinicName]);
+
+  const getTargetPatients = (campaign) => {
+    const cons = data.consultations || [];
+    const targetSet = new Set();
+    cons.forEach(c => {
+      if (!c.tcmDiagnosis) return;
+      const match = campaign.targetDiags.some(d => c.tcmDiagnosis.includes(d));
+      if (match) targetSet.add(c.patientId || c.patientName);
+    });
+    return patients.filter(p => targetSet.has(p.id) || targetSet.has(p.name)).filter(p => p.phone);
+  };
+
   return (
     <div>
       <h2 style={{ marginBottom: 12 }}>WhatsApp CRM</h2>
@@ -373,6 +416,11 @@ export default function CRMPage({ data, setData, showToast }) {
         <button className={`tab-btn${tab === 'followup' ? ' active' : ''}`} onClick={() => setTab('followup')}>
           📋 跟進{followUpData.overdue.length > 0 ? ` (${followUpData.overdue.length})` : ''}
         </button>
+        {seasonalCampaigns.length > 0 && (
+          <button className={`tab-btn${tab === 'campaign' ? ' active' : ''}`} onClick={() => setTab('campaign')}>
+            🎯 季節推廣
+          </button>
+        )}
         <button className={`tab-btn${tab === 'settings' ? ' active' : ''}`} onClick={() => setTab('settings')}>設定</button>
       </div>
 
@@ -978,6 +1026,79 @@ export default function CRMPage({ data, setData, showToast }) {
 
           {followUpData.overdue.length === 0 && followUpData.upcoming.length === 0 && (
             <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>暫無需要跟進的覆診</div>
+          )}
+        </div>
+      )}
+
+      {/* ── Seasonal Campaign Tab ── */}
+      {tab === 'campaign' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div className="card" style={{ padding: '12px 16px', background: 'linear-gradient(135deg, #f0fdfa 0%, #fefce8 100%)', border: '1px solid var(--teal-200)' }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--teal-700)', marginBottom: 4 }}>🎯 當季推廣活動</div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>根據季節自動推薦適合的推廣活動，系統會自動匹配相關診斷紀錄的病人。</div>
+          </div>
+          {seasonalCampaigns.map(campaign => {
+            const targets = getTargetPatients(campaign);
+            return (
+              <div key={campaign.id} className="card" style={{ borderLeft: `4px solid ${campaign.color}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: campaign.color }}>{campaign.icon} {campaign.label}</div>
+                    <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>{campaign.desc}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: campaign.color }}>{targets.length}</div>
+                    <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>目標病人</div>
+                  </div>
+                </div>
+                {/* Preview template */}
+                <div style={{ padding: 10, background: 'var(--gray-50)', borderRadius: 6, marginBottom: 12, fontSize: 12, whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'var(--gray-600)' }}>
+                  {campaign.template.replace('{name}', '陳先生/女士')}
+                </div>
+                {/* Target diagnosis tags */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 12 }}>
+                  <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>目標診斷：</span>
+                  {campaign.targetDiags.map(d => (
+                    <span key={d} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: campaign.color + '18', color: campaign.color, fontWeight: 600 }}>{d}</span>
+                  ))}
+                </div>
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: '#25D366', color: '#fff' }}
+                    disabled={targets.length === 0}
+                    onClick={() => {
+                      if (!targets.length) return;
+                      targets.slice(0, 10).forEach((p, i) => {
+                        setTimeout(() => openWhatsApp(p.phone, campaign.template.replace('{name}', p.name)), i * 1500);
+                      });
+                      showToast(`已開啟 ${Math.min(targets.length, 10)} 個 WhatsApp 推廣`);
+                    }}
+                  >
+                    📱 批量發送（最多10人）
+                  </button>
+                  <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>
+                    {targets.length > 10 ? `共 ${targets.length} 人，分批發送` : `共 ${targets.length} 人`}
+                  </span>
+                </div>
+                {/* Patient preview list */}
+                {targets.length > 0 && (
+                  <div style={{ marginTop: 10, maxHeight: 150, overflowY: 'auto' }}>
+                    <div style={{ fontSize: 11, color: 'var(--gray-400)', marginBottom: 4 }}>目標病人列表：</div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {targets.slice(0, 20).map(p => (
+                        <span key={p.id} style={{ fontSize: 10, padding: '2px 8px', background: 'var(--gray-50)', borderRadius: 4 }}>{p.name}</span>
+                      ))}
+                      {targets.length > 20 && <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>...等 {targets.length - 20} 人</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {seasonalCampaigns.length === 0 && (
+            <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>當前無季節推廣活動</div>
           )}
         </div>
       )}
