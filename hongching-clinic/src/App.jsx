@@ -89,6 +89,12 @@ const ClinicExpenseReport = lazy(() => import('./components/ClinicExpenseReport'
 const PatientTimeline = lazy(() => import('./components/PatientTimeline'));
 const ExcelExport = lazy(() => import('./components/ExcelExport'));
 const WaitingTimeAnalytics = lazy(() => import('./components/WaitingTimeAnalytics'));
+const AllergyAlert = lazy(() => import('./components/AllergyAlert'));
+const FollowUpManager = lazy(() => import('./components/FollowUpManager'));
+const NotificationCenter = lazy(() => import('./components/NotificationCenter'));
+const HerbWiki = lazy(() => import('./components/HerbWiki'));
+const ClinicKPI = lazy(() => import('./components/ClinicKPI'));
+const CompanyServices = lazy(() => import('./components/CompanyServices'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -165,6 +171,12 @@ const ALL_PAGES = [
   { id: 'timeline', icon: '⏳', label: '病人時間軸', section: '病人', perm: 'viewPatients' },
   { id: 'dataexport', icon: '📤', label: '數據匯出', section: '系統', perm: 'viewReports' },
   { id: 'waittime', icon: '⏱️', label: '候診分析', section: '分析', perm: 'viewReports' },
+  { id: 'allergy', icon: '🚨', label: '過敏管理', section: '病人', perm: 'viewEMR' },
+  { id: 'followup', icon: '🔔', label: '覆診管理', section: '病人', perm: 'viewEMR' },
+  { id: 'notifcenter', icon: '📬', label: '通知中心', section: '系統', perm: 'viewDashboard' },
+  { id: 'herbwiki', icon: '🌿', label: '中藥百科', section: '營運', perm: 'viewBilling' },
+  { id: 'kpi', icon: '🎯', label: '診所KPI', section: '分析', perm: 'viewReports' },
+  { id: 'corpservice', icon: '🏢', label: '企業服務', section: '客戶', perm: 'editRevenue' },
 ];
 
 // Mobile bottom tab config
@@ -1002,6 +1014,12 @@ function MainApp() {
             {page === 'timeline' && <PatientTimeline data={filteredData} showToast={showToast} user={user} />}
             {page === 'dataexport' && <ExcelExport data={filteredData} showToast={showToast} user={user} />}
             {page === 'waittime' && <WaitingTimeAnalytics data={filteredData} showToast={showToast} user={user} />}
+            {page === 'allergy' && <AllergyAlert data={filteredData} showToast={showToast} user={user} />}
+            {page === 'followup' && <FollowUpManager data={filteredData} showToast={showToast} user={user} />}
+            {page === 'notifcenter' && <NotificationCenter data={filteredData} showToast={showToast} user={user} onNavigate={setPage} />}
+            {page === 'herbwiki' && <HerbWiki showToast={showToast} user={user} />}
+            {page === 'kpi' && <ClinicKPI data={filteredData} showToast={showToast} user={user} />}
+            {page === 'corpservice' && <CompanyServices data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
