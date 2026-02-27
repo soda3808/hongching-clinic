@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { setCORS, handleOptions, rateLimit, getClientIP, sanitizeString, errorResponse } from '../_middleware.js';
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET; // For RLS-compatible tokens
 
 // Fallback user metadata for backward compatibility (used if DB users table not ready)
 const USER_META = {
@@ -129,9 +130,20 @@ export default async function handler(req, res) {
       };
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
 
+      // Mint a Supabase-compatible JWT for RLS tenant isolation
+      let supabaseToken = null;
+      if (SUPABASE_JWT_SECRET) {
+        supabaseToken = jwt.sign(
+          { role: 'authenticated', tenant_id: tenant.id, sub: dbUser.id, aud: 'authenticated' },
+          SUPABASE_JWT_SECRET,
+          { expiresIn: '24h' }
+        );
+      }
+
       return res.status(200).json({
         success: true,
         token,
+        supabaseToken,
         user: payload,
         tenant: {
           id: tenant.id,

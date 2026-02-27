@@ -3,7 +3,7 @@
 // ══════════════════════════════════
 
 import { supabase } from './supabase';
-import { getTenantId } from './auth';
+import { getTenantId, getAuthHeader } from './auth';
 
 const GAS_URL = import.meta.env.VITE_GAS_URL || '';
 
@@ -216,11 +216,11 @@ export async function chatWithAI(message, context) {
   try {
     const res = await fetch('/api/chatbot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({ message, context }),
     });
     return await res.json();
-  } catch (err) { console.error('Chatbot API Error:', err); return { success: false, error: err.message }; }
+  } catch (err) { console.error('Chatbot API Error:', err); return { success: false, error: '連接失敗' }; }
 }
 
 // ── Supabase Realtime Subscription (tenant-filtered) ──

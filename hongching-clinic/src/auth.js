@@ -3,6 +3,7 @@
 // ══════════════════════════════════
 
 import { DEFAULT_USERS, DEFAULT_STORES, PERMISSIONS } from './config';
+import { setSupabaseToken, clearSupabaseToken, restoreSupabaseToken } from './supabase';
 
 const AUTH_KEY = 'hcmc_user';
 const TOKEN_KEY = 'hcmc_token';
@@ -53,6 +54,10 @@ export async function login(username, password) {
         // Store tenant config if returned (multi-tenant mode)
         if (data.tenant) {
           sessionStorage.setItem(TENANT_KEY, JSON.stringify(data.tenant));
+        }
+        // Set Supabase JWT for RLS tenant isolation
+        if (data.supabaseToken) {
+          setSupabaseToken(data.supabaseToken);
         }
         return session;
       }
@@ -107,6 +112,7 @@ export function logout() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(TENANT_KEY);
   sessionStorage.removeItem(ACTIVITY_KEY);
+  clearSupabaseToken();
 }
 
 export function getCurrentUser() {
@@ -133,6 +139,8 @@ export function getCurrentUser() {
         // Token parse failed — keep session (offline mode)
       }
     }
+    // Restore Supabase JWT for RLS if session is valid
+    restoreSupabaseToken();
     return session;
   } catch { return null; }
 }
