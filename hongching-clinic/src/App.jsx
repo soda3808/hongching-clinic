@@ -95,6 +95,12 @@ const NotificationCenter = lazy(() => import('./components/NotificationCenter'))
 const HerbWiki = lazy(() => import('./components/HerbWiki'));
 const ClinicKPI = lazy(() => import('./components/ClinicKPI'));
 const CompanyServices = lazy(() => import('./components/CompanyServices'));
+const AcupunctureChart = lazy(() => import('./components/AcupunctureChart'));
+const StaffTraining = lazy(() => import('./components/StaffTraining'));
+const EquipmentManagement = lazy(() => import('./components/EquipmentManagement'));
+const RevenueGoalTracker = lazy(() => import('./components/RevenueGoalTracker'));
+const PatientEducation = lazy(() => import('./components/PatientEducation'));
+const CashFlowReport = lazy(() => import('./components/CashFlowReport'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -177,6 +183,12 @@ const ALL_PAGES = [
   { id: 'herbwiki', icon: '🌿', label: '中藥百科', section: '營運', perm: 'viewBilling' },
   { id: 'kpi', icon: '🎯', label: '診所KPI', section: '分析', perm: 'viewReports' },
   { id: 'corpservice', icon: '🏢', label: '企業服務', section: '客戶', perm: 'editRevenue' },
+  { id: 'acuchart', icon: '📍', label: '穴位圖譜', section: '營運', perm: 'viewEMR' },
+  { id: 'training', icon: '🎓', label: '員工培訓', section: '人事', perm: 'viewSettings' },
+  { id: 'equipment', icon: '🔧', label: '設備管理', section: '營運', perm: 'editExpenses' },
+  { id: 'revgoal', icon: '🎯', label: '營業目標', section: '分析', perm: 'viewReports' },
+  { id: 'education', icon: '📖', label: '健康教育', section: '病人', perm: 'viewPatients' },
+  { id: 'cashflow', icon: '💹', label: '現金流量', section: '分析', perm: 'viewReports' },
 ];
 
 // Mobile bottom tab config
@@ -1020,6 +1032,12 @@ function MainApp() {
             {page === 'herbwiki' && <HerbWiki showToast={showToast} user={user} />}
             {page === 'kpi' && <ClinicKPI data={filteredData} showToast={showToast} user={user} />}
             {page === 'corpservice' && <CompanyServices data={filteredData} showToast={showToast} user={user} />}
+            {page === 'acuchart' && <AcupunctureChart data={filteredData} showToast={showToast} user={user} />}
+            {page === 'training' && <StaffTraining data={filteredData} showToast={showToast} user={user} />}
+            {page === 'equipment' && <EquipmentManagement showToast={showToast} user={user} />}
+            {page === 'revgoal' && <RevenueGoalTracker data={filteredData} showToast={showToast} user={user} />}
+            {page === 'education' && <PatientEducation data={filteredData} showToast={showToast} user={user} />}
+            {page === 'cashflow' && <CashFlowReport data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
