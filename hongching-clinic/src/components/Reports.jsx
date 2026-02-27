@@ -30,6 +30,8 @@ const NoShowAnalytics = lazy(() => import('./reports/NoShowAnalytics'));
 const VisitHeatmap = lazy(() => import('./reports/VisitHeatmap'));
 const BranchComparison = lazy(() => import('./reports/BranchComparison'));
 const StaffKPIReport = lazy(() => import('./reports/StaffKPIReport'));
+const TreatmentProgress = lazy(() => import('./reports/TreatmentProgress'));
+const CashFlowForecast = lazy(() => import('./reports/CashFlowForecast'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -50,6 +52,7 @@ const REPORT_GROUPS = [
     { id: 'paymethod', icon: '💳', label: '付款方式' },
     { id: 'kpi', icon: '🎯', label: '系統KPI' },
     { id: 'branch', icon: '🏢', label: '分店比較' },
+    { id: 'cashflow', icon: '💰', label: '現金流預測' },
   ]},
   { label: '醫師', tabs: [
     { id: 'doctor', icon: '👨‍⚕️', label: '醫師績效' },
@@ -68,6 +71,7 @@ const REPORT_GROUPS = [
     { id: 'referral', icon: '🔗', label: '轉介分析' },
     { id: 'noshow', icon: '❌', label: '缺席分析' },
     { id: 'heatmap', icon: '🗓️', label: '熱度圖' },
+    { id: 'progress', icon: '📈', label: '治療進度' },
     { id: 'rxsummary', icon: '📜', label: '處方報表' },
   ]},
   { label: '營運', tabs: [
@@ -837,6 +841,8 @@ export default function Reports({ data }) {
         {reportType === 'heatmap' && <VisitHeatmap data={data} />}
         {reportType === 'branch' && <BranchComparison data={data} />}
         {reportType === 'staffkpi' && <StaffKPIReport data={data} />}
+        {reportType === 'progress' && <TreatmentProgress data={data} />}
+        {reportType === 'cashflow' && <CashFlowForecast data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>
