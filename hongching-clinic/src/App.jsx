@@ -52,6 +52,14 @@ const RegistrationQueue = lazy(() => import('./components/RegistrationQueue'));
 const PrescriptionPrint = lazy(() => import('./components/PrescriptionPrint'));
 const VitalSigns = lazy(() => import('./components/VitalSigns'));
 const PrescriptionHistory = lazy(() => import('./components/PrescriptionHistory'));
+const MyCalendar = lazy(() => import('./components/MyCalendar'));
+const DoctorAdvice = lazy(() => import('./components/DoctorAdvice'));
+const ConsultationList = lazy(() => import('./components/ConsultationList'));
+const DiscountSettings = lazy(() => import('./components/DiscountSettings'));
+const MessageTemplates = lazy(() => import('./components/MessageTemplates'));
+const SystemCheck = lazy(() => import('./components/SystemCheck'));
+const BackupCenter = lazy(() => import('./components/BackupCenter'));
+const PatientFeedback = lazy(() => import('./components/PatientFeedback'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -59,7 +67,9 @@ const ALL_PAGES = [
   { id: 'exp', icon: '🧾', label: '開支紀錄', section: '財務', perm: 'editExpenses' },
   { id: 'scan', icon: '📷', label: '收據掃描', section: '財務', perm: 'viewReceiptScanner' },
   { id: 'arap', icon: '📑', label: '應收應付', section: '財務', perm: 'editARAP' },
+  { id: 'calendar', icon: '📅', label: '我的日曆', section: '總覽', perm: 'viewDashboard' },
   { id: 'patient', icon: '👥', label: '病人管理', section: '病人', perm: 'viewPatients' },
+  { id: 'feedback', icon: '⭐', label: '顧客評分', section: '病人', perm: 'viewPatients' },
   { id: 'booking', icon: '📅', label: '預約系統', section: '病人', perm: 'viewBookings' },
   { id: 'queue', icon: '🎫', label: '掛號排隊', section: '病人', perm: 'viewQueue' },
   { id: 'emr', icon: '🏥', label: '電子病歷', section: '病人', perm: 'viewEMR' },
@@ -75,6 +85,7 @@ const ALL_PAGES = [
   { id: 'dispensing', icon: '📋', label: '開藥日誌', section: '營運', perm: 'viewBilling' },
   { id: 'rxprint', icon: '🖨️', label: '處方列印', section: '營運', perm: 'viewBilling' },
   { id: 'regqueue', icon: '🏥', label: '掛號列表', section: '營運', perm: 'viewQueue' },
+  { id: 'consultlist', icon: '🩺', label: '診症列表', section: '營運', perm: 'viewBilling' },
   { id: 'products', icon: '🛍️', label: '商品管理', section: '營運', perm: 'editExpenses' },
   { id: 'closing', icon: '🧮', label: '日結對賬', section: '營運', perm: 'editRevenue' },
   { id: 'voucher', icon: '🧓', label: '長者醫療券', section: '病人', perm: 'viewPatients' },
@@ -87,7 +98,12 @@ const ALL_PAGES = [
   { id: 'ai', icon: '🤖', label: 'AI 助手', section: '分析', perm: 'viewDashboard' },
   { id: 'compare', icon: '🏢', label: '分店對比', section: '分析', perm: 'viewDashboard' },
   { id: 'survey', icon: '📋', label: '滿意度調查', section: '分析', perm: 'viewDashboard' },
+  { id: 'advice', icon: '📝', label: '醫囑管理', section: '營運', perm: 'viewEMR' },
+  { id: 'discount', icon: '🏷️', label: '折扣設定', section: '營運', perm: 'editRevenue' },
+  { id: 'msgtpl', icon: '✉️', label: '訊息範本', section: '客戶', perm: 'viewEMR' },
   { id: 'ehealth', icon: '🏛️', label: '醫健通', section: '系統', perm: 'viewEMR' },
+  { id: 'syscheck', icon: '🔧', label: '系統檢查', section: '系統', perm: 'viewSettings' },
+  { id: 'backup', icon: '💾', label: '數據備份', section: '系統', perm: 'viewSettings' },
   { id: 'billingsub', icon: '💳', label: '訂閱管理', section: '系統', perm: 'viewSettings' },
   { id: 'privacy', icon: '🔒', label: '私隱中心', section: '系統', perm: 'viewPrivacy' },
   { id: 'superadmin', icon: '🛡️', label: 'Super Admin', section: '系統', perm: 'viewSuperAdmin' },
@@ -891,6 +907,14 @@ function MainApp() {
             {page === 'rxprint' && <PrescriptionPrint data={filteredData} showToast={showToast} user={user} />}
             {page === 'vitals' && <VitalSigns data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'rxhistory' && <PrescriptionHistory data={filteredData} showToast={showToast} user={user} />}
+            {page === 'calendar' && <MyCalendar data={filteredData} showToast={showToast} user={user} />}
+            {page === 'advice' && <DoctorAdvice showToast={showToast} user={user} />}
+            {page === 'consultlist' && <ConsultationList data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'discount' && <DiscountSettings data={filteredData} showToast={showToast} user={user} />}
+            {page === 'msgtpl' && <MessageTemplates showToast={showToast} user={user} />}
+            {page === 'syscheck' && <SystemCheck data={filteredData} showToast={showToast} user={user} />}
+            {page === 'backup' && <BackupCenter data={filteredData} showToast={showToast} user={user} />}
+            {page === 'feedback' && <PatientFeedback data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
