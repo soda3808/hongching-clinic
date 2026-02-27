@@ -18,6 +18,9 @@ const DrugSafetyReport = lazy(() => import('./reports/DrugSafetyReport'));
 const ClinicalAnalytics = lazy(() => import('./reports/ClinicalAnalytics'));
 const HerbAnalytics = lazy(() => import('./reports/HerbAnalytics'));
 const ProfitLoss = lazy(() => import('./reports/ProfitLoss'));
+const QueueAnalytics = lazy(() => import('./reports/QueueAnalytics'));
+const InventoryForecast = lazy(() => import('./reports/InventoryForecast'));
+const RetentionAnalytics = lazy(() => import('./reports/RetentionAnalytics'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -43,6 +46,7 @@ const REPORT_GROUPS = [
   ]},
   { label: '病人', tabs: [
     { id: 'patient', icon: '👥', label: '病人分析' },
+    { id: 'retention', icon: '📊', label: '留存分析' },
     { id: 'age', icon: '📊', label: '年齡統計' },
     { id: 'regstats', icon: '🎫', label: '掛號統計' },
     { id: 'treatment', icon: '💉', label: '治療項目' },
@@ -52,6 +56,8 @@ const REPORT_GROUPS = [
     { id: 'clinical', icon: '📊', label: '臨床分析' },
     { id: 'rxstats', icon: '💊', label: '藥物處方' },
     { id: 'herbanalytics', icon: '🌿', label: '藥材分析' },
+    { id: 'invforecast', icon: '📦', label: '庫存預測' },
+    { id: 'queueanalytics', icon: '🎫', label: '排隊分析' },
     { id: 'drugsafety', icon: '⚠️', label: '藥物安全量' },
     { id: 'serviceusage', icon: '🔧', label: '服務頻率' },
     { id: 'packagereport', icon: '🎫', label: '醫療計劃' },
@@ -801,6 +807,9 @@ export default function Reports({ data }) {
         {reportType === 'clinical' && <ClinicalAnalytics data={data} />}
         {reportType === 'herbanalytics' && <HerbAnalytics data={data} />}
         {reportType === 'pnl' && <ProfitLoss data={data} />}
+        {reportType === 'queueanalytics' && <QueueAnalytics data={data} />}
+        {reportType === 'invforecast' && <InventoryForecast data={data} />}
+        {reportType === 'retention' && <RetentionAnalytics data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>
