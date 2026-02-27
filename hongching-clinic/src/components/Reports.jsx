@@ -21,6 +21,9 @@ const ProfitLoss = lazy(() => import('./reports/ProfitLoss'));
 const QueueAnalytics = lazy(() => import('./reports/QueueAnalytics'));
 const InventoryForecast = lazy(() => import('./reports/InventoryForecast'));
 const RetentionAnalytics = lazy(() => import('./reports/RetentionAnalytics'));
+const TreatmentOutcome = lazy(() => import('./reports/TreatmentOutcome'));
+const StaffPerformance = lazy(() => import('./reports/StaffPerformance'));
+const AgingReport = lazy(() => import('./reports/AgingReport'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -34,6 +37,7 @@ const REPORT_GROUPS = [
   { label: '財務', tabs: [
     { id: 'monthly', icon: '📅', label: '月結報表' },
     { id: 'pnl', icon: '💹', label: '損益表' },
+    { id: 'aging', icon: '📑', label: '帳齡分析' },
     { id: 'tax', icon: '🏛️', label: '稅務/年結' },
     { id: 'yoy', icon: '📊', label: '按年比較' },
     { id: 'forecast', icon: '📈', label: '營業預測' },
@@ -43,6 +47,7 @@ const REPORT_GROUPS = [
   { label: '醫師', tabs: [
     { id: 'doctor', icon: '👨‍⚕️', label: '醫師績效' },
     { id: 'consultrate', icon: '📋', label: '診症率' },
+    { id: 'staffperf', icon: '👥', label: '員工績效' },
   ]},
   { label: '病人', tabs: [
     { id: 'patient', icon: '👥', label: '病人分析' },
@@ -50,6 +55,7 @@ const REPORT_GROUPS = [
     { id: 'age', icon: '📊', label: '年齡統計' },
     { id: 'regstats', icon: '🎫', label: '掛號統計' },
     { id: 'treatment', icon: '💉', label: '治療項目' },
+    { id: 'outcome', icon: '🎯', label: '治療成效' },
     { id: 'rxsummary', icon: '📜', label: '處方報表' },
   ]},
   { label: '營運', tabs: [
@@ -810,6 +816,9 @@ export default function Reports({ data }) {
         {reportType === 'queueanalytics' && <QueueAnalytics data={data} />}
         {reportType === 'invforecast' && <InventoryForecast data={data} />}
         {reportType === 'retention' && <RetentionAnalytics data={data} />}
+        {reportType === 'outcome' && <TreatmentOutcome data={data} />}
+        {reportType === 'staffperf' && <StaffPerformance data={data} />}
+        {reportType === 'aging' && <AgingReport data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>
