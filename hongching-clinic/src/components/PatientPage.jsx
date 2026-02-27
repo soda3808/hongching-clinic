@@ -4,7 +4,8 @@ import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
 import { getCurrentUser } from '../auth';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 
-const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'' };
+const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'' };
+const REFERRAL_SOURCES = ['親友推薦', '網上搜尋', '社交媒體', '路過', '醫師轉介', '舊病人回歸', '廣告', '其他'];
 
 export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [form, setForm] = useState({ ...EMPTY });
@@ -288,8 +289,9 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             <div><label>長期用藥</label><input value={form.medications} onChange={e => setForm({...form, medications: e.target.value})} placeholder="西藥名稱" /></div>
             <div><label>血型</label><select value={form.bloodType} onChange={e => setForm({...form, bloodType: e.target.value})}><option value="">未知</option>{['A','B','AB','O'].map(t => <option key={t}>{t}</option>)}</select></div>
           </div>
-          <div className="grid-2" style={{ marginBottom: 12 }}>
+          <div className="grid-3" style={{ marginBottom: 12 }}>
             <div><label>主診醫師</label><select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
+            <div><label>轉介來源</label><select value={form.referralSource} onChange={e => setForm({...form, referralSource: e.target.value})}><option value="">未填</option>{REFERRAL_SOURCES.map(s => <option key={s}>{s}</option>)}</select></div>
             <div><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -575,6 +577,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               <div><strong>總就診：</strong>{detail.totalVisits || 0} 次</div>
               <div><strong>店舖：</strong>{detail.store}</div>
               {detail.bloodType && <div><strong>血型：</strong>{detail.bloodType}</div>}
+              {detail.referralSource && <div><strong>轉介來源：</strong><span style={{ padding: '1px 6px', background: '#ede9fe', color: '#7c3aed', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{detail.referralSource}</span></div>}
             </div>
             {/* Medical Alerts */}
             {(detail.allergies || detail.chronicConditions || detail.medications) && (
