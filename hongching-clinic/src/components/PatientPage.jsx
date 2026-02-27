@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { savePatient, openWhatsApp, saveCommunication } from '../api';
 import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
+import { getPatientPoints, getLoyaltyTier, loadPointsHistory, addPointsEntry, LOYALTY_CONFIG } from '../utils/loyalty';
 import { getCurrentUser } from '../auth';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 
@@ -22,6 +23,9 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [batchMsg, setBatchMsg] = useState('');
   const [showCommLog, setShowCommLog] = useState(false);
   const [commForm, setCommForm] = useState({ type: 'phone', notes: '' });
+  const [pointsHistory, setPointsHistory] = useState(() => loadPointsHistory());
+  const [showPoints, setShowPoints] = useState(false);
+  const [redeemAmount, setRedeemAmount] = useState('');
 
   const patients = data.patients || [];
   const communications = data.communications || [];
@@ -490,6 +494,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         const consultations = (data.consultations || []).filter(c => c.patientId === detail.id || c.patientName === detail.name).sort((a, b) => b.date.localeCompare(a.date));
         const activeEnrollments = (data.enrollments || []).filter(e => e.patientId === detail.id && e.status === 'active');
         const noShowCount = (data.bookings || []).filter(b => b.status === 'no-show' && (b.patientPhone === detail.phone || b.patientName === detail.name)).length;
+        const pts = getPatientPoints(detail.name, data.revenue, pointsHistory);
+        const loyaltyTier = getLoyaltyTier(pts.balance);
         return (
         <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="病人詳情">
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 750 }}>
@@ -499,9 +505,14 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 <span className="membership-badge" style={{ color: tier.color, background: tier.bg, border: `1px solid ${tier.color}` }}>
                   {tier.name}{tier.discount > 0 ? ` ${tier.discount*100}%折扣` : ''}
                 </span>
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: loyaltyTier.color + '18', color: loyaltyTier.color, fontWeight: 700, cursor: 'pointer' }}
+                  onClick={() => setShowPoints(!showPoints)} title="積分詳情">
+                  {loyaltyTier.icon} {pts.balance.toLocaleString()}分
+                </span>
                 {noShowCount > 0 && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: noShowCount >= 3 ? '#dc262618' : '#d9770618', color: noShowCount >= 3 ? '#dc2626' : '#d97706', fontWeight: 700 }}>NS×{noShowCount} {noShowCount >= 3 ? '高風險' : ''}</span>}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
+                <button className="btn btn-sm" style={{ background: '#DAA520', color: '#fff' }} onClick={() => setShowPoints(!showPoints)}>🎁 積分</button>
                 <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => setShowCommLog(!showCommLog)}>📝 記錄溝通</button>
                 {onNavigate && <button className="btn btn-teal btn-sm" onClick={() => { setDetail(null); onNavigate('emr'); }}>開診</button>}
                 <button className="btn btn-outline btn-sm" onClick={() => {
@@ -607,6 +618,61 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {/* ── Loyalty Points Panel ── */}
+            {showPoints && (
+              <div style={{ marginBottom: 16, padding: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: '#DAA520' }}>{loyaltyTier.icon} 忠誠積分 — {loyaltyTier.name}</div>
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => setShowPoints(false)}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+                  <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6 }}>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>累計獲得</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: '#16a34a' }}>{pts.earned.toLocaleString()}</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6 }}>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>獎勵積分</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: '#DAA520' }}>{pts.bonus.toLocaleString()}</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6 }}>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>已兌換</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: '#dc2626' }}>{pts.redeemed.toLocaleString()}</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6, border: '2px solid #DAA520' }}>
+                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>可用餘額</div>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: '#DAA520' }}>{pts.balance.toLocaleString()}</div>
+                    <div style={{ fontSize: 9, color: 'var(--gray-400)' }}>= ${pts.discountAvailable}折扣</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11 }} onClick={() => {
+                    const updated = addPointsEntry(pointsHistory, { patientName: detail.name, type: 'bonus', points: LOYALTY_CONFIG.referralBonus, reason: '轉介獎賞' });
+                    setPointsHistory(updated);
+                    showToast(`已獎勵 ${LOYALTY_CONFIG.referralBonus} 積分（轉介獎賞）`);
+                  }}>+{LOYALTY_CONFIG.referralBonus} 轉介獎賞</button>
+                  <button className="btn btn-sm" style={{ background: '#0e7490', color: '#fff', fontSize: 11 }} onClick={() => {
+                    const updated = addPointsEntry(pointsHistory, { patientName: detail.name, type: 'bonus', points: LOYALTY_CONFIG.reviewBonus, reason: '好評獎賞' });
+                    setPointsHistory(updated);
+                    showToast(`已獎勵 ${LOYALTY_CONFIG.reviewBonus} 積分（好評獎賞）`);
+                  }}>+{LOYALTY_CONFIG.reviewBonus} 好評獎賞</button>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
+                    <input type="number" placeholder="兌換積分" value={redeemAmount} onChange={e => setRedeemAmount(e.target.value)} style={{ width: 80, fontSize: 11 }} />
+                    <button className="btn btn-sm" style={{ background: '#dc2626', color: '#fff', fontSize: 11 }} onClick={() => {
+                      const amount = Number(redeemAmount);
+                      if (!amount || amount <= 0) return showToast('請輸入兌換積分');
+                      if (amount > pts.balance) return showToast('積分不足');
+                      const updated = addPointsEntry(pointsHistory, { patientName: detail.name, type: 'redeem', points: -amount, reason: '積分兌換' });
+                      setPointsHistory(updated);
+                      setRedeemAmount('');
+                      showToast(`已兌換 ${amount} 積分 (= $${Math.floor(amount / LOYALTY_CONFIG.redemptionRate)} 折扣)`);
+                    }}>兌換</button>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 10, color: 'var(--gray-400)' }}>
+                  積分規則：每消費 $1 = {LOYALTY_CONFIG.pointsPerDollar} 積分 | {LOYALTY_CONFIG.redemptionRate} 積分 = $1 折扣 | 生日月雙倍積分
+                </div>
               </div>
             )}
             {/* ── Communication Log Form ── */}
