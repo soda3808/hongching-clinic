@@ -663,12 +663,45 @@ export default function Dashboard({ data, onNavigate }) {
                     <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>存貨總值</div>
                   </div>
                 </div>
-                {lowStock.length > 0 && (
+                {lowStock.length > 0 && (() => {
+                  // Calculate usage rate from recent consultations
+                  const cons = data.consultations || [];
+                  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().substring(0, 10);
+                  const recentCons = cons.filter(c => c.date >= thirtyDaysAgo);
+                  const herbUsage = {};
+                  recentCons.forEach(c => {
+                    (c.prescription || []).forEach(rx => {
+                      if (rx.herb) {
+                        const g = parseFloat(rx.dosage) || 10;
+                        herbUsage[rx.herb] = (herbUsage[rx.herb] || 0) + g * (Number(c.formulaDays) || 1);
+                      }
+                    });
+                  });
+                  return (
                   <div style={{ background: 'var(--red-50)', border: '1px solid var(--red-100)', padding: '8px 12px', borderRadius: 6, marginBottom: 6, fontSize: 12 }}>
                     <strong style={{ color: 'var(--red-600)' }}>⚠️ {lowStock.length} 項低庫存</strong>
-                    <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>{lowStock.slice(0, 5).map(i => i.name).join('、')}{lowStock.length > 5 ? '...' : ''}</div>
+                    <div style={{ marginTop: 6 }}>
+                      {lowStock.slice(0, 8).map(item => {
+                        const monthlyUse = herbUsage[item.name] || 0;
+                        const daysLeft = monthlyUse > 0 ? Math.round((Number(item.stock) / (monthlyUse / 30))) : 99;
+                        const reorderQty = monthlyUse > 0 ? Math.ceil(monthlyUse * 2) : Number(item.minStock || 100) * 2;
+                        return (
+                          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #fecaca' }}>
+                            <div>
+                              <span style={{ fontWeight: 600 }}>{item.name}</span>
+                              <span style={{ color: '#dc2626', marginLeft: 6 }}>{Number(item.stock).toFixed(0)}g</span>
+                              {daysLeft < 99 && <span style={{ color: '#d97706', marginLeft: 4, fontSize: 10 }}>({daysLeft}天用量)</span>}
+                            </div>
+                            <span style={{ fontSize: 10, padding: '1px 6px', background: '#fff', borderRadius: 3, color: '#0e7490', fontWeight: 600 }}>
+                              建議補{reorderQty}g
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
+                  );
+                })()}
                 {expired.length > 0 && (
                   <div style={{ background: 'var(--red-50)', border: '1px solid var(--red-100)', padding: '8px 12px', borderRadius: 6, marginBottom: 6, fontSize: 12 }}>
                     <strong style={{ color: '#dc2626' }}>🚫 {expired.length} 項已過期</strong>
