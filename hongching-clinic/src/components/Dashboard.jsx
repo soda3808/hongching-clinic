@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
 import { getTenantStoreNames, getClinicName } from '../tenant';
+import { openWhatsApp } from '../api';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
@@ -592,6 +593,11 @@ export default function Dashboard({ data, onNavigate }) {
         });
         const birthdayList = next7.flatMap(day => pts.filter(p => p.dob && p.dob.substring(5) === day.md).map(p => ({ ...p, dayLabel: day.dayLabel, birthdayDate: day.date })));
         if (!birthdayList.length) return null;
+        const sendBirthdayWA = (p) => {
+          if (!p.phone) return;
+          const msg = `${p.name}您好！${getClinicName()}祝您生日快樂！🎂 祝身體健康，萬事如意！`;
+          openWhatsApp(p.phone, msg);
+        };
         return (
           <div className="card" style={{ marginTop: 16, border: '1px solid var(--gold-200)', background: 'var(--gold-50)' }}>
             <div className="card-header"><h3>🎂 近期生日</h3></div>
@@ -602,6 +608,12 @@ export default function Dashboard({ data, onNavigate }) {
                   <span style={{ fontWeight: 600 }}>{p.name}</span>
                   <span style={{ color: 'var(--gray-400)' }}>{p.phone}</span>
                   <span style={{ color: 'var(--gray-400)', marginLeft: 'auto', fontSize: 11 }}>{p.dob}</span>
+                  {p.phone && (
+                    <button
+                      onClick={() => sendBirthdayWA(p)}
+                      style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >🎂 祝賀</button>
+                  )}
                 </div>
               ))}
             </div>
@@ -612,6 +624,7 @@ export default function Dashboard({ data, onNavigate }) {
       {/* Follow-up Reminders Widget */}
       {(() => {
         const cons = data.consultations || [];
+        const pts = data.patients || [];
         const todayStr = new Date().toISOString().substring(0, 10);
         const in7 = (() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().substring(0, 10); })();
         const overdueFollowUps = cons.filter(c => c.followUpDate && c.followUpDate < todayStr);
@@ -619,44 +632,70 @@ export default function Dashboard({ data, onNavigate }) {
         const upcomingFollowUps = cons.filter(c => c.followUpDate > todayStr && c.followUpDate <= in7);
         const allFollowUps = [...todayFollowUps, ...overdueFollowUps, ...upcomingFollowUps.slice(0, 5)];
         if (!allFollowUps.length) return null;
+
+        const getPhone = (name) => {
+          const p = pts.find(pt => pt.name === name);
+          return p?.phone || '';
+        };
+        const sendReminder = (c, type) => {
+          const phone = getPhone(c.patientName);
+          if (!phone) return;
+          const clinicName = getClinicName();
+          const msg = type === 'overdue'
+            ? `${c.patientName}您好！${clinicName}提醒您，您原定於 ${c.followUpDate} 的覆診已逾期，請盡快致電預約覆診。祝身體健康！`
+            : type === 'today'
+            ? `${c.patientName}您好！${clinicName}提醒您，今日有覆診預約，醫師：${c.doctor || ''}。如需改期請提前聯繫。祝身體健康！`
+            : `${c.patientName}您好！${clinicName}提醒您，您的覆診日期為 ${c.followUpDate}（${c.doctor || ''}）。如需改期請提前聯繫。祝身體健康！`;
+          openWhatsApp(phone, msg);
+        };
+        const sendAll = (list, type) => {
+          list.forEach(c => { const phone = getPhone(c.patientName); if (phone) sendReminder(c, type); });
+        };
+
+        const FollowUpRow = ({ c, type, bg }) => {
+          const phone = getPhone(c.patientName);
+          const typeLabels = { overdue: { text: '逾期', color: '#dc2626' }, today: { text: '今日', color: '#d97706' }, upcoming: { text: '即將', color: 'var(--teal-600)' } };
+          const t = typeLabels[type];
+          return (
+            <div style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center', background: bg || '' }}>
+              <span style={{ color: t.color, fontWeight: 700, fontSize: 10, minWidth: 36 }}>{t.text}</span>
+              <span style={{ fontWeight: 600, minWidth: 60 }}>{c.patientName}</span>
+              <span style={{ color: 'var(--gray-500)' }}>{c.followUpDate}</span>
+              <span style={{ color: 'var(--gray-400)', flex: 1 }}>{c.doctor}</span>
+              <span style={{ color: 'var(--gray-400)', fontSize: 11, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.followUpNotes || c.tcmDiagnosis || ''}</span>
+              {phone && (
+                <button
+                  onClick={() => sendReminder(c, type)}
+                  style={{ background: '#25D366', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  title={`WhatsApp 提醒 ${c.patientName} (${phone})`}
+                >📱 提醒</button>
+              )}
+              {!phone && <span style={{ fontSize: 10, color: 'var(--gray-300)' }}>無電話</span>}
+            </div>
+          );
+        };
+
         return (
           <div className="card" style={{ marginTop: 16, border: todayFollowUps.length + overdueFollowUps.length > 0 ? '2px solid var(--gold-200)' : undefined }}>
             <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>📋 覆診提醒</h3>
-              <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
+              <div style={{ display: 'flex', gap: 8, fontSize: 11, alignItems: 'center' }}>
                 {overdueFollowUps.length > 0 && <span className="tag tag-overdue">{overdueFollowUps.length} 逾期</span>}
                 {todayFollowUps.length > 0 && <span className="tag tag-pending-orange">{todayFollowUps.length} 今日</span>}
                 {upcomingFollowUps.length > 0 && <span className="tag tag-paid">{upcomingFollowUps.length} 本週</span>}
+                {(overdueFollowUps.length + todayFollowUps.length) > 1 && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: '#25D366', color: '#fff', border: 'none', fontSize: 10, padding: '3px 8px' }}
+                    onClick={() => { sendAll(overdueFollowUps, 'overdue'); sendAll(todayFollowUps, 'today'); }}
+                  >📱 全部提醒</button>
+                )}
               </div>
             </div>
             <div style={{ fontSize: 12 }}>
-              {overdueFollowUps.slice(0, 5).map((c, i) => (
-                <div key={'o' + i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center' }}>
-                  <span style={{ color: '#dc2626', fontWeight: 700, fontSize: 10, minWidth: 36 }}>逾期</span>
-                  <span style={{ fontWeight: 600, minWidth: 60 }}>{c.patientName}</span>
-                  <span style={{ color: 'var(--gray-500)' }}>{c.followUpDate}</span>
-                  <span style={{ color: 'var(--gray-400)', flex: 1 }}>{c.doctor}</span>
-                  <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{c.followUpNotes || c.tcmDiagnosis || ''}</span>
-                </div>
-              ))}
-              {todayFollowUps.map((c, i) => (
-                <div key={'t' + i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center', background: 'var(--gold-50)' }}>
-                  <span style={{ color: '#d97706', fontWeight: 700, fontSize: 10, minWidth: 36 }}>今日</span>
-                  <span style={{ fontWeight: 600, minWidth: 60 }}>{c.patientName}</span>
-                  <span style={{ color: 'var(--gray-500)' }}>{c.followUpDate}</span>
-                  <span style={{ color: 'var(--gray-400)', flex: 1 }}>{c.doctor}</span>
-                  <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{c.followUpNotes || c.tcmDiagnosis || ''}</span>
-                </div>
-              ))}
-              {upcomingFollowUps.slice(0, 5).map((c, i) => (
-                <div key={'u' + i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--teal-600)', fontWeight: 700, fontSize: 10, minWidth: 36 }}>即將</span>
-                  <span style={{ fontWeight: 600, minWidth: 60 }}>{c.patientName}</span>
-                  <span style={{ color: 'var(--gray-500)' }}>{c.followUpDate}</span>
-                  <span style={{ color: 'var(--gray-400)', flex: 1 }}>{c.doctor}</span>
-                  <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{c.followUpNotes || c.tcmDiagnosis || ''}</span>
-                </div>
-              ))}
+              {overdueFollowUps.slice(0, 5).map((c, i) => <FollowUpRow key={'o' + i} c={c} type="overdue" />)}
+              {todayFollowUps.map((c, i) => <FollowUpRow key={'t' + i} c={c} type="today" bg="var(--gold-50)" />)}
+              {upcomingFollowUps.slice(0, 5).map((c, i) => <FollowUpRow key={'u' + i} c={c} type="upcoming" />)}
             </div>
             {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('emr')}>查看病歷 →</button>}
           </div>
