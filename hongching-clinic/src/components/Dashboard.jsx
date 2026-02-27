@@ -393,6 +393,42 @@ export default function Dashboard({ data, onNavigate }) {
         </div>
       </div>
 
+      {/* Today's Payment Breakdown */}
+      {(() => {
+        const todayStr = new Date().toISOString().substring(0, 10);
+        const todayRev = (data.revenue || []).filter(r => r.date && r.date.substring(0, 10) === todayStr);
+        const byMethod = {};
+        let todayTotal = 0;
+        todayRev.forEach(r => {
+          const method = r.payment || '現金';
+          byMethod[method] = (byMethod[method] || 0) + Number(r.amount || 0);
+          todayTotal += Number(r.amount || 0);
+        });
+        const methodColors = { '現金': '#16a34a', 'FPS': '#7c3aed', '八達通': '#d97706', '信用卡': '#0284c7', 'Payme': '#dc2626', '微信': '#16a34a', '支付寶': '#0e7490', '轉帳': '#6366f1' };
+        const methods = Object.entries(byMethod).sort((a, b) => b[1] - a[1]);
+        if (todayTotal === 0) return null;
+        return (
+          <div className="card" style={{ marginBottom: 16, padding: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--teal-700)' }}>💳 今日收款明細</span>
+              <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--green-700)' }}>{fmtM(todayTotal)}</span>
+            </div>
+            <div style={{ display: 'grid', gap: 4 }}>
+              {methods.map(([method, amt]) => (
+                <div key={method} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span style={{ minWidth: 55, fontWeight: 600 }}>{method}</span>
+                  <div style={{ flex: 1, height: 8, background: 'var(--gray-100)', borderRadius: 4 }}>
+                    <div style={{ width: `${(amt / todayTotal) * 100}%`, height: '100%', background: methodColors[method] || '#666', borderRadius: 4 }} />
+                  </div>
+                  <span style={{ minWidth: 80, textAlign: 'right', fontWeight: 600, color: methodColors[method] || '#666' }}>{fmtM(amt)} ({todayTotal > 0 ? ((amt / todayTotal) * 100).toFixed(0) : 0}%)</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 4 }}>共 {todayRev.length} 筆交易</div>
+          </div>
+        );
+      })()}
+
       {/* Revenue Goal Tracker */}
       {(() => {
         const goalPct = revGoal > 0 ? Math.min((thisRev / revGoal) * 100, 100) : 0;

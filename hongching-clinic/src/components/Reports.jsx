@@ -27,6 +27,8 @@ const AgingReport = lazy(() => import('./reports/AgingReport'));
 const SatisfactionReport = lazy(() => import('./reports/SatisfactionReport'));
 const ReferralAnalytics = lazy(() => import('./reports/ReferralAnalytics'));
 const NoShowAnalytics = lazy(() => import('./reports/NoShowAnalytics'));
+const VisitHeatmap = lazy(() => import('./reports/VisitHeatmap'));
+const BranchComparison = lazy(() => import('./reports/BranchComparison'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -46,6 +48,7 @@ const REPORT_GROUPS = [
     { id: 'forecast', icon: '📈', label: '營業預測' },
     { id: 'paymethod', icon: '💳', label: '付款方式' },
     { id: 'kpi', icon: '🎯', label: '系統KPI' },
+    { id: 'branch', icon: '🏢', label: '分店比較' },
   ]},
   { label: '醫師', tabs: [
     { id: 'doctor', icon: '👨‍⚕️', label: '醫師績效' },
@@ -62,6 +65,7 @@ const REPORT_GROUPS = [
     { id: 'satisfaction', icon: '😊', label: '滿意度' },
     { id: 'referral', icon: '🔗', label: '轉介分析' },
     { id: 'noshow', icon: '❌', label: '缺席分析' },
+    { id: 'heatmap', icon: '🗓️', label: '熱度圖' },
     { id: 'rxsummary', icon: '📜', label: '處方報表' },
   ]},
   { label: '營運', tabs: [
@@ -828,6 +832,8 @@ export default function Reports({ data }) {
         {reportType === 'satisfaction' && <SatisfactionReport data={data} />}
         {reportType === 'referral' && <ReferralAnalytics data={data} />}
         {reportType === 'noshow' && <NoShowAnalytics data={data} />}
+        {reportType === 'heatmap' && <VisitHeatmap data={data} />}
+        {reportType === 'branch' && <BranchComparison data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>
