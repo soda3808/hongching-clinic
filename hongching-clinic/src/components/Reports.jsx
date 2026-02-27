@@ -29,6 +29,7 @@ const ReferralAnalytics = lazy(() => import('./reports/ReferralAnalytics'));
 const NoShowAnalytics = lazy(() => import('./reports/NoShowAnalytics'));
 const VisitHeatmap = lazy(() => import('./reports/VisitHeatmap'));
 const BranchComparison = lazy(() => import('./reports/BranchComparison'));
+const StaffKPIReport = lazy(() => import('./reports/StaffKPIReport'));
 
 const ReportLoader = () => (
   <div style={{ padding: 40, textAlign: 'center', color: 'var(--gray-400)' }}>
@@ -54,6 +55,7 @@ const REPORT_GROUPS = [
     { id: 'doctor', icon: '👨‍⚕️', label: '醫師績效' },
     { id: 'consultrate', icon: '📋', label: '診症率' },
     { id: 'staffperf', icon: '👥', label: '員工績效' },
+    { id: 'staffkpi', icon: '🏆', label: 'KPI 總覽' },
   ]},
   { label: '病人', tabs: [
     { id: 'patient', icon: '👥', label: '病人分析' },
@@ -834,6 +836,7 @@ export default function Reports({ data }) {
         {reportType === 'noshow' && <NoShowAnalytics data={data} />}
         {reportType === 'heatmap' && <VisitHeatmap data={data} />}
         {reportType === 'branch' && <BranchComparison data={data} />}
+        {reportType === 'staffkpi' && <StaffKPIReport data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
     </>

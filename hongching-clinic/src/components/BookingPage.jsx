@@ -40,7 +40,7 @@ export default function BookingPage({ data, setData, showToast }) {
   const [filterStore, setFilterStore] = useState('all');
   const [filterDoc, setFilterDoc] = useState('all');
   const [calWeek, setCalWeek] = useState(new Date().toISOString().substring(0, 10));
-  const [form, setForm] = useState({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:getDefaultStore(), type:'覆診', notes:'' });
+  const [form, setForm] = useState({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:getDefaultStore(), type:'覆診', notes:'', recurring:'none', recurCount:4 });
   const [showReminderPanel, setShowReminderPanel] = useState(false);
   const [showWaitlistPanel, setShowWaitlistPanel] = useState(false);
   const [showWaitlistForm, setShowWaitlistForm] = useState(null); // {date, time, doctor} or null
@@ -297,13 +297,39 @@ export default function BookingPage({ data, setData, showToast }) {
       const confNames = conflicts.map(c => `${c.time} ${c.patientName}`).join('、');
       if (!window.confirm(`⚠️ 時間衝突！${form.doctor} 在此時段已有預約：\n${confNames}\n\n是否仍要新增？`)) return;
     }
-    const record = { ...form, id: uid(), status: 'confirmed', createdAt: new Date().toISOString().substring(0, 10) };
-    await saveBooking(record);
-    setData({ ...data, bookings: [...bookings, record] });
+
+    // Generate dates for recurring bookings
+    const dates = [form.date];
+    if (form.recurring !== 'none') {
+      const count = Math.min(form.recurCount || 4, 26);
+      const dayInterval = form.recurring === 'weekly' ? 7 : form.recurring === 'biweekly' ? 14 : 30;
+      for (let i = 1; i < count; i++) {
+        const d = new Date(form.date);
+        d.setDate(d.getDate() + dayInterval * i);
+        dates.push(d.toISOString().substring(0, 10));
+      }
+    }
+
+    const seriesId = form.recurring !== 'none' ? uid() : null;
+    const newBookings = [];
+    for (const date of dates) {
+      const record = {
+        patientName: form.patientName, patientPhone: form.patientPhone,
+        date, time: form.time, duration: form.duration,
+        doctor: form.doctor, store: form.store, type: form.type, notes: form.notes,
+        id: uid(), status: 'confirmed',
+        createdAt: new Date().toISOString().substring(0, 10),
+        ...(seriesId ? { seriesId, recurring: form.recurring } : {}),
+      };
+      await saveBooking(record);
+      newBookings.push(record);
+    }
+
+    setData({ ...data, bookings: [...bookings, ...newBookings] });
     setShowModal(false);
-    if (form.patientPhone) sendBookingWA(record);
-    setForm({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:getDefaultStore(), type:'覆診', notes:'' });
-    showToast('已新增預約');
+    if (form.patientPhone) sendBookingWA(newBookings[0]);
+    setForm({ patientName:'', patientPhone:'', date:'', time:'10:00', duration:30, doctor:DOCTORS[0], store:getDefaultStore(), type:'覆診', notes:'', recurring:'none', recurCount:4 });
+    showToast(dates.length > 1 ? `已新增 ${dates.length} 個定期預約` : '已新增預約');
   };
 
   const handleUpdateStatus = async (id, status) => {
@@ -564,6 +590,7 @@ export default function BookingPage({ data, setData, showToast }) {
                       <td>{b.time}</td>
                       <td style={{ fontWeight: 600 }}>
                         {b.patientName}
+                        {b.seriesId && <span style={{ marginLeft: 4, fontSize: 8, padding: '1px 5px', borderRadius: 8, background: '#0e749018', color: '#0e7490', fontWeight: 700 }}>🔄</span>}
                         {(() => { const risk = getNoShowRisk(b); return risk ? <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 5px', borderRadius: 8, background: risk.color + '18', color: risk.color, fontWeight: 700 }}>NS×{risk.count}</span> : null; })()}
                       </td>
                       <td>{b.patientPhone}</td>
@@ -753,6 +780,30 @@ export default function BookingPage({ data, setData, showToast }) {
                 <div><label>店舖</label><select value={form.store} onChange={e => setForm({...form, store: e.target.value})}>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}</select></div>
                 <div><label>治療類型</label><select value={form.type} onChange={e => setForm({...form, type: e.target.value})}>{TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
               </div>
+              <div className="grid-2" style={{ marginBottom: 12 }}>
+                <div>
+                  <label>定期預約</label>
+                  <select value={form.recurring} onChange={e => setForm({...form, recurring: e.target.value})}>
+                    <option value="none">單次</option>
+                    <option value="weekly">每週</option>
+                    <option value="biweekly">隔週</option>
+                    <option value="monthly">每月</option>
+                  </select>
+                </div>
+                {form.recurring !== 'none' && (
+                  <div>
+                    <label>重複次數</label>
+                    <select value={form.recurCount} onChange={e => setForm({...form, recurCount: +e.target.value})}>
+                      {[2,3,4,5,6,8,10,12].map(n => <option key={n} value={n}>{n} 次</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+              {form.recurring !== 'none' && form.date && (
+                <div style={{ marginBottom: 12, padding: '6px 10px', background: 'var(--teal-50)', borderRadius: 6, fontSize: 11, color: 'var(--teal-700)' }}>
+                  將會建立 {form.recurCount} 個{form.recurring === 'weekly' ? '每週' : form.recurring === 'biweekly' ? '隔週' : '每月'}預約，從 {form.date} 開始
+                </div>
+              )}
               <div style={{ marginBottom: 12 }}><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button type="submit" className="btn btn-teal">確認預約</button>
