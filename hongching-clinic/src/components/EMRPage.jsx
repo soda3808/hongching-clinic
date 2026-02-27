@@ -5,6 +5,7 @@ import { getClinicName, getClinicNameEn, getTenantStoreNames, getTenantStores } 
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { checkInteractions, getHerbSafetyInfo, checkDosage, getSafetyBadges } from '../utils/drugInteractions';
+import { searchDiagnoses, searchZheng, searchProcedures } from '../data/hkctt';
 import VoiceButton from './VoiceButton';
 import MedicineLabel from './MedicineLabel';
 import SignaturePad, { SignaturePreview } from './SignaturePad';
@@ -17,6 +18,7 @@ function makeEmptyForm() {
     patientId: '', patientName: '', patientPhone: '', date: '', doctor: doctors[0] || '', store: defaultStore,
     subjective: '', objective: '', assessment: '', plan: '',
     tcmDiagnosis: '', tcmPattern: '', tongue: '', pulse: '',
+    icd10Code: '', cmDiagnosisCode: '', cmZhengCode: '',
     prescription: [{ ...EMPTY_RX }], formulaName: '', formulaDays: 3, formulaInstructions: '每日一劑，水煎服',
     prescriptionType: 'decoction', granuleDosesPerDay: 2, specialNotes: '',
     treatments: [], acupuncturePoints: '',
@@ -54,6 +56,10 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   });
   const [showSigPad, setShowSigPad] = useState(false);
   const [doctorSig, setDoctorSig] = useState(() => sessionStorage.getItem(`hcmc_sig_doctor_${user?.name || ''}`) || '');
+  const [diagSearch, setDiagSearch] = useState('');
+  const [showDiagDD, setShowDiagDD] = useState(false);
+  const [zhengSearch, setZhengSearch] = useState('');
+  const [showZhengDD, setShowZhengDD] = useState(false);
 
   const addRef = useRef(null);
   const detailRef = useRef(null);
@@ -130,6 +136,9 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       treatments: lastConsult.treatments || [],
       tcmDiagnosis: lastConsult.tcmDiagnosis || '',
       tcmPattern: lastConsult.tcmPattern || '',
+      icd10Code: lastConsult.icd10Code || '',
+      cmDiagnosisCode: lastConsult.cmDiagnosisCode || '',
+      cmZhengCode: lastConsult.cmZhengCode || '',
     }));
     showToast(`已載入 ${patientName} 上次處方（${lastConsult.date}）`);
   };
@@ -160,6 +169,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         (c.patientName || '').toLowerCase().includes(q) ||
         (c.tcmDiagnosis || '').toLowerCase().includes(q) ||
         (c.tcmPattern || '').toLowerCase().includes(q) ||
+        (c.icd10Code || '').toLowerCase().includes(q) ||
         (c.assessment || '').toLowerCase().includes(q) ||
         (c.subjective || '').toLowerCase().includes(q) ||
         (c.plan || '').toLowerCase().includes(q) ||
@@ -184,6 +194,38 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     const q = patientSearch.toLowerCase();
     return patients.filter(p => p.name.toLowerCase().includes(q) || (p.phone || '').includes(q)).slice(0, 8);
   }, [patients, patientSearch]);
+
+  // ── HKCTT diagnosis autocomplete ──
+  const diagMatches = useMemo(() => {
+    if (!diagSearch || diagSearch.length < 1) return [];
+    return searchDiagnoses(diagSearch).slice(0, 10);
+  }, [diagSearch]);
+
+  const zhengMatches = useMemo(() => {
+    if (!zhengSearch || zhengSearch.length < 1) return [];
+    return searchZheng(zhengSearch, form.cmDiagnosisCode).slice(0, 10);
+  }, [zhengSearch, form.cmDiagnosisCode]);
+
+  const selectDiagnosis = (diag) => {
+    setForm(f => ({
+      ...f,
+      tcmDiagnosis: diag.name,
+      icd10Code: diag.icd10 || '',
+      cmDiagnosisCode: diag.code || '',
+    }));
+    setDiagSearch(diag.name);
+    setShowDiagDD(false);
+  };
+
+  const selectZheng = (zheng) => {
+    setForm(f => ({
+      ...f,
+      tcmPattern: zheng.name,
+      cmZhengCode: zheng.code || '',
+    }));
+    setZhengSearch(zheng.name);
+    setShowZhengDD(false);
+  };
 
   const selectPatient = (p) => {
     setForm(f => ({ ...f, patientId: p.id, patientName: p.name, patientPhone: p.phone || '' }));
@@ -313,6 +355,9 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       prescription: form.prescription.filter(r => r.herb),
       fee: Number(form.fee) || 0,
       doctorSignature: doctorSig || '',
+      icd10Code: form.icd10Code || '',
+      cmDiagnosisCode: form.cmDiagnosisCode || '',
+      cmZhengCode: form.cmZhengCode || '',
       createdAt: new Date().toISOString().substring(0, 10),
     };
     await saveConsultation(record);
@@ -430,7 +475,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         <div class="soap-box"><h4>A — Assessment 評估</h4><p>${item.assessment || '-'}</p></div>
         <div class="soap-box"><h4>P — Plan 計劃</h4><p>${item.plan || '-'}</p></div>
       </div>
-      <div class="section"><h4>中醫辨證</h4><div>診斷：<strong>${item.tcmDiagnosis || '-'}</strong> | 證型：<strong>${item.tcmPattern || '-'}</strong> | 舌象：${item.tongue || '-'} | 脈象：${item.pulse || '-'}</div></div>
+      <div class="section"><h4>中醫辨證</h4><div>診斷：<strong>${item.tcmDiagnosis || '-'}</strong>${item.icd10Code ? ` <span style="font-size:10px;color:#666">(ICD-10: ${item.icd10Code})</span>` : ''} | 證型：<strong>${item.tcmPattern || '-'}</strong>${item.cmZhengCode ? ` <span style="font-size:10px;color:#666">(${item.cmZhengCode})</span>` : ''} | 舌象：${item.tongue || '-'} | 脈象：${item.pulse || '-'}</div></div>
       ${(item.treatments || []).length ? `<div class="section"><h4>治療方式</h4><div>${item.treatments.join('、')}</div></div>` : ''}
       ${item.acupuncturePoints ? `<div class="section"><h4>穴位</h4><div>${item.acupuncturePoints}</div></div>` : ''}
       ${rxRows ? `<div class="section"><h4>處方${item.formulaName ? ' — ' + item.formulaName : ''}${item.formulaDays ? ' (' + item.formulaDays + '天)' : ''}</h4><table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rxRows}</tbody></table><div>服法：${item.formulaInstructions || '每日一劑，水煎服'}</div></div>` : ''}
@@ -591,9 +636,9 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         </select>
         <button className="btn btn-outline btn-sm" onClick={() => {
           if (!filtered.length) return showToast('沒有診症紀錄可匯出');
-          const headers = ['日期','病人','醫師','店舖','中醫診斷','證型','處方','劑數','治療','覆診日期'];
+          const headers = ['日期','病人','醫師','店舖','中醫診斷','ICD-10','證型','證型碼','處方','劑數','治療','覆診日期'];
           const rows = filtered.map(c => [
-            c.date, c.patientName, c.doctor, c.store, c.tcmDiagnosis || '', c.tcmPattern || '',
+            c.date, c.patientName, c.doctor, c.store, c.tcmDiagnosis || '', c.icd10Code || '', c.tcmPattern || '', c.cmZhengCode || '',
             (c.prescription || []).map(rx => `${rx.herb}${rx.dosage ? ' ' + rx.dosage : ''}`).join('、'),
             c.formulaDays || '', (c.treatments || []).join('、'), c.followUpDate || ''
           ]);
@@ -626,7 +671,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   </td>
                   <td>{c.doctor}</td>
                   <td>{c.store}</td>
-                  <td>{c.tcmDiagnosis || '-'}</td>
+                  <td>{c.tcmDiagnosis || '-'}{c.icd10Code && <span style={{ fontSize: 10, color: 'var(--gray-400)', marginLeft: 4 }}>({c.icd10Code})</span>}</td>
                   <td>{(c.treatments || []).length > 0 ? c.treatments.join('、') : '-'}</td>
                   <td>{c.followUpDate || '-'}</td>
                   <td>
@@ -744,9 +789,55 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               {/* TCM Specific */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>中醫辨證</h4></div>
               <div className="grid-2" style={{ marginBottom: 8 }}>
-                <div><label>中醫診斷</label><input value={form.tcmDiagnosis} onChange={e => setForm(f => ({ ...f, tcmDiagnosis: e.target.value }))} placeholder="病名" /></div>
-                <div><label>證型</label><input value={form.tcmPattern} onChange={e => setForm(f => ({ ...f, tcmPattern: e.target.value }))} placeholder="辨證分型" /></div>
+                <div style={{ position: 'relative' }}>
+                  <label>中醫診斷 {form.icd10Code && <span style={{ fontSize: 10, color: 'var(--teal)', fontWeight: 400 }}>ICD-10: {form.icd10Code}</span>}</label>
+                  <input value={form.tcmDiagnosis}
+                    placeholder="搜尋病名（HKCTT 編碼）..."
+                    onChange={e => { setForm(f => ({ ...f, tcmDiagnosis: e.target.value, icd10Code: '', cmDiagnosisCode: '' })); setDiagSearch(e.target.value); setShowDiagDD(true); }}
+                    onFocus={() => { if (form.tcmDiagnosis) { setDiagSearch(form.tcmDiagnosis); setShowDiagDD(true); } }}
+                    onBlur={() => setTimeout(() => setShowDiagDD(false), 200)} />
+                  {showDiagDD && diagMatches.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                      {diagMatches.map(d => (
+                        <div key={d.code} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                          onMouseDown={() => selectDiagnosis(d)}>
+                          <span><strong>{d.name}</strong> <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{d.category}</span></span>
+                          <span style={{ fontSize: 10, display: 'flex', gap: 4 }}>
+                            <span style={{ background: 'var(--teal-50)', color: 'var(--teal-700)', padding: '1px 4px', borderRadius: 3 }}>ICD: {d.icd10}</span>
+                            <span style={{ color: 'var(--gray-400)' }}>{d.code}</span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <label>證型 {form.cmZhengCode && <span style={{ fontSize: 10, color: 'var(--teal)', fontWeight: 400 }}>code: {form.cmZhengCode}</span>}</label>
+                  <input value={form.tcmPattern}
+                    placeholder="搜尋證型..."
+                    onChange={e => { setForm(f => ({ ...f, tcmPattern: e.target.value, cmZhengCode: '' })); setZhengSearch(e.target.value); setShowZhengDD(true); }}
+                    onFocus={() => { if (form.tcmPattern) { setZhengSearch(form.tcmPattern); setShowZhengDD(true); } }}
+                    onBlur={() => setTimeout(() => setShowZhengDD(false), 200)} />
+                  {showZhengDD && zhengMatches.length > 0 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                      {zhengMatches.map(z => (
+                        <div key={z.code} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between' }}
+                          onMouseDown={() => selectZheng(z)}>
+                          <strong>{z.name}</strong>
+                          <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>{z.code}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+              {form.icd10Code && (
+                <div style={{ marginBottom: 8, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11 }}>
+                  {form.cmDiagnosisCode && <span style={{ background: 'var(--teal-50)', color: 'var(--teal-700)', padding: '2px 8px', borderRadius: 4 }}>HKCTT: {form.cmDiagnosisCode}</span>}
+                  <span style={{ background: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: 4 }}>ICD-10: {form.icd10Code}</span>
+                  {form.cmZhengCode && <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4 }}>證型: {form.cmZhengCode}</span>}
+                </div>
+              )}
               <div className="grid-2" style={{ marginBottom: 16 }}>
                 <div><label>舌象</label><input value={form.tongue} onChange={e => setForm(f => ({ ...f, tongue: e.target.value }))} placeholder="舌質舌苔" /></div>
                 <div><label>脈象</label><input value={form.pulse} onChange={e => setForm(f => ({ ...f, pulse: e.target.value }))} placeholder="脈象" /></div>
@@ -1009,6 +1100,13 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 <div><strong>舌象：</strong>{detail.tongue || '-'}</div>
                 <div><strong>脈象：</strong>{detail.pulse || '-'}</div>
               </div>
+              {(detail.icd10Code || detail.cmDiagnosisCode || detail.cmZhengCode) && (
+                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {detail.cmDiagnosisCode && <span style={{ fontSize: 10, background: 'var(--teal-50)', color: 'var(--teal-700)', padding: '2px 8px', borderRadius: 4 }}>HKCTT: {detail.cmDiagnosisCode}</span>}
+                  {detail.icd10Code && <span style={{ fontSize: 10, background: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: 4 }}>ICD-10: {detail.icd10Code}</span>}
+                  {detail.cmZhengCode && <span style={{ fontSize: 10, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4 }}>證型: {detail.cmZhengCode}</span>}
+                </div>
+              )}
             </div>
 
             {/* Treatments */}

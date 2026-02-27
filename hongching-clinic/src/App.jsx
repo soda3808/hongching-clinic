@@ -43,6 +43,7 @@ const MedicineScanner = lazy(() => import('./components/MedicineScanner'));
 const TermsOfService = lazy(() => import('./components/TermsOfService'));
 const PrivacyPolicy = lazy(() => import('./components/PrivacyPolicy'));
 const BillingSettings = lazy(() => import('./components/BillingSettings'));
+const EHealthPage = lazy(() => import('./components/EHealthPage'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -70,6 +71,7 @@ const ALL_PAGES = [
   { id: 'ai', icon: '🤖', label: 'AI 助手', section: '分析', perm: 'viewDashboard' },
   { id: 'compare', icon: '🏢', label: '分店對比', section: '分析', perm: 'viewDashboard' },
   { id: 'survey', icon: '📋', label: '滿意度調查', section: '分析', perm: 'viewDashboard' },
+  { id: 'ehealth', icon: '🏛️', label: '醫健通', section: '系統', perm: 'viewEMR' },
   { id: 'billingsub', icon: '💳', label: '訂閱管理', section: '系統', perm: 'viewSettings' },
   { id: 'privacy', icon: '🔒', label: '私隱中心', section: '系統', perm: 'viewPrivacy' },
   { id: 'superadmin', icon: '🛡️', label: 'Super Admin', section: '系統', perm: 'viewSuperAdmin' },
@@ -772,7 +774,7 @@ function MainApp() {
             <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
             <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
           </div>
-          <span>v6.4.0 • {new Date().getFullYear()}</span>
+          <span>v6.5.0 • {new Date().getFullYear()}</span>
         </div>
       </div>
 
@@ -874,6 +876,7 @@ function MainApp() {
             {page === 'ai' && <AIChatPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'compare' && <StoreComparePage data={filteredData} allData={data} showToast={showToast} />}
             {page === 'survey' && <SurveyPage data={filteredData} setData={setData} showToast={showToast} user={user} />}
+            {page === 'ehealth' && <EHealthPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'privacy' && <PrivacyCenter data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'superadmin' && <SuperAdmin showToast={showToast} user={user} />}
             {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}

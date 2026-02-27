@@ -85,6 +85,7 @@ export const PAGE_PERMISSIONS = {
   compare: 'viewDashboard',
   survey: 'viewDashboard',
   voucher: 'viewPatients',
+  ehealth: 'viewEMR',
   privacy: 'viewPrivacy',
   superadmin: 'viewSuperAdmin',
 };
