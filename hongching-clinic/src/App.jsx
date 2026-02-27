@@ -101,6 +101,12 @@ const EquipmentManagement = lazy(() => import('./components/EquipmentManagement'
 const RevenueGoalTracker = lazy(() => import('./components/RevenueGoalTracker'));
 const PatientEducation = lazy(() => import('./components/PatientEducation'));
 const CashFlowReport = lazy(() => import('./components/CashFlowReport'));
+const DebtCollection = lazy(() => import('./components/DebtCollection'));
+const TaxReport = lazy(() => import('./components/TaxReport'));
+const ContractManagement = lazy(() => import('./components/ContractManagement'));
+const ClinicCalendar = lazy(() => import('./components/ClinicCalendar'));
+const InventoryExpiry = lazy(() => import('./components/InventoryExpiry'));
+const PatientGroup = lazy(() => import('./components/PatientGroup'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -189,6 +195,12 @@ const ALL_PAGES = [
   { id: 'revgoal', icon: '🎯', label: '營業目標', section: '分析', perm: 'viewReports' },
   { id: 'education', icon: '📖', label: '健康教育', section: '病人', perm: 'viewPatients' },
   { id: 'cashflow', icon: '💹', label: '現金流量', section: '分析', perm: 'viewReports' },
+  { id: 'debt', icon: '💸', label: '欠款追收', section: '財務', perm: 'editRevenue' },
+  { id: 'tax', icon: '🏛️', label: '稅務報告', section: '分析', perm: 'viewReports' },
+  { id: 'contract', icon: '📄', label: '合約管理', section: '營運', perm: 'editExpenses' },
+  { id: 'cliniccal', icon: '🗓️', label: '診所日曆', section: '總覽', perm: 'viewDashboard' },
+  { id: 'expiry', icon: '⏳', label: '有效期管理', section: '營運', perm: 'editExpenses' },
+  { id: 'ptgroup', icon: '👥', label: '病人分組', section: '客戶', perm: 'viewPatients' },
 ];
 
 // Mobile bottom tab config
@@ -1038,6 +1050,12 @@ function MainApp() {
             {page === 'revgoal' && <RevenueGoalTracker data={filteredData} showToast={showToast} user={user} />}
             {page === 'education' && <PatientEducation data={filteredData} showToast={showToast} user={user} />}
             {page === 'cashflow' && <CashFlowReport data={filteredData} showToast={showToast} user={user} />}
+            {page === 'debt' && <DebtCollection data={filteredData} showToast={showToast} user={user} />}
+            {page === 'tax' && <TaxReport data={filteredData} showToast={showToast} user={user} />}
+            {page === 'contract' && <ContractManagement showToast={showToast} user={user} />}
+            {page === 'cliniccal' && <ClinicCalendar data={filteredData} showToast={showToast} user={user} />}
+            {page === 'expiry' && <InventoryExpiry data={filteredData} showToast={showToast} user={user} />}
+            {page === 'ptgroup' && <PatientGroup data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
