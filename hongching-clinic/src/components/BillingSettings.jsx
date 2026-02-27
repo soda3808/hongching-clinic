@@ -79,7 +79,7 @@ export default function BillingSettings({ showToast, user }) {
     if (planId === currentPlan) return;
     setLoading(planId);
     try {
-      const res = await fetch('/api/billing/create-checkout', {
+      const res = await fetch('/api/billing?action=checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ planId }),
@@ -99,7 +99,7 @@ export default function BillingSettings({ showToast, user }) {
   const handlePortal = async () => {
     setPortalLoading(true);
     try {
-      const res = await fetch('/api/billing/portal', {
+      const res = await fetch('/api/billing?action=portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       });

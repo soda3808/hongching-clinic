@@ -74,7 +74,7 @@ export default function Dashboard({ data, onNavigate }) {
     const context = { period: thisMonth, today, revenue: { monthTotal: monthRev }, expenses: { monthTotal: monthExp }, patients: { total: patients.length, newThisMonth: newPatients }, bookings: { todayCount: todayBookings }, inventory: { lowStockCount: lowStock } };
 
     try {
-      const res = await fetch('/api/ai-chat', {
+      const res = await fetch('/api/ai?action=chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -113,7 +113,7 @@ export default function MedicineScanner({ data, setData, showToast, allData, use
       const base64 = dataUrl.split(',')[1];
       const mimeType = dataUrl.split(';')[0].split(':')[1];
 
-      const res = await fetch('/api/analyze-medicine-invoice', {
+      const res = await fetch('/api/analyze?action=invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({ image: base64, mimeType }),

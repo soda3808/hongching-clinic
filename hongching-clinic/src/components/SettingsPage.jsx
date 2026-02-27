@@ -528,7 +528,7 @@ export default function SettingsPage({ data, setData, showToast, user }) {
                     services: tenantConfig.services,
                     settings: { ...tenantConfig.settings, primaryColor: themeColor },
                   };
-                  const res = await fetch('/api/tenant/update', {
+                  const res = await fetch('/api/tenant', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
                     body: JSON.stringify(payload),

@@ -514,7 +514,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     setAiLoading(true);
     setAiSuggestion(null);
     try {
-      const res = await fetch('/api/ai-prescription', {
+      const res = await fetch('/api/ai?action=prescription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

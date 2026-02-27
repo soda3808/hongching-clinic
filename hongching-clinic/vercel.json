@@ -1,15 +1,15 @@
 {
   "crons": [
     {
-      "path": "/api/cron/reminders",
+      "path": "/api/cron?action=reminders",
       "schedule": "0 1 * * *"
     },
     {
-      "path": "/api/cron/followup",
+      "path": "/api/cron?action=followup",
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/cron/data-retention",
+      "path": "/api/cron?action=data-retention",
       "schedule": "0 3 1 * *"
     }
   ],

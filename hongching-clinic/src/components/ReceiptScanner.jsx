@@ -94,7 +94,7 @@ export default function ReceiptScanner({ data, setData, showToast, onNavigate })
         const base64 = dataUrl.split(',')[1];
         const mimeType = dataUrl.split(';')[0].split(':')[1];
 
-        const res = await fetch('/api/analyze-receipt', {
+        const res = await fetch('/api/analyze?action=receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ image: base64, mimeType }),

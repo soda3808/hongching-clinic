@@ -220,7 +220,7 @@ export function openWhatsApp(phone, message) {
 // ── Telegram Bot ──
 export async function sendTelegram(message, chatId) {
   try {
-    const res = await fetch('/api/send-telegram', {
+    const res = await fetch('/api/messaging?action=telegram', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({ message, chatId }),
@@ -235,7 +235,7 @@ export async function sendTelegram(message, chatId) {
 // ── AI Chatbot ──
 export async function chatWithAI(message, context) {
   try {
-    const res = await fetch('/api/chatbot', {
+    const res = await fetch('/api/ai?action=chatbot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({ message, context }),

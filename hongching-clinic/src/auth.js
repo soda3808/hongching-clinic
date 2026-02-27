@@ -40,7 +40,7 @@ export async function login(username, password) {
   // Try JWT auth via serverless
   if (navigator.onLine) {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/api/auth?action=login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -89,7 +89,7 @@ export async function login(username, password) {
 
 // Request a password reset token (admin-initiated)
 export async function requestPasswordReset(username) {
-  const res = await fetch('/api/auth/reset-request', {
+  const res = await fetch('/api/auth?action=reset-request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username }),
@@ -99,7 +99,7 @@ export async function requestPasswordReset(username) {
 
 // Reset password using a token
 export async function resetPassword(token, newPassword) {
-  const res = await fetch('/api/auth/reset', {
+  const res = await fetch('/api/auth?action=reset', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ token, newPassword }),

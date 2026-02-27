@@ -100,7 +100,7 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
         setForm(f => ({ ...f, receipt: base64 }));
         setFileName(file.name);
         try {
-          const res = await fetch('/api/analyze-receipt', {
+          const res = await fetch('/api/analyze?action=receipt', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ image: base64 }),

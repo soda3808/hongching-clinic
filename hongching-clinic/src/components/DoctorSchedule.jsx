@@ -200,7 +200,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
             setAiLoading(true); setAiTip(null);
             try {
               const scheduleStr = JSON.stringify(schedule);
-              const res = await fetch('/api/ai-chat', {
+              const res = await fetch('/api/ai?action=chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

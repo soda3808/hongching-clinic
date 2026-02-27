@@ -65,7 +65,7 @@ export default function CRMPage({ data, setData, showToast }) {
   async function getAiReply(inquiry) {
     setAiReplying(prev => ({ ...prev, [inquiry.id]: true }));
     try {
-      const res = await fetch('/api/ai-chat', {
+      const res = await fetch('/api/ai?action=chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
