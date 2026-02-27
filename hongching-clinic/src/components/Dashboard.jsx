@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
 import { getTenantStoreNames, getClinicName } from '../tenant';
-import { openWhatsApp } from '../api';
+import { openWhatsApp, sendTelegram } from '../api';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
@@ -342,6 +342,23 @@ export default function Dashboard({ data, onNavigate }) {
               <span style={{ fontSize: 18 }}>{a.icon}</span> {a.label}
             </button>
           ))}
+          <button className="btn" style={{ padding: '14px 12px', fontSize: 13, justifyContent: 'center', background: '#0088cc', color: '#fff' }} onClick={() => {
+            const tgCfg = (() => { try { return JSON.parse(localStorage.getItem('hcmc_telegram_config') || '{}'); } catch { return {}; } })();
+            const schedule = (() => { try { return JSON.parse(localStorage.getItem('hcmc_doc_schedule') || '{}'); } catch { return {}; } })();
+            const dow = new Date().getDay();
+            const adjDow = dow === 0 ? 6 : dow - 1;
+            const dayLabels = ['一','二','三','四','五','六','日'];
+            const doctors = (() => { try { const tc = JSON.parse(localStorage.getItem('hcmc_tenant_config') || '{}'); return tc.doctors || []; } catch { return []; } })();
+            const lines = [`📋 今日排班 — ${new Date().toLocaleDateString('zh-HK')} 星期${dayLabels[adjDow]}\n`];
+            doctors.forEach(doc => { const store = schedule[`${doc}_${adjDow}`] || ''; lines.push(store ? `✅ ${doc} → ${store}` : `⬜ ${doc} → 休息`); });
+            const msg = lines.join('\n');
+            if (tgCfg.botToken && tgCfg.chatId) {
+              sendTelegram(msg, tgCfg.chatId).then(res => { /* silent */ });
+            }
+            window.open(`https://t.me/share/url?text=${encodeURIComponent(msg)}`, '_blank');
+          }}>
+            <span style={{ fontSize: 18 }}>📢</span> TG通知排班
+          </button>
           <button className="btn btn-gold" style={{ padding: '14px 12px', fontSize: 13, justifyContent: 'center', gridColumn: '1 / -1' }} onClick={printDailyClose}>
             📊 日結總報告 — 列印今日全面結算
           </button>

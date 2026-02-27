@@ -214,6 +214,21 @@ export function openWhatsApp(phone, message) {
   return { success: true };
 }
 
+// ── Telegram Bot ──
+export async function sendTelegram(message, chatId) {
+  try {
+    const res = await fetch('/api/send-telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ message, chatId }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Telegram send error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ── AI Chatbot ──
 export async function chatWithAI(message, context) {
   try {

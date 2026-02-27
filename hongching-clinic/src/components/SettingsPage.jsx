@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
-import { saveAllLocal } from '../api';
+import { saveAllLocal, sendTelegram } from '../api';
 import { exportJSON, importJSON } from '../utils/export';
 import { DEFAULT_USERS, DEFAULT_STORES, ROLE_LABELS, ROLE_TAGS, DEFAULT_SERVICES, getServices, saveServices } from '../config';
 import { getUsers, saveUsers, getStores, saveStores } from '../auth';
@@ -67,6 +67,86 @@ export default function SettingsPage({ data, setData, showToast, user }) {
       localStorage.setItem('hcmc_doc_schedule', JSON.stringify(next));
       return next;
     });
+  };
+
+  // Telegram Bot config
+  const [tgConfig, setTgConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hcmc_telegram_config')) || { botToken: '', chatId: '' }; } catch { return { botToken: '', chatId: '' }; }
+  });
+  const [tgSending, setTgSending] = useState(false);
+
+  const saveTgConfig = (key, val) => {
+    const updated = { ...tgConfig, [key]: val };
+    setTgConfig(updated);
+    localStorage.setItem('hcmc_telegram_config', JSON.stringify(updated));
+  };
+
+  const buildScheduleMessage = () => {
+    const doctors = tenantConfig.doctors || [];
+    const storeNames = getTenantStoreNames();
+    const lines = [`<b>📅 本週醫師排班表</b>\n`];
+    doctors.forEach(doc => {
+      const shifts = DOW_LABELS.map((day, di) => {
+        const store = docSchedule[`${doc}_${di}`] || '';
+        return store ? `${day}:${store}` : `${day}:休`;
+      }).join(' | ');
+      lines.push(`👨‍⚕️ <b>${doc}</b>\n${shifts}\n`);
+    });
+    lines.push(`\n📍 更新時間：${new Date().toLocaleString('zh-HK')}`);
+    return lines.join('\n');
+  };
+
+  const sendScheduleToTelegram = async () => {
+    if (!tgConfig.botToken || !tgConfig.chatId) return showToast('請先設定 Telegram Bot Token 和 Chat ID');
+    setTgSending(true);
+    try {
+      const msg = buildScheduleMessage();
+      const res = await sendTelegram(msg, tgConfig.chatId);
+      if (res.success) {
+        showToast('排班通知已發送到 Telegram 群組！');
+      } else if (res.demo) {
+        // Fallback: open Telegram directly if API not deployed
+        const plainMsg = buildScheduleMessage().replace(/<[^>]+>/g, '');
+        window.open(`https://t.me/share/url?text=${encodeURIComponent(plainMsg)}`, '_blank');
+        showToast('已開啟 Telegram 分享（API 未部署，使用直接分享）');
+      } else {
+        showToast('發送失敗：' + (res.error || '未知錯誤'));
+      }
+    } catch (err) {
+      showToast('發送失敗：' + err.message);
+    }
+    setTgSending(false);
+  };
+
+  const sendDailyScheduleToTelegram = async () => {
+    if (!tgConfig.botToken || !tgConfig.chatId) return showToast('請先設定 Telegram Bot Token 和 Chat ID');
+    setTgSending(true);
+    const today = new Date();
+    const dow = today.getDay();
+    const adjDow = dow === 0 ? 6 : dow - 1;
+    const dayLabel = DOW_LABELS[adjDow];
+    const doctors = tenantConfig.doctors || [];
+    const lines = [`<b>📋 今日排班 — ${today.toLocaleDateString('zh-HK')} 星期${dayLabel}</b>\n`];
+    doctors.forEach(doc => {
+      const store = docSchedule[`${doc}_${adjDow}`] || '';
+      lines.push(store ? `✅ ${doc} → ${store}` : `⬜ ${doc} → 休息`);
+    });
+    lines.push(`\n📍 ${new Date().toLocaleTimeString('zh-HK')}`);
+    try {
+      const res = await sendTelegram(lines.join('\n'), tgConfig.chatId);
+      if (res.success) {
+        showToast('今日排班已通知！');
+      } else if (res.demo) {
+        const plainMsg = lines.join('\n').replace(/<[^>]+>/g, '');
+        window.open(`https://t.me/share/url?text=${encodeURIComponent(plainMsg)}`, '_blank');
+        showToast('已開啟 Telegram 分享');
+      } else {
+        showToast('發送失敗：' + (res.error || '未知錯誤'));
+      }
+    } catch (err) {
+      showToast('發送失敗：' + err.message);
+    }
+    setTgSending(false);
   };
 
   // Audit filters
@@ -313,7 +393,51 @@ export default function SettingsPage({ data, setData, showToast, user }) {
                 </tbody>
               </table>
             </div>
-            <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 6 }}>選擇每位醫師每天的診所位置，留空為休息日</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ fontSize: 10, color: 'var(--gray-400)', flex: 1 }}>選擇每位醫師每天的診所位置，留空為休息日</div>
+              <button className="btn btn-sm" style={{ background: '#0088cc', color: '#fff', fontSize: 11 }} onClick={sendDailyScheduleToTelegram} disabled={tgSending}>
+                {tgSending ? '發送中...' : '📢 通知今日排班'}
+              </button>
+              <button className="btn btn-sm" style={{ background: '#0088cc', color: '#fff', fontSize: 11 }} onClick={sendScheduleToTelegram} disabled={tgSending}>
+                {tgSending ? '發送中...' : '📅 通知全週排班'}
+              </button>
+            </div>
+          </div>
+
+          {/* Telegram Bot Settings */}
+          <div className="card">
+            <div className="card-header"><h3>🤖 Telegram Bot 設定</h3></div>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 12, lineHeight: 1.8 }}>
+              <strong>設定步驟：</strong><br/>
+              1. 喺 Telegram 搵 <code>@BotFather</code> → 發送 <code>/newbot</code> → 取得 Bot Token<br/>
+              2. 建立醫師群組 → 將 Bot 加入群組<br/>
+              3. 喺群組發任意訊息 → 搵 <code>@RawDataBot</code> 加入群組取得 Chat ID<br/>
+              4. 或訪問 <code>https://api.telegram.org/bot[TOKEN]/getUpdates</code> 查看 chat id
+            </div>
+            <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div>
+                <label style={{ fontWeight: 600 }}>Bot Token</label>
+                <input type="password" value={tgConfig.botToken} onChange={e => saveTgConfig('botToken', e.target.value)} placeholder="123456:ABC-DEF..." style={{ fontFamily: 'monospace', fontSize: 11 }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 600 }}>Chat ID（群組）</label>
+                <input value={tgConfig.chatId} onChange={e => saveTgConfig('chatId', e.target.value)} placeholder="-1001234567890" style={{ fontFamily: 'monospace', fontSize: 11 }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-sm" style={{ background: '#0088cc', color: '#fff' }} onClick={async () => {
+                if (!tgConfig.botToken || !tgConfig.chatId) return showToast('請填寫 Bot Token 和 Chat ID');
+                setTgSending(true);
+                const res = await sendTelegram('✅ 康晴診所系統已成功連接 Telegram！', tgConfig.chatId);
+                setTgSending(false);
+                if (res.success) showToast('測試訊息已發送！請查看 Telegram 群組');
+                else if (res.demo) {
+                  showToast('API 未部署，請先部署到 Vercel 後再測試');
+                } else showToast('發送失敗：' + (res.error || '請檢查 Token 和 Chat ID'));
+              }} disabled={tgSending}>
+                {tgSending ? '發送中...' : '🔔 發送測試訊息'}
+              </button>
+            </div>
           </div>
 
           {/* Appointment Reminder Settings */}
