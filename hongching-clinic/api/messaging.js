@@ -555,6 +555,45 @@ JSON array 回覆（無markdown無解釋）：
       }
     }
 
+    // ── /dash — Quick dashboard overview ──
+    if (text === '/dash' || text === '/dashboard' || text === '/d') {
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      const { ms, me } = monthRange(now.getFullYear(), now.getMonth() + 1);
+      const [revT, expT, revM, expM, bkT, pts] = await Promise.all([
+        sbSelectExp('revenue', `date=eq.${today}`),
+        sbSelectExp('expenses', `date=eq.${today}`),
+        sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}`),
+        sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`),
+        sbSelectExp('bookings', `date=eq.${today}`).catch(() => []),
+        sbSelectExp('patients', 'select=id').catch(() => []),
+      ]);
+      const todayR = revT.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const todayE = expT.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const monthR = revM.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const monthE = expM.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const mn = monthR - monthE;
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysPassed = now.getDate();
+      const projectedR = daysPassed > 0 ? Math.round(monthR / daysPassed * daysInMonth) : 0;
+      const projectedE = daysPassed > 0 ? Math.round(monthE / daysPassed * daysInMonth) : 0;
+      let rpt = `<b>📱 康晴儀表板</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `<b>📅 今日 (${today})</b>\n`;
+      rpt += `  💰 ${todayR.toLocaleString()} | 🧾 ${todayE.toLocaleString()} | ${todayR - todayE >= 0 ? '✅' : '❌'} ${(todayR - todayE).toLocaleString()}\n`;
+      rpt += `  📋 預約：${bkT.length} | 記錄：${revT.length + expT.length} 筆\n\n`;
+      rpt += `<b>📊 ${now.getMonth() + 1}月 MTD</b>\n`;
+      rpt += `  💰 收入 HK$ ${monthR.toLocaleString()} (${revM.length}筆)\n`;
+      rpt += `  🧾 支出 HK$ ${monthE.toLocaleString()} (${expM.length}筆)\n`;
+      rpt += `  ${mn >= 0 ? '✅' : '❌'} 淨利 <b>HK$ ${mn.toLocaleString()}</b>\n`;
+      if (monthR > 0) rpt += `  📈 利潤率 ${Math.round(mn / monthR * 100)}%\n`;
+      rpt += `\n<b>🔮 月底預測</b>\n`;
+      rpt += `  💰 ~HK$ ${projectedR.toLocaleString()} | 🧾 ~HK$ ${projectedE.toLocaleString()}\n`;
+      rpt += `  📊 ~淨利 HK$ ${(projectedR - projectedE).toLocaleString()}\n`;
+      rpt += `\n👥 總病人：${pts.length} | 📅 進度：${daysPassed}/${daysInMonth} 天`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
     // ── /pnl — Monthly P&L by store ──
     if (text === '/pnl' || text === '/pl') {
       const now = new Date();
@@ -1347,6 +1386,7 @@ JSON array 回覆（無markdown無解釋）：
         `📎 <b>CSV 匯入</b> — Send CSV 檔案批量匯入\n` +
         `✍️ <b>格式輸入</b> — <code>金額, 商戶, 分類, 分店</code>\n\n` +
         `<b>📊 財務報表</b>\n` +
+        `/dash — 快速儀表板\n` +
         `/pnl — 本月損益表\n` +
         `/month 2026-02 — 指定月份\n` +
         `/week — 本週總結\n` +

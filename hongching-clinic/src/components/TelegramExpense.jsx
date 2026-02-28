@@ -357,6 +357,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
             <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#92400e' }}>Bot 指令一覽（v5 — 30+ 指令）</h4>
             <div style={{ fontSize: 12, color: '#78716c', lineHeight: 2 }}>
               <b>📊 財務報表</b><br />
+              <code>/dash</code> — 快速儀表板<br />
               <code>/pnl</code> — 本月損益表（按分店）<br />
               <code>/month 2026-02</code> — 指定月份損益表<br />
               <code>/week</code> — 本週每日收支總結<br />
