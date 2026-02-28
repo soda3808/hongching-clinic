@@ -154,6 +154,12 @@ const HerbFormulaPrint = lazy(() => import('./components/HerbFormulaPrint'));
 const ClinicUtility = lazy(() => import('./components/ClinicUtility'));
 const PatientTransport = lazy(() => import('./components/PatientTransport'));
 const ClinicCompliance = lazy(() => import('./components/ClinicCompliance'));
+const GiftVoucher = lazy(() => import('./components/GiftVoucher'));
+const DoctorRating = lazy(() => import('./components/DoctorRating'));
+const MedicineReturn = lazy(() => import('./components/MedicineReturn'));
+const ClinicPartnership = lazy(() => import('./components/ClinicPartnership'));
+const ClinicFeedbackWall = lazy(() => import('./components/ClinicFeedbackWall'));
+const InventoryValuation = lazy(() => import('./components/InventoryValuation'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -295,6 +301,12 @@ const ALL_PAGES = [
   { id: 'utility', icon: '💡', label: '水電雜費', section: '財務', perm: 'editExpenses' },
   { id: 'transport', icon: '🚐', label: '接送服務', section: '營運', perm: 'viewBookings' },
   { id: 'compliance', icon: '📋', label: '法規合規', section: '系統', perm: 'viewSettings' },
+  { id: 'giftvoucher', icon: '🎁', label: '禮券管理', section: '客戶', perm: 'editRevenue' },
+  { id: 'docrating', icon: '⭐', label: '醫師評分', section: '分析', perm: 'viewDoctorAnalytics' },
+  { id: 'medreturn', icon: '↩️', label: '退藥管理', section: '營運', perm: 'viewBilling' },
+  { id: 'partnership', icon: '🤝', label: '合作夥伴', section: '客戶', perm: 'editRevenue' },
+  { id: 'feedwall', icon: '💬', label: '好評牆', section: '客戶', perm: 'viewPatients' },
+  { id: 'invvalue', icon: '📦', label: '庫存估值', section: '分析', perm: 'viewReports' },
 ];
 
 // Mobile bottom tab config
@@ -1197,6 +1209,12 @@ function MainApp() {
             {page === 'utility' && <ClinicUtility data={filteredData} showToast={showToast} user={user} />}
             {page === 'transport' && <PatientTransport data={filteredData} showToast={showToast} user={user} />}
             {page === 'compliance' && <ClinicCompliance data={filteredData} showToast={showToast} user={user} />}
+            {page === 'giftvoucher' && <GiftVoucher data={filteredData} showToast={showToast} user={user} />}
+            {page === 'docrating' && <DoctorRating data={filteredData} showToast={showToast} user={user} />}
+            {page === 'medreturn' && <MedicineReturn data={filteredData} showToast={showToast} user={user} />}
+            {page === 'partnership' && <ClinicPartnership data={filteredData} showToast={showToast} user={user} />}
+            {page === 'feedwall' && <ClinicFeedbackWall data={filteredData} showToast={showToast} user={user} />}
+            {page === 'invvalue' && <InventoryValuation data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
