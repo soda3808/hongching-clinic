@@ -248,7 +248,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
       <h2>支出分類排行</h2><table><tr><th>分類</th><th>金額</th></tr>
       ${topCats.map(([c, v]) => `<tr><td>${c}</td><td>${fmtM(v)}</td></tr>`).join('')}
       ${!topCats.length ? '<tr><td colspan="2">本月暫無開支記錄</td></tr>' : ''}
-      </table><p style="color:#888;font-size:12px;margin-top:30px">此報表由 Telegram 智能記帳 Bot v3 自動生成</p></body></html>`;
+      </table><p style="color:#888;font-size:12px;margin-top:30px">此報表由 Telegram 智能記帳 Bot v4 自動生成</p></body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   };
@@ -291,7 +291,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <h2 style={{ color: A, margin: '0 0 4px' }}>Telegram 智能記帳 Bot v3</h2>
+      <h2 style={{ color: A, margin: '0 0 4px' }}>Telegram 智能記帳 Bot v4</h2>
       <p style={{ color: '#888', fontSize: 13, margin: '0 0 16px' }}>AI 全自動記帳：自然語言、影相、CSV批量匯入，15+指令</p>
 
       {/* Tab bar */}
@@ -366,10 +366,16 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <code>/search 關鍵字</code> — 搜尋記錄<br />
               <code>/export</code> — 匯出月份 CSV<br />
               <code>/delete</code> — 刪除最後一筆<br />
+              <b>📈 進階分析</b><br />
+              <code>/compare</code> — 月度對比<br />
+              <code>/budget 50000</code> — 預算追蹤<br />
+              <code>/year 2026</code> — 年度報告<br />
               <b>🏥 診所營運</b><br />
               <code>/bk</code> — 今日預約<br />
               <code>/pt</code> — 今日病人<br />
-              <code>/rx</code> — 今日處方
+              <code>/rx</code> — 今日處方<br />
+              <b>🤖 自動報告</b><br />
+              每日 11pm · 每週一 · 每月1號自動發送
             </div>
           </div>
         </div>
@@ -768,7 +774,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
           </div>
 
           <div style={{ ...card, background: '#f0f9ff' }}>
-            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#0369a1' }}>v3 流程說明</h4>
+            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#0369a1' }}>v4 流程說明</h4>
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: '#475569', lineHeight: 1.8 }}>
               <li><b>🗣️ 自然語言</b>：直接講「今日買左100蚊中藥」，AI 自動理解</li>
               <li><b>📸 影相</b>：發送收據相片（caption 可指定分店名稱）</li>
@@ -776,7 +782,8 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <li><b>✍️ 格式</b>：<code>150, 百草堂, 藥材, 旺角</code>（支援中文逗號）</li>
               <li>以 + 開頭記錄收入，如 <code>+500, 張三, 診金, 旺角</code></li>
               <li>記錄<b>即時自動儲存</b>，每筆附帶 <b>Undo 按鈕</b></li>
-              <li>15+ 指令：/pnl /week /month /export /search /bk /pt /rx 等</li>
+              <li>20+ 指令：/pnl /week /month /compare /budget /year /export /bk /pt /rx 等</li>
+              <li><b>🤖 自動報告</b>：每日 11pm、每週一、每月1號自動發送到 TG</li>
             </ol>
           </div>
         </div>

@@ -256,7 +256,7 @@ async function autoSaveAndReply(chatId, ocr, storeOverride) {
 }
 
 async function handleTgExpense(req, res) {
-  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'tg-smart-accounting-v3', configured: !!expBotToken() });
+  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'tg-smart-accounting-v4', configured: !!expBotToken() });
   if (!expBotToken()) return res.status(200).json({ ok: true, error: 'Bot not configured' });
 
   try {
@@ -673,10 +673,153 @@ async function handleTgExpense(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    // ── /compare YYYY-MM — Compare two months side by side ──
+    if (text.startsWith('/compare')) {
+      const params = text.split(/\s+/).slice(1);
+      const now = new Date();
+      let m1, m2;
+      if (params.length >= 2 && params[0].match(/^\d{4}-\d{1,2}$/) && params[1].match(/^\d{4}-\d{1,2}$/)) {
+        m1 = params[0]; m2 = params[1];
+      } else if (params.length === 1 && params[0].match(/^\d{4}-\d{1,2}$/)) {
+        m1 = params[0];
+        const [cy, cm] = m1.split('-').map(Number);
+        let py = cy, pm = cm - 1; if (pm === 0) { py--; pm = 12; }
+        m2 = `${py}-${String(pm).padStart(2, '0')}`;
+      } else {
+        const cm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        let py = now.getFullYear(), pm = now.getMonth(); if (pm === 0) { py--; pm = 12; }
+        m1 = cm; m2 = `${py}-${String(pm).padStart(2, '0')}`;
+      }
+      const parse = (s) => { const [y, m] = s.split('-').map(Number); return monthRange(y, m); };
+      const r1 = parse(m1), r2 = parse(m2);
+      const [rev1, exp1, rev2, exp2] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${r1.ms}&date=lt.${r1.me}`),
+        sbSelectExp('expenses', `date=gte.${r1.ms}&date=lt.${r1.me}`),
+        sbSelectExp('revenue', `date=gte.${r2.ms}&date=lt.${r2.me}`),
+        sbSelectExp('expenses', `date=gte.${r2.ms}&date=lt.${r2.me}`),
+      ]);
+      const sum = (arr) => arr.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tR1 = sum(rev1), tE1 = sum(exp1), tR2 = sum(rev2), tE2 = sum(exp2);
+      const n1 = tR1 - tE1, n2 = tR2 - tE2;
+      const pct = (a, b) => b > 0 ? `${a >= b ? '+' : ''}${Math.round((a - b) / b * 100)}%` : '—';
+      let rpt = `<b>📊 月度對比</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `           <b>${m1}</b>    vs    <b>${m2}</b>\n`;
+      rpt += `💰 收入    ${tR1.toLocaleString()}         ${tR2.toLocaleString()}  (${pct(tR1, tR2)})\n`;
+      rpt += `🧾 支出    ${tE1.toLocaleString()}         ${tE2.toLocaleString()}  (${pct(tE1, tE2)})\n`;
+      rpt += `📈 淨利    ${n1.toLocaleString()}         ${n2.toLocaleString()}  (${pct(n1, n2)})\n`;
+      rpt += `📝 筆數    ${rev1.length + exp1.length}             ${rev2.length + exp2.length}\n`;
+      // Category comparison
+      const cats1 = {}, cats2 = {};
+      exp1.forEach(e => { cats1[e.category] = (cats1[e.category] || 0) + (Number(e.amount) || 0); });
+      exp2.forEach(e => { cats2[e.category] = (cats2[e.category] || 0) + (Number(e.amount) || 0); });
+      const allCats = [...new Set([...Object.keys(cats1), ...Object.keys(cats2)])];
+      if (allCats.length) {
+        rpt += '\n📁 <b>支出分類對比</b>\n';
+        allCats.sort((a, b) => (cats1[b] || 0) - (cats1[a] || 0)).slice(0, 8).forEach(c => {
+          const a1 = cats1[c] || 0, a2 = cats2[c] || 0;
+          rpt += `  ${c}：${a1.toLocaleString()} vs ${a2.toLocaleString()} (${pct(a1, a2)})\n`;
+        });
+      }
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /budget [amount] — Set/view monthly budget alert ──
+    if (text.startsWith('/budget')) {
+      const param = text.split(/\s+/)[1] || '';
+      const now = new Date();
+      const { ms, me } = monthRange(now.getFullYear(), now.getMonth() + 1);
+      const exp = await sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`);
+      const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const budgetAmt = Number(param) || Number(process.env.TG_MONTHLY_BUDGET) || 50000;
+      const pct = Math.round(tE / budgetAmt * 100);
+      const remaining = budgetAmt - tE;
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysPassed = now.getDate();
+      const daysLeft = daysInMonth - daysPassed;
+      const dailyBudget = daysLeft > 0 ? Math.round(remaining / daysLeft) : 0;
+      const bar = '█'.repeat(Math.min(Math.round(pct / 5), 20)) + '░'.repeat(Math.max(20 - Math.round(pct / 5), 0));
+      let emoji = '✅';
+      if (pct >= 100) emoji = '🚨';
+      else if (pct >= 80) emoji = '⚠️';
+      else if (pct >= 60) emoji = '📊';
+      let rpt = `<b>💰 ${now.getMonth() + 1}月預算</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `預算：HK$ ${budgetAmt.toLocaleString()}\n`;
+      rpt += `已用：HK$ ${tE.toLocaleString()}（${(exp || []).length}筆）\n`;
+      rpt += `剩餘：HK$ ${remaining.toLocaleString()}\n\n`;
+      rpt += `${emoji} [${bar}] ${pct}%\n\n`;
+      rpt += `📅 已過 ${daysPassed}/${daysInMonth} 天（剩 ${daysLeft} 天）\n`;
+      if (remaining > 0 && daysLeft > 0) rpt += `💡 每日預算：HK$ ${dailyBudget.toLocaleString()}\n`;
+      if (pct >= 100) rpt += '\n🚨 <b>已超出預算！</b>';
+      else if (pct >= 80) rpt += '\n⚠️ <b>接近預算上限！</b>';
+      rpt += `\n\n💡 設定預算：<code>/budget 60000</code>`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /year [YYYY] — Annual report ──
+    if (text.startsWith('/year')) {
+      const param = text.split(/\s+/)[1] || '';
+      const year = Number(param) || new Date().getFullYear();
+      const ys = `${year}-01-01`, ye = `${year + 1}-01-01`;
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ys}&date=lt.${ye}&order=date.asc`),
+        sbSelectExp('expenses', `date=gte.${ys}&date=lt.${ye}&order=date.asc`),
+      ]);
+      if (!rev.length && !exp.length) { await tgExpReply(chatId, `📊 ${year}年暫無記錄。`); return res.status(200).json({ ok: true }); }
+      const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      // Monthly breakdown
+      const byMonth = {};
+      for (let i = 1; i <= 12; i++) byMonth[i] = { r: 0, e: 0 };
+      rev.forEach(r => { const m = new Date(r.date).getMonth() + 1; byMonth[m].r += Number(r.amount) || 0; });
+      exp.forEach(e => { const m = new Date(e.date).getMonth() + 1; byMonth[m].e += Number(e.amount) || 0; });
+      let rpt = `<b>📊 ${year}年 年度報告</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      let bestMonth = 0, bestNet = -Infinity, worstMonth = 0, worstNet = Infinity;
+      for (let i = 1; i <= 12; i++) {
+        const { r, e } = byMonth[i];
+        if (r === 0 && e === 0) continue;
+        const net = r - e;
+        rpt += `${String(i).padStart(2, ' ')}月  💰${r.toLocaleString().padStart(8)} 🧾${e.toLocaleString().padStart(8)} ${net >= 0 ? '✅' : '❌'}${net.toLocaleString()}\n`;
+        if (net > bestNet) { bestNet = net; bestMonth = i; }
+        if (net < worstNet) { worstNet = net; worstMonth = i; }
+      }
+      // Category totals
+      const byCat = {};
+      exp.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + (Number(e.amount) || 0); });
+      const topCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      if (topCats.length) {
+        rpt += '\n📁 <b>年度 Top 支出</b>\n';
+        topCats.forEach(([c, a], i) => { rpt += `  ${i + 1}. ${c}：HK$ ${a.toLocaleString()} (${Math.round(a / tE * 100)}%)\n`; });
+      }
+      // By store
+      const stores = {};
+      rev.forEach(r => { const s = r.store || '未分店'; if (!stores[s]) stores[s] = { r: 0, e: 0 }; stores[s].r += Number(r.amount) || 0; });
+      exp.forEach(e => { const s = e.store || '未分店'; if (!stores[s]) stores[s] = { r: 0, e: 0 }; stores[s].e += Number(e.amount) || 0; });
+      if (Object.keys(stores).length > 1) {
+        rpt += '\n🏥 <b>分店年度</b>\n';
+        for (const [s, d] of Object.entries(stores).sort()) {
+          rpt += `  ${s}：💰${d.r.toLocaleString()} 🧾${d.e.toLocaleString()} = ${(d.r - d.e).toLocaleString()}\n`;
+        }
+      }
+      const net = tR - tE;
+      rpt += `\n━━━━━━━━━━━━━━━━━━\n<b>年度合計</b>\n`;
+      rpt += `  💰 收入：HK$ ${tR.toLocaleString()}（${rev.length}筆）\n`;
+      rpt += `  🧾 支出：HK$ ${tE.toLocaleString()}（${exp.length}筆）\n`;
+      rpt += `  ${net >= 0 ? '✅' : '❌'} 淨利：<b>HK$ ${net.toLocaleString()}</b>\n`;
+      if (tR > 0) rpt += `  利潤率：${Math.round(net / tR * 100)}%\n`;
+      rpt += `  月均收入：HK$ ${Math.round(tR / 12).toLocaleString()}\n`;
+      rpt += `  月均支出：HK$ ${Math.round(tE / 12).toLocaleString()}\n`;
+      if (bestMonth) rpt += `\n🏆 最佳月份：${bestMonth}月（淨利 HK$ ${bestNet.toLocaleString()}）`;
+      if (worstMonth && worstMonth !== bestMonth) rpt += `\n📉 最差月份：${worstMonth}月（淨利 HK$ ${worstNet.toLocaleString()}）`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
     // ── /start or /help ──
     if (text === '/start' || text === '/help') {
       await tgExpReply(chatId,
-        `<b>🧾 康晴智能記帳 Bot v3</b>\n\n` +
+        `<b>🧾 康晴智能記帳 Bot v4</b>\n\n` +
         `<b>🗣️ 自然語言（最懶）</b>\n` +
         `直接用廣東話講：\n` +
         `• 「今日買左100蚊中藥」\n` +
@@ -697,10 +840,17 @@ async function handleTgExpense(req, res) {
         `/search 關鍵字 — 搜尋\n` +
         `/export — 匯出CSV\n` +
         `/delete — 刪除最後一筆\n\n` +
+        `<b>📈 進階分析</b>\n` +
+        `/compare — 月度對比\n` +
+        `/budget 50000 — 預算追蹤\n` +
+        `/year 2026 — 年度報告\n\n` +
         `<b>🏥 診所營運</b>\n` +
         `/bk — 今日預約\n` +
         `/pt — 今日病人\n` +
-        `/rx — 今日處方`
+        `/rx — 今日處方\n\n` +
+        `<b>🤖 自動報告</b>\n` +
+        `每日 11pm · 每週一 · 每月1號\n` +
+        `自動發送報告到此對話`
       );
       return res.status(200).json({ ok: true });
     }

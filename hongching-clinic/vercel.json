@@ -11,6 +11,18 @@
     {
       "path": "/api/cron?action=data-retention",
       "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/cron?action=tg-daily",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron?action=tg-weekly",
+      "schedule": "0 0 * * 1"
+    },
+    {
+      "path": "/api/cron?action=tg-monthly",
+      "schedule": "0 1 1 * *"
     }
   ],
   "headers": [
