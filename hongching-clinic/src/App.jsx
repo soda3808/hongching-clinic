@@ -148,6 +148,12 @@ const PatientWaitlist = lazy(() => import('./components/PatientWaitlist'));
 const ClinicBudget = lazy(() => import('./components/ClinicBudget'));
 const PatientDemographics = lazy(() => import('./components/PatientDemographics'));
 const TelegramExpense = lazy(() => import('./components/TelegramExpense'));
+const PatientCheckIn = lazy(() => import('./components/PatientCheckIn'));
+const ClinicRenovation = lazy(() => import('./components/ClinicRenovation'));
+const HerbFormulaPrint = lazy(() => import('./components/HerbFormulaPrint'));
+const ClinicUtility = lazy(() => import('./components/ClinicUtility'));
+const PatientTransport = lazy(() => import('./components/PatientTransport'));
+const ClinicCompliance = lazy(() => import('./components/ClinicCompliance'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -283,6 +289,12 @@ const ALL_PAGES = [
   { id: 'budget', icon: '📊', label: '預算管理', section: '財務', perm: 'editExpenses' },
   { id: 'demographics', icon: '👥', label: '人口統計', section: '分析', perm: 'viewReports' },
   { id: 'tgexpense', icon: '🧾', label: 'TG收據入數', section: '財務', perm: 'editExpenses' },
+  { id: 'checkin', icon: '📱', label: '自助登記', section: '營運', perm: 'viewQueue' },
+  { id: 'renovation', icon: '🔨', label: '裝修維護', section: '營運', perm: 'editExpenses' },
+  { id: 'herbprint', icon: '🏷️', label: '藥方列印', section: '營運', perm: 'viewBilling' },
+  { id: 'utility', icon: '💡', label: '水電雜費', section: '財務', perm: 'editExpenses' },
+  { id: 'transport', icon: '🚐', label: '接送服務', section: '營運', perm: 'viewBookings' },
+  { id: 'compliance', icon: '📋', label: '法規合規', section: '系統', perm: 'viewSettings' },
 ];
 
 // Mobile bottom tab config
@@ -1179,6 +1191,12 @@ function MainApp() {
             {page === 'budget' && <ClinicBudget data={filteredData} showToast={showToast} user={user} />}
             {page === 'demographics' && <PatientDemographics data={filteredData} showToast={showToast} user={user} />}
             {page === 'tgexpense' && <TelegramExpense data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'checkin' && <PatientCheckIn data={filteredData} showToast={showToast} user={user} />}
+            {page === 'renovation' && <ClinicRenovation data={filteredData} showToast={showToast} user={user} />}
+            {page === 'herbprint' && <HerbFormulaPrint data={filteredData} showToast={showToast} user={user} />}
+            {page === 'utility' && <ClinicUtility data={filteredData} showToast={showToast} user={user} />}
+            {page === 'transport' && <PatientTransport data={filteredData} showToast={showToast} user={user} />}
+            {page === 'compliance' && <ClinicCompliance data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
