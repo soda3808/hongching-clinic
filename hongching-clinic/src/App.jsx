@@ -119,6 +119,10 @@ const SeasonalPromo = lazy(() => import('./components/SeasonalPromo'));
 const ClinicMap = lazy(() => import('./components/ClinicMap'));
 const PatientPortal = lazy(() => import('./components/PatientPortal'));
 const FinancialDashboard = lazy(() => import('./components/FinancialDashboard'));
+const ChronicDiseaseTracker = lazy(() => import('./components/ChronicDiseaseTracker'));
+const DigitalSignage = lazy(() => import('./components/DigitalSignage'));
+const LoyaltyProgram = lazy(() => import('./components/LoyaltyProgram'));
+const OperationsDashboard = lazy(() => import('./components/OperationsDashboard'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -225,6 +229,10 @@ const ALL_PAGES = [
   { id: 'clinicmap', icon: '🏠', label: '空間管理', section: '營運', perm: 'editExpenses' },
   { id: 'portal', icon: '🌐', label: '病人自助', section: '系統', perm: 'viewSettings' },
   { id: 'findash', icon: '💰', label: '財務總覽', section: '分析', perm: 'viewReports' },
+  { id: 'chronic', icon: '🩺', label: '慢性病管理', section: '病人', perm: 'viewEMR' },
+  { id: 'signage', icon: '📺', label: '候診室顯示', section: '營運', perm: 'viewQueue' },
+  { id: 'loyalty', icon: '🏆', label: '積分獎賞', section: '客戶', perm: 'viewPatients' },
+  { id: 'opsdash', icon: '📡', label: '即時面板', section: '總覽', perm: 'viewDashboard' },
 ];
 
 // Mobile bottom tab config
@@ -1092,6 +1100,10 @@ function MainApp() {
             {page === 'clinicmap' && <ClinicMap showToast={showToast} user={user} />}
             {page === 'portal' && <PatientPortal showToast={showToast} user={user} />}
             {page === 'findash' && <FinancialDashboard data={filteredData} showToast={showToast} user={user} />}
+            {page === 'chronic' && <ChronicDiseaseTracker data={filteredData} showToast={showToast} user={user} />}
+            {page === 'signage' && <DigitalSignage data={filteredData} showToast={showToast} user={user} />}
+            {page === 'loyalty' && <LoyaltyProgram data={filteredData} showToast={showToast} user={user} />}
+            {page === 'opsdash' && <OperationsDashboard data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
