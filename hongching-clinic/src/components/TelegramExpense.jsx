@@ -248,7 +248,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
       <h2>支出分類排行</h2><table><tr><th>分類</th><th>金額</th></tr>
       ${topCats.map(([c, v]) => `<tr><td>${c}</td><td>${fmtM(v)}</td></tr>`).join('')}
       ${!topCats.length ? '<tr><td colspan="2">本月暫無開支記錄</td></tr>' : ''}
-      </table><p style="color:#888;font-size:12px;margin-top:30px">此報表由 Telegram 智能記帳 Bot v2 自動生成</p></body></html>`;
+      </table><p style="color:#888;font-size:12px;margin-top:30px">此報表由 Telegram 智能記帳 Bot v3 自動生成</p></body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   };
@@ -291,8 +291,8 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <h2 style={{ color: A, margin: '0 0 4px' }}>Telegram 智能記帳 Bot v2</h2>
-      <p style={{ color: '#888', fontSize: 13, margin: '0 0 16px' }}>AI 全自動記帳：影相即記錄，支持開支＋收入，分店歸類</p>
+      <h2 style={{ color: A, margin: '0 0 4px' }}>Telegram 智能記帳 Bot v3</h2>
+      <p style={{ color: '#888', fontSize: 13, margin: '0 0 16px' }}>AI 全自動記帳：自然語言、影相、CSV批量匯入，15+指令</p>
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -338,28 +338,38 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
           </div>
 
           <div style={{ ...card, background: '#f0fdfa' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 14, color: A }}>v2 Bot 功能指南</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: 14, color: A }}>v3 Bot 功能指南</h3>
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#475569', lineHeight: 2 }}>
               <li>在 Telegram 搜尋 <b>@BotFather</b>，輸入 /newbot 建立新機器人</li>
               <li>複製取得的 Bot Token 並貼上，將 Webhook URL 設定至 Telegram Bot API</li>
               <li>發送 <b>/start</b> 給機器人，查看所有指令說明</li>
-              <li><b>記錄開支</b>：直接發送收據相片（caption 可填分店名稱），或輸入文字如 <code>150, 百草堂, 藥材, 旺角</code></li>
-              <li><b>記錄收入</b>：以 + 開頭輸入，如 <code>+500, 張三, 診金, 旺角</code></li>
-              <li>所有記錄會 <b>自動儲存</b>，每筆記錄附帶 Undo 按鈕可即時撤銷</li>
-              <li>使用 <b>/today</b> 查看今日記錄，<b>/pnl</b> 查看分店損益，<b>/report</b> 查看月度報表</li>
-              <li>使用 <b>/status</b> 查看 Bot 狀態，<b>/help</b> 查看完整指令列表</li>
+              <li><b>🗣️ 自然語言</b>：直接用廣東話講，如「今日買左100蚊中藥」，AI 自動理解＋記錄</li>
+              <li><b>📸 影相模式</b>：直接發送收據相片（caption 可填分店名稱）</li>
+              <li><b>📎 CSV匯入</b>：發送 CSV 檔案，AI 自動解析所有記錄</li>
+              <li><b>✍️ 格式輸入</b>：<code>金額, 商戶, 分類, 分店</code>（支援中文逗號）</li>
+              <li>所有記錄 <b>自動儲存</b>，每筆附帶 Undo 按鈕可即時撤銷</li>
             </ol>
           </div>
 
           <div style={{ ...card, background: '#fffbeb' }}>
-            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#92400e' }}>Bot 指令一覽</h4>
+            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#92400e' }}>Bot 指令一覽（v3）</h4>
             <div style={{ fontSize: 12, color: '#78716c', lineHeight: 2 }}>
-              <code>/start</code> — 開始使用，顯示歡迎訊息<br />
-              <code>/help</code> — 查看完整使用說明<br />
-              <code>/today</code> — 查看今日所有記錄<br />
-              <code>/pnl</code> — 按分店查看損益<br />
-              <code>/report</code> — 本月損益摘要報表<br />
-              <code>/status</code> — 查看 Bot 狀態與設定
+              <b>📊 財務報表</b><br />
+              <code>/pnl</code> — 本月損益表（按分店）<br />
+              <code>/month 2026-02</code> — 指定月份損益表<br />
+              <code>/week</code> — 本週每日收支總結<br />
+              <code>/today</code> — 今日記錄<br />
+              <code>/report</code> — 支出分類明細<br />
+              <code>/top</code> — 本月最大開支排名<br />
+              <code>/status</code> — 快速狀態<br />
+              <code>/last 10</code> — 最近 N 筆記錄<br />
+              <code>/search 關鍵字</code> — 搜尋記錄<br />
+              <code>/export</code> — 匯出月份 CSV<br />
+              <code>/delete</code> — 刪除最後一筆<br />
+              <b>🏥 診所營運</b><br />
+              <code>/bk</code> — 今日預約<br />
+              <code>/pt</code> — 今日病人<br />
+              <code>/rx</code> — 今日處方
             </div>
           </div>
         </div>
@@ -758,15 +768,15 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
           </div>
 
           <div style={{ ...card, background: '#f0f9ff' }}>
-            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#0369a1' }}>v2 流程說明</h4>
+            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#0369a1' }}>v3 流程說明</h4>
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: '#475569', lineHeight: 1.8 }}>
-              <li>使用者透過 Telegram 發送收據相片（caption 可指定分店名稱）</li>
-              <li>或輸入文字記錄，如 <code>150, 百草堂, 藥材, 旺角</code></li>
+              <li><b>🗣️ 自然語言</b>：直接講「今日買左100蚊中藥」，AI 自動理解</li>
+              <li><b>📸 影相</b>：發送收據相片（caption 可指定分店名稱）</li>
+              <li><b>📎 批量</b>：發送 CSV 檔案，AI 自動解析匯入</li>
+              <li><b>✍️ 格式</b>：<code>150, 百草堂, 藥材, 旺角</code>（支援中文逗號）</li>
               <li>以 + 開頭記錄收入，如 <code>+500, 張三, 診金, 旺角</code></li>
-              <li>Bot 進行 AI 識別，自動提取金額、商戶、日期、分類</li>
-              <li>記錄<b>即時自動儲存</b>，無需人工確認</li>
-              <li>每筆記錄附帶 <b>Undo 按鈕</b>，可一鍵撤銷</li>
-              <li>使用 /today、/pnl、/report 隨時查看記錄與損益</li>
+              <li>記錄<b>即時自動儲存</b>，每筆附帶 <b>Undo 按鈕</b></li>
+              <li>15+ 指令：/pnl /week /month /export /search /bk /pt /rx 等</li>
             </ol>
           </div>
         </div>

@@ -579,24 +579,28 @@ async function handleTgExpense(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // ── /rx or /meds — Today's prescriptions ──
+    // ── /rx or /meds — Today's prescriptions (from consultations table) ──
     if (text === '/rx' || text === '/meds' || text === '/prescriptions') {
       const today = new Date().toISOString().slice(0, 10);
       try {
-        const rxList = await sbSelectExp('prescriptions', `date=eq.${today}&order=created_at.desc`);
-        if (!rxList.length) { await tgExpReply(chatId, `💊 ${today} 暫無處方記錄。`); return res.status(200).json({ ok: true }); }
+        const consults = await sbSelectExp('consultations', `date=eq.${today}&order=created_at.desc`);
+        const withRx = consults.filter(c => c.prescription && (Array.isArray(c.prescription) ? c.prescription.length > 0 : true));
+        if (!withRx.length) { await tgExpReply(chatId, `💊 ${today} 暫無處方記錄。`); return res.status(200).json({ ok: true }); }
         let rpt = `<b>💊 ${today} 處方</b>\n\n`;
-        rxList.forEach((rx, i) => {
-          rpt += `${i + 1}. ${rx.patient_name || '未知'}\n   👨‍⚕️ ${rx.doctor || '?'} | ${rx.store ? '@' + rx.store : ''}\n`;
-          if (rx.herbs || rx.items) {
-            const items = rx.herbs || rx.items || '';
-            rpt += `   💊 ${typeof items === 'string' ? items.substring(0, 80) : JSON.stringify(items).substring(0, 80)}\n`;
+        withRx.forEach((c, i) => {
+          rpt += `${i + 1}. <b>${c.patientName || '未知'}</b>\n   👨‍⚕️ ${c.doctor || '?'}${c.store ? ' @' + c.store : ''}`;
+          if (c.formulaName) rpt += ` | 方劑：${c.formulaName}`;
+          rpt += '\n';
+          const rx = Array.isArray(c.prescription) ? c.prescription : [];
+          if (rx.length) {
+            const herbs = rx.filter(r => r.herb).map(r => `${r.herb}${r.dosage ? r.dosage + 'g' : ''}`).slice(0, 8);
+            rpt += `   💊 ${herbs.join('、')}${rx.length > 8 ? '...' : ''}\n`;
           }
-          if (rx.notes) rpt += `   📝 ${rx.notes.substring(0, 50)}\n`;
+          if (c.formulaDays) rpt += `   📅 ${c.formulaDays}日\n`;
         });
-        rpt += `\n共 ${rxList.length} 張處方`;
+        rpt += `\n共 ${withRx.length} 張處方`;
         await tgExpReply(chatId, rpt);
-      } catch { await tgExpReply(chatId, '💊 暫時無法讀取處方資料。請確認 prescriptions 表已設置。'); }
+      } catch (rxErr) { console.error('rx error:', rxErr); await tgExpReply(chatId, '💊 暫時無法讀取處方資料。'); }
       return res.status(200).json({ ok: true });
     }
 
