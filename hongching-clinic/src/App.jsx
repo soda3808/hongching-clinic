@@ -172,6 +172,12 @@ const StaffCertification = lazy(() => import('./components/StaffCertification'))
 const ClinicSafetyChecklist = lazy(() => import('./components/ClinicSafetyChecklist'));
 const MedicalSupplyOrder = lazy(() => import('./components/MedicalSupplyOrder'));
 const PatientMedication = lazy(() => import('./components/PatientMedication'));
+const ClinicRoomBooking = lazy(() => import('./components/ClinicRoomBooking'));
+const PatientInsurance = lazy(() => import('./components/PatientInsurance'));
+const ClinicRevenueBreakdown = lazy(() => import('./components/ClinicRevenueBreakdown'));
+const HerbSourcingTracker = lazy(() => import('./components/HerbSourcingTracker'));
+const ClinicFloorPlan = lazy(() => import('./components/ClinicFloorPlan'));
+const PatientCommunity = lazy(() => import('./components/PatientCommunity'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -331,6 +337,12 @@ const ALL_PAGES = [
   { id: 'safetychk', icon: '🔒', label: '安全檢查', section: '營運', perm: 'viewSettings' },
   { id: 'supplyorder', icon: '🏥', label: '物資採購', section: '營運', perm: 'editExpenses' },
   { id: 'patmed', icon: '💊', label: '用藥管理', section: '病人', perm: 'viewEMR' },
+  { id: 'roombooking', icon: '🚪', label: '診室預約', section: '營運', perm: 'editExpenses' },
+  { id: 'patinsurance', icon: '🛡️', label: '保險管理', section: '病人', perm: 'viewEMR' },
+  { id: 'revbreakdown', icon: '📊', label: '營收細分', section: '分析', perm: 'viewReports' },
+  { id: 'herbsource', icon: '🌿', label: '藥材溯源', section: '營運', perm: 'viewBilling' },
+  { id: 'floorplan', icon: '🗺️', label: '平面圖', section: '系統', perm: 'viewSettings' },
+  { id: 'community', icon: '👥', label: '健康社區', section: '客戶', perm: 'viewPatients' },
 ];
 
 // Mobile bottom tab config
@@ -1251,6 +1263,12 @@ function MainApp() {
             {page === 'safetychk' && <ClinicSafetyChecklist data={filteredData} showToast={showToast} user={user} />}
             {page === 'supplyorder' && <MedicalSupplyOrder data={filteredData} showToast={showToast} user={user} />}
             {page === 'patmed' && <PatientMedication data={filteredData} showToast={showToast} user={user} />}
+            {page === 'roombooking' && <ClinicRoomBooking data={filteredData} showToast={showToast} user={user} />}
+            {page === 'patinsurance' && <PatientInsurance data={filteredData} showToast={showToast} user={user} />}
+            {page === 'revbreakdown' && <ClinicRevenueBreakdown data={filteredData} showToast={showToast} user={user} />}
+            {page === 'herbsource' && <HerbSourcingTracker data={filteredData} showToast={showToast} user={user} />}
+            {page === 'floorplan' && <ClinicFloorPlan data={filteredData} showToast={showToast} user={user} />}
+            {page === 'community' && <PatientCommunity data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
