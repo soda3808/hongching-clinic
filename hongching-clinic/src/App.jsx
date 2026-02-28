@@ -123,6 +123,12 @@ const ChronicDiseaseTracker = lazy(() => import('./components/ChronicDiseaseTrac
 const DigitalSignage = lazy(() => import('./components/DigitalSignage'));
 const LoyaltyProgram = lazy(() => import('./components/LoyaltyProgram'));
 const OperationsDashboard = lazy(() => import('./components/OperationsDashboard'));
+const WasteManagement = lazy(() => import('./components/WasteManagement'));
+const EmergencyProtocol = lazy(() => import('./components/EmergencyProtocol'));
+const PatientSatisfactionReport = lazy(() => import('./components/PatientSatisfactionReport'));
+const HealthScreening = lazy(() => import('./components/HealthScreening'));
+const DocumentTemplate = lazy(() => import('./components/DocumentTemplate'));
+const StaffEvaluation = lazy(() => import('./components/StaffEvaluation'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -233,6 +239,12 @@ const ALL_PAGES = [
   { id: 'signage', icon: '📺', label: '候診室顯示', section: '營運', perm: 'viewQueue' },
   { id: 'loyalty', icon: '🏆', label: '積分獎賞', section: '客戶', perm: 'viewPatients' },
   { id: 'opsdash', icon: '📡', label: '即時面板', section: '總覽', perm: 'viewDashboard' },
+  { id: 'waste', icon: '🗑️', label: '廢物管理', section: '營運', perm: 'editExpenses' },
+  { id: 'emergency', icon: '🆘', label: '緊急應變', section: '系統', perm: 'viewSettings' },
+  { id: 'satreport', icon: '📊', label: '滿意度報告', section: '分析', perm: 'viewReports' },
+  { id: 'screening', icon: '🏥', label: '健康檢查', section: '病人', perm: 'viewEMR' },
+  { id: 'doctpl', icon: '📝', label: '文件範本', section: '系統', perm: 'viewSettings' },
+  { id: 'staffeval', icon: '⭐', label: '員工考核', section: '人事', perm: 'viewSettings' },
 ];
 
 // Mobile bottom tab config
@@ -1104,6 +1116,12 @@ function MainApp() {
             {page === 'signage' && <DigitalSignage data={filteredData} showToast={showToast} user={user} />}
             {page === 'loyalty' && <LoyaltyProgram data={filteredData} showToast={showToast} user={user} />}
             {page === 'opsdash' && <OperationsDashboard data={filteredData} showToast={showToast} user={user} />}
+            {page === 'waste' && <WasteManagement data={filteredData} showToast={showToast} user={user} />}
+            {page === 'emergency' && <EmergencyProtocol data={filteredData} showToast={showToast} user={user} />}
+            {page === 'satreport' && <PatientSatisfactionReport data={filteredData} showToast={showToast} user={user} />}
+            {page === 'screening' && <HealthScreening data={filteredData} setData={updateData} showToast={showToast} user={user} />}
+            {page === 'doctpl' && <DocumentTemplate data={filteredData} showToast={showToast} user={user} />}
+            {page === 'staffeval' && <StaffEvaluation data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
