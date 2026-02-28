@@ -799,7 +799,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <li><b>✍️ 格式</b>：<code>150, 百草堂, 藥材, 旺角</code>（支援中文逗號）</li>
               <li>以 + 開頭記錄收入，如 <code>+500, 張三, 診金, 旺角</code></li>
               <li>記錄<b>即時自動儲存</b>，每筆附帶 <b>Undo 按鈕</b></li>
-              <li>30+ 指令：/pnl /week /compare /budget /year /trend /arap /payslip /cash /inv /stats /export 等</li>
+              <li>30+ 指令：/dash /pnl /week /compare /budget /year /trend /range /store /arap /payslip /cash /inv /stats /export 等</li>
               <li><b>🤖 自動報告</b>：每日 11pm、每週一、每月1號自動發送到 TG</li>
             </ol>
           </div>
