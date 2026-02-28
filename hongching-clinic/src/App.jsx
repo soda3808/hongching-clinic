@@ -135,6 +135,12 @@ const ShiftHandover = lazy(() => import('./components/ShiftHandover'));
 const ClinicalPathway = lazy(() => import('./components/ClinicalPathway'));
 const ClinicInsurance = lazy(() => import('./components/ClinicInsurance'));
 const WorkflowAutomation = lazy(() => import('./components/WorkflowAutomation'));
+const TelemedicineConsult = lazy(() => import('./components/TelemedicineConsult'));
+const ClinicBenchmark = lazy(() => import('./components/ClinicBenchmark'));
+const PatientConsentLog = lazy(() => import('./components/PatientConsentLog'));
+const PriceList = lazy(() => import('./components/PriceList'));
+const ResourceScheduling = lazy(() => import('./components/ResourceScheduling'));
+const ClinicAnnouncement = lazy(() => import('./components/ClinicAnnouncement'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -257,6 +263,12 @@ const ALL_PAGES = [
   { id: 'pathway', icon: '🛤️', label: '臨床路徑', section: '病人', perm: 'viewEMR' },
   { id: 'clinicins', icon: '🛡️', label: '診所保險', section: '營運', perm: 'editExpenses' },
   { id: 'workflow', icon: '⚙️', label: '流程自動化', section: '系統', perm: 'viewSettings' },
+  { id: 'telemedicine', icon: '📹', label: '遠程診症', section: '病人', perm: 'viewEMR' },
+  { id: 'benchmark', icon: '📏', label: '行業對標', section: '分析', perm: 'viewReports' },
+  { id: 'consentlog', icon: '✍️', label: '同意書記錄', section: '病人', perm: 'viewPatients' },
+  { id: 'pricelist', icon: '💲', label: '價目表', section: '營運', perm: 'editRevenue' },
+  { id: 'resource', icon: '🏠', label: '資源排程', section: '營運', perm: 'editExpenses' },
+  { id: 'announce', icon: '📣', label: '內部公告', section: '總覽', perm: 'viewDashboard' },
 ];
 
 // Mobile bottom tab config
@@ -1140,6 +1152,12 @@ function MainApp() {
             {page === 'pathway' && <ClinicalPathway data={filteredData} showToast={showToast} user={user} />}
             {page === 'clinicins' && <ClinicInsurance data={filteredData} showToast={showToast} user={user} />}
             {page === 'workflow' && <WorkflowAutomation data={filteredData} showToast={showToast} user={user} />}
+            {page === 'telemedicine' && <TelemedicineConsult data={filteredData} showToast={showToast} user={user} />}
+            {page === 'benchmark' && <ClinicBenchmark data={filteredData} showToast={showToast} user={user} />}
+            {page === 'consentlog' && <PatientConsentLog data={filteredData} showToast={showToast} user={user} />}
+            {page === 'pricelist' && <PriceList data={filteredData} showToast={showToast} user={user} />}
+            {page === 'resource' && <ResourceScheduling data={filteredData} showToast={showToast} user={user} />}
+            {page === 'announce' && <ClinicAnnouncement data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
