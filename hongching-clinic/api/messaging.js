@@ -350,6 +350,68 @@ async function handleTgExpense(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    // ── Document (PDF) → AI scan receipt/invoice ──
+    if (msg.document && ((msg.document.mime_type || '').includes('pdf') || (msg.document.file_name || '').toLowerCase().endsWith('.pdf'))) {
+      await tgExpReply(chatId, '📄 AI 正在掃描 PDF...');
+      try {
+        const { buffer, mime } = await tgExpDownloadPhoto(msg.document.file_id);
+        if (!buffer || buffer.length < 100) { await tgExpReply(chatId, '❌ PDF 下載失敗，請重新發送'); return res.status(200).json({ ok: true }); }
+        if (buffer.length > 10 * 1024 * 1024) { await tgExpReply(chatId, '❌ PDF 太大（最大 10MB），請壓縮後再發送'); return res.status(200).json({ ok: true }); }
+        const b64 = buffer.toString('base64');
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+        const extra = caption ? `\n用戶備註：「${caption}」` : '';
+        console.log(`[PDF] File size: ${buffer.length} bytes, b64 length: ${b64.length}`);
+        const pdfR = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6', max_tokens: 2000,
+            messages: [{ role: 'user', content: [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
+              { type: 'text', text: `你是中醫診所「康晴中醫」的會計AI。仔細分析這份 PDF 文件中的所有內容。${extra}
+
+這可能是收據、發票、帳單、月結單、或其他財務文件。請提取所有交易記錄。
+
+如果文件包含多筆交易（例如月結單），請全部提取。
+
+JSON array 回覆（無markdown無解釋）：
+[{"type":"expense"或"revenue","amount":數字,"vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1}]
+
+如果完全無法識別任何交易，回傳：[{"error":"無法識別PDF內容"}]
+
+開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他
+收入分類：診金,藥費,針灸,推拿,其他治療` },
+            ] }],
+          }),
+        });
+        if (!pdfR.ok) {
+          const errBody = await pdfR.text().catch(() => '');
+          console.error(`[PDF] Claude API error ${pdfR.status}:`, errBody);
+          throw new Error(`Claude API ${pdfR.status}`);
+        }
+        const pdfData = await pdfR.json();
+        const pdfTxt = pdfData.content?.[0]?.text || '';
+        console.log('[PDF] Claude response:', pdfTxt.slice(0, 300));
+        const pdfMatch = pdfTxt.match(/\[[\s\S]*\]/);
+        if (!pdfMatch) { await tgExpReply(chatId, '🤔 掃描唔到 PDF 內容。請確保文件清晰可讀。'); return res.status(200).json({ ok: true }); }
+        const entries = JSON.parse(pdfMatch[0]).filter(e => !e.error && e.amount > 0);
+        if (!entries.length) { await tgExpReply(chatId, '🤔 PDF 入面搵唔到交易記錄。\n\n請確保係收據、發票或帳單。'); return res.status(200).json({ ok: true }); }
+        let saved = 0; let totalAmt = 0;
+        for (const ocr of entries) {
+          await autoSaveAndReply(chatId, ocr, ocr.store_hint || storeFromCaption);
+          saved++; totalAmt += ocr.amount || 0;
+        }
+        if (saved > 1) {
+          await tgExpReply(chatId, `✅ <b>PDF 掃描完成</b>\n\n📝 共 ${saved} 筆記錄\n💵 總額 HK$ ${totalAmt.toLocaleString()}\n\n每筆都有撤銷按鈕。`);
+        }
+      } catch (pdfErr) {
+        console.error('PDF scan error:', pdfErr);
+        await tgExpReply(chatId, `❌ PDF 處理失敗：${pdfErr.message}\n\n可以試下：\n• 將 PDF 轉成圖片再 send\n• 或直接打字記帳`);
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Document (CSV/TXT) → bulk import via AI ──
     if (msg.document && !(msg.document.mime_type || '').startsWith('image/')) {
       const fname = (msg.document.file_name || '').toLowerCase();
@@ -393,6 +455,10 @@ async function handleTgExpense(req, res) {
         }
         return res.status(200).json({ ok: true });
       }
+      // Unknown document type
+      const ftype = msg.document.mime_type || msg.document.file_name || '未知格式';
+      await tgExpReply(chatId, `📎 唔支援呢個檔案格式（${ftype}）\n\n支援格式：\n📸 圖片（JPG/PNG）\n📄 PDF（收據/發票）\n📊 CSV/TXT（批量匯入）`);
+      return res.status(200).json({ ok: true });
     }
 
     // ── Text: +amount = revenue, amount = expense (supports ，and ,) ──
