@@ -107,6 +107,12 @@ const ContractManagement = lazy(() => import('./components/ContractManagement'))
 const ClinicCalendar = lazy(() => import('./components/ClinicCalendar'));
 const InventoryExpiry = lazy(() => import('./components/InventoryExpiry'));
 const PatientGroup = lazy(() => import('./components/PatientGroup'));
+const MedicalHistory = lazy(() => import('./components/MedicalHistory'));
+const MPFCalculator = lazy(() => import('./components/MPFCalculator'));
+const CommissionCalculator = lazy(() => import('./components/CommissionCalculator'));
+const IncidentReport = lazy(() => import('./components/IncidentReport'));
+const QualityAudit = lazy(() => import('./components/QualityAudit'));
+const SOPManagement = lazy(() => import('./components/SOPManagement'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -201,6 +207,12 @@ const ALL_PAGES = [
   { id: 'cliniccal', icon: '🗓️', label: '診所日曆', section: '總覽', perm: 'viewDashboard' },
   { id: 'expiry', icon: '⏳', label: '有效期管理', section: '營運', perm: 'editExpenses' },
   { id: 'ptgroup', icon: '👥', label: '病人分組', section: '客戶', perm: 'viewPatients' },
+  { id: 'medhist', icon: '📋', label: '病歷總覽', section: '病人', perm: 'viewEMR' },
+  { id: 'mpf', icon: '🏦', label: '強積金', section: '人事', perm: 'viewPayroll' },
+  { id: 'commission', icon: '💰', label: '佣金計算', section: '人事', perm: 'viewPayroll' },
+  { id: 'incident', icon: '🚨', label: '事故報告', section: '系統', perm: 'viewSettings' },
+  { id: 'qualityaudit', icon: '✅', label: '質量審核', section: '系統', perm: 'viewSettings' },
+  { id: 'sop', icon: '📘', label: 'SOP管理', section: '系統', perm: 'viewSettings' },
 ];
 
 // Mobile bottom tab config
@@ -1056,6 +1068,12 @@ function MainApp() {
             {page === 'cliniccal' && <ClinicCalendar data={filteredData} showToast={showToast} user={user} />}
             {page === 'expiry' && <InventoryExpiry data={filteredData} showToast={showToast} user={user} />}
             {page === 'ptgroup' && <PatientGroup data={filteredData} showToast={showToast} user={user} />}
+            {page === 'medhist' && <MedicalHistory data={filteredData} showToast={showToast} user={user} />}
+            {page === 'mpf' && <MPFCalculator data={filteredData} showToast={showToast} user={user} />}
+            {page === 'commission' && <CommissionCalculator data={filteredData} showToast={showToast} user={user} />}
+            {page === 'incident' && <IncidentReport showToast={showToast} user={user} />}
+            {page === 'qualityaudit' && <QualityAudit showToast={showToast} user={user} />}
+            {page === 'sop' && <SOPManagement showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
