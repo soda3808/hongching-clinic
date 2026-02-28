@@ -267,7 +267,7 @@ async function autoSaveAndReply(chatId, ocr, storeOverride) {
 }
 
 async function handleTgExpense(req, res) {
-  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'tg-smart-accounting-v4', configured: !!expBotToken() });
+  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'tg-smart-accounting-v5', configured: !!expBotToken() });
   if (!expBotToken()) return res.status(200).json({ ok: true, error: 'Bot not configured' });
 
   try {
