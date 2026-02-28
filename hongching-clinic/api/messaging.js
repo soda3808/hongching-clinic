@@ -108,6 +108,36 @@ function sbHeaders() { const k = process.env.SUPABASE_SERVICE_KEY; return { apik
 function sbUrl(table, f = '') { const b = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL; return `${b}/rest/v1/${table}${f ? `?${f}` : ''}`; }
 async function tgExpCall(method, body) { const r = await fetch(`${TG_EXPENSE_API}${expBotToken()}/${method}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); }
 async function tgExpReply(chatId, text, extra = {}) { return tgExpCall('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', ...extra }); }
+async function tgSendDocument(chatId, content, filename, caption = '') {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+  const form = new FormData();
+  form.append('chat_id', chatId.toString());
+  form.append('document', blob, filename);
+  if (caption) { form.append('caption', caption); form.append('parse_mode', 'HTML'); }
+  const r = await fetch(`${TG_EXPENSE_API}${expBotToken()}/sendDocument`, { method: 'POST', body: form });
+  return r.json();
+}
+function monthRange(y, m) {
+  const ms = `${y}-${String(m).padStart(2, '0')}-01`;
+  const me = new Date(y, m, 1).toISOString().slice(0, 10);
+  return { ms, me };
+}
+function buildPnlReport(title, rev, exp) {
+  const stores = {};
+  const add = (s, t, a) => { const k = s || '未分店'; if (!stores[k]) stores[k] = { r: 0, e: 0 }; stores[k][t] += a; };
+  rev.forEach(r => add(r.store, 'r', Number(r.amount) || 0));
+  exp.forEach(e => add(e.store, 'e', Number(e.amount) || 0));
+  const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  let rpt = `<b>📊 ${title}</b>\n━━━━━━━━━━━━━━━━━━\n`;
+  for (const [st, d] of Object.entries(stores).sort()) {
+    const net = d.r - d.e;
+    rpt += `\n🏥 <b>${st}</b>\n  收入：HK$ ${d.r.toLocaleString()}\n  支出：HK$ ${d.e.toLocaleString()}\n  損益：${net >= 0 ? '✅' : '❌'} HK$ ${net.toLocaleString()}\n`;
+  }
+  rpt += `\n━━━━━━━━━━━━━━━━━━\n<b>合計</b>\n  收入：HK$ ${tR.toLocaleString()}\n  支出：HK$ ${tE.toLocaleString()}\n  淨利：${tR - tE >= 0 ? '✅' : '❌'} <b>HK$ ${(tR - tE).toLocaleString()}</b>\n  利潤率：${tR > 0 ? Math.round((tR - tE) / tR * 100) : 0}%\n\n📝 ${rev.length}筆收入 | ${exp.length}筆支出`;
+  return rpt;
+}
+async function sbDeleteExp(table, id) { await fetch(sbUrl(table, `id=eq.${id}`), { method: 'DELETE', headers: sbHeaders() }); }
 
 async function tgExpDownloadPhoto(fileId) {
   const fi = await tgExpCall('getFile', { file_id: fileId });
@@ -226,7 +256,7 @@ async function autoSaveAndReply(chatId, ocr, storeOverride) {
 }
 
 async function handleTgExpense(req, res) {
-  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'tg-smart-accounting-v2', configured: !!expBotToken() });
+  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'tg-smart-accounting-v3', configured: !!expBotToken() });
   if (!expBotToken()) return res.status(200).json({ ok: true, error: 'Bot not configured' });
 
   try {
@@ -289,6 +319,51 @@ async function handleTgExpense(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    // ── Document (CSV/TXT) → bulk import via AI ──
+    if (msg.document && !(msg.document.mime_type || '').startsWith('image/')) {
+      const fname = (msg.document.file_name || '').toLowerCase();
+      const dmime = (msg.document.mime_type || '');
+      if (dmime.includes('csv') || dmime.includes('text') || dmime.includes('spreadsheet') || fname.match(/\.(csv|tsv|txt)$/)) {
+        await tgExpReply(chatId, '📊 批量匯入處理中...');
+        try {
+          const fi = await tgExpCall('getFile', { file_id: msg.document.file_id });
+          if (!fi.ok) throw new Error('Cannot get file');
+          const fUrl = `https://api.telegram.org/file/bot${expBotToken()}/${fi.result.file_path}`;
+          const fRes = await fetch(fUrl);
+          const csvText = await fRes.text();
+          const lines = csvText.split('\n').filter(l => l.trim()).length;
+          if (lines > 200) { await tgExpReply(chatId, '❌ 檔案太大（最多200行）。請分批匯入。'); return res.status(200).json({ ok: true }); }
+          // Use AI to parse CSV with higher token limit
+          const apiKey = process.env.ANTHROPIC_API_KEY;
+          const today = new Date().toISOString().slice(0, 10);
+          const csvR = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({
+              model: 'claude-haiku-4-5-20251001', max_tokens: 4000,
+              messages: [{ role: 'user', content: `你是會計AI。以下是CSV/表格數據，請提取所有交易記錄。今日：${today}\n\n${csvText}\n\nJSON array 回覆（無markdown）：\n[{"type":"expense"或"revenue","amount":數字,"vendor":"商戶/客戶","date":"YYYY-MM-DD","category":"分類","item":"描述","payment":"現金","store_hint":"分店","confidence":1}]\n\n開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他\n收入分類：診金,藥費,針灸,推拿,其他治療` }],
+            }),
+          });
+          if (!csvR.ok) throw new Error(`AI error ${csvR.status}`);
+          const csvData = await csvR.json();
+          const csvTxt = csvData.content?.[0]?.text || '';
+          const csvMatch = csvTxt.match(/\[[\s\S]*\]/);
+          if (!csvMatch) throw new Error('AI 無法解析');
+          const entries = JSON.parse(csvMatch[0]).filter(e => e.amount > 0 && !e.error);
+          let savedCount = 0; let totalAmt = 0;
+          for (const ocr of entries) {
+            await autoSaveAndReply(chatId, ocr, ocr.store_hint || '');
+            savedCount++; totalAmt += ocr.amount || 0;
+          }
+          await tgExpReply(chatId, `✅ <b>批量匯入完成</b>\n\n📝 共 ${savedCount} 筆記錄\n💵 總額 HK$ ${totalAmt.toLocaleString()}\n\n每筆都有撤銷按鈕，有錯可以逐筆撤銷。`);
+        } catch (csvErr) {
+          console.error('CSV import error:', csvErr);
+          await tgExpReply(chatId, `❌ 匯入失敗：${csvErr.message}\n\nCSV 格式建議：\n<code>日期,金額,商戶,分類,分店</code>`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+    }
+
     // ── Text: +amount = revenue, amount = expense (supports ，and ,) ──
     const normText = text.replace(/，/g, ',');
     if (!normText.startsWith('/') && (normText.includes(',') || /^[+]?\d/.test(normText))) {
@@ -325,25 +400,224 @@ async function handleTgExpense(req, res) {
     // ── /pnl — Monthly P&L by store ──
     if (text === '/pnl' || text === '/pl') {
       const now = new Date();
-      const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-      const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+      const { ms, me } = monthRange(now.getFullYear(), now.getMonth() + 1);
       const [rev, exp] = await Promise.all([
         sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}`),
         sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`),
       ]);
-      const stores = {};
-      const add = (s, t, a) => { const k = s || '未分店'; if (!stores[k]) stores[k] = { r: 0, e: 0 }; stores[k][t] += a; };
-      rev.forEach(r => add(r.store, 'r', Number(r.amount) || 0));
-      exp.forEach(e => add(e.store, 'e', Number(e.amount) || 0));
+      await tgExpReply(chatId, buildPnlReport(`${now.getFullYear()}年${now.getMonth() + 1}月 損益表`, rev, exp));
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /month YYYY-MM — View any month's P&L ──
+    if (text.startsWith('/month')) {
+      const param = text.split(/\s+/)[1] || '';
+      const mm = param.match(/^(\d{4})-(\d{1,2})$/);
+      if (!mm) { await tgExpReply(chatId, '用法：<code>/month 2026-02</code>'); return res.status(200).json({ ok: true }); }
+      const { ms, me } = monthRange(Number(mm[1]), Number(mm[2]));
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}`),
+        sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`),
+      ]);
+      await tgExpReply(chatId, buildPnlReport(`${mm[1]}年${Number(mm[2])}月 損益表`, rev, exp));
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /week — This week summary ──
+    if (text === '/week') {
+      const now = new Date();
+      const day = now.getDay() || 7;
+      const monStart = new Date(now); monStart.setDate(now.getDate() - day + 1);
+      const sunEnd = new Date(monStart); sunEnd.setDate(monStart.getDate() + 7);
+      const ws = monStart.toISOString().slice(0, 10);
+      const we = sunEnd.toISOString().slice(0, 10);
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ws}&date=lt.${we}&order=date.asc`),
+        sbSelectExp('expenses', `date=gte.${ws}&date=lt.${we}&order=date.asc`),
+      ]);
       const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
       const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-      let rpt = `<b>📊 ${now.getFullYear()}年${now.getMonth() + 1}月 損益表</b>\n━━━━━━━━━━━━━━━━━━\n`;
-      for (const [st, d] of Object.entries(stores).sort()) {
-        const net = d.r - d.e;
-        rpt += `\n🏥 <b>${st}</b>\n  收入：HK$ ${d.r.toLocaleString()}\n  支出：HK$ ${d.e.toLocaleString()}\n  損益：${net >= 0 ? '✅' : '❌'} HK$ ${net.toLocaleString()}\n`;
+      // Group by date
+      const byDate = {};
+      rev.forEach(r => { const d = r.date; if (!byDate[d]) byDate[d] = { r: 0, e: 0 }; byDate[d].r += Number(r.amount) || 0; });
+      exp.forEach(e => { const d = e.date; if (!byDate[d]) byDate[d] = { r: 0, e: 0 }; byDate[d].e += Number(e.amount) || 0; });
+      let rpt = `<b>📅 本週總結 (${ws} ~ ${we})</b>\n\n`;
+      for (const [d, v] of Object.entries(byDate).sort()) {
+        const weekday = ['日', '一', '二', '三', '四', '五', '六'][new Date(d).getDay()];
+        rpt += `${d}（${weekday}）💰${v.r.toLocaleString()} 🧾${v.e.toLocaleString()}\n`;
       }
-      rpt += `\n━━━━━━━━━━━━━━━━━━\n<b>合計</b>\n  收入：HK$ ${tR.toLocaleString()}\n  支出：HK$ ${tE.toLocaleString()}\n  淨利：${tR - tE >= 0 ? '✅' : '❌'} <b>HK$ ${(tR - tE).toLocaleString()}</b>\n  利潤率：${tR > 0 ? Math.round((tR - tE) / tR * 100) : 0}%\n\n📝 ${rev.length}筆收入 | ${exp.length}筆支出`;
+      rpt += `\n<b>合計</b>：💰 HK$ ${tR.toLocaleString()} | 🧾 HK$ ${tE.toLocaleString()}\n淨額：${tR - tE >= 0 ? '✅' : '❌'} HK$ ${(tR - tE).toLocaleString()}`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /last [N] — Recent entries ──
+    if (text.startsWith('/last')) {
+      const n = Math.min(parseInt(text.split(/\s+/)[1]) || 10, 50);
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `order=created_at.desc&limit=${n}`),
+        sbSelectExp('expenses', `order=created_at.desc&limit=${n}`),
+      ]);
+      const all = [
+        ...rev.map(r => ({ ...r, _type: '💰', _name: r.name || r.item, _cat: r.item })),
+        ...exp.map(e => ({ ...e, _type: '🧾', _name: e.merchant, _cat: e.category })),
+      ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, n);
+      if (!all.length) { await tgExpReply(chatId, '暫無記錄'); return res.status(200).json({ ok: true }); }
+      let rpt = `<b>📋 最近 ${n} 筆記錄</b>\n\n`;
+      all.forEach((r, i) => {
+        rpt += `${i + 1}. ${r._type} ${r.date} HK$ ${Number(r.amount).toLocaleString()} ${r._name}（${r._cat}）${r.store ? ' @' + r.store : ''}\n`;
+      });
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /top — Top spending categories this month ──
+    if (text === '/top') {
+      const now = new Date();
+      const { ms, me } = monthRange(now.getFullYear(), now.getMonth() + 1);
+      const exp = await sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`);
+      if (!exp.length) { await tgExpReply(chatId, '本月暫無支出記錄。'); return res.status(200).json({ ok: true }); }
+      const byCat = {}; let total = 0;
+      exp.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + (e.amount || 0); total += e.amount || 0; });
+      const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+      const bars = ['█████', '████', '███', '██', '█'];
+      let rpt = `<b>🏆 ${now.getMonth() + 1}月 Top 開支</b>\n\n`;
+      sorted.forEach(([c, a], i) => {
+        const pct = Math.round(a / total * 100);
+        rpt += `${i + 1}. ${c}\n   HK$ ${a.toLocaleString()} (${pct}%) ${bars[Math.min(i, 4)]}\n`;
+      });
+      rpt += `\n<b>合計：HK$ ${total.toLocaleString()}</b>`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /export [YYYY-MM] — Export monthly CSV ──
+    if (text.startsWith('/export')) {
+      const param = text.split(/\s+/)[1] || '';
+      const now = new Date();
+      let y = now.getFullYear(), m = now.getMonth() + 1;
+      const mm = param.match(/^(\d{4})-(\d{1,2})$/);
+      if (mm) { y = Number(mm[1]); m = Number(mm[2]); }
+      const { ms, me } = monthRange(y, m);
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}&order=date.asc`),
+        sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}&order=date.asc`),
+      ]);
+      if (!rev.length && !exp.length) { await tgExpReply(chatId, `${y}年${m}月暫無記錄。`); return res.status(200).json({ ok: true }); }
+      let csv = '\uFEFF類型,日期,商戶/客戶,金額,分類/項目,分店,付款方式,備註\n';
+      exp.forEach(e => csv += `開支,${e.date},"${e.merchant}",${e.amount},"${e.category}","${e.store || ''}","${e.payment || ''}","${(e.desc || '').replace(/"/g, '""')}"\n`);
+      rev.forEach(r => csv += `收入,${r.date},"${r.name}",${r.amount},"${r.item}","${r.store || ''}","${r.payment || ''}","${(r.note || '').replace(/"/g, '""')}"\n`);
+      const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      await tgSendDocument(chatId, csv, `康晴_${y}${String(m).padStart(2, '0')}.csv`,
+        `📊 <b>${y}年${m}月帳目</b>\n💰 收入 HK$ ${tR.toLocaleString()} (${rev.length}筆)\n🧾 支出 HK$ ${tE.toLocaleString()} (${exp.length}筆)\n淨利：HK$ ${(tR - tE).toLocaleString()}`);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /delete — Delete last entry ──
+    if (text === '/delete' || text.startsWith('/delete ')) {
+      const param = text.split(/\s+/)[1] || 'last';
+      if (param === 'last') {
+        const [lastRev, lastExp] = await Promise.all([
+          sbSelectExp('revenue', 'order=created_at.desc&limit=1'),
+          sbSelectExp('expenses', 'order=created_at.desc&limit=1'),
+        ]);
+        const rTime = lastRev[0]?.created_at ? new Date(lastRev[0].created_at).getTime() : 0;
+        const eTime = lastExp[0]?.created_at ? new Date(lastExp[0].created_at).getTime() : 0;
+        if (!rTime && !eTime) { await tgExpReply(chatId, '暫無記錄可刪除。'); return res.status(200).json({ ok: true }); }
+        const isRev = rTime > eTime;
+        const entry = isRev ? lastRev[0] : lastExp[0];
+        const table = isRev ? 'revenue' : 'expenses';
+        const name = isRev ? entry.name : entry.merchant;
+        await tgExpReply(chatId,
+          `🗑️ 確認刪除最後一筆？\n\n${isRev ? '💰 收入' : '🧾 開支'}：HK$ ${Number(entry.amount).toLocaleString()} — ${name}\n📅 ${entry.date} | 🏥 ${entry.store || '未指定'}`,
+          { reply_markup: { inline_keyboard: [[{ text: '✅ 確認刪除', callback_data: `undo:${table}:${entry.id}` }, { text: '❌ 取消', callback_data: 'no:cancel' }]] } }
+        );
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /bookings — Today's bookings ──
+    if (text === '/bookings' || text === '/booking' || text === '/bk') {
+      const today = new Date().toISOString().slice(0, 10);
+      try {
+        const bookings = await sbSelectExp('bookings', `date=eq.${today}&order=time.asc`);
+        if (!bookings.length) { await tgExpReply(chatId, `📅 ${today} 暫無預約。`); return res.status(200).json({ ok: true }); }
+        let rpt = `<b>📅 ${today} 預約</b>\n\n`;
+        const byStore = {};
+        bookings.forEach(b => {
+          const s = b.store || '未分店';
+          if (!byStore[s]) byStore[s] = [];
+          byStore[s].push(b);
+        });
+        for (const [store, bks] of Object.entries(byStore).sort()) {
+          rpt += `🏥 <b>${store}</b>\n`;
+          bks.forEach(b => {
+            const status = b.status === 'confirmed' ? '✅' : b.status === 'cancelled' ? '❌' : '⏳';
+            rpt += `  ${status} ${b.time || '?'} ${b.patientName || '未知'}${b.doctor ? ' 👨‍⚕️' + b.doctor : ''}${b.type ? ' (' + b.type + ')' : ''}\n`;
+          });
+        }
+        rpt += `\n共 ${bookings.length} 個預約`;
+        await tgExpReply(chatId, rpt);
+      } catch { await tgExpReply(chatId, '📅 暫時無法讀取預約資料。請確認 bookings 表已設置。'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /patients or /pt — Today's patients ──
+    if (text === '/patients' || text === '/pt') {
+      const today = new Date().toISOString().slice(0, 10);
+      try {
+        const bookings = await sbSelectExp('bookings', `date=eq.${today}&status=eq.confirmed&order=time.asc`);
+        if (!bookings.length) { await tgExpReply(chatId, `📋 ${today} 暫無已確認病人。`); return res.status(200).json({ ok: true }); }
+        let rpt = `<b>📋 ${today} 病人名單</b>\n\n`;
+        bookings.forEach((b, i) => {
+          rpt += `${i + 1}. ${b.patientName || '未知'}${b.patientPhone ? ' 📱' + b.patientPhone : ''}\n   ${b.time || '?'} ${b.doctor ? '👨‍⚕️' + b.doctor : ''} ${b.store ? '@' + b.store : ''}${b.type ? ' (' + b.type + ')' : ''}\n`;
+        });
+        rpt += `\n共 ${bookings.length} 位病人`;
+        await tgExpReply(chatId, rpt);
+      } catch { await tgExpReply(chatId, '📋 暫時無法讀取病人資料。'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /rx or /meds — Today's prescriptions ──
+    if (text === '/rx' || text === '/meds' || text === '/prescriptions') {
+      const today = new Date().toISOString().slice(0, 10);
+      try {
+        const rxList = await sbSelectExp('prescriptions', `date=eq.${today}&order=created_at.desc`);
+        if (!rxList.length) { await tgExpReply(chatId, `💊 ${today} 暫無處方記錄。`); return res.status(200).json({ ok: true }); }
+        let rpt = `<b>💊 ${today} 處方</b>\n\n`;
+        rxList.forEach((rx, i) => {
+          rpt += `${i + 1}. ${rx.patient_name || '未知'}\n   👨‍⚕️ ${rx.doctor || '?'} | ${rx.store ? '@' + rx.store : ''}\n`;
+          if (rx.herbs || rx.items) {
+            const items = rx.herbs || rx.items || '';
+            rpt += `   💊 ${typeof items === 'string' ? items.substring(0, 80) : JSON.stringify(items).substring(0, 80)}\n`;
+          }
+          if (rx.notes) rpt += `   📝 ${rx.notes.substring(0, 50)}\n`;
+        });
+        rpt += `\n共 ${rxList.length} 張處方`;
+        await tgExpReply(chatId, rpt);
+      } catch { await tgExpReply(chatId, '💊 暫時無法讀取處方資料。請確認 prescriptions 表已設置。'); }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /search keyword — Search entries ──
+    if (text.startsWith('/search') || text.startsWith('/find')) {
+      const keyword = text.split(/\s+/).slice(1).join(' ').trim();
+      if (!keyword) { await tgExpReply(chatId, '用法：<code>/search 百草堂</code>'); return res.status(200).json({ ok: true }); }
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `or=(name.ilike.*${keyword}*,item.ilike.*${keyword}*,store.ilike.*${keyword}*)&order=date.desc&limit=20`),
+        sbSelectExp('expenses', `or=(merchant.ilike.*${keyword}*,category.ilike.*${keyword}*,desc.ilike.*${keyword}*,store.ilike.*${keyword}*)&order=date.desc&limit=20`),
+      ]);
+      if (!rev.length && !exp.length) { await tgExpReply(chatId, `🔍 搵唔到「${keyword}」相關記錄。`); return res.status(200).json({ ok: true }); }
+      let rpt = `<b>🔍 搜尋「${keyword}」</b>\n\n`;
+      if (exp.length) {
+        rpt += `🧾 <b>開支 (${exp.length}筆)</b>\n`;
+        exp.forEach(e => rpt += `  ${e.date} HK$ ${Number(e.amount).toLocaleString()} ${e.merchant}（${e.category}）${e.store ? ' @' + e.store : ''}\n`);
+      }
+      if (rev.length) {
+        rpt += `\n💰 <b>收入 (${rev.length}筆)</b>\n`;
+        rev.forEach(r => rpt += `  ${r.date} HK$ ${Number(r.amount).toLocaleString()} ${r.name}（${r.item}）${r.store ? ' @' + r.store : ''}\n`);
+      }
       await tgExpReply(chatId, rpt);
       return res.status(200).json({ ok: true });
     }
@@ -399,23 +673,30 @@ async function handleTgExpense(req, res) {
     if (text === '/start' || text === '/help') {
       await tgExpReply(chatId,
         `<b>🧾 康晴智能記帳 Bot v3</b>\n\n` +
-        `<b>🗣️ 自然語言模式（最懶）</b>\n` +
-        `直接用廣東話講就得：\n` +
+        `<b>🗣️ 自然語言（最懶）</b>\n` +
+        `直接用廣東話講：\n` +
         `• 「今日買左100蚊中藥」\n` +
         `• 「利是400蚊，飲茶200蚊」\n` +
-        `• 「收到張三診金500蚊」\n` +
-        `AI 自動理解＋記錄，一條訊息多筆都得！\n\n` +
-        `<b>📸 影相模式</b>\n` +
-        `Send 收據/發票相 → AI 自動辨識\n` +
-        `caption 寫分店名即歸到該分店\n\n` +
-        `<b>✍️ 快速格式輸入</b>\n` +
-        `開支：<code>金額, 商戶, 分類, 分店</code>\n` +
-        `收入：<code>+金額, 客戶, 項目, 分店</code>\n\n` +
-        `<b>📊 報表指令</b>\n` +
-        `/pnl — 本月損益表（按分店）\n` +
+        `• 「收到張三診金500蚊」\n\n` +
+        `<b>📸 影相</b> → Send 收據相片\n` +
+        `<b>📎 批量</b> → Send CSV 檔案\n` +
+        `<b>✍️ 格式</b> → <code>金額, 商戶, 分類, 分店</code>\n\n` +
+        `<b>📊 財務報表</b>\n` +
+        `/pnl — 本月損益表\n` +
+        `/month 2026-02 — 指定月份\n` +
+        `/week — 本週總結\n` +
         `/today — 今日記錄\n` +
-        `/report — 支出分類明細\n` +
-        `/status — 快速狀態`
+        `/report — 分類明細\n` +
+        `/top — 最大開支\n` +
+        `/status — 快速狀態\n` +
+        `/last 10 — 最近記錄\n` +
+        `/search 關鍵字 — 搜尋\n` +
+        `/export — 匯出CSV\n` +
+        `/delete — 刪除最後一筆\n\n` +
+        `<b>🏥 診所營運</b>\n` +
+        `/bk — 今日預約\n` +
+        `/pt — 今日病人\n` +
+        `/rx — 今日處方`
       );
       return res.status(200).json({ ok: true });
     }
