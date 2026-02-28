@@ -147,6 +147,7 @@ const StaffRoster = lazy(() => import('./components/StaffRoster'));
 const PatientWaitlist = lazy(() => import('./components/PatientWaitlist'));
 const ClinicBudget = lazy(() => import('./components/ClinicBudget'));
 const PatientDemographics = lazy(() => import('./components/PatientDemographics'));
+const TelegramExpense = lazy(() => import('./components/TelegramExpense'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -281,6 +282,7 @@ const ALL_PAGES = [
   { id: 'waitlist', icon: '⏳', label: '候補名單', section: '病人', perm: 'viewBookings' },
   { id: 'budget', icon: '📊', label: '預算管理', section: '財務', perm: 'editExpenses' },
   { id: 'demographics', icon: '👥', label: '人口統計', section: '分析', perm: 'viewReports' },
+  { id: 'tgexpense', icon: '🧾', label: 'TG收據入數', section: '財務', perm: 'editExpenses' },
 ];
 
 // Mobile bottom tab config
@@ -1176,6 +1178,7 @@ function MainApp() {
             {page === 'waitlist' && <PatientWaitlist data={filteredData} showToast={showToast} user={user} />}
             {page === 'budget' && <ClinicBudget data={filteredData} showToast={showToast} user={user} />}
             {page === 'demographics' && <PatientDemographics data={filteredData} showToast={showToast} user={user} />}
+            {page === 'tgexpense' && <TelegramExpense data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}

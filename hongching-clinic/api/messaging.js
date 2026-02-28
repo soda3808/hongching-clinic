@@ -101,13 +101,142 @@ async function handleEmailReminder(req, res) {
   } catch { return errorResponse(res, 500, '發送電郵時發生錯誤'); }
 }
 
+// ── Handler: Telegram Expense Bot (webhook, no auth required) ──
+const TG_EXPENSE_API = 'https://api.telegram.org/bot';
+function expBotToken() { return process.env.TG_EXPENSE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN; }
+function sbHeaders() { const k = process.env.SUPABASE_SERVICE_KEY; return { apikey: k, Authorization: `Bearer ${k}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }; }
+function sbUrl(table, f = '') { const b = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL; return `${b}/rest/v1/${table}${f ? `?${f}` : ''}`; }
+async function tgExpCall(method, body) { const r = await fetch(`${TG_EXPENSE_API}${expBotToken()}/${method}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return r.json(); }
+async function tgExpReply(chatId, text, extra = {}) { return tgExpCall('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', ...extra }); }
+
+async function tgExpDownloadPhoto(fileId) {
+  const fi = await tgExpCall('getFile', { file_id: fileId });
+  if (!fi.ok) throw new Error('Cannot get file path');
+  const url = `https://api.telegram.org/file/bot${expBotToken()}/${fi.result.file_path}`;
+  const r = await fetch(url); if (!r.ok) throw new Error('Photo download failed');
+  const buf = await r.arrayBuffer();
+  return { buffer: Buffer.from(buf), mime: r.headers.get('content-type') || 'image/jpeg' };
+}
+
+async function tgExpOCR(imageBuffer, mime) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+  const b64 = imageBuffer.toString('base64');
+  const mediaType = mime.startsWith('image/') ? mime : 'image/jpeg';
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 512, messages: [{ role: 'user', content: [
+      { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+      { type: 'text', text: '這是一張收據/發票圖片。請提取以下資訊並以 JSON 回覆（不要 markdown）：\n{"amount": 數字(HK$), "vendor": "商戶名稱", "date": "YYYY-MM-DD", "category": "類別(藥材/租金/水電/辦公/飲食/交通/其他)", "confidence": 0-1, "raw_text": "收據上的主要文字"}' },
+    ] }] }),
+  });
+  if (!r.ok) throw new Error(`Claude API ${r.status}`);
+  const data = await r.json();
+  const text = data.content?.[0]?.text || '';
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return { amount: 0, vendor: '未知', date: new Date().toISOString().slice(0, 10), category: '其他', confidence: 0, raw_text: text };
+  try { return JSON.parse(match[0]); } catch { return { amount: 0, vendor: '未知', date: new Date().toISOString().slice(0, 10), category: '其他', confidence: 0, raw_text: text }; }
+}
+
+async function sbInsertExp(table, body) { const r = await fetch(sbUrl(table), { method: 'POST', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase POST ${table}: ${r.status}`); return r.json(); }
+async function sbUpdateExp(table, f, body) { const r = await fetch(sbUrl(table, f), { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase PATCH ${table}: ${r.status}`); return r.json(); }
+async function sbSelectExp(table, f) { const r = await fetch(sbUrl(table, f), { method: 'GET', headers: sbHeaders() }); if (!r.ok) throw new Error(`Supabase GET ${table}: ${r.status}`); return r.json(); }
+
+async function handleTgExpense(req, res) {
+  // GET — health check
+  if (req.method === 'GET') {
+    return res.status(200).json({ ok: true, service: 'tg-expense-bot', webhook: `https://${req.headers.host}/api/messaging?action=tg-expense`, configured: !!expBotToken() });
+  }
+  if (!expBotToken()) return res.status(200).json({ ok: true, error: 'Bot token not configured' });
+
+  try {
+    const update = req.body;
+    if (!update) return res.status(200).json({ ok: true });
+
+    // Callback query (inline button press)
+    if (update.callback_query) {
+      const cbq = update.callback_query;
+      const chatId = cbq.message.chat.id;
+      const [action, pendingId] = (cbq.data || '').split(':');
+      await tgExpCall('answerCallbackQuery', { callback_query_id: cbq.id });
+      if (action === 'exp_ok') {
+        const rows = await sbSelectExp('expense_pending', `id=eq.${pendingId}&limit=1`);
+        const item = rows?.[0];
+        if (!item) return res.status(200).json({ ok: true });
+        await sbInsertExp('expenses', { amount: item.amount, vendor: item.vendor, date: item.date, category: item.category, notes: 'Telegram receipt OCR', created_at: new Date().toISOString() });
+        await sbUpdateExp('expense_pending', `id=eq.${pendingId}`, { status: 'confirmed' });
+        await tgExpReply(chatId, `已確認！HK$ ${item.amount} — ${item.vendor} 已記錄到開支。`);
+      } else if (action === 'exp_no') {
+        await sbUpdateExp('expense_pending', `id=eq.${pendingId}`, { status: 'rejected' });
+        await tgExpReply(chatId, '已拒絕並丟棄。');
+      } else if (action === 'exp_edit') {
+        await tgExpReply(chatId, '請回覆正確資料，格式：\n<code>金額, 商戶, 日期, 類別</code>\n例：<code>1200, 永安中藥行, 2026-02-28, 藥材</code>');
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    const msg = update.message;
+    if (!msg) return res.status(200).json({ ok: true });
+    const chatId = msg.chat.id;
+    const text = (msg.text || '').trim();
+
+    // Photo — receipt OCR
+    if (msg.photo && msg.photo.length > 0) {
+      await tgExpReply(chatId, '收到收據圖片，正在辨識中...');
+      const photo = msg.photo[msg.photo.length - 1];
+      const { buffer, mime } = await tgExpDownloadPhoto(photo.file_id);
+      const ocr = await tgExpOCR(buffer, mime);
+      const pending = await sbInsertExp('expense_pending', { telegram_chat_id: String(chatId), telegram_msg_id: msg.message_id, amount: ocr.amount || 0, vendor: ocr.vendor || '未知', date: ocr.date || new Date().toISOString().slice(0, 10), category: ocr.category || '其他', confidence: ocr.confidence || 0, raw_text: ocr.raw_text || '', status: 'pending', created_at: new Date().toISOString() });
+      const pid = pending?.[0]?.id || 'unknown';
+      await tgExpReply(chatId, `<b>收據辨識結果：</b>\n\n金額：<b>HK$ ${ocr.amount}</b>\n商戶：${ocr.vendor}\n日期：${ocr.date}\n類別：${ocr.category}\n信心度：${Math.round((ocr.confidence || 0) * 100)}%`, { reply_markup: { inline_keyboard: [[{ text: '✅ 確認', callback_data: `exp_ok:${pid}` }, { text: '❌ 拒絕', callback_data: `exp_no:${pid}` }], [{ text: '✏️ 修改', callback_data: `exp_edit:${pid}` }]] } });
+      return res.status(200).json({ ok: true });
+    }
+
+    // Commands
+    if (text === '/report') {
+      const now = new Date();
+      const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+      const expenses = await sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}&order=date.asc`);
+      if (!expenses.length) { await tgExpReply(chatId, `${now.getFullYear()}年${now.getMonth() + 1}月暫無支出記錄。`); return res.status(200).json({ ok: true }); }
+      const byCat = {}; let total = 0;
+      for (const e of expenses) { byCat[e.category] = (byCat[e.category] || 0) + (e.amount || 0); total += e.amount || 0; }
+      const lines = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, a]) => `  ${c}：HK$ ${a.toLocaleString()}`);
+      await tgExpReply(chatId, `<b>${now.getFullYear()}年${now.getMonth() + 1}月支出報告</b>\n\n${lines.join('\n')}\n\n<b>合計：HK$ ${total.toLocaleString()}</b>\n共 ${expenses.length} 筆`);
+      return res.status(200).json({ ok: true });
+    }
+    if (text === '/status') {
+      const now = new Date();
+      const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+      const [exps, pend] = await Promise.all([sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`), sbSelectExp('expense_pending', 'status=eq.pending')]);
+      const total = exps.reduce((s, e) => s + (e.amount || 0), 0);
+      await tgExpReply(chatId, `<b>本月支出狀態</b>\n\n已確認支出：HK$ ${total.toLocaleString()}（${exps.length} 筆）\n待確認收據：${pend.length} 筆`);
+      return res.status(200).json({ ok: true });
+    }
+    if (text === '/start') { await tgExpReply(chatId, '歡迎使用康晴開支記錄 Bot 🧾\n\n📸 發送收據圖片即可自動辨識\n/report — 本月支出報告\n/status — 支出狀態'); return res.status(200).json({ ok: true }); }
+
+    await tgExpReply(chatId, '請發送收據圖片，或使用：\n/report — 本月支出報告\n/status — 支出狀態');
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error('tg-expense error:', err);
+    return res.status(200).json({ ok: true, error: err.message });
+  }
+}
+
 // ── Main Router ──
 export default async function handler(req, res) {
   setCORS(req, res);
   if (handleOptions(req, res)) return;
-  if (req.method !== 'POST') return errorResponse(res, 405, 'Method not allowed');
 
   const action = req.query?.action || req.body?._action || '';
+
+  // tg-expense webhook: supports GET + POST, no auth required
+  if (action === 'tg-expense') return handleTgExpense(req, res);
+
+  if (req.method !== 'POST') return errorResponse(res, 405, 'Method not allowed');
+
   switch (action) {
     case 'whatsapp': return handleWhatsApp(req, res);
     case 'telegram': return handleTelegram(req, res);
