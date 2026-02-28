@@ -129,6 +129,12 @@ const PatientSatisfactionReport = lazy(() => import('./components/PatientSatisfa
 const HealthScreening = lazy(() => import('./components/HealthScreening'));
 const DocumentTemplate = lazy(() => import('./components/DocumentTemplate'));
 const StaffEvaluation = lazy(() => import('./components/StaffEvaluation'));
+const ClinicPolicy = lazy(() => import('./components/ClinicPolicy'));
+const MembershipTier = lazy(() => import('./components/MembershipTier'));
+const ShiftHandover = lazy(() => import('./components/ShiftHandover'));
+const ClinicalPathway = lazy(() => import('./components/ClinicalPathway'));
+const ClinicInsurance = lazy(() => import('./components/ClinicInsurance'));
+const WorkflowAutomation = lazy(() => import('./components/WorkflowAutomation'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -245,6 +251,12 @@ const ALL_PAGES = [
   { id: 'screening', icon: '🏥', label: '健康檢查', section: '病人', perm: 'viewEMR' },
   { id: 'doctpl', icon: '📝', label: '文件範本', section: '系統', perm: 'viewSettings' },
   { id: 'staffeval', icon: '⭐', label: '員工考核', section: '人事', perm: 'viewSettings' },
+  { id: 'policy', icon: '📜', label: '診所政策', section: '系統', perm: 'viewSettings' },
+  { id: 'memtier', icon: '💎', label: '會員等級', section: '客戶', perm: 'viewPatients' },
+  { id: 'handover', icon: '🤝', label: '交更管理', section: '營運', perm: 'editExpenses' },
+  { id: 'pathway', icon: '🛤️', label: '臨床路徑', section: '病人', perm: 'viewEMR' },
+  { id: 'clinicins', icon: '🛡️', label: '診所保險', section: '營運', perm: 'editExpenses' },
+  { id: 'workflow', icon: '⚙️', label: '流程自動化', section: '系統', perm: 'viewSettings' },
 ];
 
 // Mobile bottom tab config
@@ -1122,6 +1134,12 @@ function MainApp() {
             {page === 'screening' && <HealthScreening data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'doctpl' && <DocumentTemplate data={filteredData} showToast={showToast} user={user} />}
             {page === 'staffeval' && <StaffEvaluation data={filteredData} showToast={showToast} user={user} />}
+            {page === 'policy' && <ClinicPolicy data={filteredData} showToast={showToast} user={user} />}
+            {page === 'memtier' && <MembershipTier data={filteredData} showToast={showToast} user={user} />}
+            {page === 'handover' && <ShiftHandover data={filteredData} showToast={showToast} user={user} />}
+            {page === 'pathway' && <ClinicalPathway data={filteredData} showToast={showToast} user={user} />}
+            {page === 'clinicins' && <ClinicInsurance data={filteredData} showToast={showToast} user={user} />}
+            {page === 'workflow' && <WorkflowAutomation data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
