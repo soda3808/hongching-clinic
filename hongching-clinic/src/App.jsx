@@ -160,6 +160,12 @@ const MedicineReturn = lazy(() => import('./components/MedicineReturn'));
 const ClinicPartnership = lazy(() => import('./components/ClinicPartnership'));
 const ClinicFeedbackWall = lazy(() => import('./components/ClinicFeedbackWall'));
 const InventoryValuation = lazy(() => import('./components/InventoryValuation'));
+const ClinicNewsletter = lazy(() => import('./components/ClinicNewsletter'));
+const LabOrderTracking = lazy(() => import('./components/LabOrderTracking'));
+const DailyRevenueTarget = lazy(() => import('./components/DailyRevenueTarget'));
+const PatientDischarge = lazy(() => import('./components/PatientDischarge'));
+const ClinicGoalSetting = lazy(() => import('./components/ClinicGoalSetting'));
+const HerbBlendCalculator = lazy(() => import('./components/HerbBlendCalculator'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -307,6 +313,12 @@ const ALL_PAGES = [
   { id: 'partnership', icon: '🤝', label: '合作夥伴', section: '客戶', perm: 'editRevenue' },
   { id: 'feedwall', icon: '💬', label: '好評牆', section: '客戶', perm: 'viewPatients' },
   { id: 'invvalue', icon: '📦', label: '庫存估值', section: '分析', perm: 'viewReports' },
+  { id: 'newsletter', icon: '📰', label: '電子報', section: '客戶', perm: 'viewPatients' },
+  { id: 'laborder', icon: '🧪', label: '化驗跟蹤', section: '病人', perm: 'viewEMR' },
+  { id: 'dailytarget', icon: '🎯', label: '每日目標', section: '分析', perm: 'viewReports' },
+  { id: 'discharge', icon: '📤', label: '出院管理', section: '病人', perm: 'viewEMR' },
+  { id: 'okr', icon: '🏆', label: 'OKR目標', section: '系統', perm: 'viewSettings' },
+  { id: 'herbcalc', icon: '⚖️', label: '藥方計算', section: '營運', perm: 'viewBilling' },
 ];
 
 // Mobile bottom tab config
@@ -1215,6 +1227,12 @@ function MainApp() {
             {page === 'partnership' && <ClinicPartnership data={filteredData} showToast={showToast} user={user} />}
             {page === 'feedwall' && <ClinicFeedbackWall data={filteredData} showToast={showToast} user={user} />}
             {page === 'invvalue' && <InventoryValuation data={filteredData} showToast={showToast} user={user} />}
+            {page === 'newsletter' && <ClinicNewsletter data={filteredData} showToast={showToast} user={user} />}
+            {page === 'laborder' && <LabOrderTracking data={filteredData} showToast={showToast} user={user} />}
+            {page === 'dailytarget' && <DailyRevenueTarget data={filteredData} showToast={showToast} user={user} />}
+            {page === 'discharge' && <PatientDischarge data={filteredData} showToast={showToast} user={user} />}
+            {page === 'okr' && <ClinicGoalSetting data={filteredData} showToast={showToast} user={user} />}
+            {page === 'herbcalc' && <HerbBlendCalculator data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
