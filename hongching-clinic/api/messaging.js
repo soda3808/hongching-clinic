@@ -152,6 +152,51 @@ JSON回覆（無markdown）：
   try { return { ...fb, ...JSON.parse(match[0]) }; } catch { return fb; }
 }
 
+// ── Natural Language Parser — understands free-form Cantonese/Chinese accounting ──
+async function tgExpNLP(text) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+  const today = new Date().toISOString().slice(0, 10);
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001', max_tokens: 800,
+      messages: [{ role: 'user', content: `你是中醫診所「康晴中醫」的會計AI助手。用戶用自然語言（廣東話/中文）告訴你開支或收入，你要從中提取記帳資料。
+
+今日日期：${today}
+用戶訊息：「${text}」
+
+規則：
+- 判斷每一筆交易是 expense（診所付錢出去）還是 revenue（診所收到錢）
+- 一條訊息可能有多筆交易，全部提取
+- 「幫公司買」「公司開支」= expense
+- 「開公利是」「派利是」= expense（飲食招待或日常雜費）
+- 「收到利是」「人哋俾利是」= revenue
+- 「飲茶」「食飯」= expense, category 飲食招待
+- 「買螺絲」「買文具」= expense, category 日常雜費
+- 「診金」「藥費」= revenue
+- 金額：提取阿拉伯數字，「蚊」=HK$，「$」=HK$
+- 日期：「今日」=${today}，「尋日/昨日」=前一日，無提及=今日
+- 分店：「旺角」「太子」如有提及就填，無就留空
+
+開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他
+收入分類：診金,藥費,針灸,推拿,其他治療
+
+JSON array 回覆（無markdown無解釋）：
+[{"type":"expense"或"revenue","amount":數字,"vendor":"對方/描述","date":"YYYY-MM-DD","category":"分類","item":"簡短描述","payment":"現金","store_hint":"","confidence":0到1}]
+
+如果完全無法識別任何金額或交易，回傳：[{"error":"無法識別"}]` }],
+    }),
+  });
+  if (!r.ok) throw new Error(`Claude API ${r.status}`);
+  const data = await r.json();
+  const txt = data.content?.[0]?.text || '';
+  const match = txt.match(/\[[\s\S]*\]/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); } catch { return null; }
+}
+
 async function sbInsertExp(table, body) { const r = await fetch(sbUrl(table), { method: 'POST', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase POST ${table}: ${r.status}`); return r.json(); }
 async function sbSelectExp(table, f) { const r = await fetch(sbUrl(table, f), { method: 'GET', headers: sbHeaders() }); if (!r.ok) throw new Error(`Supabase GET ${table}: ${r.status}`); return r.json(); }
 
@@ -244,10 +289,11 @@ async function handleTgExpense(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // ── Text: +amount = revenue, amount = expense ──
-    if (!text.startsWith('/') && (text.includes(',') || /^[+]?\d/.test(text))) {
-      const isRev = text.startsWith('+');
-      const parts = text.replace(/^[+]/, '').split(',').map(s => s.trim());
+    // ── Text: +amount = revenue, amount = expense (supports ，and ,) ──
+    const normText = text.replace(/，/g, ',');
+    if (!normText.startsWith('/') && (normText.includes(',') || /^[+]?\d/.test(normText))) {
+      const isRev = normText.startsWith('+');
+      const parts = normText.replace(/^[+]/, '').split(',').map(s => s.trim());
       if (parts.length >= 2) {
         const amt = Number(parts[0]) || 0;
         if (amt > 0) {
@@ -352,14 +398,19 @@ async function handleTgExpense(req, res) {
     // ── /start or /help ──
     if (text === '/start' || text === '/help') {
       await tgExpReply(chatId,
-        `<b>🧾 康晴智能記帳 Bot v2</b>\n\n` +
-        `<b>📸 全自動模式（最懶）</b>\n` +
-        `直接 send 收據/發票相 → AI 自動辨識＋記錄\n` +
+        `<b>🧾 康晴智能記帳 Bot v3</b>\n\n` +
+        `<b>🗣️ 自然語言模式（最懶）</b>\n` +
+        `直接用廣東話講就得：\n` +
+        `• 「今日買左100蚊中藥」\n` +
+        `• 「利是400蚊，飲茶200蚊」\n` +
+        `• 「收到張三診金500蚊」\n` +
+        `AI 自動理解＋記錄，一條訊息多筆都得！\n\n` +
+        `<b>📸 影相模式</b>\n` +
+        `Send 收據/發票相 → AI 自動辨識\n` +
         `caption 寫分店名即歸到該分店\n\n` +
-        `<b>✍️ 快速文字輸入</b>\n` +
+        `<b>✍️ 快速格式輸入</b>\n` +
         `開支：<code>金額, 商戶, 分類, 分店</code>\n` +
-        `收入：<code>+金額, 客戶, 項目, 分店</code>\n` +
-        `帶日期：<code>金額, 商戶, 2026-02-28, 分類, 分店</code>\n\n` +
+        `收入：<code>+金額, 客戶, 項目, 分店</code>\n\n` +
         `<b>📊 報表指令</b>\n` +
         `/pnl — 本月損益表（按分店）\n` +
         `/today — 今日記錄\n` +
@@ -367,6 +418,33 @@ async function handleTgExpense(req, res) {
         `/status — 快速狀態`
       );
       return res.status(200).json({ ok: true });
+    }
+
+    // ── Natural Language → AI parse & auto-save (supports multi-transaction) ──
+    if (text && !text.startsWith('/')) {
+      await tgExpReply(chatId, '🤖 AI 理解緊你講乜...');
+      try {
+        const results = await tgExpNLP(text);
+        if (!results || !results.length || results[0].error) {
+          await tgExpReply(chatId, '🤔 唔太明白你嘅意思，可以試下咁講：\n\n• 「今日買左100蚊中藥」\n• 「利是400蚊，飲茶200蚊」\n• 「收到張三診金500蚊」\n• 或直接 send 收據相片\n\n/help 查看所有指令');
+          return res.status(200).json({ ok: true });
+        }
+        let saved = 0;
+        for (const ocr of results) {
+          if (ocr.amount > 0 && !ocr.error) {
+            await autoSaveAndReply(chatId, ocr, ocr.store_hint || '');
+            saved++;
+          }
+        }
+        if (saved === 0) {
+          await tgExpReply(chatId, '🤔 識別到你嘅訊息但搵唔到金額，可以再講清楚啲嗎？');
+        }
+        return res.status(200).json({ ok: true });
+      } catch (nlpErr) {
+        console.error('NLP error:', nlpErr);
+        await tgExpReply(chatId, '❌ AI 處理出錯，你可以用格式：<code>金額, 商戶, 分類, 分店</code>\n或直接 send 收據相片');
+        return res.status(200).json({ ok: true });
+      }
     }
 
     await tgExpReply(chatId, '📸 Send 收據/發票相片，AI 自動搞掂！\n或 /help 查看所有指令');
