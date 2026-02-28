@@ -141,6 +141,12 @@ const PatientConsentLog = lazy(() => import('./components/PatientConsentLog'));
 const PriceList = lazy(() => import('./components/PriceList'));
 const ResourceScheduling = lazy(() => import('./components/ResourceScheduling'));
 const ClinicAnnouncement = lazy(() => import('./components/ClinicAnnouncement'));
+const PatientRiskScore = lazy(() => import('./components/PatientRiskScore'));
+const VendorPayment = lazy(() => import('./components/VendorPayment'));
+const StaffRoster = lazy(() => import('./components/StaffRoster'));
+const PatientWaitlist = lazy(() => import('./components/PatientWaitlist'));
+const ClinicBudget = lazy(() => import('./components/ClinicBudget'));
+const PatientDemographics = lazy(() => import('./components/PatientDemographics'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -269,6 +275,12 @@ const ALL_PAGES = [
   { id: 'pricelist', icon: '💲', label: '價目表', section: '營運', perm: 'editRevenue' },
   { id: 'resource', icon: '🏠', label: '資源排程', section: '營運', perm: 'editExpenses' },
   { id: 'announce', icon: '📣', label: '內部公告', section: '總覽', perm: 'viewDashboard' },
+  { id: 'riskscore', icon: '⚠️', label: '風險評估', section: '病人', perm: 'viewEMR' },
+  { id: 'vendorpay', icon: '💳', label: '供應商付款', section: '財務', perm: 'editExpenses' },
+  { id: 'roster', icon: '📋', label: '更表排班', section: '人事', perm: 'viewSettings' },
+  { id: 'waitlist', icon: '⏳', label: '候補名單', section: '病人', perm: 'viewBookings' },
+  { id: 'budget', icon: '📊', label: '預算管理', section: '財務', perm: 'editExpenses' },
+  { id: 'demographics', icon: '👥', label: '人口統計', section: '分析', perm: 'viewReports' },
 ];
 
 // Mobile bottom tab config
@@ -1158,6 +1170,12 @@ function MainApp() {
             {page === 'pricelist' && <PriceList data={filteredData} showToast={showToast} user={user} />}
             {page === 'resource' && <ResourceScheduling data={filteredData} showToast={showToast} user={user} />}
             {page === 'announce' && <ClinicAnnouncement data={filteredData} showToast={showToast} user={user} />}
+            {page === 'riskscore' && <PatientRiskScore data={filteredData} showToast={showToast} user={user} />}
+            {page === 'vendorpay' && <VendorPayment data={filteredData} showToast={showToast} user={user} />}
+            {page === 'roster' && <StaffRoster data={filteredData} showToast={showToast} user={user} />}
+            {page === 'waitlist' && <PatientWaitlist data={filteredData} showToast={showToast} user={user} />}
+            {page === 'budget' && <ClinicBudget data={filteredData} showToast={showToast} user={user} />}
+            {page === 'demographics' && <PatientDemographics data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
