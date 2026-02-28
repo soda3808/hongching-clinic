@@ -143,6 +143,22 @@ async function sbInsertExp(table, body) { const r = await fetch(sbUrl(table), { 
 async function sbUpdateExp(table, f, body) { const r = await fetch(sbUrl(table, f), { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase PATCH ${table}: ${r.status}`); return r.json(); }
 async function sbSelectExp(table, f) { const r = await fetch(sbUrl(table, f), { method: 'GET', headers: sbHeaders() }); if (!r.ok) throw new Error(`Supabase GET ${table}: ${r.status}`); return r.json(); }
 
+// In-memory pending store (per invocation; for confirm/reject we encode data in callback_data)
+function encodeOCR(ocr) {
+  // Encode OCR data into callback_data (max 64 bytes) — use compact format
+  const amt = Math.round(ocr.amount || 0);
+  const v = (ocr.vendor || '').substring(0, 12);
+  const d = (ocr.date || '').replace(/-/g, '');
+  const c = (ocr.category || '其他').substring(0, 4);
+  return `${amt}|${v}|${d}|${c}`;
+}
+function decodeOCR(s) {
+  const [amt, vendor, dateRaw, category] = s.split('|');
+  const d = dateRaw || '';
+  const date = d.length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : new Date().toISOString().slice(0,10);
+  return { amount: Number(amt) || 0, vendor: vendor || '未知', date, category: category || '其他' };
+}
+
 async function handleTgExpense(req, res) {
   // GET — health check
   if (req.method === 'GET') {
@@ -158,19 +174,17 @@ async function handleTgExpense(req, res) {
     if (update.callback_query) {
       const cbq = update.callback_query;
       const chatId = cbq.message.chat.id;
-      const [action, pendingId] = (cbq.data || '').split(':');
+      const data = cbq.data || '';
       await tgExpCall('answerCallbackQuery', { callback_query_id: cbq.id });
-      if (action === 'exp_ok') {
-        const rows = await sbSelectExp('expense_pending', `id=eq.${pendingId}&limit=1`);
-        const item = rows?.[0];
-        if (!item) return res.status(200).json({ ok: true });
-        await sbInsertExp('expenses', { amount: item.amount, vendor: item.vendor, date: item.date, category: item.category, notes: 'Telegram receipt OCR', created_at: new Date().toISOString() });
-        await sbUpdateExp('expense_pending', `id=eq.${pendingId}`, { status: 'confirmed' });
-        await tgExpReply(chatId, `已確認！HK$ ${item.amount} — ${item.vendor} 已記錄到開支。`);
-      } else if (action === 'exp_no') {
-        await sbUpdateExp('expense_pending', `id=eq.${pendingId}`, { status: 'rejected' });
-        await tgExpReply(chatId, '已拒絕並丟棄。');
-      } else if (action === 'exp_edit') {
+
+      if (data.startsWith('ok:')) {
+        const ocr = decodeOCR(data.slice(3));
+        const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        await sbInsertExp('expenses', { id: `tg_${uid}`, date: ocr.date, merchant: ocr.vendor, amount: ocr.amount, category: ocr.category, store: '', payment: '其他', desc: 'Telegram OCR 收據', receipt: '', created_at: new Date().toISOString() });
+        await tgExpReply(chatId, `✅ 已確認！HK$ ${ocr.amount} — ${ocr.vendor}（${ocr.category}）已記錄到開支。`);
+      } else if (data.startsWith('no:')) {
+        await tgExpReply(chatId, '❌ 已拒絕並丟棄。');
+      } else if (data.startsWith('ed:')) {
         await tgExpReply(chatId, '請回覆正確資料，格式：\n<code>金額, 商戶, 日期, 類別</code>\n例：<code>1200, 永安中藥行, 2026-02-28, 藥材</code>');
       }
       return res.status(200).json({ ok: true });
@@ -183,14 +197,30 @@ async function handleTgExpense(req, res) {
 
     // Photo — receipt OCR
     if (msg.photo && msg.photo.length > 0) {
-      await tgExpReply(chatId, '收到收據圖片，正在辨識中...');
+      await tgExpReply(chatId, '🔍 收到收據圖片，正在辨識中...');
       const photo = msg.photo[msg.photo.length - 1];
       const { buffer, mime } = await tgExpDownloadPhoto(photo.file_id);
       const ocr = await tgExpOCR(buffer, mime);
-      const pending = await sbInsertExp('expense_pending', { telegram_chat_id: String(chatId), telegram_msg_id: msg.message_id, amount: ocr.amount || 0, vendor: ocr.vendor || '未知', date: ocr.date || new Date().toISOString().slice(0, 10), category: ocr.category || '其他', confidence: ocr.confidence || 0, raw_text: ocr.raw_text || '', status: 'pending', created_at: new Date().toISOString() });
-      const pid = pending?.[0]?.id || 'unknown';
-      await tgExpReply(chatId, `<b>收據辨識結果：</b>\n\n金額：<b>HK$ ${ocr.amount}</b>\n商戶：${ocr.vendor}\n日期：${ocr.date}\n類別：${ocr.category}\n信心度：${Math.round((ocr.confidence || 0) * 100)}%`, { reply_markup: { inline_keyboard: [[{ text: '✅ 確認', callback_data: `exp_ok:${pid}` }, { text: '❌ 拒絕', callback_data: `exp_no:${pid}` }], [{ text: '✏️ 修改', callback_data: `exp_edit:${pid}` }]] } });
+      const encoded = encodeOCR(ocr);
+      await tgExpReply(chatId, `<b>🧾 收據辨識結果：</b>\n\n💰 金額：<b>HK$ ${ocr.amount}</b>\n🏪 商戶：${ocr.vendor}\n📅 日期：${ocr.date}\n📁 類別：${ocr.category}\n📊 信心度：${Math.round((ocr.confidence || 0) * 100)}%`, { reply_markup: { inline_keyboard: [[{ text: '✅ 確認入數', callback_data: `ok:${encoded}` }, { text: '❌ 拒絕', callback_data: `no:0` }], [{ text: '✏️ 手動修改', callback_data: `ed:0` }]] } });
       return res.status(200).json({ ok: true });
+    }
+
+    // Manual text entry: "金額, 商戶, 日期, 類別"
+    if (text.includes(',') && !text.startsWith('/')) {
+      const parts = text.split(',').map(s => s.trim());
+      if (parts.length >= 2) {
+        const amt = Number(parts[0]) || 0;
+        const vendor = parts[1] || '未知';
+        const date = parts[2] || new Date().toISOString().slice(0, 10);
+        const category = parts[3] || '其他';
+        if (amt > 0) {
+          const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+          await sbInsertExp('expenses', { id: `tg_${uid}`, date, merchant: vendor, amount: amt, category, store: '', payment: '其他', desc: 'Telegram 手動入數', receipt: '', created_at: new Date().toISOString() });
+          await tgExpReply(chatId, `✅ 已記錄！HK$ ${amt} — ${vendor}（${category}）${date}`);
+          return res.status(200).json({ ok: true });
+        }
+      }
     }
 
     // Commands
@@ -199,25 +229,25 @@ async function handleTgExpense(req, res) {
       const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
       const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
       const expenses = await sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}&order=date.asc`);
-      if (!expenses.length) { await tgExpReply(chatId, `${now.getFullYear()}年${now.getMonth() + 1}月暫無支出記錄。`); return res.status(200).json({ ok: true }); }
+      if (!expenses.length) { await tgExpReply(chatId, `📊 ${now.getFullYear()}年${now.getMonth() + 1}月暫無支出記錄。`); return res.status(200).json({ ok: true }); }
       const byCat = {}; let total = 0;
       for (const e of expenses) { byCat[e.category] = (byCat[e.category] || 0) + (e.amount || 0); total += e.amount || 0; }
       const lines = Object.entries(byCat).sort((a, b) => b[1] - a[1]).map(([c, a]) => `  ${c}：HK$ ${a.toLocaleString()}`);
-      await tgExpReply(chatId, `<b>${now.getFullYear()}年${now.getMonth() + 1}月支出報告</b>\n\n${lines.join('\n')}\n\n<b>合計：HK$ ${total.toLocaleString()}</b>\n共 ${expenses.length} 筆`);
+      await tgExpReply(chatId, `<b>📊 ${now.getFullYear()}年${now.getMonth() + 1}月支出報告</b>\n\n${lines.join('\n')}\n\n<b>合計：HK$ ${total.toLocaleString()}</b>\n共 ${expenses.length} 筆`);
       return res.status(200).json({ ok: true });
     }
     if (text === '/status') {
       const now = new Date();
       const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
       const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
-      const [exps, pend] = await Promise.all([sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`), sbSelectExp('expense_pending', 'status=eq.pending')]);
+      const exps = await sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`);
       const total = exps.reduce((s, e) => s + (e.amount || 0), 0);
-      await tgExpReply(chatId, `<b>本月支出狀態</b>\n\n已確認支出：HK$ ${total.toLocaleString()}（${exps.length} 筆）\n待確認收據：${pend.length} 筆`);
+      await tgExpReply(chatId, `<b>📈 本月支出狀態</b>\n\n已記錄支出：HK$ ${total.toLocaleString()}（${exps.length} 筆）`);
       return res.status(200).json({ ok: true });
     }
-    if (text === '/start') { await tgExpReply(chatId, '歡迎使用康晴開支記錄 Bot 🧾\n\n📸 發送收據圖片即可自動辨識\n/report — 本月支出報告\n/status — 支出狀態'); return res.status(200).json({ ok: true }); }
+    if (text === '/start') { await tgExpReply(chatId, '歡迎使用康晴開支記錄 Bot 🧾\n\n📸 發送收據圖片 → AI自動辨識\n✍️ 直接輸入「金額, 商戶, 日期, 類別」\n/report — 本月支出報告\n/status — 支出狀態'); return res.status(200).json({ ok: true }); }
 
-    await tgExpReply(chatId, '請發送收據圖片，或使用：\n/report — 本月支出報告\n/status — 支出狀態');
+    await tgExpReply(chatId, '📸 發送收據圖片，或直接輸入：\n<code>金額, 商戶, 日期, 類別</code>\n例：<code>1200, 永安中藥行, 2026-02-28, 藥材</code>\n\n/report — 本月支出報告\n/status — 支出狀態');
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('tg-expense error:', err);
