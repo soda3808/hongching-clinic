@@ -113,6 +113,12 @@ const CommissionCalculator = lazy(() => import('./components/CommissionCalculato
 const IncidentReport = lazy(() => import('./components/IncidentReport'));
 const QualityAudit = lazy(() => import('./components/QualityAudit'));
 const SOPManagement = lazy(() => import('./components/SOPManagement'));
+const BirthdayCampaign = lazy(() => import('./components/BirthdayCampaign'));
+const DoctorProfile = lazy(() => import('./components/DoctorProfile'));
+const SeasonalPromo = lazy(() => import('./components/SeasonalPromo'));
+const ClinicMap = lazy(() => import('./components/ClinicMap'));
+const PatientPortal = lazy(() => import('./components/PatientPortal'));
+const FinancialDashboard = lazy(() => import('./components/FinancialDashboard'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -213,6 +219,12 @@ const ALL_PAGES = [
   { id: 'incident', icon: '🚨', label: '事故報告', section: '系統', perm: 'viewSettings' },
   { id: 'qualityaudit', icon: '✅', label: '質量審核', section: '系統', perm: 'viewSettings' },
   { id: 'sop', icon: '📘', label: 'SOP管理', section: '系統', perm: 'viewSettings' },
+  { id: 'birthday', icon: '🎂', label: '生日營銷', section: '客戶', perm: 'viewPatients' },
+  { id: 'docprofile', icon: '👨‍⚕️', label: '醫師檔案', section: '人事', perm: 'viewDoctorAnalytics' },
+  { id: 'promo', icon: '🎉', label: '季節推廣', section: '客戶', perm: 'editRevenue' },
+  { id: 'clinicmap', icon: '🏠', label: '空間管理', section: '營運', perm: 'editExpenses' },
+  { id: 'portal', icon: '🌐', label: '病人自助', section: '系統', perm: 'viewSettings' },
+  { id: 'findash', icon: '💰', label: '財務總覽', section: '分析', perm: 'viewReports' },
 ];
 
 // Mobile bottom tab config
@@ -1074,6 +1086,12 @@ function MainApp() {
             {page === 'incident' && <IncidentReport showToast={showToast} user={user} />}
             {page === 'qualityaudit' && <QualityAudit showToast={showToast} user={user} />}
             {page === 'sop' && <SOPManagement showToast={showToast} user={user} />}
+            {page === 'birthday' && <BirthdayCampaign data={filteredData} showToast={showToast} user={user} />}
+            {page === 'docprofile' && <DoctorProfile data={filteredData} showToast={showToast} user={user} />}
+            {page === 'promo' && <SeasonalPromo data={filteredData} showToast={showToast} user={user} />}
+            {page === 'clinicmap' && <ClinicMap showToast={showToast} user={user} />}
+            {page === 'portal' && <PatientPortal showToast={showToast} user={user} />}
+            {page === 'findash' && <FinancialDashboard data={filteredData} showToast={showToast} user={user} />}
             {page === 'sickleave' && <SickLeavePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
             {page === 'pay' && <Payslip data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
             {page === 'schedule' && <DoctorSchedule data={filteredData} setData={updateData} showToast={showToast} user={user} />}
