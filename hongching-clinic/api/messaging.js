@@ -311,6 +311,62 @@ async function handleTgExpense(req, res) {
     // Store override: short caption (< 10 chars, no spaces) = store name
     const storeFromCaption = (caption && caption.length < 10 && !caption.includes(' ')) ? caption : '';
 
+    // ── Voice message → transcribe then NLP ──
+    if (msg.voice || msg.audio) {
+      const fileId = (msg.voice || msg.audio).file_id;
+      await tgExpReply(chatId, '🎙️ AI 正在聽你講...');
+      try {
+        const { buffer } = await tgExpDownloadPhoto(fileId);
+        if (!buffer || buffer.length < 100) { await tgExpReply(chatId, '❌ 語音下載失敗，請重新錄製'); return res.status(200).json({ ok: true }); }
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+        const b64 = buffer.toString('base64');
+        const mime = msg.voice ? 'audio/ogg' : (msg.audio.mime_type || 'audio/mpeg');
+        console.log(`[Voice] Size: ${buffer.length} bytes, mime: ${mime}`);
+        // Use Claude to transcribe audio
+        const vR = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-6', max_tokens: 500,
+            messages: [{ role: 'user', content: [
+              { type: 'text', text: `請聽以下語音，將內容轉寫成文字。只輸出原始語音內容，不加任何解釋或格式。如果語音内容是關於金額、開支、收入等財務記帳相關的，直接轉寫原話。` },
+              { type: 'document', source: { type: 'base64', media_type: mime, data: b64 } },
+            ] }],
+          }),
+        });
+        if (!vR.ok) throw new Error(`Claude API ${vR.status}`);
+        const vData = await vR.json();
+        const transcript = (vData.content?.[0]?.text || '').trim();
+        console.log('[Voice] Transcript:', transcript);
+        if (!transcript || transcript.length < 2) {
+          await tgExpReply(chatId, '🤔 聽唔清楚，請再試一次或直接打字。');
+          return res.status(200).json({ ok: true });
+        }
+        await tgExpReply(chatId, `🎙️ 聽到：「${transcript}」\n\n🤖 AI 處理中...`);
+        // Now pass transcript to NLP
+        const results = await tgExpNLP(transcript);
+        if (!results || !Array.isArray(results) || results.length === 0 || results[0].error) {
+          await tgExpReply(chatId, `🤔 聽到「${transcript}」但搵唔到金額。\n\n請講清楚啲，例如：「今日買左300蚊藥材」`);
+          return res.status(200).json({ ok: true });
+        }
+        let saved = 0;
+        for (const ocr of results) {
+          if (ocr.amount > 0 && !ocr.error) {
+            await autoSaveAndReply(chatId, ocr, ocr.store_hint || '');
+            saved++;
+          }
+        }
+        if (saved === 0) {
+          await tgExpReply(chatId, `🤔 聽到「${transcript}」但搵唔到金額。`);
+        }
+      } catch (voiceErr) {
+        console.error('Voice error:', voiceErr);
+        await tgExpReply(chatId, `❌ 語音處理失敗：${voiceErr.message}\n\n請直接打字記帳。`);
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Photo → AI auto-process & save ──
     if (msg.photo?.length) {
       await tgExpReply(chatId, '🔍 AI 正在掃描圖片...');
@@ -1069,6 +1125,110 @@ JSON array 回覆（無markdown無解釋）：
       return res.status(200).json({ ok: true });
     }
 
+    // ── /arap — Accounts receivable/payable summary ──
+    if (text === '/arap') {
+      let items;
+      try { items = await sbSelectExp('arap', 'order=dueDate.asc'); } catch { items = []; }
+      if (!items.length) { await tgExpReply(chatId, '📋 暫無應收應付記錄。'); return res.status(200).json({ ok: true }); }
+      const receivable = items.filter(i => i.type === 'receivable' || i.type === 'AR');
+      const payable = items.filter(i => i.type === 'payable' || i.type === 'AP');
+      const arTotal = receivable.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      const apTotal = payable.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      const arPaid = receivable.filter(i => i.status === 'paid' || i.status === 'settled');
+      const apPaid = payable.filter(i => i.status === 'paid' || i.status === 'settled');
+      const arOutstanding = arTotal - arPaid.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      const apOutstanding = apTotal - apPaid.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+      let rpt = `<b>📋 應收應付</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `<b>💰 應收帳款（AR）</b>\n`;
+      rpt += `  總額：HK$ ${arTotal.toLocaleString()}（${receivable.length} 筆）\n`;
+      rpt += `  未收：HK$ ${arOutstanding.toLocaleString()}\n`;
+      rpt += `  已收：${arPaid.length}/${receivable.length}\n\n`;
+      rpt += `<b>🧾 應付帳款（AP）</b>\n`;
+      rpt += `  總額：HK$ ${apTotal.toLocaleString()}（${payable.length} 筆）\n`;
+      rpt += `  未付：HK$ ${apOutstanding.toLocaleString()}\n`;
+      rpt += `  已付：${apPaid.length}/${payable.length}\n\n`;
+      // Overdue items
+      const today = new Date().toISOString().slice(0, 10);
+      const overdue = items.filter(i => i.dueDate && i.dueDate < today && i.status !== 'paid' && i.status !== 'settled');
+      if (overdue.length) {
+        rpt += `🚨 <b>逾期（${overdue.length} 筆）</b>\n`;
+        overdue.slice(0, 5).forEach(i => {
+          rpt += `  ${i.type === 'receivable' ? '💰' : '🧾'} ${i.name || i.contact || '—'}：HK$ ${(Number(i.amount) || 0).toLocaleString()} 到期 ${i.dueDate}\n`;
+        });
+      }
+      rpt += `\n📊 淨額：HK$ ${(arOutstanding - apOutstanding).toLocaleString()}`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /payslip — Staff salary summary ──
+    if (text === '/payslip') {
+      const now = new Date();
+      const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+      let slips;
+      try { slips = await sbSelectExp('payslips', `date=gte.${ms}&date=lt.${me}&order=date.desc`); } catch { slips = []; }
+      if (!slips.length) {
+        // Try without date filter
+        try { slips = await sbSelectExp('payslips', 'order=date.desc&limit=20'); } catch { slips = []; }
+      }
+      if (!slips.length) { await tgExpReply(chatId, `💼 暫無薪資記錄。`); return res.status(200).json({ ok: true }); }
+      const total = slips.reduce((s, p) => s + (Number(p.amount) || Number(p.netPay) || Number(p.net_pay) || 0), 0);
+      let rpt = `<b>💼 薪資摘要</b>（${slips.length} 筆）\n━━━━━━━━━━━━━━━━━━\n\n`;
+      slips.slice(0, 10).forEach(p => {
+        const amt = Number(p.amount) || Number(p.netPay) || Number(p.net_pay) || 0;
+        rpt += `  ${p.staffName || p.staff_name || p.name || '—'}：HK$ ${amt.toLocaleString()} ${p.date || ''}\n`;
+      });
+      if (slips.length > 10) rpt += `  ... 及其餘 ${slips.length - 10} 筆\n`;
+      rpt += `\n<b>合計：HK$ ${total.toLocaleString()}</b>`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /cash — Cash flow summary (today & this month) ──
+    if (text === '/cash') {
+      const now = new Date();
+      const today = now.toISOString().slice(0, 10);
+      const { ms, me } = monthRange(now.getFullYear(), now.getMonth() + 1);
+      const [revT, expT, revM, expM] = await Promise.all([
+        sbSelectExp('revenue', `date=eq.${today}`),
+        sbSelectExp('expenses', `date=eq.${today}`),
+        sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}`),
+        sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`),
+      ]);
+      const sum = (arr) => arr.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tRevT = sum(revT), tExpT = sum(expT), tRevM = sum(revM), tExpM = sum(expM);
+      // By payment method
+      const byPay = {};
+      [...revM, ...expM].forEach(r => { const p = r.payment || '未分類'; if (!byPay[p]) byPay[p] = { in: 0, out: 0 }; });
+      revM.forEach(r => { const p = r.payment || '未分類'; byPay[p].in += Number(r.amount) || 0; });
+      expM.forEach(e => { const p = e.payment || '未分類'; byPay[p].out += Number(e.amount) || 0; });
+      let rpt = `<b>💵 現金流</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `<b>📅 今日 (${today})</b>\n`;
+      rpt += `  💰 流入：HK$ ${tRevT.toLocaleString()}\n`;
+      rpt += `  🧾 流出：HK$ ${tExpT.toLocaleString()}\n`;
+      rpt += `  📊 淨流：${tRevT - tExpT >= 0 ? '✅' : '❌'} HK$ ${(tRevT - tExpT).toLocaleString()}\n\n`;
+      rpt += `<b>📊 本月 (${now.getMonth() + 1}月)</b>\n`;
+      rpt += `  💰 流入：HK$ ${tRevM.toLocaleString()}\n`;
+      rpt += `  🧾 流出：HK$ ${tExpM.toLocaleString()}\n`;
+      rpt += `  📊 淨流：${tRevM - tExpM >= 0 ? '✅' : '❌'} HK$ ${(tRevM - tExpM).toLocaleString()}\n`;
+      // Payment method breakdown
+      if (Object.keys(byPay).length > 1) {
+        rpt += '\n<b>💳 付款方式</b>\n';
+        Object.entries(byPay).sort((a, b) => (b[1].in + b[1].out) - (a[1].in + a[1].out)).forEach(([p, v]) => {
+          rpt += `  ${p}：💰${v.in.toLocaleString()} 🧾${v.out.toLocaleString()}\n`;
+        });
+      }
+      // Daily average
+      const daysPassed = now.getDate();
+      if (daysPassed > 1) {
+        rpt += `\n📈 日均流入：HK$ ${Math.round(tRevM / daysPassed).toLocaleString()}`;
+        rpt += `\n📉 日均流出：HK$ ${Math.round(tExpM / daysPassed).toLocaleString()}`;
+      }
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
     // ── /start or /help ──
     if (text === '/start' || text === '/help') {
       await tgExpReply(chatId,
@@ -1097,7 +1257,10 @@ JSON array 回覆（無markdown無解釋）：
         `/compare — 月度對比\n` +
         `/budget 50000 — 預算追蹤\n` +
         `/year 2026 — 年度報告\n` +
-        `/trend — 6個月趨勢圖\n\n` +
+        `/trend — 6個月趨勢圖\n` +
+        `/cash — 現金流\n` +
+        `/arap — 應收應付\n` +
+        `/payslip — 薪資摘要\n\n` +
         `<b>🏥 診所營運</b>\n` +
         `/bk — 今日預約\n` +
         `/pt — 今日病人\n` +
@@ -1105,9 +1268,10 @@ JSON array 回覆（無markdown無解釋）：
         `/queue — 排隊狀態\n` +
         `/inv — 庫存警報\n` +
         `/stats — 診所統計\n\n` +
+        `<b>🎤 語音記帳</b>\n` +
+        `錄語音講「買左200蚊藥材」即自動記帳\n\n` +
         `<b>🤖 自動報告</b>\n` +
-        `每日 11pm · 每週一 · 每月1號\n` +
-        `自動發送報告到此對話`
+        `每日 11pm · 每週一 · 每月1號`
       );
       return res.status(200).json({ ok: true });
     }
