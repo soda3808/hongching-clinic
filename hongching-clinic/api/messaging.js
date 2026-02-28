@@ -154,32 +154,43 @@ async function tgExpOCR(imageBuffer, mime, caption = '') {
   const b64 = imageBuffer.toString('base64');
   const mediaType = mime.startsWith('image/') ? mime : 'image/jpeg';
   const extra = caption ? `\n用戶備註：「${caption}」` : '';
+  console.log(`[OCR] Image size: ${imageBuffer.length} bytes, mime: ${mediaType}, b64 length: ${b64.length}`);
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001', max_tokens: 600,
+      model: 'claude-sonnet-4-6', max_tokens: 800,
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
-        { type: 'text', text: `你是中醫診所會計AI。分析這張收據/發票/帳單。${extra}
+        { type: 'text', text: `你是中醫診所「康晴中醫」的會計AI。仔細分析這張圖片中的所有文字、數字和內容。${extra}
 
-判斷「expense」(診所付出：買藥材、交租、水電、物資等) 還是「revenue」(收到款項：診金、藥費、針灸費等)。
+首先仔細閱讀圖片上所有可見的文字，然後判斷：
+1. 這是收據、發票、帳單、或者其他財務文件嗎？
+2. 「expense」(診所付出：買藥材、交租、水電、物資等) 還是「revenue」(收到款項：診金、藥費、針灸費等)？
+3. 提取金額、商戶名、日期等資訊
 
-JSON回覆（無markdown）：
-{"type":"expense"或"revenue","amount":數字,"vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1}
+如果圖片不清晰或不是財務相關文件，amount 設為 0。
+
+只回覆JSON（無markdown無解釋）：
+{"type":"expense"或"revenue","amount":數字,"vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1,"raw_text":"你在圖片中看到的主要文字摘要（50字內）"}
 
 開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他
 收入分類：診金,藥費,針灸,推拿,其他治療` },
       ] }],
     }),
   });
-  if (!r.ok) throw new Error(`Claude API ${r.status}`);
+  if (!r.ok) {
+    const errBody = await r.text().catch(() => '');
+    console.error(`[OCR] Claude API error ${r.status}:`, errBody);
+    throw new Error(`Claude API ${r.status}: ${errBody.slice(0, 200)}`);
+  }
   const data = await r.json();
   const txt = data.content?.[0]?.text || '';
+  console.log('[OCR] Claude response:', txt.slice(0, 300));
   const match = txt.match(/\{[\s\S]*\}/);
   const fb = { type: 'expense', amount: 0, vendor: '未知', date: new Date().toISOString().slice(0, 10), category: '其他', item: '', payment: '其他', store_hint: '', confidence: 0 };
-  if (!match) return fb;
-  try { return { ...fb, ...JSON.parse(match[0]) }; } catch { return fb; }
+  if (!match) { console.error('[OCR] No JSON found in response:', txt); return fb; }
+  try { return { ...fb, ...JSON.parse(match[0]) }; } catch (e) { console.error('[OCR] JSON parse error:', e, txt); return fb; }
 }
 
 // ── Natural Language Parser — understands free-form Cantonese/Chinese accounting ──
@@ -302,20 +313,40 @@ async function handleTgExpense(req, res) {
 
     // ── Photo → AI auto-process & save ──
     if (msg.photo?.length) {
-      await tgExpReply(chatId, '🤖 AI 處理中...');
-      const photo = msg.photo[msg.photo.length - 1];
-      const { buffer, mime } = await tgExpDownloadPhoto(photo.file_id);
-      const ocr = await tgExpOCR(buffer, mime, caption);
-      await autoSaveAndReply(chatId, ocr, storeFromCaption);
+      await tgExpReply(chatId, '🔍 AI 正在掃描圖片...');
+      try {
+        const photo = msg.photo[msg.photo.length - 1];
+        const { buffer, mime } = await tgExpDownloadPhoto(photo.file_id);
+        if (!buffer || buffer.length < 100) { await tgExpReply(chatId, '❌ 圖片下載失敗，請重新發送'); return res.status(200).json({ ok: true }); }
+        const ocr = await tgExpOCR(buffer, mime, caption);
+        if (!ocr || ocr.amount <= 0 || ocr.vendor === '未知') {
+          await tgExpReply(chatId, '🤔 掃描唔到內容。請確保：\n1. 圖片清晰、唔好太模糊\n2. 收據/發票完整可見\n3. 金額清楚顯示\n\n你可以試下直接打字：<code>金額, 商戶, 分類</code>');
+          return res.status(200).json({ ok: true });
+        }
+        await autoSaveAndReply(chatId, ocr, storeFromCaption);
+      } catch (photoErr) {
+        console.error('Photo OCR error:', photoErr);
+        await tgExpReply(chatId, `❌ 圖片處理失敗：${photoErr.message}\n\n請試下：\n• 重新影過\n• 確保圖片唔好太大（<10MB）\n• 或直接打字記帳`);
+      }
       return res.status(200).json({ ok: true });
     }
 
     // ── Document (image sent as file) → same AI flow ──
     if (msg.document && (msg.document.mime_type || '').startsWith('image/')) {
-      await tgExpReply(chatId, '🤖 AI 處理中...');
-      const { buffer, mime } = await tgExpDownloadPhoto(msg.document.file_id);
-      const ocr = await tgExpOCR(buffer, mime, caption);
-      await autoSaveAndReply(chatId, ocr, storeFromCaption);
+      await tgExpReply(chatId, '🔍 AI 正在掃描圖片...');
+      try {
+        const { buffer, mime } = await tgExpDownloadPhoto(msg.document.file_id);
+        if (!buffer || buffer.length < 100) { await tgExpReply(chatId, '❌ 圖片下載失敗，請重新發送'); return res.status(200).json({ ok: true }); }
+        const ocr = await tgExpOCR(buffer, mime, caption);
+        if (!ocr || ocr.amount <= 0 || ocr.vendor === '未知') {
+          await tgExpReply(chatId, '🤔 掃描唔到內容。請確保圖片清晰、收據完整可見。\n或直接打字：<code>金額, 商戶, 分類</code>');
+          return res.status(200).json({ ok: true });
+        }
+        await autoSaveAndReply(chatId, ocr, storeFromCaption);
+      } catch (docErr) {
+        console.error('Doc image OCR error:', docErr);
+        await tgExpReply(chatId, `❌ 圖片處理失敗：${docErr.message}`);
+      }
       return res.status(200).json({ ok: true });
     }
 
