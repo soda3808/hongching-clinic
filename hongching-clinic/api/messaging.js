@@ -101,7 +101,7 @@ async function handleEmailReminder(req, res) {
   } catch { return errorResponse(res, 500, '發送電郵時發生錯誤'); }
 }
 
-// ── Handler: Telegram Expense Bot (webhook, no auth required) ──
+// ── Handler: Telegram Smart Accounting Bot v2 — Full auto-save ──
 const TG_EXPENSE_API = 'https://api.telegram.org/bot';
 function expBotToken() { return process.env.TG_EXPENSE_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN; }
 function sbHeaders() { const k = process.env.SUPABASE_SERVICE_KEY; return { apikey: k, Authorization: `Bearer ${k}`, 'Content-Type': 'application/json', Prefer: 'return=representation' }; }
@@ -118,74 +118,100 @@ async function tgExpDownloadPhoto(fileId) {
   return { buffer: Buffer.from(buf), mime: r.headers.get('content-type') || 'image/jpeg' };
 }
 
-async function tgExpOCR(imageBuffer, mime) {
+async function tgExpOCR(imageBuffer, mime, caption = '') {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
   const b64 = imageBuffer.toString('base64');
   const mediaType = mime.startsWith('image/') ? mime : 'image/jpeg';
+  const extra = caption ? `\n用戶備註：「${caption}」` : '';
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 512, messages: [{ role: 'user', content: [
-      { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
-      { type: 'text', text: '這是一張收據/發票圖片。請提取以下資訊並以 JSON 回覆（不要 markdown）：\n{"amount": 數字(HK$), "vendor": "商戶名稱", "date": "YYYY-MM-DD", "category": "類別(藥材/租金/水電/辦公/飲食/交通/其他)", "confidence": 0-1, "raw_text": "收據上的主要文字"}' },
-    ] }] }),
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001', max_tokens: 600,
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+        { type: 'text', text: `你是中醫診所會計AI。分析這張收據/發票/帳單。${extra}
+
+判斷「expense」(診所付出：買藥材、交租、水電、物資等) 還是「revenue」(收到款項：診金、藥費、針灸費等)。
+
+JSON回覆（無markdown）：
+{"type":"expense"或"revenue","amount":數字,"vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1}
+
+開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他
+收入分類：診金,藥費,針灸,推拿,其他治療` },
+      ] }],
+    }),
   });
   if (!r.ok) throw new Error(`Claude API ${r.status}`);
   const data = await r.json();
-  const text = data.content?.[0]?.text || '';
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return { amount: 0, vendor: '未知', date: new Date().toISOString().slice(0, 10), category: '其他', confidence: 0, raw_text: text };
-  try { return JSON.parse(match[0]); } catch { return { amount: 0, vendor: '未知', date: new Date().toISOString().slice(0, 10), category: '其他', confidence: 0, raw_text: text }; }
+  const txt = data.content?.[0]?.text || '';
+  const match = txt.match(/\{[\s\S]*\}/);
+  const fb = { type: 'expense', amount: 0, vendor: '未知', date: new Date().toISOString().slice(0, 10), category: '其他', item: '', payment: '其他', store_hint: '', confidence: 0 };
+  if (!match) return fb;
+  try { return { ...fb, ...JSON.parse(match[0]) }; } catch { return fb; }
 }
 
 async function sbInsertExp(table, body) { const r = await fetch(sbUrl(table), { method: 'POST', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase POST ${table}: ${r.status}`); return r.json(); }
-async function sbUpdateExp(table, f, body) { const r = await fetch(sbUrl(table, f), { method: 'PATCH', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase PATCH ${table}: ${r.status}`); return r.json(); }
 async function sbSelectExp(table, f) { const r = await fetch(sbUrl(table, f), { method: 'GET', headers: sbHeaders() }); if (!r.ok) throw new Error(`Supabase GET ${table}: ${r.status}`); return r.json(); }
 
-// In-memory pending store (per invocation; for confirm/reject we encode data in callback_data)
-function encodeOCR(ocr) {
-  // Encode OCR data into callback_data (max 64 bytes) — use compact format
-  const amt = Math.round(ocr.amount || 0);
-  const v = (ocr.vendor || '').substring(0, 12);
-  const d = (ocr.date || '').replace(/-/g, '');
-  const c = (ocr.category || '其他').substring(0, 4);
-  return `${amt}|${v}|${d}|${c}`;
-}
-function decodeOCR(s) {
-  const [amt, vendor, dateRaw, category] = s.split('|');
-  const d = dateRaw || '';
-  const date = d.length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : new Date().toISOString().slice(0,10);
-  return { amount: Number(amt) || 0, vendor: vendor || '未知', date, category: category || '其他' };
+// Auto-save OCR result and send confirmation with undo button
+async function autoSaveAndReply(chatId, ocr, storeOverride) {
+  const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  const id = `tg_${uid}`;
+  const store = storeOverride || ocr.store_hint || process.env.TG_DEFAULT_STORE || '';
+  const isRev = ocr.type === 'revenue';
+  const table = isRev ? 'revenue' : 'expenses';
+
+  if (isRev) {
+    await sbInsertExp('revenue', { id, date: ocr.date, name: ocr.vendor, item: ocr.item || ocr.category || '診金', amount: ocr.amount, payment: ocr.payment || '其他', store, doctor: '', note: 'TG AI自動', created_at: new Date().toISOString() });
+  } else {
+    await sbInsertExp('expenses', { id, date: ocr.date, merchant: ocr.vendor, amount: ocr.amount, category: ocr.category || '其他', store, payment: ocr.payment || '其他', desc: `TG AI: ${ocr.item || ocr.vendor}`, receipt: '', created_at: new Date().toISOString() });
+  }
+
+  const emoji = isRev ? '💰' : '🧾';
+  const typeLabel = isRev ? '收入' : '開支';
+  await tgExpReply(chatId,
+    `${emoji} <b>已自動記錄${typeLabel}</b>\n` +
+    `💵 <b>HK$ ${(ocr.amount || 0).toLocaleString()}</b> — ${ocr.vendor}\n` +
+    `📅 ${ocr.date} | 📁 ${isRev ? (ocr.item || ocr.category) : ocr.category} | 🏥 ${store || '未指定'}\n` +
+    `💳 ${ocr.payment || '其他'} | 📊 ${Math.round((ocr.confidence || 0) * 100)}%`,
+    { reply_markup: { inline_keyboard: [[{ text: '↩️ 撤銷此記錄', callback_data: `undo:${table}:${id}` }]] } }
+  );
 }
 
 async function handleTgExpense(req, res) {
-  // GET — health check
-  if (req.method === 'GET') {
-    return res.status(200).json({ ok: true, service: 'tg-expense-bot', webhook: `https://${req.headers.host}/api/messaging?action=tg-expense`, configured: !!expBotToken() });
-  }
-  if (!expBotToken()) return res.status(200).json({ ok: true, error: 'Bot token not configured' });
+  if (req.method === 'GET') return res.status(200).json({ ok: true, service: 'tg-smart-accounting-v2', configured: !!expBotToken() });
+  if (!expBotToken()) return res.status(200).json({ ok: true, error: 'Bot not configured' });
 
   try {
     const update = req.body;
     if (!update) return res.status(200).json({ ok: true });
 
-    // Callback query (inline button press)
+    // ── Callback: undo / legacy confirm ──
     if (update.callback_query) {
       const cbq = update.callback_query;
       const chatId = cbq.message.chat.id;
       const data = cbq.data || '';
       await tgExpCall('answerCallbackQuery', { callback_query_id: cbq.id });
 
-      if (data.startsWith('ok:')) {
-        const ocr = decodeOCR(data.slice(3));
-        const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-        await sbInsertExp('expenses', { id: `tg_${uid}`, date: ocr.date, merchant: ocr.vendor, amount: ocr.amount, category: ocr.category, store: '', payment: '其他', desc: 'Telegram OCR 收據', receipt: '', created_at: new Date().toISOString() });
-        await tgExpReply(chatId, `✅ 已確認！HK$ ${ocr.amount} — ${ocr.vendor}（${ocr.category}）已記錄到開支。`);
+      if (data.startsWith('undo:')) {
+        const parts = data.slice(5).split(':');
+        const table = parts[0];
+        const recId = parts.slice(1).join(':');
+        try {
+          await fetch(sbUrl(table, `id=eq.${recId}`), { method: 'DELETE', headers: sbHeaders() });
+          await tgExpReply(chatId, '↩️ 已撤銷此記錄');
+        } catch { await tgExpReply(chatId, '❌ 撤銷失敗，請在系統中手動刪除'); }
+      } else if (data.startsWith('ok:')) {
+        // Legacy v1 confirm — decode old format and save
+        const [amt, vendor, dateRaw, category] = data.slice(3).split('|');
+        const d = dateRaw || ''; const date = d.length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : new Date().toISOString().slice(0,10);
+        const id = `tg_${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
+        await sbInsertExp('expenses', { id, date, merchant: vendor || '未知', amount: Number(amt) || 0, category: category || '其他', store: '', payment: '其他', desc: 'TG OCR (v1)', receipt: '', created_at: new Date().toISOString() });
+        await tgExpReply(chatId, `✅ 已確認！HK$ ${amt} — ${vendor}（${category}）`);
       } else if (data.startsWith('no:')) {
-        await tgExpReply(chatId, '❌ 已拒絕並丟棄。');
-      } else if (data.startsWith('ed:')) {
-        await tgExpReply(chatId, '請回覆正確資料，格式：\n<code>金額, 商戶, 日期, 類別</code>\n例：<code>1200, 永安中藥行, 2026-02-28, 藥材</code>');
+        await tgExpReply(chatId, '❌ 已丟棄');
       }
       return res.status(200).json({ ok: true });
     }
@@ -194,36 +220,107 @@ async function handleTgExpense(req, res) {
     if (!msg) return res.status(200).json({ ok: true });
     const chatId = msg.chat.id;
     const text = (msg.text || '').trim();
+    const caption = (msg.caption || '').trim();
 
-    // Photo — receipt OCR
-    if (msg.photo && msg.photo.length > 0) {
-      await tgExpReply(chatId, '🔍 收到收據圖片，正在辨識中...');
+    // Store override: short caption (< 10 chars, no spaces) = store name
+    const storeFromCaption = (caption && caption.length < 10 && !caption.includes(' ')) ? caption : '';
+
+    // ── Photo → AI auto-process & save ──
+    if (msg.photo?.length) {
+      await tgExpReply(chatId, '🤖 AI 處理中...');
       const photo = msg.photo[msg.photo.length - 1];
       const { buffer, mime } = await tgExpDownloadPhoto(photo.file_id);
-      const ocr = await tgExpOCR(buffer, mime);
-      const encoded = encodeOCR(ocr);
-      await tgExpReply(chatId, `<b>🧾 收據辨識結果：</b>\n\n💰 金額：<b>HK$ ${ocr.amount}</b>\n🏪 商戶：${ocr.vendor}\n📅 日期：${ocr.date}\n📁 類別：${ocr.category}\n📊 信心度：${Math.round((ocr.confidence || 0) * 100)}%`, { reply_markup: { inline_keyboard: [[{ text: '✅ 確認入數', callback_data: `ok:${encoded}` }, { text: '❌ 拒絕', callback_data: `no:0` }], [{ text: '✏️ 手動修改', callback_data: `ed:0` }]] } });
+      const ocr = await tgExpOCR(buffer, mime, caption);
+      await autoSaveAndReply(chatId, ocr, storeFromCaption);
       return res.status(200).json({ ok: true });
     }
 
-    // Manual text entry: "金額, 商戶, 日期, 類別"
-    if (text.includes(',') && !text.startsWith('/')) {
-      const parts = text.split(',').map(s => s.trim());
+    // ── Document (image sent as file) → same AI flow ──
+    if (msg.document && (msg.document.mime_type || '').startsWith('image/')) {
+      await tgExpReply(chatId, '🤖 AI 處理中...');
+      const { buffer, mime } = await tgExpDownloadPhoto(msg.document.file_id);
+      const ocr = await tgExpOCR(buffer, mime, caption);
+      await autoSaveAndReply(chatId, ocr, storeFromCaption);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── Text: +amount = revenue, amount = expense ──
+    if (!text.startsWith('/') && (text.includes(',') || /^[+]?\d/.test(text))) {
+      const isRev = text.startsWith('+');
+      const parts = text.replace(/^[+]/, '').split(',').map(s => s.trim());
       if (parts.length >= 2) {
         const amt = Number(parts[0]) || 0;
-        const vendor = parts[1] || '未知';
-        const date = parts[2] || new Date().toISOString().slice(0, 10);
-        const category = parts[3] || '其他';
         if (amt > 0) {
           const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-          await sbInsertExp('expenses', { id: `tg_${uid}`, date, merchant: vendor, amount: amt, category, store: '', payment: '其他', desc: 'Telegram 手動入數', receipt: '', created_at: new Date().toISOString() });
-          await tgExpReply(chatId, `✅ 已記錄！HK$ ${amt} — ${vendor}（${category}）${date}`);
+          const id = `tg_${uid}`;
+          const name = parts[1] || '未知';
+          const p2 = parts[2] || '';
+          const isDate = /^\d{4}-\d{2}-\d{2}$/.test(p2);
+          const date = isDate ? p2 : new Date().toISOString().slice(0, 10);
+          const cat = isDate ? (parts[3] || '其他') : (p2 || '其他');
+          const store = parts[isDate ? 4 : 3] || process.env.TG_DEFAULT_STORE || '';
+          const table = isRev ? 'revenue' : 'expenses';
+
+          if (isRev) {
+            await sbInsertExp('revenue', { id, date, name, item: cat, amount: amt, payment: '其他', store, doctor: '', note: 'TG手動', created_at: new Date().toISOString() });
+          } else {
+            await sbInsertExp('expenses', { id, date, merchant: name, amount: amt, category: cat, store, payment: '其他', desc: 'TG手動', receipt: '', created_at: new Date().toISOString() });
+          }
+
+          const emoji = isRev ? '💰' : '🧾';
+          const typeLabel = isRev ? '收入' : '開支';
+          await tgExpReply(chatId, `${emoji} ${typeLabel}：HK$ ${amt.toLocaleString()} — ${name}（${cat}）${store ? ' @' + store : ''}`,
+            { reply_markup: { inline_keyboard: [[{ text: '↩️ 撤銷', callback_data: `undo:${table}:${id}` }]] } });
           return res.status(200).json({ ok: true });
         }
       }
     }
 
-    // Commands
+    // ── /pnl — Monthly P&L by store ──
+    if (text === '/pnl' || text === '/pl') {
+      const now = new Date();
+      const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}`),
+        sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`),
+      ]);
+      const stores = {};
+      const add = (s, t, a) => { const k = s || '未分店'; if (!stores[k]) stores[k] = { r: 0, e: 0 }; stores[k][t] += a; };
+      rev.forEach(r => add(r.store, 'r', Number(r.amount) || 0));
+      exp.forEach(e => add(e.store, 'e', Number(e.amount) || 0));
+      const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+      let rpt = `<b>📊 ${now.getFullYear()}年${now.getMonth() + 1}月 損益表</b>\n━━━━━━━━━━━━━━━━━━\n`;
+      for (const [st, d] of Object.entries(stores).sort()) {
+        const net = d.r - d.e;
+        rpt += `\n🏥 <b>${st}</b>\n  收入：HK$ ${d.r.toLocaleString()}\n  支出：HK$ ${d.e.toLocaleString()}\n  損益：${net >= 0 ? '✅' : '❌'} HK$ ${net.toLocaleString()}\n`;
+      }
+      rpt += `\n━━━━━━━━━━━━━━━━━━\n<b>合計</b>\n  收入：HK$ ${tR.toLocaleString()}\n  支出：HK$ ${tE.toLocaleString()}\n  淨利：${tR - tE >= 0 ? '✅' : '❌'} <b>HK$ ${(tR - tE).toLocaleString()}</b>\n  利潤率：${tR > 0 ? Math.round((tR - tE) / tR * 100) : 0}%\n\n📝 ${rev.length}筆收入 | ${exp.length}筆支出`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /today — Today's entries ──
+    if (text === '/today') {
+      const today = new Date().toISOString().slice(0, 10);
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=eq.${today}&order=created_at.desc`),
+        sbSelectExp('expenses', `date=eq.${today}&order=created_at.desc`),
+      ]);
+      const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      let rpt = `<b>📅 ${today}</b>\n\n`;
+      if (rev.length) { rpt += `💰 <b>收入 (${rev.length}筆)</b>\n`; rev.forEach(r => { rpt += `  HK$ ${Number(r.amount).toLocaleString()} ${r.name || r.item || ''}${r.store ? ' @' + r.store : ''}\n`; }); rpt += `  <b>小計：HK$ ${tR.toLocaleString()}</b>\n\n`; }
+      if (exp.length) { rpt += `🧾 <b>支出 (${exp.length}筆)</b>\n`; exp.forEach(e => { rpt += `  HK$ ${Number(e.amount).toLocaleString()} ${e.merchant || e.category || ''}${e.store ? ' @' + e.store : ''}\n`; }); rpt += `  <b>小計：HK$ ${tE.toLocaleString()}</b>\n\n`; }
+      if (!rev.length && !exp.length) rpt += '今日暫無記錄\n';
+      else rpt += `淨額：${tR - tE >= 0 ? '✅' : '❌'} HK$ ${(tR - tE).toLocaleString()}`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /report — Expense category breakdown ──
     if (text === '/report') {
       const now = new Date();
       const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
@@ -236,21 +333,47 @@ async function handleTgExpense(req, res) {
       await tgExpReply(chatId, `<b>📊 ${now.getFullYear()}年${now.getMonth() + 1}月支出報告</b>\n\n${lines.join('\n')}\n\n<b>合計：HK$ ${total.toLocaleString()}</b>\n共 ${expenses.length} 筆`);
       return res.status(200).json({ ok: true });
     }
+
+    // ── /status — Quick monthly summary ──
     if (text === '/status') {
       const now = new Date();
       const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
       const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
-      const exps = await sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`);
-      const total = exps.reduce((s, e) => s + (e.amount || 0), 0);
-      await tgExpReply(chatId, `<b>📈 本月支出狀態</b>\n\n已記錄支出：HK$ ${total.toLocaleString()}（${exps.length} 筆）`);
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}`),
+        sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`),
+      ]);
+      const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      await tgExpReply(chatId, `<b>📈 ${now.getMonth() + 1}月狀態</b>\n\n💰 收入：HK$ ${tR.toLocaleString()}（${rev.length}筆）\n🧾 支出：HK$ ${tE.toLocaleString()}（${exp.length}筆）\n${tR - tE >= 0 ? '✅' : '❌'} 損益：HK$ ${(tR - tE).toLocaleString()}`);
       return res.status(200).json({ ok: true });
     }
-    if (text === '/start') { await tgExpReply(chatId, '歡迎使用康晴開支記錄 Bot 🧾\n\n📸 發送收據圖片 → AI自動辨識\n✍️ 直接輸入「金額, 商戶, 日期, 類別」\n/report — 本月支出報告\n/status — 支出狀態'); return res.status(200).json({ ok: true }); }
 
-    await tgExpReply(chatId, '📸 發送收據圖片，或直接輸入：\n<code>金額, 商戶, 日期, 類別</code>\n例：<code>1200, 永安中藥行, 2026-02-28, 藥材</code>\n\n/report — 本月支出報告\n/status — 支出狀態');
+    // ── /start or /help ──
+    if (text === '/start' || text === '/help') {
+      await tgExpReply(chatId,
+        `<b>🧾 康晴智能記帳 Bot v2</b>\n\n` +
+        `<b>📸 全自動模式（最懶）</b>\n` +
+        `直接 send 收據/發票相 → AI 自動辨識＋記錄\n` +
+        `caption 寫分店名即歸到該分店\n\n` +
+        `<b>✍️ 快速文字輸入</b>\n` +
+        `開支：<code>金額, 商戶, 分類, 分店</code>\n` +
+        `收入：<code>+金額, 客戶, 項目, 分店</code>\n` +
+        `帶日期：<code>金額, 商戶, 2026-02-28, 分類, 分店</code>\n\n` +
+        `<b>📊 報表指令</b>\n` +
+        `/pnl — 本月損益表（按分店）\n` +
+        `/today — 今日記錄\n` +
+        `/report — 支出分類明細\n` +
+        `/status — 快速狀態`
+      );
+      return res.status(200).json({ ok: true });
+    }
+
+    await tgExpReply(chatId, '📸 Send 收據/發票相片，AI 自動搞掂！\n或 /help 查看所有指令');
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('tg-expense error:', err);
+    try { const cid = req.body?.message?.chat?.id || req.body?.callback_query?.message?.chat?.id; if (cid) await tgExpReply(cid, `❌ 處理錯誤：${err.message}`); } catch {}
     return res.status(200).json({ ok: true, error: err.message });
   }
 }

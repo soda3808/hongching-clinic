@@ -33,9 +33,10 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
   const [selected, setSelected] = useState(new Set());
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [simForm, setSimForm] = useState({ amount: '', vendor: '', date: new Date().toISOString().split('T')[0], category: ALL_CATS[0] });
+  const [simForm, setSimForm] = useState({ amount: '', vendor: '', date: new Date().toISOString().split('T')[0], category: ALL_CATS[0], type: 'expense', store: '' });
   const [ruleForm, setRuleForm] = useState({ pattern: '', category: ALL_CATS[0] });
   const [histFilter, setHistFilter] = useState({ status: '', category: '', from: '', to: '' });
+  const [manualForm, setManualForm] = useState({ amount: '', vendor: '', date: new Date().toISOString().split('T')[0], category: ALL_CATS[0], type: 'expense', store: '' });
 
   const webhookUrl = useMemo(() => {
     try { return `${window.location.origin}/api/telegram-expense-webhook`; } catch { return ''; }
@@ -57,7 +58,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
     }, 1200);
   };
 
-  // ── Pending ──
+  // ── Pending / Manual ──
   const savePending = (list) => { setPending(list); save(LS.pending, list); };
   const saveHistory = (list) => { setHistory(list); save(LS.history, list); };
   const saveRules = (r) => { setRules(r); save(LS.rules, r); };
@@ -72,14 +73,18 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
   const confirmItem = (item) => {
     const rec = {
       id: uid(), date: item.date, merchant: item.vendor, amount: parseFloat(item.amount),
-      category: item.category, store: '', payment: '其他', desc: `Telegram收據 (${item.vendor})`, receipt: item.thumbnail || '',
+      category: item.category, store: item.store || '', payment: '其他', desc: `Telegram收據 (${item.vendor})`, receipt: item.thumbnail || '',
     };
-    setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
+    if (item.type === 'revenue') {
+      setData(prev => ({ ...prev, revenue: [...(prev.revenue || []), rec] }));
+    } else {
+      setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
+    }
     const h = { ...item, status: 'confirmed', processedAt: new Date().toISOString(), processedBy: user?.name || 'system' };
     const newPending = pending.filter(p => p.id !== item.id);
     savePending(newPending);
     saveHistory([h, ...history]);
-    showToast(`已確認開支 ${fmtM(parseFloat(item.amount))}`);
+    showToast(`已確認${item.type === 'revenue' ? '收入' : '開支'} ${fmtM(parseFloat(item.amount))}`);
   };
 
   const rejectItem = (item) => {
@@ -87,7 +92,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
     const newPending = pending.filter(p => p.id !== item.id);
     savePending(newPending);
     saveHistory([h, ...history]);
-    showToast('已拒絕該收據');
+    showToast('已拒絕該記錄');
   };
 
   const batchConfirm = () => {
@@ -96,19 +101,23 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
     items.forEach(item => {
       const rec = {
         id: uid(), date: item.date, merchant: item.vendor, amount: parseFloat(item.amount),
-        category: item.category, store: '', payment: '其他', desc: `Telegram收據 (${item.vendor})`, receipt: item.thumbnail || '',
+        category: item.category, store: item.store || '', payment: '其他', desc: `Telegram收據 (${item.vendor})`, receipt: item.thumbnail || '',
       };
-      setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
+      if (item.type === 'revenue') {
+        setData(prev => ({ ...prev, revenue: [...(prev.revenue || []), rec] }));
+      } else {
+        setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
+      }
     });
     const confirmed = items.map(i => ({ ...i, status: 'confirmed', processedAt: new Date().toISOString(), processedBy: user?.name || 'system' }));
     const newPending = pending.filter(p => !selected.has(p.id));
     savePending(newPending);
     saveHistory([...confirmed, ...history]);
     setSelected(new Set());
-    showToast(`已批量確認 ${items.length} 筆開支`);
+    showToast(`已批量確認 ${items.length} 筆記錄`);
   };
 
-  const startEdit = (item) => { setEditId(item.id); setEditForm({ amount: item.amount, vendor: item.vendor, date: item.date, category: item.category }); };
+  const startEdit = (item) => { setEditId(item.id); setEditForm({ amount: item.amount, vendor: item.vendor, date: item.date, category: item.category, type: item.type || 'expense', store: item.store || '' }); };
   const saveEdit = () => {
     const updated = pending.map(p => p.id === editId ? { ...p, ...editForm } : p);
     savePending(updated);
@@ -116,28 +125,51 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
     showToast('已更新');
   };
 
+  // ── Manual Entry ──
+  const addManualEntry = () => {
+    if (!manualForm.amount || !manualForm.vendor) return showToast('請填寫金額和商戶');
+    const rec = {
+      id: uid(), date: manualForm.date, merchant: manualForm.vendor, amount: parseFloat(manualForm.amount),
+      category: manualForm.category, store: manualForm.store || '', payment: '其他',
+      desc: `手動記錄 (${manualForm.vendor})`, receipt: '',
+    };
+    if (manualForm.type === 'revenue') {
+      setData(prev => ({ ...prev, revenue: [...(prev.revenue || []), rec] }));
+    } else {
+      setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
+    }
+    saveHistory([{
+      id: uid(), amount: manualForm.amount, vendor: manualForm.vendor, date: manualForm.date,
+      category: manualForm.category, type: manualForm.type, store: manualForm.store || '',
+      status: 'confirmed', source: 'manual', processedAt: new Date().toISOString(),
+      processedBy: user?.name || 'system',
+    }, ...history]);
+    showToast(`已新增${manualForm.type === 'revenue' ? '收入' : '開支'} ${fmtM(parseFloat(manualForm.amount))}`);
+    setManualForm({ amount: '', vendor: '', date: new Date().toISOString().split('T')[0], category: ALL_CATS[0], type: 'expense', store: '' });
+  };
+
   // ── Simulation ──
   const simulateUpload = () => {
     if (!simForm.amount || !simForm.vendor) return showToast('請填寫金額和商戶');
-    const confidence = Math.floor(Math.random() * 25 + 70);
     const item = {
       id: uid(), amount: simForm.amount, vendor: simForm.vendor, date: simForm.date,
-      category: autoCategory(simForm.vendor) || simForm.category,
-      confidence, thumbnail: '', uploadedAt: new Date().toISOString(), source: 'simulation',
+      category: autoCategory(simForm.vendor) || simForm.category, type: simForm.type,
+      store: simForm.store || '', thumbnail: '', uploadedAt: new Date().toISOString(), source: 'simulation',
     };
-    if (confidence >= rules.threshold) {
-      const rec = {
-        id: uid(), date: item.date, merchant: item.vendor, amount: parseFloat(item.amount),
-        category: item.category, store: '', payment: '其他', desc: `Telegram自動確認 (${item.vendor})`, receipt: '',
-      };
-      setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
-      saveHistory([{ ...item, status: 'auto-confirmed', processedAt: new Date().toISOString(), processedBy: 'auto' }, ...history]);
-      showToast(`信心度 ${confidence}% >= ${rules.threshold}%，已自動確認`);
+    // v2: auto-save mode — all entries auto-confirmed immediately
+    const rec = {
+      id: uid(), date: item.date, merchant: item.vendor, amount: parseFloat(item.amount),
+      category: item.category, store: item.store, payment: '其他',
+      desc: `Telegram自動記錄 (${item.vendor})`, receipt: '',
+    };
+    if (item.type === 'revenue') {
+      setData(prev => ({ ...prev, revenue: [...(prev.revenue || []), rec] }));
     } else {
-      savePending([item, ...pending]);
-      showToast(`信心度 ${confidence}%，需人工審核`);
+      setData(prev => ({ ...prev, expenses: [...prev.expenses, rec] }));
     }
-    setSimForm({ amount: '', vendor: '', date: new Date().toISOString().split('T')[0], category: ALL_CATS[0] });
+    saveHistory([{ ...item, status: 'auto-saved', processedAt: new Date().toISOString(), processedBy: 'auto' }, ...history]);
+    showToast(`已自動儲存${item.type === 'revenue' ? '收入' : '開支'} ${fmtM(parseFloat(item.amount))}${item.store ? ` (${item.store})` : ''}`);
+    setSimForm({ amount: '', vendor: '', date: new Date().toISOString().split('T')[0], category: ALL_CATS[0], type: 'expense', store: '' });
   };
 
   // ── Rules ──
@@ -162,13 +194,15 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
 
   const histStats = useMemo(() => {
     const total = history.length;
-    const auto = history.filter(i => i.status === 'auto-confirmed').length;
+    const autoSaved = history.filter(i => i.status === 'auto-saved').length;
     const confirmed = history.filter(i => i.status === 'confirmed').length;
     const rejected = history.filter(i => i.status === 'rejected').length;
-    return { total, auto, confirmed, rejected, autoRate: total ? Math.round(auto / total * 100) : 0 };
+    const revenue = history.filter(i => i.type === 'revenue').length;
+    const expense = history.filter(i => i.type !== 'revenue').length;
+    return { total, autoSaved, confirmed, rejected, revenue, expense, autoRate: total ? Math.round(autoSaved / total * 100) : 0 };
   }, [history]);
 
-  // ── Monthly Report ──
+  // ── Monthly Report with P&L ──
   const generateReport = () => {
     const now = new Date();
     const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -177,9 +211,26 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
     const totalExp = monthExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
     const totalRev = monthRevenue.reduce((s, r) => s + Number(r.amount || r.total || 0), 0);
     const net = totalRev - totalExp;
+
+    // Store breakdown
+    const storeMap = {};
+    monthExpenses.forEach(e => {
+      const st = e.store || '未分店';
+      if (!storeMap[st]) storeMap[st] = { rev: 0, exp: 0 };
+      storeMap[st].exp += Number(e.amount || 0);
+    });
+    monthRevenue.forEach(r => {
+      const st = r.store || '未分店';
+      if (!storeMap[st]) storeMap[st] = { rev: 0, exp: 0 };
+      storeMap[st].rev += Number(r.amount || r.total || 0);
+    });
+
     const catBreak = {};
     monthExpenses.forEach(e => { catBreak[e.category] = (catBreak[e.category] || 0) + Number(e.amount || 0); });
     const topCats = Object.entries(catBreak).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    const storeRows = Object.entries(storeMap).sort((a, b) => (b[1].rev - b[1].exp) - (a[1].rev - a[1].exp))
+      .map(([st, v]) => `<tr><td>${st}</td><td class="pos">${fmtM(v.rev)}</td><td class="neg">${fmtM(v.exp)}</td><td class="${v.rev - v.exp >= 0 ? 'pos' : 'neg'}">${fmtM(v.rev - v.exp)}</td></tr>`).join('');
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${clinic} 月度報表</title>
       <style>body{font-family:sans-serif;padding:30px;max-width:700px;margin:auto}h1{color:${A}}
@@ -191,28 +242,57 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
       <table><tr><td>總收入</td><td class="total pos">${fmtM(totalRev)}</td></tr>
       <tr><td>總支出</td><td class="total neg">${fmtM(totalExp)}</td></tr>
       <tr><td>淨利潤</td><td class="total ${net >= 0 ? 'pos' : 'neg'}">${fmtM(net)}</td></tr></table>
+      <h2>分店損益</h2><table><tr><th>分店</th><th>收入</th><th>支出</th><th>淨利潤</th></tr>
+      ${storeRows || '<tr><td colspan="4">本月暫無分店記錄</td></tr>'}
+      </table>
       <h2>支出分類排行</h2><table><tr><th>分類</th><th>金額</th></tr>
       ${topCats.map(([c, v]) => `<tr><td>${c}</td><td>${fmtM(v)}</td></tr>`).join('')}
       ${!topCats.length ? '<tr><td colspan="2">本月暫無開支記錄</td></tr>' : ''}
-      </table><p style="color:#888;font-size:12px;margin-top:30px">此報表由 Telegram Expense Bot 自動生成</p></body></html>`;
+      </table><p style="color:#888;font-size:12px;margin-top:30px">此報表由 Telegram 智能記帳 Bot v2 自動生成</p></body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   };
 
+  // ── Report stats ──
+  const reportStats = useMemo(() => {
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthExpenses = (data.expenses || []).filter(e => e.date && e.date.startsWith(ym));
+    const monthRevenue = (data.revenue || []).filter(r => r.date && r.date.startsWith(ym));
+    const totalExp = monthExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const totalRev = monthRevenue.reduce((s, r) => s + Number(r.amount || r.total || 0), 0);
+    const net = totalRev - totalExp;
+
+    // Store breakdown
+    const storeMap = {};
+    monthExpenses.forEach(e => {
+      const st = e.store || '未分店';
+      if (!storeMap[st]) storeMap[st] = { rev: 0, exp: 0 };
+      storeMap[st].exp += Number(e.amount || 0);
+    });
+    monthRevenue.forEach(r => {
+      const st = r.store || '未分店';
+      if (!storeMap[st]) storeMap[st] = { rev: 0, exp: 0 };
+      storeMap[st].rev += Number(r.amount || r.total || 0);
+    });
+
+    return { totalExp, totalRev, net, storeMap, expCount: monthExpenses.length, revCount: monthRevenue.length };
+  }, [data.expenses, data.revenue]);
+
   // ── Tabs ──
   const tabs = [
     { key: 'setup', label: '機器人設定' },
-    { key: 'pending', label: `待審核 (${pending.length})` },
+    { key: 'pending', label: `手動記錄 (${pending.length})` },
     { key: 'history', label: '歷史記錄' },
     { key: 'rules', label: '自動規則' },
-    { key: 'report', label: '月度報表' },
-    { key: 'simulate', label: '模擬上傳' },
+    { key: 'report', label: '損益報表' },
+    { key: 'simulate', label: '模擬測試' },
   ];
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <h2 style={{ color: A, margin: '0 0 4px' }}>Telegram 開支機器人</h2>
-      <p style={{ color: '#888', fontSize: 13, margin: '0 0 16px' }}>透過 Telegram 拍照上傳收據，自動建立開支記錄</p>
+      <h2 style={{ color: A, margin: '0 0 4px' }}>Telegram 智能記帳 Bot v2</h2>
+      <p style={{ color: '#888', fontSize: 13, margin: '0 0 16px' }}>AI 全自動記帳：影相即記錄，支持開支＋收入，分店歸類</p>
 
       {/* Tab bar */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -258,87 +338,164 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
           </div>
 
           <div style={{ ...card, background: '#f0fdfa' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 14, color: A }}>設定說明</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: 14, color: A }}>v2 Bot 功能指南</h3>
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#475569', lineHeight: 2 }}>
               <li>在 Telegram 搜尋 <b>@BotFather</b>，輸入 /newbot 建立新機器人</li>
-              <li>複製取得的 Bot Token 並貼上</li>
-              <li>將 Webhook URL 設定至 Telegram Bot API</li>
-              <li>在 Telegram 發送 /start 給你的機器人取得 Chat ID</li>
-              <li>拍照或傳送收據圖片給機器人，系統將自動 OCR 識別</li>
-              <li>識別結果會出現在「待審核」分頁，確認後自動建立開支記錄</li>
+              <li>複製取得的 Bot Token 並貼上，將 Webhook URL 設定至 Telegram Bot API</li>
+              <li>發送 <b>/start</b> 給機器人，查看所有指令說明</li>
+              <li><b>記錄開支</b>：直接發送收據相片（caption 可填分店名稱），或輸入文字如 <code>150, 百草堂, 藥材, 旺角</code></li>
+              <li><b>記錄收入</b>：以 + 開頭輸入，如 <code>+500, 張三, 診金, 旺角</code></li>
+              <li>所有記錄會 <b>自動儲存</b>，每筆記錄附帶 Undo 按鈕可即時撤銷</li>
+              <li>使用 <b>/today</b> 查看今日記錄，<b>/pnl</b> 查看分店損益，<b>/report</b> 查看月度報表</li>
+              <li>使用 <b>/status</b> 查看 Bot 狀態，<b>/help</b> 查看完整指令列表</li>
             </ol>
+          </div>
+
+          <div style={{ ...card, background: '#fffbeb' }}>
+            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#92400e' }}>Bot 指令一覽</h4>
+            <div style={{ fontSize: 12, color: '#78716c', lineHeight: 2 }}>
+              <code>/start</code> — 開始使用，顯示歡迎訊息<br />
+              <code>/help</code> — 查看完整使用說明<br />
+              <code>/today</code> — 查看今日所有記錄<br />
+              <code>/pnl</code> — 按分店查看損益<br />
+              <code>/report</code> — 本月損益摘要報表<br />
+              <code>/status</code> — 查看 Bot 狀態與設定
+            </div>
           </div>
         </div>
       )}
 
-      {/* ═══ Pending Tab ═══ */}
+      {/* ═══ Manual Entry Tab (formerly Pending) ═══ */}
       {tab === 'pending' && (
         <div>
+          <div style={card}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 15, color: '#334155' }}>手動新增記錄</h3>
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 0 }}>
+              透過 Telegram Bot 發送的記錄會自動儲存。此處用於直接從網頁介面手動新增開支或收入記錄。
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <span style={label}>類型</span>
+                <select style={inp} value={manualForm.type} onChange={e => setManualForm({ ...manualForm, type: e.target.value })}>
+                  <option value="expense">開支</option>
+                  <option value="revenue">收入</option>
+                </select>
+              </div>
+              <div>
+                <span style={label}>金額 *</span>
+                <input style={inp} type="number" placeholder="例：150" value={manualForm.amount}
+                  onChange={e => setManualForm({ ...manualForm, amount: e.target.value })} />
+              </div>
+              <div>
+                <span style={label}>商戶 / 來源 *</span>
+                <input style={inp} placeholder={manualForm.type === 'revenue' ? '例：張三' : '例：百草堂中藥行'} value={manualForm.vendor}
+                  onChange={e => setManualForm({ ...manualForm, vendor: e.target.value })} />
+              </div>
+              <div>
+                <span style={label}>分店</span>
+                <input style={inp} placeholder="例：旺角" value={manualForm.store}
+                  onChange={e => setManualForm({ ...manualForm, store: e.target.value })} />
+              </div>
+              <div>
+                <span style={label}>日期</span>
+                <input style={inp} type="date" value={manualForm.date}
+                  onChange={e => setManualForm({ ...manualForm, date: e.target.value })} />
+              </div>
+              <div>
+                <span style={label}>分類</span>
+                <select style={inp} value={manualForm.category} onChange={e => setManualForm({ ...manualForm, category: e.target.value })}>
+                  {ALL_CATS.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <button style={btn()} onClick={addManualEntry}>
+              {manualForm.type === 'revenue' ? '新增收入' : '新增開支'}
+            </button>
+          </div>
+
+          {/* Still show pending items if any exist (legacy or edge case) */}
           {pending.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-              <label style={{ fontSize: 13 }}>
-                <input type="checkbox" checked={selected.size === pending.length && pending.length > 0}
-                  onChange={() => setSelected(selected.size === pending.length ? new Set() : new Set(pending.map(p => p.id)))} />
-                {' '}全選
-              </label>
-              <button style={btn()} onClick={batchConfirm}>批量確認 ({selected.size})</button>
-            </div>
-          )}
-
-          {!pending.length && (
-            <div style={{ ...card, textAlign: 'center', padding: 40, color: '#94a3b8' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>&#x2705;</div>
-              <p>暫無待審核收據</p>
-              <p style={{ fontSize: 12 }}>透過 Telegram 發送收據圖片，或使用「模擬上傳」測試流程</p>
-            </div>
-          )}
-
-          {pending.map(item => (
-            <div key={item.id} style={{ ...card, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <input type="checkbox" checked={selected.has(item.id)}
-                onChange={() => { const s = new Set(selected); s.has(item.id) ? s.delete(item.id) : s.add(item.id); setSelected(s); }}
-                style={{ marginTop: 4 }} />
-              <div style={{ width: 64, height: 64, background: '#f1f5f9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                {item.thumbnail ? <img src={item.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ fontSize: 28 }}>&#x1F4C4;</span>}
+            <>
+              <div style={{ ...card, background: '#fffbeb', padding: 12 }}>
+                <div style={{ fontSize: 13, color: '#92400e' }}>
+                  以下 {pending.length} 筆記錄尚未確認（來自舊版流程或手動待審核）
+                </div>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {editId === item.id ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <div><span style={label}>金額</span><input style={inp} value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} /></div>
-                    <div><span style={label}>商戶</span><input style={inp} value={editForm.vendor} onChange={e => setEditForm({ ...editForm, vendor: e.target.value })} /></div>
-                    <div><span style={label}>日期</span><input style={inp} type="date" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} /></div>
-                    <div><span style={label}>分類</span>
-                      <select style={inp} value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
-                        {ALL_CATS.map(c => <option key={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ gridColumn: '1/3', display: 'flex', gap: 6, marginTop: 4 }}>
-                      <button style={btn()} onClick={saveEdit}>儲存</button>
-                      <button style={btn('#e2e8f0', '#334155')} onClick={() => setEditId(null)}>取消</button>
-                    </div>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+                <label style={{ fontSize: 13 }}>
+                  <input type="checkbox" checked={selected.size === pending.length && pending.length > 0}
+                    onChange={() => setSelected(selected.size === pending.length ? new Set() : new Set(pending.map(p => p.id)))} />
+                  {' '}全選
+                </label>
+                <button style={btn()} onClick={batchConfirm}>批量確認 ({selected.size})</button>
+              </div>
+
+              {pending.map(item => (
+                <div key={item.id} style={{ ...card, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <input type="checkbox" checked={selected.has(item.id)}
+                    onChange={() => { const s = new Set(selected); s.has(item.id) ? s.delete(item.id) : s.add(item.id); setSelected(s); }}
+                    style={{ marginTop: 4 }} />
+                  <div style={{ width: 64, height: 64, background: '#f1f5f9', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+                    {item.thumbnail ? <img src={item.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 28 }}>&#x1F4C4;</span>}
                   </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <b style={{ fontSize: 15, color: '#0f172a' }}>{fmtM(parseFloat(item.amount || 0))}</b>
-                      <span style={{
-                        fontSize: 11, padding: '2px 8px', borderRadius: 10,
-                        background: item.confidence >= 85 ? '#dcfce7' : item.confidence >= 70 ? '#fef9c3' : '#fee2e2',
-                        color: item.confidence >= 85 ? '#16a34a' : item.confidence >= 70 ? '#ca8a04' : '#dc2626',
-                      }}>信心度 {item.confidence}%</span>
-                    </div>
-                    <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>{item.vendor} | {item.date} | {item.category}</div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                      <button style={btn()} onClick={() => confirmItem(item)}>確認</button>
-                      <button style={btn('#f1f5f9', '#334155')} onClick={() => startEdit(item)}>編輯</button>
-                      <button style={btn('#fee2e2', '#dc2626')} onClick={() => rejectItem(item)}>拒絕</button>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {editId === item.id ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                        <div><span style={label}>金額</span><input style={inp} value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} /></div>
+                        <div><span style={label}>商戶</span><input style={inp} value={editForm.vendor} onChange={e => setEditForm({ ...editForm, vendor: e.target.value })} /></div>
+                        <div><span style={label}>日期</span><input style={inp} type="date" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} /></div>
+                        <div><span style={label}>分類</span>
+                          <select style={inp} value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
+                            {ALL_CATS.map(c => <option key={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div><span style={label}>分店</span><input style={inp} value={editForm.store || ''} onChange={e => setEditForm({ ...editForm, store: e.target.value })} /></div>
+                        <div><span style={label}>類型</span>
+                          <select style={inp} value={editForm.type || 'expense'} onChange={e => setEditForm({ ...editForm, type: e.target.value })}>
+                            <option value="expense">開支</option>
+                            <option value="revenue">收入</option>
+                          </select>
+                        </div>
+                        <div style={{ gridColumn: '1/3', display: 'flex', gap: 6, marginTop: 4 }}>
+                          <button style={btn()} onClick={saveEdit}>儲存</button>
+                          <button style={btn('#e2e8f0', '#334155')} onClick={() => setEditId(null)}>取消</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <b style={{ fontSize: 15, color: '#0f172a' }}>{fmtM(parseFloat(item.amount || 0))}</b>
+                            <span style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 10,
+                              background: item.type === 'revenue' ? '#dcfce7' : '#fee2e2',
+                              color: item.type === 'revenue' ? '#16a34a' : '#dc2626',
+                            }}>{item.type === 'revenue' ? '收入' : '開支'}</span>
+                          </div>
+                          {item.confidence != null && (
+                            <span style={{
+                              fontSize: 11, padding: '2px 8px', borderRadius: 10,
+                              background: item.confidence >= 85 ? '#dcfce7' : item.confidence >= 70 ? '#fef9c3' : '#fee2e2',
+                              color: item.confidence >= 85 ? '#16a34a' : item.confidence >= 70 ? '#ca8a04' : '#dc2626',
+                            }}>信心度 {item.confidence}%</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 13, color: '#475569', marginTop: 4 }}>
+                          {item.vendor} | {item.date} | {item.category}{item.store ? ` | ${item.store}` : ''}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                          <button style={btn()} onClick={() => confirmItem(item)}>確認</button>
+                          <button style={btn('#f1f5f9', '#334155')} onClick={() => startEdit(item)}>編輯</button>
+                          <button style={btn('#fee2e2', '#dc2626')} onClick={() => rejectItem(item)}>拒絕</button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 
@@ -351,7 +508,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <select style={inp} value={histFilter.status} onChange={e => setHistFilter({ ...histFilter, status: e.target.value })}>
                 <option value="">全部</option>
                 <option value="confirmed">已確認</option>
-                <option value="auto-confirmed">自動確認</option>
+                <option value="auto-saved">自動儲存</option>
                 <option value="rejected">已拒絕</option>
               </select>
             </div>
@@ -376,9 +533,10 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
             {[
               { label: '總處理', val: histStats.total, color: A },
               { label: '已確認', val: histStats.confirmed, color: '#16a34a' },
-              { label: '自動確認', val: histStats.auto, color: '#0284c7' },
+              { label: '自動儲存', val: histStats.autoSaved, color: '#0284c7' },
               { label: '已拒絕', val: histStats.rejected, color: '#dc2626' },
-              { label: '自動確認率', val: `${histStats.autoRate}%`, color: '#7c3aed' },
+              { label: '收入筆數', val: histStats.revenue, color: '#16a34a' },
+              { label: '開支筆數', val: histStats.expense, color: '#ea580c' },
             ].map(s => (
               <div key={s.label} style={{ ...card, textAlign: 'center', padding: 12 }}>
                 <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.val}</div>
@@ -391,17 +549,28 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
           {filteredHistory.map(item => (
             <div key={item.id} style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12 }}>
               <div>
-                <b style={{ fontSize: 14 }}>{item.vendor}</b>
-                <div style={{ fontSize: 12, color: '#64748b' }}>{item.date} | {item.category} | 信心度 {item.confidence}%</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <b style={{ fontSize: 14 }}>{item.vendor}</b>
+                  <span style={{
+                    fontSize: 10, padding: '1px 6px', borderRadius: 8,
+                    background: item.type === 'revenue' ? '#dcfce7' : '#f1f5f9',
+                    color: item.type === 'revenue' ? '#16a34a' : '#64748b',
+                  }}>{item.type === 'revenue' ? '收入' : '開支'}</span>
+                </div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>
+                  {item.date} | {item.category}{item.store ? ` | ${item.store}` : ''}{item.confidence != null ? ` | 信心度 ${item.confidence}%` : ''}
+                </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, color: '#0f172a' }}>{fmtM(parseFloat(item.amount || 0))}</div>
+                <div style={{ fontWeight: 700, color: item.type === 'revenue' ? '#16a34a' : '#0f172a' }}>
+                  {item.type === 'revenue' ? '+' : '-'}{fmtM(parseFloat(item.amount || 0))}
+                </div>
                 <span style={{
                   fontSize: 11, padding: '2px 8px', borderRadius: 10,
-                  background: item.status === 'confirmed' ? '#dcfce7' : item.status === 'auto-confirmed' ? '#dbeafe' : '#fee2e2',
-                  color: item.status === 'confirmed' ? '#16a34a' : item.status === 'auto-confirmed' ? '#0284c7' : '#dc2626',
+                  background: item.status === 'confirmed' ? '#dcfce7' : item.status === 'auto-saved' ? '#dbeafe' : '#fee2e2',
+                  color: item.status === 'confirmed' ? '#16a34a' : item.status === 'auto-saved' ? '#0284c7' : '#dc2626',
                 }}>
-                  {item.status === 'confirmed' ? '已確認' : item.status === 'auto-confirmed' ? '自動確認' : '已拒絕'}
+                  {item.status === 'confirmed' ? '已確認' : item.status === 'auto-saved' ? '自動儲存' : '已拒絕'}
                 </span>
               </div>
             </div>
@@ -436,20 +605,6 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
             ))}
           </div>
 
-          <div style={card}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#334155' }}>自動確認門檻</h3>
-            <p style={{ fontSize: 12, color: '#64748b', marginTop: 0 }}>OCR 信心度達到此百分比以上時，自動確認無需人工審核</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <input type="range" min="50" max="100" value={rules.threshold}
-                onChange={e => saveRules({ ...rules, threshold: Number(e.target.value) })}
-                style={{ flex: 1 }} />
-              <span style={{ fontSize: 18, fontWeight: 700, color: A, minWidth: 50 }}>{rules.threshold}%</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
-              <span>50% (較寬鬆)</span><span>100% (全部人工)</span>
-            </div>
-          </div>
-
           <div style={{ ...card, background: '#fffbeb' }}>
             <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#92400e' }}>建議規則</h4>
             <div style={{ fontSize: 12, color: '#78716c', lineHeight: 1.8 }}>
@@ -467,6 +622,52 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
       {/* ═══ Report Tab ═══ */}
       {tab === 'report' && (
         <div>
+          {/* P&L Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 }}>
+            <div style={{ ...card, textAlign: 'center', padding: 14 }}>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>本月收入 ({reportStats.revCount} 筆)</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#16a34a' }}>{fmtM(reportStats.totalRev)}</div>
+            </div>
+            <div style={{ ...card, textAlign: 'center', padding: 14 }}>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>本月支出 ({reportStats.expCount} 筆)</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#dc2626' }}>{fmtM(reportStats.totalExp)}</div>
+            </div>
+            <div style={{ ...card, textAlign: 'center', padding: 14 }}>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>淨利潤</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: reportStats.net >= 0 ? '#16a34a' : '#dc2626' }}>{fmtM(reportStats.net)}</div>
+            </div>
+          </div>
+
+          {/* Store P&L */}
+          <div style={card}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#334155' }}>分店損益</h3>
+            {Object.keys(reportStats.storeMap).length === 0 ? (
+              <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 16 }}>本月暫無分店記錄</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      {['分店', '收入', '支出', '淨利潤'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '8px 10px', borderBottom: `2px solid ${A}`, color: A, fontSize: 12 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(reportStats.storeMap).sort((a, b) => (b[1].rev - b[1].exp) - (a[1].rev - a[1].exp)).map(([st, v]) => (
+                      <tr key={st} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{st}</td>
+                        <td style={{ padding: '8px 10px', color: '#16a34a' }}>{fmtM(v.rev)}</td>
+                        <td style={{ padding: '8px 10px', color: '#dc2626' }}>{fmtM(v.exp)}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 700, color: v.rev - v.exp >= 0 ? '#16a34a' : '#dc2626' }}>{fmtM(v.rev - v.exp)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           <div style={card}>
             <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#334155' }}>月度報表設定</h3>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
@@ -487,6 +688,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <li>本月總收入</li>
               <li>本月總支出</li>
               <li>淨利潤（收入 - 支出）</li>
+              <li>分店損益明細</li>
               <li>支出分類排行（前5名）</li>
             </ul>
             <button style={{ ...btn(), marginTop: 12 }} onClick={generateReport}>預覽本月報表</button>
@@ -505,18 +707,36 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
       {tab === 'simulate' && (
         <div>
           <div style={card}>
-            <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#334155' }}>模擬收據上傳</h3>
-            <p style={{ fontSize: 12, color: '#64748b', marginTop: 0 }}>模擬 Telegram Bot 接收收據並 OCR 識別的流程。填寫以下資料如同 OCR 提取的結果。</p>
+            <h3 style={{ margin: '0 0 12px', fontSize: 15, color: '#334155' }}>模擬 Telegram Bot 記帳</h3>
+            <p style={{ fontSize: 12, color: '#64748b', marginTop: 0 }}>模擬 v2 Bot 的全自動記帳流程。所有記錄即時自動儲存，無需人工確認。</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
+                <span style={label}>類型</span>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <button style={{
+                    ...btn(simForm.type === 'expense' ? '#dc2626' : '#f1f5f9', simForm.type === 'expense' ? '#fff' : '#334155'),
+                    flex: 1, padding: '7px 0', borderRadius: 6,
+                  }} onClick={() => setSimForm({ ...simForm, type: 'expense' })}>開支</button>
+                  <button style={{
+                    ...btn(simForm.type === 'revenue' ? '#16a34a' : '#f1f5f9', simForm.type === 'revenue' ? '#fff' : '#334155'),
+                    flex: 1, padding: '7px 0', borderRadius: 6,
+                  }} onClick={() => setSimForm({ ...simForm, type: 'revenue' })}>收入</button>
+                </div>
+              </div>
+              <div>
                 <span style={label}>金額 *</span>
-                <input style={inp} type="number" placeholder="例：150" value={simForm.amount}
+                <input style={inp} type="number" placeholder={simForm.type === 'revenue' ? '例：500' : '例：150'} value={simForm.amount}
                   onChange={e => setSimForm({ ...simForm, amount: e.target.value })} />
               </div>
               <div>
-                <span style={label}>商戶 *</span>
-                <input style={inp} placeholder="例：百草堂中藥行" value={simForm.vendor}
+                <span style={label}>{simForm.type === 'revenue' ? '來源 / 客戶 *' : '商戶 *'}</span>
+                <input style={inp} placeholder={simForm.type === 'revenue' ? '例：張三' : '例：百草堂中藥行'} value={simForm.vendor}
                   onChange={e => setSimForm({ ...simForm, vendor: e.target.value })} />
+              </div>
+              <div>
+                <span style={label}>分店</span>
+                <input style={inp} placeholder="例：旺角" value={simForm.store}
+                  onChange={e => setSimForm({ ...simForm, store: e.target.value })} />
               </div>
               <div>
                 <span style={label}>日期</span>
@@ -531,19 +751,22 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
                 </select>
               </div>
             </div>
-            <button style={btn()} onClick={simulateUpload}>模擬上傳</button>
-            <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 12 }}>系統將隨機分配信心度並根據門檻自動/待審</span>
+            <button style={btn(simForm.type === 'revenue' ? '#16a34a' : A)} onClick={simulateUpload}>
+              {simForm.type === 'revenue' ? '模擬收入記錄' : '模擬開支記錄'}
+            </button>
+            <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 12 }}>v2 模式：即時自動儲存，附帶 Undo 按鈕</span>
           </div>
 
           <div style={{ ...card, background: '#f0f9ff' }}>
-            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#0369a1' }}>流程說明</h4>
+            <h4 style={{ margin: '0 0 8px', fontSize: 13, color: '#0369a1' }}>v2 流程說明</h4>
             <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: '#475569', lineHeight: 1.8 }}>
-              <li>使用者透過 Telegram 發送收據圖片給機器人</li>
-              <li>後端進行 OCR 識別，提取金額、商戶、日期</li>
-              <li>系統根據自動規則匹配分類，計算信心度</li>
-              <li>信心度 &ge; 門檻值：自動確認，直接建立開支記錄</li>
-              <li>信心度 &lt; 門檻值：加入「待審核」列表，等待人工確認</li>
-              <li>確認後的記錄會自動加入開支系統</li>
+              <li>使用者透過 Telegram 發送收據相片（caption 可指定分店名稱）</li>
+              <li>或輸入文字記錄，如 <code>150, 百草堂, 藥材, 旺角</code></li>
+              <li>以 + 開頭記錄收入，如 <code>+500, 張三, 診金, 旺角</code></li>
+              <li>Bot 進行 AI 識別，自動提取金額、商戶、日期、分類</li>
+              <li>記錄<b>即時自動儲存</b>，無需人工確認</li>
+              <li>每筆記錄附帶 <b>Undo 按鈕</b>，可一鍵撤銷</li>
+              <li>使用 /today、/pnl、/report 隨時查看記錄與損益</li>
             </ol>
           </div>
         </div>
