@@ -370,10 +370,14 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <code>/compare</code> — 月度對比<br />
               <code>/budget 50000</code> — 預算追蹤<br />
               <code>/year 2026</code> — 年度報告<br />
+              <code>/trend</code> — 6個月趨勢圖<br />
               <b>🏥 診所營運</b><br />
               <code>/bk</code> — 今日預約<br />
               <code>/pt</code> — 今日病人<br />
               <code>/rx</code> — 今日處方<br />
+              <code>/queue</code> — 排隊狀態<br />
+              <code>/inv</code> — 庫存警報<br />
+              <code>/stats</code> — 診所統計<br />
               <b>🤖 自動報告</b><br />
               每日 11pm · 每週一 · 每月1號自動發送
             </div>
@@ -782,7 +786,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <li><b>✍️ 格式</b>：<code>150, 百草堂, 藥材, 旺角</code>（支援中文逗號）</li>
               <li>以 + 開頭記錄收入，如 <code>+500, 張三, 診金, 旺角</code></li>
               <li>記錄<b>即時自動儲存</b>，每筆附帶 <b>Undo 按鈕</b></li>
-              <li>20+ 指令：/pnl /week /month /compare /budget /year /export /bk /pt /rx 等</li>
+              <li>25+ 指令：/pnl /week /month /compare /budget /year /trend /inv /queue /stats /export 等</li>
               <li><b>🤖 自動報告</b>：每日 11pm、每週一、每月1號自動發送到 TG</li>
             </ol>
           </div>

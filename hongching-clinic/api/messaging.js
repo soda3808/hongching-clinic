@@ -847,6 +847,161 @@ async function handleTgExpense(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    // ── /inv — Inventory alerts (low stock items) ──
+    if (text === '/inv') {
+      const items = await sbSelectExp('inventory', 'order=name.asc');
+      if (!items.length) { await tgExpReply(chatId, '📦 暫無庫存記錄。'); return res.status(200).json({ ok: true }); }
+      const low = items.filter(i => (Number(i.quantity) || 0) <= (Number(i.minStock) || Number(i.min_stock) || 5));
+      const total = items.length;
+      let rpt = `<b>📦 庫存狀態</b>（共 ${total} 項）\n━━━━━━━━━━━━━━━━━━\n\n`;
+      if (low.length) {
+        rpt += `🚨 <b>低庫存警報（${low.length} 項）</b>\n`;
+        low.forEach(i => {
+          const qty = Number(i.quantity) || 0;
+          const min = Number(i.minStock) || Number(i.min_stock) || 5;
+          rpt += `  ${qty === 0 ? '❌' : '⚠️'} ${i.name}：${qty}${i.unit || ''}（最低 ${min}）\n`;
+        });
+      } else {
+        rpt += '✅ 所有庫存充足\n';
+      }
+      // Top 5 by value
+      const byValue = items.filter(i => i.price && i.quantity).map(i => ({ name: i.name, val: (Number(i.price) || 0) * (Number(i.quantity) || 0) })).sort((a, b) => b.val - a.val).slice(0, 5);
+      if (byValue.length) {
+        rpt += '\n💰 <b>庫存價值 Top 5</b>\n';
+        byValue.forEach((v, j) => { rpt += `  ${j + 1}. ${v.name}：HK$ ${v.val.toLocaleString()}\n`; });
+      }
+      const totalVal = items.reduce((s, i) => s + ((Number(i.price) || 0) * (Number(i.quantity) || 0)), 0);
+      if (totalVal > 0) rpt += `\n📊 庫存總值：HK$ ${totalVal.toLocaleString()}`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /queue — Today's queue status ──
+    if (text === '/queue') {
+      const today = new Date().toISOString().slice(0, 10);
+      const q = await sbSelectExp('queue', `date=eq.${today}&order=created_at.asc`);
+      if (!q.length) { await tgExpReply(chatId, `📋 ${today} 暫無排隊記錄。`); return res.status(200).json({ ok: true }); }
+      const waiting = q.filter(i => i.status === 'waiting' || i.status === 'pending');
+      const inProgress = q.filter(i => i.status === 'in_progress' || i.status === 'seeing');
+      const done = q.filter(i => i.status === 'completed' || i.status === 'done');
+      let rpt = `<b>📋 ${today} 排隊狀態</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `⏳ 等候中：${waiting.length}\n`;
+      rpt += `🔄 診症中：${inProgress.length}\n`;
+      rpt += `✅ 已完成：${done.length}\n`;
+      rpt += `📊 總人次：${q.length}\n`;
+      if (waiting.length) {
+        rpt += '\n<b>等候列表</b>\n';
+        waiting.slice(0, 10).forEach((p, i) => {
+          rpt += `  ${i + 1}. ${p.patientName || p.patient_name || '—'} ${p.time || ''} ${p.doctor || ''}\n`;
+        });
+        if (waiting.length > 10) rpt += `  ... 及其餘 ${waiting.length - 10} 位\n`;
+      }
+      // Average wait time
+      if (done.length) {
+        const waits = done.filter(d => d.created_at && d.updated_at).map(d => (new Date(d.updated_at) - new Date(d.created_at)) / 60000);
+        if (waits.length) {
+          const avg = Math.round(waits.reduce((s, w) => s + w, 0) / waits.length);
+          rpt += `\n⏱️ 平均等候：${avg} 分鐘`;
+        }
+      }
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /stats — Patient & clinic statistics ──
+    if (text === '/stats') {
+      const now = new Date();
+      const ms = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const me = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
+      const today = now.toISOString().slice(0, 10);
+      const [patients, bkMonth, bkToday, consults] = await Promise.all([
+        sbSelectExp('patients', 'select=id,name,created_at&order=created_at.desc'),
+        sbSelectExp('bookings', `date=gte.${ms}&date=lt.${me}`),
+        sbSelectExp('bookings', `date=eq.${today}`),
+        sbSelectExp('consultations', `date=gte.${ms}&date=lt.${me}`),
+      ]);
+      const newPt = patients.filter(p => p.created_at && p.created_at >= ms);
+      let rpt = `<b>📊 診所統計</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `<b>👥 病人</b>\n`;
+      rpt += `  總病人數：${patients.length}\n`;
+      rpt += `  本月新增：${newPt.length}\n\n`;
+      rpt += `<b>📅 預約（${now.getMonth() + 1}月）</b>\n`;
+      rpt += `  本月預約：${bkMonth.length}\n`;
+      rpt += `  今日預約：${bkToday.length}\n`;
+      const bkDone = bkMonth.filter(b => b.status === 'completed' || b.status === 'confirmed').length;
+      const bkCancel = bkMonth.filter(b => b.status === 'cancelled').length;
+      rpt += `  已完成：${bkDone} | 取消：${bkCancel}\n`;
+      if (bkMonth.length) rpt += `  完成率：${Math.round(bkDone / bkMonth.length * 100)}%\n`;
+      rpt += `\n<b>🩺 診症（${now.getMonth() + 1}月）</b>\n`;
+      rpt += `  本月診症：${consults.length}\n`;
+      // By doctor
+      const byDoc = {};
+      consults.forEach(c => { const d = c.doctor || '未指定'; byDoc[d] = (byDoc[d] || 0) + 1; });
+      if (Object.keys(byDoc).length) {
+        rpt += '\n  <b>醫師排名</b>\n';
+        Object.entries(byDoc).sort((a, b) => b[1] - a[1]).forEach(([d, n]) => { rpt += `    ${d}：${n} 次\n`; });
+      }
+      // By store
+      const byStore = {};
+      bkMonth.forEach(b => { const s = b.store || '未分店'; byStore[s] = (byStore[s] || 0) + 1; });
+      if (Object.keys(byStore).length > 1) {
+        rpt += '\n  <b>分店預約</b>\n';
+        Object.entries(byStore).sort((a, b) => b[1] - a[1]).forEach(([s, n]) => { rpt += `    ${s}：${n} 個\n`; });
+      }
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /trend — 6 month revenue/expense trend (text chart) ──
+    if (text === '/trend') {
+      const now = new Date();
+      const months = [];
+      for (let i = 5; i >= 0; i--) {
+        let y = now.getFullYear(), m = now.getMonth() + 1 - i;
+        while (m <= 0) { y--; m += 12; }
+        months.push({ y, m, label: `${m}月` });
+      }
+      const allData = await Promise.all(months.map(({ y, m }) => {
+        const { ms, me } = monthRange(y, m);
+        return Promise.all([
+          sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}`),
+          sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}`),
+        ]);
+      }));
+      const data = months.map(({ label }, i) => {
+        const [rev, exp] = allData[i];
+        const r = rev.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+        const e = exp.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+        return { label, r, e, net: r - e };
+      });
+      const maxR = Math.max(...data.map(d => d.r), 1);
+      const maxE = Math.max(...data.map(d => d.e), 1);
+      const maxVal = Math.max(maxR, maxE);
+      const barLen = 14;
+      let rpt = `<b>📈 6個月趨勢</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += '<b>💰 收入</b>\n';
+      data.forEach(d => {
+        const len = Math.round(d.r / maxVal * barLen);
+        rpt += `${d.label.padStart(3)} ${'█'.repeat(len)}${'░'.repeat(barLen - len)} ${d.r.toLocaleString()}\n`;
+      });
+      rpt += '\n<b>🧾 支出</b>\n';
+      data.forEach(d => {
+        const len = Math.round(d.e / maxVal * barLen);
+        rpt += `${d.label.padStart(3)} ${'█'.repeat(len)}${'░'.repeat(barLen - len)} ${d.e.toLocaleString()}\n`;
+      });
+      rpt += '\n<b>📊 淨利</b>\n';
+      data.forEach(d => {
+        rpt += `${d.label.padStart(3)} ${d.net >= 0 ? '✅' : '❌'} HK$ ${d.net.toLocaleString()}\n`;
+      });
+      // Summary
+      const totR = data.reduce((s, d) => s + d.r, 0);
+      const totE = data.reduce((s, d) => s + d.e, 0);
+      rpt += `\n━━━━━━━━━━━━━━━━━━\n`;
+      rpt += `6個月平均：💰${Math.round(totR / 6).toLocaleString()} 🧾${Math.round(totE / 6).toLocaleString()}`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
     // ── /start or /help ──
     if (text === '/start' || text === '/help') {
       await tgExpReply(chatId,
@@ -874,11 +1029,15 @@ async function handleTgExpense(req, res) {
         `<b>📈 進階分析</b>\n` +
         `/compare — 月度對比\n` +
         `/budget 50000 — 預算追蹤\n` +
-        `/year 2026 — 年度報告\n\n` +
+        `/year 2026 — 年度報告\n` +
+        `/trend — 6個月趨勢圖\n\n` +
         `<b>🏥 診所營運</b>\n` +
         `/bk — 今日預約\n` +
         `/pt — 今日病人\n` +
-        `/rx — 今日處方\n\n` +
+        `/rx — 今日處方\n` +
+        `/queue — 排隊狀態\n` +
+        `/inv — 庫存警報\n` +
+        `/stats — 診所統計\n\n` +
         `<b>🤖 自動報告</b>\n` +
         `每日 11pm · 每週一 · 每月1號\n` +
         `自動發送報告到此對話`
