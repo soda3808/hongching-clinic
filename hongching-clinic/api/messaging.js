@@ -211,15 +211,20 @@ async function tgExpNLP(text) {
 規則：
 - 判斷每一筆交易是 expense（診所付錢出去）還是 revenue（診所收到錢）
 - 一條訊息可能有多筆交易，全部提取
-- 「幫公司買」「公司開支」= expense
-- 「開公利是」「派利是」= expense（飲食招待或日常雜費）
-- 「收到利是」「人哋俾利是」= revenue
-- 「飲茶」「食飯」= expense, category 飲食招待
-- 「買螺絲」「買文具」= expense, category 日常雜費
-- 「診金」「藥費」= revenue
-- 金額：提取阿拉伯數字，「蚊」=HK$，「$」=HK$
-- 日期：「今日」=${today}，「尋日/昨日」=前一日，無提及=今日
-- 分店：「旺角」「太子」如有提及就填，無就留空
+- 「幫公司買」「公司開支」「俾錢」「畀」「買」「付」「交」= expense
+- 「開公利是」「派利是」「利是錢」= expense（飲食招待或日常雜費）
+- 「收到利是」「人哋俾利是」「收利是」= revenue
+- 「飲茶」「食飯」「午餐」「晚餐」「食嘢」= expense, category 飲食招待
+- 「買螺絲」「買文具」「買嘢」= expense, category 日常雜費
+- 「診金」「藥費」「覆診」「初診」= revenue
+- 「人工」「出糧」「salary」= expense, category 人工
+- 「租」「租金」「交租」= expense, category 租金
+- 「電費」「水費」「煤氣」「上網」「Wi-Fi」= expense（對應分類）
+- 金額：提取阿拉伯數字，「蚊」=HK$，「$」=HK$，「千」=000，「萬」=0000，「百」=00
+- 例：「三千蚊」=3000，「五百」=500，「一萬二」=12000，「2千5」=2500
+- 日期：「今日」=${today}，「尋日/昨日/琴日」=前一日，「前日」=前兩日，「上個禮拜/上星期」=7日前，無提及=今日
+- 付款方式：「現金」「cash」=現金，「FPS」「轉數快」=FPS，「信用卡」「碌卡」=信用卡，「轉帳」「過數」=轉帳，「支票」=支票
+- 分店：「旺角」「太子」「尖沙咀」「銅鑼灣」「觀塘」等如有提及就填，無就留空
 
 開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他
 收入分類：診金,藥費,針灸,推拿,其他治療
@@ -1125,6 +1130,107 @@ JSON array 回覆（無markdown無解釋）：
       return res.status(200).json({ ok: true });
     }
 
+    // ── /range YYYY-MM-DD YYYY-MM-DD — Custom date range P&L ──
+    if (text.startsWith('/range')) {
+      const parts = text.split(/\s+/).slice(1);
+      if (parts.length < 2 || !parts[0].match(/^\d{4}-\d{2}-\d{2}$/) || !parts[1].match(/^\d{4}-\d{2}-\d{2}$/)) {
+        await tgExpReply(chatId, '用法：<code>/range 2026-01-01 2026-03-31</code>\n\n指定起始及結束日期，查看該段期間損益報告。');
+        return res.status(200).json({ ok: true });
+      }
+      const [ds, de] = parts;
+      const deNext = new Date(de); deNext.setDate(deNext.getDate() + 1);
+      const deStr = deNext.toISOString().slice(0, 10);
+      const [rev, exp] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ds}&date=lt.${deStr}&order=date.asc`),
+        sbSelectExp('expenses', `date=gte.${ds}&date=lt.${deStr}&order=date.asc`),
+      ]);
+      const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+      const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const net = tR - tE;
+      let rpt = `<b>📊 自訂報告 (${ds} ~ ${de})</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+      rpt += `💰 收入：HK$ ${tR.toLocaleString()}（${rev.length} 筆）\n`;
+      rpt += `🧾 支出：HK$ ${tE.toLocaleString()}（${exp.length} 筆）\n`;
+      rpt += `${net >= 0 ? '✅' : '❌'} 淨利：<b>HK$ ${net.toLocaleString()}</b>\n`;
+      // Category breakdown
+      const byCat = {};
+      exp.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + (Number(e.amount) || 0); });
+      const topCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      if (topCats.length) {
+        rpt += '\n📁 <b>支出分類</b>\n';
+        topCats.forEach(([c, a]) => { rpt += `  ${c}：HK$ ${a.toLocaleString()} (${Math.round(a / tE * 100)}%)\n`; });
+      }
+      // Store breakdown
+      const stores = {};
+      rev.forEach(r => { const s = r.store || '未分店'; if (!stores[s]) stores[s] = { r: 0, e: 0 }; stores[s].r += Number(r.amount) || 0; });
+      exp.forEach(e => { const s = e.store || '未分店'; if (!stores[s]) stores[s] = { r: 0, e: 0 }; stores[s].e += Number(e.amount) || 0; });
+      if (Object.keys(stores).length > 1) {
+        rpt += '\n🏥 <b>分店損益</b>\n';
+        Object.entries(stores).sort((a, b) => (b[1].r - b[1].e) - (a[1].r - a[1].e)).forEach(([s, v]) => {
+          rpt += `  ${s}：💰${v.r.toLocaleString()} 🧾${v.e.toLocaleString()} = ${(v.r - v.e).toLocaleString()}\n`;
+        });
+      }
+      const days = Math.max(1, Math.round((new Date(de) - new Date(ds)) / 86400000) + 1);
+      rpt += `\n📅 共 ${days} 天 | 日均收入 HK$ ${Math.round(tR / days).toLocaleString()} | 日均支出 HK$ ${Math.round(tE / days).toLocaleString()}`;
+      await tgExpReply(chatId, rpt);
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /store [name] — Store-level report ──
+    if (text.startsWith('/store')) {
+      const storeName = text.split(/\s+/).slice(1).join(' ').trim();
+      const now = new Date();
+      const { ms, me } = monthRange(now.getFullYear(), now.getMonth() + 1);
+      const [revAll, expAll] = await Promise.all([
+        sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}&order=date.asc`),
+        sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}&order=date.asc`),
+      ]);
+      if (!storeName) {
+        // Show all stores summary
+        const stores = {};
+        revAll.forEach(r => { const s = r.store || '未分店'; if (!stores[s]) stores[s] = { r: 0, e: 0, rc: 0, ec: 0 }; stores[s].r += Number(r.amount) || 0; stores[s].rc++; });
+        expAll.forEach(e => { const s = e.store || '未分店'; if (!stores[s]) stores[s] = { r: 0, e: 0, rc: 0, ec: 0 }; stores[s].e += Number(e.amount) || 0; stores[s].ec++; });
+        if (!Object.keys(stores).length) { await tgExpReply(chatId, `🏥 ${now.getMonth() + 1}月暫無分店記錄。`); return res.status(200).json({ ok: true }); }
+        let rpt = `<b>🏥 ${now.getMonth() + 1}月分店報告</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+        Object.entries(stores).sort((a, b) => (b[1].r - b[1].e) - (a[1].r - a[1].e)).forEach(([s, v]) => {
+          const net = v.r - v.e;
+          rpt += `<b>${s}</b>\n`;
+          rpt += `  💰 ${v.r.toLocaleString()}（${v.rc}筆）🧾 ${v.e.toLocaleString()}（${v.ec}筆）\n`;
+          rpt += `  ${net >= 0 ? '✅' : '❌'} 淨利：HK$ ${net.toLocaleString()}\n\n`;
+        });
+        rpt += `💡 查看指定分店：<code>/store 旺角</code>`;
+        await tgExpReply(chatId, rpt);
+      } else {
+        // Show specific store detail
+        const rev = revAll.filter(r => (r.store || '').includes(storeName));
+        const exp = expAll.filter(e => (e.store || '').includes(storeName));
+        const tR = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+        const tE = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+        if (!rev.length && !exp.length) { await tgExpReply(chatId, `🏥 搵唔到「${storeName}」嘅記錄。`); return res.status(200).json({ ok: true }); }
+        let rpt = `<b>🏥 ${storeName} — ${now.getMonth() + 1}月報告</b>\n━━━━━━━━━━━━━━━━━━\n\n`;
+        rpt += `💰 收入：HK$ ${tR.toLocaleString()}（${rev.length} 筆）\n`;
+        rpt += `🧾 支出：HK$ ${tE.toLocaleString()}（${exp.length} 筆）\n`;
+        rpt += `${tR - tE >= 0 ? '✅' : '❌'} 淨利：<b>HK$ ${(tR - tE).toLocaleString()}</b>\n`;
+        if (exp.length) {
+          const byCat = {};
+          exp.forEach(e => { byCat[e.category] = (byCat[e.category] || 0) + (Number(e.amount) || 0); });
+          rpt += '\n📁 <b>支出分類</b>\n';
+          Object.entries(byCat).sort((a, b) => b[1] - a[1]).forEach(([c, a]) => {
+            rpt += `  ${c}：HK$ ${a.toLocaleString()}\n`;
+          });
+        }
+        if (rev.length) {
+          const byItem = {};
+          rev.forEach(r => { const k = r.item || r.name || '其他'; byItem[k] = (byItem[k] || 0) + (Number(r.amount) || 0); });
+          rpt += '\n💰 <b>收入項目</b>\n';
+          Object.entries(byItem).sort((a, b) => b[1] - a[1]).forEach(([c, a]) => {
+            rpt += `  ${c}：HK$ ${a.toLocaleString()}\n`;
+          });
+        }
+        await tgExpReply(chatId, rpt);
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     // ── /arap — Accounts receivable/payable summary ──
     if (text === '/arap') {
       let items;
@@ -1232,15 +1338,14 @@ JSON array 回覆（無markdown無解釋）：
     // ── /start or /help ──
     if (text === '/start' || text === '/help') {
       await tgExpReply(chatId,
-        `<b>🧾 康晴智能記帳 Bot v4</b>\n\n` +
-        `<b>🗣️ 自然語言（最懶）</b>\n` +
-        `直接用廣東話講：\n` +
-        `• 「今日買左100蚊中藥」\n` +
-        `• 「利是400蚊，飲茶200蚊」\n` +
-        `• 「收到張三診金500蚊」\n\n` +
-        `<b>📸 影相</b> → Send 收據相片\n` +
-        `<b>📎 批量</b> → Send CSV 檔案\n` +
-        `<b>✍️ 格式</b> → <code>金額, 商戶, 分類, 分店</code>\n\n` +
+        `<b>🧾 康晴智能記帳 Bot v5</b>\n\n` +
+        `<b>📥 記帳方式</b>\n` +
+        `🗣️ <b>自然語言</b> — 直接講「今日買左100蚊中藥」\n` +
+        `📸 <b>影相 OCR</b> — Send 收據/發票相片\n` +
+        `📄 <b>PDF 掃描</b> — Send PDF 收據/帳單\n` +
+        `🎙️ <b>語音記帳</b> — 錄語音自動記錄\n` +
+        `📎 <b>CSV 匯入</b> — Send CSV 檔案批量匯入\n` +
+        `✍️ <b>格式輸入</b> — <code>金額, 商戶, 分類, 分店</code>\n\n` +
         `<b>📊 財務報表</b>\n` +
         `/pnl — 本月損益表\n` +
         `/month 2026-02 — 指定月份\n` +
@@ -1258,9 +1363,12 @@ JSON array 回覆（無markdown無解釋）：
         `/budget 50000 — 預算追蹤\n` +
         `/year 2026 — 年度報告\n` +
         `/trend — 6個月趨勢圖\n` +
-        `/cash — 現金流\n` +
-        `/arap — 應收應付\n` +
-        `/payslip — 薪資摘要\n\n` +
+        `/range 日期 日期 — 自訂期間\n` +
+        `/store — 分店報告\n\n` +
+        `<b>💰 財務管理</b>\n` +
+        `/cash — 現金流分析\n` +
+        `/arap — 應收/應付帳款\n` +
+        `/payslip — 員工薪金摘要\n\n` +
         `<b>🏥 診所營運</b>\n` +
         `/bk — 今日預約\n` +
         `/pt — 今日病人\n` +
@@ -1268,8 +1376,6 @@ JSON array 回覆（無markdown無解釋）：
         `/queue — 排隊狀態\n` +
         `/inv — 庫存警報\n` +
         `/stats — 診所統計\n\n` +
-        `<b>🎤 語音記帳</b>\n` +
-        `錄語音講「買左200蚊藥材」即自動記帳\n\n` +
         `<b>🤖 自動報告</b>\n` +
         `每日 11pm · 每週一 · 每月1號`
       );

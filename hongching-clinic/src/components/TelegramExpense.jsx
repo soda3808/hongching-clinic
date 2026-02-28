@@ -373,6 +373,8 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
               <code>/budget 50000</code> — 預算追蹤（進度條）<br />
               <code>/year 2026</code> — 年度報告（每月明細）<br />
               <code>/trend</code> — 6個月趨勢圖<br />
+              <code>/range 日期 日期</code> — 自訂期間報告<br />
+              <code>/store</code> — 分店報告<br />
               <b>💰 財務管理</b><br />
               <code>/arap</code> — 應收/應付帳款<br />
               <code>/payslip</code> — 員工薪金摘要<br />
