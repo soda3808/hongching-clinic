@@ -879,7 +879,8 @@ async function handleTgExpense(req, res) {
     // ── /queue — Today's queue status ──
     if (text === '/queue') {
       const today = new Date().toISOString().slice(0, 10);
-      const q = await sbSelectExp('queue', `date=eq.${today}&order=created_at.asc`);
+      let q;
+      try { q = await sbSelectExp('queue', `date=eq.${today}&order=created_at.asc`); } catch { q = []; }
       if (!q.length) { await tgExpReply(chatId, `📋 ${today} 暫無排隊記錄。`); return res.status(200).json({ ok: true }); }
       const waiting = q.filter(i => i.status === 'waiting' || i.status === 'pending');
       const inProgress = q.filter(i => i.status === 'in_progress' || i.status === 'seeing');
