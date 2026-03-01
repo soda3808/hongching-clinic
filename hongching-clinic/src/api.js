@@ -244,7 +244,10 @@ export async function updateBookingStatus(id, status) {
       await gasCall('saveBooking', { record: booking });
     }
     return { ok: true };
-  } catch { return { ok: true }; }
+  } catch (err) {
+    console.error('[updateBookingStatus] failed:', err);
+    return { ok: false, error: err.message || 'Booking update failed' };
+  }
 }
 
 // ── Delete ──

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { saveConsultation, deleteConsultation, openWhatsApp, saveQueue, saveEnrollment } from '../api';
 import { uid, fmtM, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule, getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStoreNames, getTenantStores } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { checkInteractions, getHerbSafetyInfo, checkDosage, getSafetyBadges } from '../utils/drugInteractions';
@@ -572,10 +573,10 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   // ── Print Prescription (#66) ──
   const printPrescription = (item) => {
     const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
-    const rxRows = (item.prescription || []).filter(r => r.herb).map((r, i) => `<tr><td style="text-align:center">${i + 1}</td><td style="font-weight:600">${r.herb}</td><td style="text-align:center">${r.dosage}</td></tr>`).join('');
+    const rxRows = (item.prescription || []).filter(r => r.herb).map((r, i) => `<tr><td style="text-align:center">${i + 1}</td><td style="font-weight:600">${escapeHtml(r.herb)}</td><td style="text-align:center">${escapeHtml(r.dosage)}</td></tr>`).join('');
     const w = window.open('', '_blank');
     if (!w) return showToast('請允許彈出視窗');
-    w.document.write(`<!DOCTYPE html><html><head><title>處方箋 - ${item.patientName}</title><style>
+    w.document.write(`<!DOCTYPE html><html><head><title>處方箋 - ${escapeHtml(item.patientName)}</title><style>
       @page{size:A5;margin:15mm}body{font-family:'Microsoft YaHei',sans-serif;padding:20px;max-width:500px;margin:0 auto;color:#333}
       .header{text-align:center;border-bottom:3px double #0e7490;padding-bottom:10px;margin-bottom:12px}
       .header h1{font-size:16px;color:#0e7490;margin:0}.header p{font-size:10px;color:#888;margin:2px 0}
@@ -589,18 +590,18 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       .sig-line{border-top:1px solid #333;margin-top:50px;padding-top:4px;font-size:10px}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px;border-top:1px solid #eee;padding-top:8px}
     </style></head><body>
-      <div class="header"><h1>${clinic.name || clinicName}</h1><p>${clinic.nameEn || clinicNameEn}</p></div>
+      <div class="header"><h1>${escapeHtml(clinic.name || clinicName)}</h1><p>${escapeHtml(clinic.nameEn || clinicNameEn)}</p></div>
       <div class="title">處 方 箋</div>
-      <div class="info"><span>病人：<strong>${item.patientName}</strong></span><span>日期：${item.date}</span><span>醫師：${item.doctor}</span><span>店舖：${item.store}</span></div>
-      ${item.tcmDiagnosis ? `<div class="info"><span>診斷：<strong>${item.tcmDiagnosis}</strong></span>${item.tcmPattern ? `<span>證型：${item.tcmPattern}</span>` : ''}</div>` : ''}
-      ${item.formulaName ? `<div style="font-size:13px;font-weight:700;color:#0e7490;margin:8px 0">方劑：${item.formulaName}${item.formulaDays ? ` (${item.formulaDays}天)` : ''}</div>` : ''}
+      <div class="info"><span>病人：<strong>${escapeHtml(item.patientName)}</strong></span><span>日期：${escapeHtml(item.date)}</span><span>醫師：${escapeHtml(item.doctor)}</span><span>店舖：${escapeHtml(item.store)}</span></div>
+      ${item.tcmDiagnosis ? `<div class="info"><span>診斷：<strong>${escapeHtml(item.tcmDiagnosis)}</strong></span>${item.tcmPattern ? `<span>證型：${escapeHtml(item.tcmPattern)}</span>` : ''}</div>` : ''}
+      ${item.formulaName ? `<div style="font-size:13px;font-weight:700;color:#0e7490;margin:8px 0">方劑：${escapeHtml(item.formulaName)}${item.formulaDays ? ` (${item.formulaDays}天)` : ''}</div>` : ''}
       <table><thead><tr><th style="width:30px">#</th><th>藥材</th><th style="width:80px;text-align:center">劑量</th></tr></thead><tbody>${rxRows}</tbody></table>
-      <div class="note"><strong>服法：</strong>${item.formulaInstructions || '每日一劑，水煎服'}${item.specialNotes ? `<br/><strong>注意：</strong>${item.specialNotes}` : ''}</div>
-      ${(item.treatments || []).length ? `<div style="font-size:11px;margin:8px 0"><strong>治療：</strong>${item.treatments.join('、')}</div>` : ''}
-      ${item.acupuncturePoints ? `<div style="font-size:11px;margin:8px 0"><strong>穴位：</strong>${item.acupuncturePoints}</div>` : ''}
-      ${item.followUpDate ? `<div style="font-size:12px;margin:8px 0;padding:6px;background:#f0fdfa;border-radius:4px"><strong>覆診：</strong>${item.followUpDate}${item.followUpNotes ? ` — ${item.followUpNotes}` : ''}</div>` : ''}
-      <div class="sig"><div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}<div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div style="margin-top:50px"></div><div class="sig-line">診所蓋章</div></div></div>
-      <div class="footer">此處方箋由系統生成 | ${clinic.name || clinicName}${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
+      <div class="note"><strong>服法：</strong>${escapeHtml(item.formulaInstructions || '每日一劑，水煎服')}${item.specialNotes ? `<br/><strong>注意：</strong>${escapeHtml(item.specialNotes)}` : ''}</div>
+      ${(item.treatments || []).length ? `<div style="font-size:11px;margin:8px 0"><strong>治療：</strong>${(item.treatments || []).map(t => escapeHtml(t)).join('、')}</div>` : ''}
+      ${item.acupuncturePoints ? `<div style="font-size:11px;margin:8px 0"><strong>穴位：</strong>${escapeHtml(item.acupuncturePoints)}</div>` : ''}
+      ${item.followUpDate ? `<div style="font-size:12px;margin:8px 0;padding:6px;background:#f0fdfa;border-radius:4px"><strong>覆診：</strong>${escapeHtml(item.followUpDate)}${item.followUpNotes ? ` — ${escapeHtml(item.followUpNotes)}` : ''}</div>` : ''}
+      <div class="sig"><div class="sig-box">${item.doctorSignature ? `<img src="${escapeHtml(item.doctorSignature)}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}<div class="sig-line">主診醫師：${escapeHtml(item.doctor)}</div></div><div class="sig-box"><div style="margin-top:50px"></div><div class="sig-line">診所蓋章</div></div></div>
+      <div class="footer">此處方箋由系統生成 | ${escapeHtml(clinic.name || clinicName)}${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -609,10 +610,10 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   // ── Print SOAP Note (#66) ──
   const printSOAPNote = (item) => {
     const clinic = (() => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } })();
-    const rxRows = (item.prescription || []).filter(r => r.herb).map((r, i) => `<tr><td>${i + 1}</td><td>${r.herb}</td><td>${r.dosage}</td></tr>`).join('');
+    const rxRows = (item.prescription || []).filter(r => r.herb).map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.herb)}</td><td>${escapeHtml(r.dosage)}</td></tr>`).join('');
     const w = window.open('', '_blank');
     if (!w) return showToast('請允許彈出視窗');
-    w.document.write(`<!DOCTYPE html><html><head><title>SOAP 病歷 - ${item.patientName}</title><style>
+    w.document.write(`<!DOCTYPE html><html><head><title>SOAP 病歷 - ${escapeHtml(item.patientName)}</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:30px 40px;max-width:750px;margin:0 auto;color:#333}
       .header{text-align:center;border-bottom:3px solid #0e7490;padding-bottom:12px;margin-bottom:16px}
       .header h1{font-size:18px;color:#0e7490;margin:0}.header p{font-size:11px;color:#888;margin:3px 0}
@@ -629,22 +630,22 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
       @media print{body{padding:15px}}
     </style></head><body>
-      <div class="header"><h1>${clinic.name || clinicName}</h1><p>${clinic.nameEn || clinicNameEn}</p></div>
+      <div class="header"><h1>${escapeHtml(clinic.name || clinicName)}</h1><p>${escapeHtml(clinic.nameEn || clinicNameEn)}</p></div>
       <div class="title">診症紀錄 (SOAP Note)</div>
-      <div class="meta"><div><strong>病人：</strong>${item.patientName}</div><div><strong>日期：</strong>${item.date}</div><div><strong>醫師：</strong>${item.doctor}</div><div><strong>電話：</strong>${item.patientPhone || '-'}</div><div><strong>店舖：</strong>${item.store}</div><div><strong>診金：</strong>$${item.fee || 0}</div></div>
+      <div class="meta"><div><strong>病人：</strong>${escapeHtml(item.patientName)}</div><div><strong>日期：</strong>${escapeHtml(item.date)}</div><div><strong>醫師：</strong>${escapeHtml(item.doctor)}</div><div><strong>電話：</strong>${escapeHtml(item.patientPhone || '-')}</div><div><strong>店舖：</strong>${escapeHtml(item.store)}</div><div><strong>診金：</strong>$${item.fee || 0}</div></div>
       <div class="soap">
-        <div class="soap-box"><h4>S — Subjective 主訴</h4><p>${item.subjective || '-'}</p></div>
-        <div class="soap-box"><h4>O — Objective 客觀</h4><p>${item.objective || '-'}</p></div>
-        <div class="soap-box"><h4>A — Assessment 評估</h4><p>${item.assessment || '-'}</p></div>
-        <div class="soap-box"><h4>P — Plan 計劃</h4><p>${item.plan || '-'}</p></div>
+        <div class="soap-box"><h4>S — Subjective 主訴</h4><p>${escapeHtml(item.subjective || '-')}</p></div>
+        <div class="soap-box"><h4>O — Objective 客觀</h4><p>${escapeHtml(item.objective || '-')}</p></div>
+        <div class="soap-box"><h4>A — Assessment 評估</h4><p>${escapeHtml(item.assessment || '-')}</p></div>
+        <div class="soap-box"><h4>P — Plan 計劃</h4><p>${escapeHtml(item.plan || '-')}</p></div>
       </div>
-      <div class="section"><h4>中醫辨證</h4><div>診斷：<strong>${item.tcmDiagnosis || '-'}</strong>${item.icd10Code ? ` <span style="font-size:10px;color:#666">(ICD-10: ${item.icd10Code})</span>` : ''} | 證型：<strong>${item.tcmPattern || '-'}</strong>${item.cmZhengCode ? ` <span style="font-size:10px;color:#666">(${item.cmZhengCode})</span>` : ''} | 舌象：${item.tongue || '-'} | 脈象：${item.pulse || '-'}</div></div>
-      ${(item.treatments || []).length ? `<div class="section"><h4>治療方式</h4><div>${item.treatments.join('、')}</div></div>` : ''}
-      ${item.acupuncturePoints ? `<div class="section"><h4>穴位</h4><div>${item.acupuncturePoints}</div></div>` : ''}
-      ${rxRows ? `<div class="section"><h4>處方${item.formulaName ? ' — ' + item.formulaName : ''}${item.formulaDays ? ' (' + item.formulaDays + '天)' : ''}</h4><table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rxRows}</tbody></table><div>服法：${item.formulaInstructions || '每日一劑，水煎服'}</div></div>` : ''}
-      ${item.followUpDate ? `<div class="section" style="padding:8px;background:#f0fdfa;border-radius:6px"><h4>覆診安排</h4><div>${item.followUpDate}${item.followUpNotes ? ' — ' + item.followUpNotes : ''}</div></div>` : ''}
-      <div class="sig"><div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}<div class="sig-line">主診醫師：${item.doctor}</div></div><div class="sig-box"><div style="margin-top:50px"></div><div class="sig-line">診所蓋章</div></div></div>
-      <div class="footer">此病歷由系統生成 | ${clinic.name || clinicName} | ${new Date().toLocaleString('zh-HK')}${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
+      <div class="section"><h4>中醫辨證</h4><div>診斷：<strong>${escapeHtml(item.tcmDiagnosis || '-')}</strong>${item.icd10Code ? ` <span style="font-size:10px;color:#666">(ICD-10: ${escapeHtml(item.icd10Code)})</span>` : ''} | 證型：<strong>${escapeHtml(item.tcmPattern || '-')}</strong>${item.cmZhengCode ? ` <span style="font-size:10px;color:#666">(${escapeHtml(item.cmZhengCode)})</span>` : ''} | 舌象：${escapeHtml(item.tongue || '-')} | 脈象：${escapeHtml(item.pulse || '-')}</div></div>
+      ${(item.treatments || []).length ? `<div class="section"><h4>治療方式</h4><div>${(item.treatments || []).map(t => escapeHtml(t)).join('、')}</div></div>` : ''}
+      ${item.acupuncturePoints ? `<div class="section"><h4>穴位</h4><div>${escapeHtml(item.acupuncturePoints)}</div></div>` : ''}
+      ${rxRows ? `<div class="section"><h4>處方${item.formulaName ? ' — ' + escapeHtml(item.formulaName) : ''}${item.formulaDays ? ' (' + item.formulaDays + '天)' : ''}</h4><table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rxRows}</tbody></table><div>服法：${escapeHtml(item.formulaInstructions || '每日一劑，水煎服')}</div></div>` : ''}
+      ${item.followUpDate ? `<div class="section" style="padding:8px;background:#f0fdfa;border-radius:6px"><h4>覆診安排</h4><div>${escapeHtml(item.followUpDate)}${item.followUpNotes ? ' — ' + escapeHtml(item.followUpNotes) : ''}</div></div>` : ''}
+      <div class="sig"><div class="sig-box">${item.doctorSignature ? `<img src="${escapeHtml(item.doctorSignature)}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}<div class="sig-line">主診醫師：${escapeHtml(item.doctor)}</div></div><div class="sig-box"><div style="margin-top:50px"></div><div class="sig-line">診所蓋章</div></div></div>
+      <div class="footer">此病歷由系統生成 | ${escapeHtml(clinic.name || clinicName)} | ${new Date().toLocaleString('zh-HK')}${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -730,28 +731,28 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       .footer{margin-top:40px;text-align:center;font-size:10px;color:#aaa}
     </style></head><body>
       <div class="header">
-        <h1>${clinic.name || clinicName}</h1>
-        <p>${clinic.nameEn || clinicNameEn}</p>
-        <p>${(() => { const tenantStores = getTenantStores(); const s = tenantStores.find(st => st.name === item.store) || tenantStores[0] || {}; return s.address || ''; })()}</p>
+        <h1>${escapeHtml(clinic.name || clinicName)}</h1>
+        <p>${escapeHtml(clinic.nameEn || clinicNameEn)}</p>
+        <p>${escapeHtml((() => { const tenantStores = getTenantStores(); const s = tenantStores.find(st => st.name === item.store) || tenantStores[0] || {}; return s.address || ''; })())}</p>
       </div>
       <div class="title">轉介信 Referral Letter</div>
       <div class="field"><span class="label">日期：</span>${new Date().toISOString().substring(0, 10)}</div>
-      <div class="field"><span class="label">病人姓名：</span>${item.patientName}</div>
-      <div class="field"><span class="label">聯絡電話：</span>${item.patientPhone || '-'}</div>
+      <div class="field"><span class="label">病人姓名：</span>${escapeHtml(item.patientName)}</div>
+      <div class="field"><span class="label">聯絡電話：</span>${escapeHtml(item.patientPhone || '-')}</div>
       <div class="body-text">
         <p>致有關醫生：</p>
-        <p>上述病人因 <strong>${item.tcmDiagnosis || item.assessment || '（請填寫）'}</strong> 於本中心就診。</p>
-        <p><strong>證型：</strong>${item.tcmPattern || '-'}</p>
-        <p><strong>舌象：</strong>${item.tongue || '-'} ｜ <strong>脈象：</strong>${item.pulse || '-'}</p>
-        <p><strong>治療紀錄：</strong>${(item.treatments || []).join('、') || '-'}</p>
-        ${item.prescription?.length ? `<p><strong>處方：</strong>${item.prescription.map(r => r.herb + ' ' + r.dosage).join('、')}</p>` : ''}
+        <p>上述病人因 <strong>${escapeHtml(item.tcmDiagnosis || item.assessment || '（請填寫）')}</strong> 於本中心就診。</p>
+        <p><strong>證型：</strong>${escapeHtml(item.tcmPattern || '-')}</p>
+        <p><strong>舌象：</strong>${escapeHtml(item.tongue || '-')} ｜ <strong>脈象：</strong>${escapeHtml(item.pulse || '-')}</p>
+        <p><strong>治療紀錄：</strong>${(item.treatments || []).map(t => escapeHtml(t)).join('、') || '-'}</p>
+        ${item.prescription?.length ? `<p><strong>處方：</strong>${item.prescription.map(r => escapeHtml(r.herb) + ' ' + escapeHtml(r.dosage)).join('、')}</p>` : ''}
         <p>現轉介 閣下跟進診治，煩請惠予診療。如有查詢，歡迎致電本中心。</p>
       </div>
       <div class="sig">
-        <div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:60px"></div>'}<div class="sig-line">主診醫師：${item.doctor}</div></div>
+        <div class="sig-box">${item.doctorSignature ? `<img src="${escapeHtml(item.doctorSignature)}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:60px"></div>'}<div class="sig-line">主診醫師：${escapeHtml(item.doctor)}</div></div>
         <div class="sig-box"><div style="margin-top:60px"></div><div class="sig-line">診所蓋章</div></div>
       </div>
-      <div class="footer">此轉介信由 ${clinic.name || clinicName} 簽發${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
+      <div class="footer">此轉介信由 ${escapeHtml(clinic.name || clinicName)} 簽發${item.doctorSignature ? ' | 已電子簽署' : ''}</div>
     </body></html>`);
     w.document.close();
     w.print();

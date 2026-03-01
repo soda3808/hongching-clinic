@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 import { openWhatsApp, sendTelegram } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
@@ -232,23 +233,23 @@ export default function Dashboard({ data, onNavigate }) {
       <h2>營業額明細</h2>
       <table>
         <thead><tr><th>店舖</th><th class="r">金額</th><th class="r">佔比</th></tr></thead>
-        <tbody>${Object.entries(revByStore).map(([st, amt]) => `<tr><td class="b">${st}</td><td class="r">${fmtM(amt)}</td><td class="r">${totalRev ? (amt / totalRev * 100).toFixed(0) : 0}%</td></tr>`).join('')}
+        <tbody>${Object.entries(revByStore).map(([st, amt]) => `<tr><td class="b">${escapeHtml(st)}</td><td class="r">${fmtM(amt)}</td><td class="r">${totalRev ? (amt / totalRev * 100).toFixed(0) : 0}%</td></tr>`).join('')}
         <tr class="b" style="background:#f0fdfa"><td>合計</td><td class="r">${fmtM(totalRev)}</td><td class="r">100%</td></tr></tbody>
       </table>
 
       <h2>醫師業績</h2>
       <table>
         <thead><tr><th>醫師</th><th class="r">人次</th><th class="r">金額</th></tr></thead>
-        <tbody>${Object.entries(revByDoc).map(([doc, d]) => `<tr><td>${doc}</td><td class="r">${d.count}</td><td class="r">${fmtM(d.amt)}</td></tr>`).join('') || '<tr><td colspan="3" style="color:#aaa;text-align:center">無紀錄</td></tr>'}</tbody>
+        <tbody>${Object.entries(revByDoc).map(([doc, d]) => `<tr><td>${escapeHtml(doc)}</td><td class="r">${d.count}</td><td class="r">${fmtM(d.amt)}</td></tr>`).join('') || '<tr><td colspan="3" style="color:#aaa;text-align:center">無紀錄</td></tr>'}</tbody>
       </table>
 
       <h2>收款方式</h2>
       <table>
         <thead><tr><th>方式</th><th class="r">金額</th></tr></thead>
-        <tbody>${Object.entries(revByPay).map(([m, amt]) => `<tr><td>${m}</td><td class="r">${fmtM(amt)}</td></tr>`).join('') || '<tr><td colspan="2" style="color:#aaa;text-align:center">無紀錄</td></tr>'}</tbody>
+        <tbody>${Object.entries(revByPay).map(([m, amt]) => `<tr><td>${escapeHtml(m)}</td><td class="r">${fmtM(amt)}</td></tr>`).join('') || '<tr><td colspan="2" style="color:#aaa;text-align:center">無紀錄</td></tr>'}</tbody>
       </table>
 
-      ${exp.length > 0 ? `<h2>今日開支</h2><table><thead><tr><th>類別</th><th class="r">金額</th></tr></thead><tbody>${Object.entries(expByCat).map(([c, amt]) => `<tr><td>${c}</td><td class="r">${fmtM(amt)}</td></tr>`).join('')}<tr class="b" style="background:#fef2f2"><td>合計</td><td class="r">${fmtM(totalExp)}</td></tr></tbody></table>` : ''}
+      ${exp.length > 0 ? `<h2>今日開支</h2><table><thead><tr><th>類別</th><th class="r">金額</th></tr></thead><tbody>${Object.entries(expByCat).map(([c, amt]) => `<tr><td>${escapeHtml(c)}</td><td class="r">${fmtM(amt)}</td></tr>`).join('')}<tr class="b" style="background:#fef2f2"><td>合計</td><td class="r">${fmtM(totalExp)}</td></tr></tbody></table>` : ''}
 
       <h2>掛號/預約統計</h2>
       <div class="grid">
@@ -259,7 +260,7 @@ export default function Dashboard({ data, onNavigate }) {
       </div>
 
       ${overdueAR.length > 0 ? `<div class="alert">⚠️ 逾期應收帳 ${overdueAR.length} 筆，共 ${fmtM(overdueTotal)}</div>` : ''}
-      ${lowStock.length > 0 ? `<div class="alert">⚠️ 低庫存警報 ${lowStock.length} 項：${lowStock.slice(0, 5).map(i => i.name).join('、')}${lowStock.length > 5 ? '...' : ''}</div>` : ''}
+      ${lowStock.length > 0 ? `<div class="alert">⚠️ 低庫存警報 ${lowStock.length} 項：${lowStock.slice(0, 5).map(i => escapeHtml(i.name)).join('、')}${lowStock.length > 5 ? '...' : ''}</div>` : ''}
 
       <div class="sign">
         <div class="sign-box">經手人簽名</div>

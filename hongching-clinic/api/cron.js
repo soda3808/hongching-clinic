@@ -139,9 +139,9 @@ async function handleDataRetention(req, res) {
   const now = new Date();
 
   try {
-    const twoYearsAgo = new Date(now); twoYearsAgo.setFullYear(now.getFullYear() - 2);
-    const { count: bookingsDeleted } = await supabase.from('bookings').delete({ count: 'exact' }).lt('date', twoYearsAgo.toISOString().substring(0, 10));
-    if (bookingsDeleted > 0) results.cleaned.push(`bookings: ${bookingsDeleted} deleted (>2yr)`);
+    const sevenYearsAgo = new Date(now); sevenYearsAgo.setFullYear(now.getFullYear() - 7);
+    const { count: bookingsDeleted } = await supabase.from('bookings').delete({ count: 'exact' }).lt('date', sevenYearsAgo.toISOString().substring(0, 10));
+    if (bookingsDeleted > 0) results.cleaned.push(`bookings: ${bookingsDeleted} deleted (>7yr)`);
 
     const oneYearAgo = new Date(now); oneYearAgo.setFullYear(now.getFullYear() - 1);
     const { count: convsDeleted } = await supabase.from('conversations').delete({ count: 'exact' }).lt('updatedAt', oneYearAgo.toISOString());
@@ -151,9 +151,9 @@ async function handleDataRetention(req, res) {
     const { count: queueDeleted } = await supabase.from('queue').delete({ count: 'exact' }).lt('date', sixMonthsAgo.toISOString().substring(0, 10));
     if (queueDeleted > 0) results.cleaned.push(`queue: ${queueDeleted} deleted (>6mo)`);
 
-    const threeYearsAgo = new Date(now); threeYearsAgo.setFullYear(now.getFullYear() - 3);
-    const { count: auditDeleted } = await supabase.from('audit_logs').delete({ count: 'exact' }).lt('created_at', threeYearsAgo.toISOString());
-    if (auditDeleted > 0) results.cleaned.push(`audit_logs: ${auditDeleted} deleted (>3yr)`);
+    const sevenYearsAgoAudit = new Date(now); sevenYearsAgoAudit.setFullYear(now.getFullYear() - 7);
+    const { count: auditDeleted } = await supabase.from('audit_logs').delete({ count: 'exact' }).lt('created_at', sevenYearsAgoAudit.toISOString());
+    if (auditDeleted > 0) results.cleaned.push(`audit_logs: ${auditDeleted} deleted (>7yr)`);
 
     const { count: tokensDeleted } = await supabase.from('password_resets').delete({ count: 'exact' }).lt('expires_at', now.toISOString());
     if (tokensDeleted > 0) results.cleaned.push(`password_resets: ${tokensDeleted} expired tokens deleted`);

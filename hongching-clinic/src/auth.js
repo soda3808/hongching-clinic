@@ -136,7 +136,9 @@ export function getCurrentUser() {
           return null;
         }
       } catch {
-        // Token parse failed — keep session (offline mode)
+        // Token unreadable — force re-auth for safety
+        logout();
+        return null;
       }
     }
     // Restore Supabase JWT for RLS if session is valid

@@ -9,6 +9,7 @@ import { MEMBERSHIP_TIERS } from '../data';
 import { supabase } from '../supabase';
 import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames, getTenantDoctors, getTenantServices, getTenantSettings, getTenantSlug, applyTenantTheme } from '../tenant';
 import { getAuthHeader, getTenantConfig } from '../auth';
+import escapeHtml from '../utils/escapeHtml';
 
 export default function SettingsPage({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('clinic');
@@ -747,7 +748,7 @@ export default function SettingsPage({ data, setData, showToast, user }) {
                 );
               })()}
             </div>
-            <button className="btn btn-outline" onClick={() => { const w = window.open('', '_blank'); if (!w) { showToast('請允許彈出視窗'); return; } w.document.write('<html><head><title>宣傳單張</title><style>body{font-family:sans-serif;padding:40px;max-width:500px;margin:0 auto}</style></head><body>' + document.getElementById('promo-flyer').innerHTML + '</body></html>'); w.document.close(); w.print(); }} style={{ marginTop: 12 }}>
+            <button className="btn btn-outline" onClick={() => { const w = window.open('', '_blank'); if (!w) { showToast('請允許彈出視窗'); return; } /* innerHTML from React-rendered #promo-flyer is safe (React escapes by default) */ w.document.write('<html><head><title>宣傳單張</title><style>body{font-family:sans-serif;padding:40px;max-width:500px;margin:0 auto}</style></head><body>' + document.getElementById('promo-flyer').innerHTML + '</body></html>'); w.document.close(); w.print(); }} style={{ marginTop: 12 }}>
               🖨️ 列印宣傳單張
             </button>
           </div>

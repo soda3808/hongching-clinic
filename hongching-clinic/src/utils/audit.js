@@ -39,14 +39,22 @@ export function flushAuditQueue() {
     if (!q.length) return;
     const token = sessionStorage.getItem('hcmc_jwt') || sessionStorage.getItem('hcmc_token');
     if (!token) return;
-    q.forEach(item => {
+    const remaining = [...q];
+    q.forEach((item, idx) => {
       fetch('/api/audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(item),
-      }).catch(() => {});
+      }).then(res => {
+        if (res.ok) {
+          const i = remaining.indexOf(item);
+          if (i !== -1) remaining.splice(i, 1);
+          try { localStorage.setItem('hc_audit_queue', JSON.stringify(remaining)); } catch {}
+        }
+      }).catch(() => {
+        // Keep failed items in queue for next retry
+      });
     });
-    localStorage.removeItem('hc_audit_queue');
   } catch {}
 }
 

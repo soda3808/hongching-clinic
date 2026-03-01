@@ -101,6 +101,7 @@ try {
     });
   }
 } catch { /* Redis not available — use fallback */ }
+if (!redis) console.warn('[Security] Upstash Redis not configured — rate limiting will be unreliable in serverless. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.');
 
 // In-memory fallback (only effective within a single warm instance)
 const rateLimitMap = new Map();
@@ -121,8 +122,8 @@ export async function rateLimit(key, maxRequests = 60, windowMs = 60000) {
         return { allowed: false, remaining: 0, retryAfter: ttl > 0 ? ttl : windowSec };
       }
       return { allowed: true, remaining: maxRequests - count };
-    } catch {
-      // Redis error — fall through to in-memory
+    } catch (err) {
+      console.warn('[RateLimit] Redis unavailable, using in-memory fallback (NOT reliable in serverless):', err.message);
     }
   }
 

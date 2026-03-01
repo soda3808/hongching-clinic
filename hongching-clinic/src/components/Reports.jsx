@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, DOCTORS, linearRegression } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStoreNames } from '../tenant';
 import { monthCloseOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 // Lazy-loaded sub-reports for code splitting
@@ -759,8 +760,8 @@ export default function Reports({ data }) {
       h3,h4{color:#0e7490}.footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
       @media print{body{padding:10px}}
     </style></head><body>
-      <div class="report-header"><h1>${getClinicName()}</h1><p>${getClinicNameEn().toUpperCase()}</p><p>${tabLabel?.icon || ''} ${tabLabel?.label || ''} | ${selectedStore === 'all' ? '全店合計' : selectedStore} | 生成：${new Date().toLocaleString('zh-HK')}</p></div>
-      ${el.innerHTML}
+      <div class="report-header"><h1>${escapeHtml(getClinicName())}</h1><p>${escapeHtml(getClinicNameEn().toUpperCase())}</p><p>${escapeHtml(tabLabel?.icon || '')} ${escapeHtml(tabLabel?.label || '')} | ${selectedStore === 'all' ? '全店合計' : escapeHtml(selectedStore)} | 生成：${new Date().toLocaleString('zh-HK')}</p></div>
+      ${el.innerHTML /* Safe: React-rendered DOM content is already escaped */}
       <div class="footer">報表由系統自動生成 | 僅供內部參考</div>
     </body></html>`);
     w.document.close();

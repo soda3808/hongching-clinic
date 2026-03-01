@@ -446,21 +446,55 @@ tr:hover { background: var(--gray-50); }
 /* ── HIDE-MOBILE UTILITY ── */
 .hide-mobile { }
 
-/* ── RESPONSIVE ── */
+/* ── RESPONSIVE MOBILE ── */
 @media (max-width: 768px) {
   .sidebar { display: none; }
-  .main { margin-left: 0; padding-bottom: var(--mobile-tabbar-h); }
-  .topbar { padding: 10px 16px; }
-  .topbar h2 { font-size: 15px; }
-  .content { padding: 12px; }
+  .main { margin-left: 0 !important; padding-bottom: var(--mobile-tabbar-h); }
+  .topbar { padding: 8px 12px; }
+  .topbar h2 { font-size: 14px; }
+  .content { padding: 12px; max-width: 100%; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .card { padding: 14px; margin-bottom: 10px; }
+  .modal { width: 95%; max-width: none; padding: 16px; margin: 8px; }
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .search-panel { width: 100%; max-width: 100%; border-radius: 0; max-height: 100vh; }
+  .search-overlay { padding-top: 0; }
   .hide-mobile { display: none !important; }
   .tab-bar { flex-wrap: wrap; }
 
-  /* Mobile input sizing (prevent iOS zoom) */
-  input, select, textarea { font-size: 16px; }
-  .btn { min-height: 48px; }
+  /* Touch-friendly targets */
+  .btn { min-height: 44px; min-width: 44px; padding: 10px 16px; }
+  .btn-sm { min-height: 36px; padding: 8px 14px; }
+  .nav-item { padding: 12px 14px; min-height: 44px; }
+  .tab-btn { padding: 10px 16px; min-height: 44px; }
+  .preset-chip { padding: 10px 16px; min-height: 36px; }
+
+  /* Table responsive */
+  .table-wrap { border-radius: 8px; }
+  table { font-size: 11px; }
+  th, td { padding: 8px 6px; white-space: nowrap; }
+  th { font-size: 10px; }
+
+  /* Form elements – 16px prevents iOS zoom */
+  input, select, textarea { padding: 12px; font-size: 16px; }
+  label { font-size: 12px; }
+
+  /* Stat cards compact */
+  .stat-card { padding: 12px 14px; }
+  .stat-value { font-size: 20px; }
+  .stat-label { font-size: 10px; }
+
+  /* Patient summary */
+  .patient-summary { padding: 10px; }
+
+  /* Alert banners */
+  .alert-banner { padding: 8px 12px; font-size: 11px; }
+
+  /* Empty states compact */
+  .empty-state { padding: 24px 16px; }
+  .empty-state-icon { font-size: 36px; }
+  .empty-state-title { font-size: 14px; }
 
   /* Mobile Bottom Tab Bar */
   .mobile-tabbar {
@@ -482,9 +516,15 @@ tr:hover { background: var(--gray-50); }
   /* Toast above tab bar */
   .toast { bottom: calc(var(--mobile-tabbar-h) + 12px); }
   .install-banner { bottom: var(--mobile-tabbar-h); }
+}
 
-  /* Table responsive: horizontal scroll with smaller padding */
-  td, th { padding: 7px 8px; font-size: 11px; white-space: nowrap; }
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .topbar-actions { gap: 4px; }
+  .topbar-actions .btn { padding: 6px 8px; font-size: 11px; }
+  .content { padding: 8px; }
+  .modal { padding: 12px; }
+  .card-header { flex-direction: column; gap: 8px; align-items: flex-start; }
 }
 
 /* ── EMR Page ── */
