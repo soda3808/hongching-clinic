@@ -2,6 +2,15 @@
 // GET/POST /api/cron?action=reminders|followup|data-retention|tg-daily|tg-weekly|tg-monthly
 
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
+
+function timingSafeCompare(a, b) {
+  if (!a || !b) return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 function getSupabase() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -344,7 +353,10 @@ async function handleTgMonthly(req, res) {
 // ── Main Router ──
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  // Timing-safe comparison to prevent timing attacks
+  if (!cronSecret || !token || !timingSafeCompare(cronSecret, token)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

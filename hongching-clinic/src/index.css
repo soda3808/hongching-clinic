@@ -202,6 +202,9 @@ tr:hover { background: var(--gray-50); }
   z-index: 1000; box-shadow: var(--shadow-lg);
   animation: slideUp .3s ease-out;
 }
+.toast-success { background: #16a34a; }
+.toast-error { background: #dc2626; }
+.toast-warning { background: #d97706; }
 @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } }
 
 /* ── MODAL ── */

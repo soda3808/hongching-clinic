@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { savePatient, openWhatsApp, saveCommunication } from '../api';
 import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
 import { getPatientPoints, getLoyaltyTier, loadPointsHistory, addPointsEntry, LOYALTY_CONFIG } from '../utils/loyalty';
@@ -26,6 +26,15 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [pointsHistory, setPointsHistory] = useState(() => loadPointsHistory());
   const [showPoints, setShowPoints] = useState(false);
   const [redeemAmount, setRedeemAmount] = useState('');
+  const [waModalTab, setWaModalTab] = useState('send'); // 'send' | 'schedule' | 'log'
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('');
+  const [scheduledMsgs, setScheduledMsgs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hc_scheduled_msgs') || '[]'); } catch { return []; }
+  });
+  const [deliveryLog, setDeliveryLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('hc_msg_delivery_log') || '[]'); } catch { return []; }
+  });
 
   const patients = data.patients || [];
   const communications = data.communications || [];
@@ -469,95 +478,272 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         </div>
       </div>
 
-      {/* Batch WhatsApp Modal (#95) */}
+      {/* Batch WhatsApp Modal (#95) — Enhanced with scheduling, delivery log & analytics */}
       {showBatchWA && (() => {
         const targets = filtered.filter(p => selected.has(p.id) && p.phone);
-        return (
-        <div className="modal-overlay" onClick={() => setShowBatchWA(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
-            <h3>批量 WhatsApp ({targets.length} 位)</h3>
+        const TEMPLATES = [
+          ['覆診提醒', `親愛的{姓名}，提醒您已到覆診時間，歡迎致電${getClinicName()}預約。祝健康！`],
+          ['節日問候', `{姓名}您好！${getClinicName()}祝您身體健康、萬事如意！如需預約可隨時聯繫我們。`],
+          ['新服務', `{姓名}您好！${getClinicName()}推出全新服務，歡迎致電或WhatsApp查詢詳情。`],
+          ['健康貼士', `{姓名}您好！近日天氣轉涼，注意保暖防感冒。如有不適歡迎預約到診。${getClinicName()}`],
+        ];
+        const findTemplateName = (msg) => {
+          const t = TEMPLATES.find(([, tpl]) => tpl === msg);
+          return t ? t[0] : '自訂訊息';
+        };
+        // Delivery log analytics
+        const logAnalytics = (() => {
+          const totalSent = deliveryLog.reduce((s, l) => s + (l.successCount || 0) + (l.failCount || 0), 0);
+          const totalSuccess = deliveryLog.reduce((s, l) => s + (l.successCount || 0), 0);
+          const successRate = totalSent > 0 ? ((totalSuccess / totalSent) * 100).toFixed(1) : 0;
+          const thisMonthStr = new Date().toISOString().substring(0, 7);
+          const thisMonthSent = deliveryLog.filter(l => (l.timestamp || '').substring(0, 7) === thisMonthStr).reduce((s, l) => s + (l.successCount || 0) + (l.failCount || 0), 0);
+          const templateCounts = {};
+          deliveryLog.forEach(l => { templateCounts[l.template || '自訂'] = (templateCounts[l.template || '自訂'] || 0) + 1; });
+          const mostUsedTemplate = Object.entries(templateCounts).sort((a, b) => b[1] - a[1])[0];
+          return { totalSent, totalSuccess, successRate, thisMonthSent, mostUsedTemplate: mostUsedTemplate ? mostUsedTemplate[0] : '-' };
+        })();
 
-            {/* Message Templates */}
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, fontWeight: 600 }}>快速模板</label>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
-                {[
-                  ['覆診提醒', `親愛的{姓名}，提醒您已到覆診時間，歡迎致電${getClinicName()}預約。祝健康！`],
-                  ['節日問候', `{姓名}您好！${getClinicName()}祝您身體健康、萬事如意！如需預約可隨時聯繫我們。`],
-                  ['新服務', `{姓名}您好！${getClinicName()}推出全新服務，歡迎致電或WhatsApp查詢詳情。`],
-                  ['健康貼士', `{姓名}您好！近日天氣轉涼，注意保暖防感冒。如有不適歡迎預約到診。${getClinicName()}`],
-                ].map(([name, tpl]) => (
-                  <button key={name} className="btn btn-outline btn-sm" style={{ fontSize: 10 }}
-                    onClick={() => setBatchMsg(tpl)}>{name}</button>
+        return (
+        <div className="modal-overlay" onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 620 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0 }}>批量 WhatsApp ({targets.length} 位)</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>✕</button>
+            </div>
+
+            {/* Tab bar */}
+            <div style={{ display: 'flex', gap: 0, marginBottom: 14, borderBottom: '2px solid #e5e7eb' }}>
+              {[
+                { key: 'send', label: '發送訊息' },
+                { key: 'schedule', label: '定時發送' },
+                { key: 'log', label: '發送記錄' },
+              ].map(tab => (
+                <button key={tab.key} onClick={() => setWaModalTab(tab.key)} style={{
+                  padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  border: 'none', borderBottom: waModalTab === tab.key ? '3px solid #0e7490' : '3px solid transparent',
+                  background: 'none', color: waModalTab === tab.key ? '#0e7490' : '#888',
+                }}>{tab.label}</button>
+              ))}
+            </div>
+
+            {/* ── Send Tab ── */}
+            {waModalTab === 'send' && (<>
+              {/* Message Templates */}
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>快速模板</label>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                  {TEMPLATES.map(([name, tpl]) => (
+                    <button key={name} className="btn btn-outline btn-sm" style={{ fontSize: 10 }}
+                      onClick={() => setBatchMsg(tpl)}>{name}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>訊息內容 <span style={{ color: '#999', fontWeight: 400 }}>（可用 {'{姓名}'} 自動替換）</span></label>
+                <textarea rows={4} value={batchMsg} onChange={e => setBatchMsg(e.target.value)} />
+              </div>
+
+              {/* Preview */}
+              {targets[0] && (
+                <div style={{ marginBottom: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 10, fontSize: 12 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4, color: '#166534' }}>預覽（{targets[0].name}）</div>
+                  <div style={{ color: '#333' }}>{batchMsg.replace(/\{姓名\}/g, targets[0].name)}</div>
+                </div>
+              )}
+
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                  <span style={{ fontWeight: 600 }}>發送方式：</span>
+                </label>
+                <div style={{ fontSize: 11, color: '#666', marginTop: 4, lineHeight: 1.5 }}>
+                  透過 WhatsApp Business API 發送（每則間隔 2 秒避免被封鎖）。<br />
+                  如未設定 API，會改用瀏覽器開啟 wa.me 連結。
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-teal" onClick={async () => {
+                  const token = sessionStorage.getItem('hcmc_jwt');
+                  let apiSent = 0, linkSent = 0, failed = 0;
+                  const templateName = findTemplateName(batchMsg);
+                  showToast(`開始發送 ${targets.length} 則訊息...`);
+                  setShowBatchWA(false);
+                  setWaModalTab('send');
+
+                  for (let i = 0; i < targets.length; i++) {
+                    const p = targets[i];
+                    const personalMsg = batchMsg.replace(/\{姓名\}/g, p.name || '');
+                    const phone = p.phone.replace(/[^0-9]/g, '');
+
+                    try {
+                      const res = await fetch('/api/messaging?action=whatsapp', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                        body: JSON.stringify({ phone, message: personalMsg, store: p.store || '' }),
+                      });
+                      const result = await res.json();
+                      if (result.success) { apiSent++; }
+                      else if (result.demo) {
+                        const fullPhone = phone.startsWith('852') ? phone : `852${phone}`;
+                        window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(personalMsg)}`, '_blank');
+                        linkSent++;
+                      } else { failed++; }
+                    } catch { failed++; }
+
+                    if (i < targets.length - 1) await new Promise(r => setTimeout(r, 2000));
+                  }
+
+                  // Save delivery log
+                  const logEntry = {
+                    id: Date.now().toString(36),
+                    timestamp: new Date().toISOString(),
+                    messageCount: targets.length,
+                    successCount: apiSent + linkSent,
+                    failCount: failed,
+                    template: templateName,
+                    message: batchMsg.substring(0, 80),
+                  };
+                  const updatedLog = [logEntry, ...deliveryLog].slice(0, 100);
+                  setDeliveryLog(updatedLog);
+                  try { localStorage.setItem('hc_msg_delivery_log', JSON.stringify(updatedLog)); } catch {}
+
+                  const parts = [];
+                  if (apiSent) parts.push(`API 發送 ${apiSent} 則`);
+                  if (linkSent) parts.push(`連結開啟 ${linkSent} 則`);
+                  if (failed) parts.push(`失敗 ${failed} 則`);
+                  showToast(parts.join('、') || '發送完成');
+                  setSelected(new Set());
+                }}>發送 ({targets.length})</button>
+                <button className="btn btn-outline" onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>取消</button>
+              </div>
+            </>)}
+
+            {/* ── Schedule Tab ── */}
+            {waModalTab === 'schedule' && (<>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>快速模板</label>
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                  {TEMPLATES.map(([name, tpl]) => (
+                    <button key={name} className="btn btn-outline btn-sm" style={{ fontSize: 10 }}
+                      onClick={() => setBatchMsg(tpl)}>{name}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: 12, fontWeight: 600 }}>訊息內容</label>
+                <textarea rows={3} value={batchMsg} onChange={e => setBatchMsg(e.target.value)} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600 }}>發送日期</label>
+                  <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600 }}>發送時間</label>
+                  <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }} />
+                </div>
+              </div>
+              <button className="btn btn-teal" style={{ marginBottom: 16 }} onClick={() => {
+                if (!scheduleDate || !scheduleTime) return showToast('請選擇發送日期和時間');
+                if (!batchMsg.trim()) return showToast('請輸入訊息內容');
+                const entry = {
+                  id: Date.now().toString(36),
+                  scheduledAt: `${scheduleDate}T${scheduleTime}`,
+                  message: batchMsg,
+                  template: findTemplateName(batchMsg),
+                  recipients: targets.map(p => ({ id: p.id, name: p.name, phone: p.phone })),
+                  recipientCount: targets.length,
+                  createdAt: new Date().toISOString(),
+                  status: 'pending',
+                };
+                const updated = [entry, ...scheduledMsgs];
+                setScheduledMsgs(updated);
+                try { localStorage.setItem('hc_scheduled_msgs', JSON.stringify(updated)); } catch {}
+                setScheduleDate('');
+                setScheduleTime('');
+                showToast(`已排程 ${targets.length} 則訊息於 ${scheduleDate} ${scheduleTime} 發送`);
+              }}>排程發送 ({targets.length} 則)</button>
+
+              {/* Pending scheduled messages */}
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#0e7490', marginBottom: 8 }}>待發送排程 ({scheduledMsgs.filter(m => m.status === 'pending').length})</div>
+                {scheduledMsgs.filter(m => m.status === 'pending').length === 0 && (
+                  <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: 12 }}>暫無排程訊息</div>
+                )}
+                <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                  {scheduledMsgs.filter(m => m.status === 'pending').map(m => (
+                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderBottom: '1px solid #f3f4f6', fontSize: 11 }}>
+                      <span style={{ fontWeight: 700, color: '#0e7490', minWidth: 110 }}>{(m.scheduledAt || '').replace('T', ' ')}</span>
+                      <span style={{ padding: '1px 6px', borderRadius: 4, background: '#ecfdf5', color: '#059669', fontWeight: 600, fontSize: 10 }}>{m.template}</span>
+                      <span style={{ color: '#6b7280' }}>{m.recipientCount} 位</span>
+                      <span style={{ flex: 1, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.message.substring(0, 30)}...</span>
+                      <button style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 4, padding: '2px 6px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }} onClick={() => {
+                        const updated = scheduledMsgs.filter(s => s.id !== m.id);
+                        setScheduledMsgs(updated);
+                        try { localStorage.setItem('hc_scheduled_msgs', JSON.stringify(updated)); } catch {}
+                        showToast('已取消排程');
+                      }}>取消</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>)}
+
+            {/* ── Delivery Log Tab ── */}
+            {waModalTab === 'log' && (<>
+              {/* Analytics Summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14 }}>
+                <div style={{ textAlign: 'center', padding: '10px 6px', background: '#f0fdfa', borderRadius: 8 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#0e7490' }}>{logAnalytics.totalSent}</div>
+                  <div style={{ fontSize: 10, color: '#6b7280' }}>總發送數</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '10px 6px', background: '#f0fdf4', borderRadius: 8 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{logAnalytics.successRate}%</div>
+                  <div style={{ fontSize: 10, color: '#6b7280' }}>成功率</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '10px 6px', background: '#eff6ff', borderRadius: 8 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#2563eb' }}>{logAnalytics.thisMonthSent}</div>
+                  <div style={{ fontSize: 10, color: '#6b7280' }}>本月發送</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '10px 6px', background: '#fefce8', borderRadius: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: '#d97706' }}>{logAnalytics.mostUsedTemplate}</div>
+                  <div style={{ fontSize: 10, color: '#6b7280' }}>最常用模板</div>
+                </div>
+              </div>
+
+              {/* Log entries */}
+              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {deliveryLog.length === 0 && (
+                  <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center', padding: 24 }}>暫無發送記錄</div>
+                )}
+                {deliveryLog.map(log => (
+                  <div key={log.id} style={{ padding: '10px 0', borderBottom: '1px solid #f3f4f6', fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, color: '#374151' }}>{(log.timestamp || '').substring(0, 16).replace('T', ' ')}</span>
+                      <span style={{ padding: '1px 8px', borderRadius: 4, background: '#f0fdfa', color: '#0e7490', fontWeight: 600, fontSize: 10 }}>{log.template || '自訂'}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#6b7280' }}>
+                      <span>共 <strong style={{ color: '#374151' }}>{log.messageCount}</strong> 則</span>
+                      <span style={{ color: '#16a34a' }}>成功 <strong>{log.successCount}</strong></span>
+                      {log.failCount > 0 && <span style={{ color: '#dc2626' }}>失敗 <strong>{log.failCount}</strong></span>}
+                    </div>
+                    {log.message && <div style={{ marginTop: 2, fontSize: 10, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.message}</div>}
+                  </div>
                 ))}
               </div>
-            </div>
+              {deliveryLog.length > 0 && (
+                <button className="btn btn-outline btn-sm" style={{ marginTop: 8, fontSize: 10, color: '#dc2626', borderColor: '#fecaca' }} onClick={() => {
+                  if (window.confirm('確定清除所有發送記錄？')) {
+                    setDeliveryLog([]);
+                    try { localStorage.setItem('hc_msg_delivery_log', '[]'); } catch {}
+                    showToast('已清除發送記錄');
+                  }
+                }}>清除記錄</button>
+              )}
+            </>)}
 
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, fontWeight: 600 }}>訊息內容 <span style={{ color: '#999', fontWeight: 400 }}>（可用 {'{姓名}'} 自動替換）</span></label>
-              <textarea rows={4} value={batchMsg} onChange={e => setBatchMsg(e.target.value)} />
-            </div>
-
-            {/* Preview */}
-            {targets[0] && (
-              <div style={{ marginBottom: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 10, fontSize: 12 }}>
-                <div style={{ fontWeight: 600, marginBottom: 4, color: '#166534' }}>預覽（{targets[0].name}）</div>
-                <div style={{ color: '#333' }}>{batchMsg.replace(/\{姓名\}/g, targets[0].name)}</div>
-              </div>
-            )}
-
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                <span style={{ fontWeight: 600 }}>發送方式：</span>
-              </label>
-              <div style={{ fontSize: 11, color: '#666', marginTop: 4, lineHeight: 1.5 }}>
-                透過 WhatsApp Business API 發送（每則間隔 2 秒避免被封鎖）。<br />
-                如未設定 API，會改用瀏覽器開啟 wa.me 連結。
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-teal" onClick={async () => {
-                const token = sessionStorage.getItem('hcmc_jwt');
-                let apiSent = 0, linkSent = 0, failed = 0;
-                showToast(`開始發送 ${targets.length} 則訊息...`);
-                setShowBatchWA(false);
-
-                for (let i = 0; i < targets.length; i++) {
-                  const p = targets[i];
-                  const personalMsg = batchMsg.replace(/\{姓名\}/g, p.name || '');
-                  const phone = p.phone.replace(/[^0-9]/g, '');
-
-                  // Try API first
-                  try {
-                    const res = await fetch('/api/messaging?action=whatsapp', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                      body: JSON.stringify({ phone, message: personalMsg, store: p.store || '' }),
-                    });
-                    const result = await res.json();
-                    if (result.success) { apiSent++; }
-                    else if (result.demo) {
-                      // API not configured, fallback to wa.me link
-                      const fullPhone = phone.startsWith('852') ? phone : `852${phone}`;
-                      window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(personalMsg)}`, '_blank');
-                      linkSent++;
-                    } else { failed++; }
-                  } catch { failed++; }
-
-                  // Rate limit: 2 second delay between sends
-                  if (i < targets.length - 1) await new Promise(r => setTimeout(r, 2000));
-                }
-
-                const parts = [];
-                if (apiSent) parts.push(`API 發送 ${apiSent} 則`);
-                if (linkSent) parts.push(`連結開啟 ${linkSent} 則`);
-                if (failed) parts.push(`失敗 ${failed} 則`);
-                showToast(parts.join('、') || '發送完成');
-                setSelected(new Set());
-              }}>發送 ({targets.length})</button>
-              <button className="btn btn-outline" onClick={() => setShowBatchWA(false)}>取消</button>
-            </div>
           </div>
         </div>);
       })()}

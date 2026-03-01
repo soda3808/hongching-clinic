@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { saveConsultation, deleteConsultation, openWhatsApp, saveQueue, saveEnrollment } from '../api';
 import { uid, fmtM, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule, getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStoreNames, getTenantStores } from '../tenant';
@@ -61,6 +61,10 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   const [showDiagDD, setShowDiagDD] = useState(false);
   const [zhengSearch, setZhengSearch] = useState('');
   const [showZhengDD, setShowZhengDD] = useState(false);
+  const [showDraftRestore, setShowDraftRestore] = useState(false);
+  const [draftData, setDraftData] = useState(null);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [versionHistoryData, setVersionHistoryData] = useState([]);
 
   const addRef = useRef(null);
   const detailRef = useRef(null);
@@ -89,6 +93,59 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     } catch { /* ignore */ }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Auto-save Draft (#autosave) ──
+  const getDraftKey = useCallback((pid) => `hc_emr_draft_${pid || 'new'}`, []);
+
+  // Check for unsaved draft on mount / when showAdd opens
+  useEffect(() => {
+    if (!showAdd) return;
+    const pid = form.patientId || 'new';
+    const key = getDraftKey(pid);
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        // Only offer restore if draft has meaningful content
+        if (draft.subjective || draft.objective || draft.assessment || draft.plan ||
+            draft.tcmDiagnosis || (draft.prescription && draft.prescription.some(r => r.herb))) {
+          setDraftData(draft);
+          setShowDraftRestore(true);
+        }
+      }
+    } catch { /* ignore corrupt drafts */ }
+  }, [showAdd]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-save every 30 seconds while form is open
+  useEffect(() => {
+    if (!showAdd) return;
+    const timer = setInterval(() => {
+      const pid = form.patientId || 'new';
+      const key = getDraftKey(pid);
+      try {
+        localStorage.setItem(key, JSON.stringify({ ...form, _draftSavedAt: new Date().toISOString() }));
+      } catch { /* storage full, ignore */ }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [showAdd, form, getDraftKey]);
+
+  const restoreDraft = () => {
+    if (!draftData) return;
+    setForm(f => ({ ...f, ...draftData }));
+    if (draftData.patientName) setPatientSearch(draftData.patientName);
+    setShowDraftRestore(false);
+    setDraftData(null);
+    showToast('已恢復草稿');
+  };
+
+  const dismissDraft = () => {
+    setShowDraftRestore(false);
+    setDraftData(null);
+  };
+
+  const clearDraft = (pid) => {
+    try { localStorage.removeItem(getDraftKey(pid || 'new')); } catch {}
+  };
+
   const consultations = data.consultations || [];
   const patients = data.patients || [];
   const today = new Date().toISOString().substring(0, 10);
@@ -106,17 +163,21 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     { name: '濕疹', subjective: '皮膚瘙癢，紅斑丘疹，反覆發作', objective: '舌紅苔黃膩，脈滑數', tcmDiagnosis: '濕瘡', tcmPattern: '濕熱蘊膚', assessment: '濕熱型濕疹', plan: '清熱利濕，涼血止癢' },
     { name: '月經不調(氣血虛)', subjective: '月經後期，量少色淡，面色萎黃，頭暈', objective: '舌淡苔薄白，脈細弱', tcmDiagnosis: '月經不調', tcmPattern: '氣血虧虛', assessment: '氣血虛型月經不調', plan: '補氣養血，調經' },
     { name: '頸肩痛(氣滯血瘀)', subjective: '頸肩疼痛，轉側不利，痛有定處', objective: '舌暗有瘀點，脈弦澀', tcmDiagnosis: '痹證', tcmPattern: '氣滯血瘀', assessment: '氣滯血瘀型頸肩痛', plan: '活血化瘀，行氣止痛，針灸推拿' },
+    { name: '感冒(桂枝湯)', subjective: '頭痛、鼻塞、流鼻水', objective: '舌淡紅苔薄白、脈浮', tcmDiagnosis: '感冒', tcmPattern: '風寒表虛', assessment: '風寒感冒', plan: '桂枝湯加減' },
+    { name: '腰痛(寒濕)', subjective: '腰部酸痛、活動受限', objective: '腰椎壓痛、直腿抬高試驗(-)', tcmDiagnosis: '腰痛', tcmPattern: '寒濕腰痛', assessment: '寒濕腰痛', plan: '獨活寄生湯' },
+    { name: '失眠(心腎不交)', subjective: '難入睡、多夢、心煩', objective: '舌紅少苔、脈細數', tcmDiagnosis: '不寐', tcmPattern: '心腎不交', assessment: '心腎不交', plan: '天王補心丹' },
+    { name: '胃痛(肝氣犯胃)', subjective: '胃脘脹痛、噯氣', objective: '舌淡苔白膩、脈弦', tcmDiagnosis: '胃痛', tcmPattern: '肝氣犯胃', assessment: '肝氣犯胃', plan: '柴胡疏肝散' },
   ];
 
   const applySOAPTemplate = (tmpl) => {
     setForm(f => ({
       ...f,
-      subjective: tmpl.subjective,
-      objective: tmpl.objective,
-      assessment: tmpl.assessment,
-      plan: tmpl.plan,
-      tcmDiagnosis: tmpl.tcmDiagnosis,
-      tcmPattern: tmpl.tcmPattern,
+      subjective: f.subjective ? f.subjective + '\n' + tmpl.subjective : tmpl.subjective,
+      objective: f.objective ? f.objective + '\n' + tmpl.objective : tmpl.objective,
+      assessment: f.assessment ? f.assessment + '\n' + tmpl.assessment : tmpl.assessment,
+      plan: f.plan ? f.plan + '\n' + tmpl.plan : tmpl.plan,
+      tcmDiagnosis: f.tcmDiagnosis ? f.tcmDiagnosis : tmpl.tcmDiagnosis,
+      tcmPattern: f.tcmPattern ? f.tcmPattern : tmpl.tcmPattern,
     }));
     showToast(`已套用模板「${tmpl.name}」`);
   };
@@ -360,9 +421,13 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       cmDiagnosisCode: form.cmDiagnosisCode || '',
       cmZhengCode: form.cmZhengCode || '',
       createdAt: new Date().toISOString().substring(0, 10),
+      versionHistory: [{ savedAt: new Date().toISOString(), savedBy: user?.name || '', snapshot: { ...form, prescription: form.prescription.filter(r => r.herb) } }],
     };
     await saveConsultation(record);
     setData(d => ({ ...d, consultations: [...(d.consultations || []), record] }));
+    // Clear auto-save draft
+    clearDraft(form.patientId);
+    clearDraft('new');
     setShowAdd(false);
     setForm({ ...makeEmptyForm(), date: new Date().toISOString().substring(0, 10) });
     setPatientSearch('');
@@ -595,6 +660,58 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     w.print();
   };
 
+  // ── Version History (#versionhistory) ──
+  const openVersionHistory = (item) => {
+    setVersionHistoryData(item.versionHistory || []);
+    setShowVersionHistory(true);
+  };
+
+  const restoreVersion = async (item, versionSnapshot) => {
+    // Create a new version entry for the current state before restoring
+    const currentHistory = item.versionHistory || [];
+    const newVersion = { savedAt: new Date().toISOString(), savedBy: user?.name || '', note: '版本還原', snapshot: { ...item } };
+    const updatedHistory = [...currentHistory, newVersion].slice(-10); // max 10 versions
+
+    const restored = {
+      ...item,
+      subjective: versionSnapshot.subjective || '',
+      objective: versionSnapshot.objective || '',
+      assessment: versionSnapshot.assessment || '',
+      plan: versionSnapshot.plan || '',
+      tcmDiagnosis: versionSnapshot.tcmDiagnosis || '',
+      tcmPattern: versionSnapshot.tcmPattern || '',
+      tongue: versionSnapshot.tongue || '',
+      pulse: versionSnapshot.pulse || '',
+      prescription: versionSnapshot.prescription || [],
+      formulaName: versionSnapshot.formulaName || '',
+      formulaDays: versionSnapshot.formulaDays || 3,
+      formulaInstructions: versionSnapshot.formulaInstructions || '',
+      treatments: versionSnapshot.treatments || [],
+      acupuncturePoints: versionSnapshot.acupuncturePoints || '',
+      followUpDate: versionSnapshot.followUpDate || '',
+      followUpNotes: versionSnapshot.followUpNotes || '',
+      fee: versionSnapshot.fee || 0,
+      versionHistory: updatedHistory,
+    };
+    await saveConsultation(restored);
+    setData(d => ({ ...d, consultations: (d.consultations || []).map(c => c.id === restored.id ? restored : c) }));
+    setDetail(restored);
+    setShowVersionHistory(false);
+    showToast('已還原至選定版本');
+  };
+
+  // Save a new version snapshot for an existing consultation (used when editing)
+  const saveVersionSnapshot = async (item) => {
+    const currentHistory = item.versionHistory || [];
+    const newVersion = { savedAt: new Date().toISOString(), savedBy: user?.name || '', snapshot: { ...item } };
+    const updatedHistory = [...currentHistory, newVersion].slice(-10);
+    const updated = { ...item, versionHistory: updatedHistory };
+    await saveConsultation(updated);
+    setData(d => ({ ...d, consultations: (d.consultations || []).map(c => c.id === updated.id ? updated : c) }));
+    if (detail && detail.id === updated.id) setDetail(updated);
+    showToast('已儲存版本快照');
+  };
+
   return (
     <>
       {/* Stats */}
@@ -699,6 +816,22 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               <h3 style={{ margin: 0 }}>新增診症紀錄</h3>
               <button className="btn btn-outline btn-sm" onClick={() => setShowAdd(false)} aria-label="關閉">✕</button>
             </div>
+            {/* Draft Restore Banner */}
+            {showDraftRestore && draftData && (
+              <div style={{ marginBottom: 12, padding: 12, background: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: 13 }}>
+                  <strong style={{ color: '#92400e' }}>發現未儲存的草稿</strong>
+                  <span style={{ color: '#78716c', marginLeft: 8, fontSize: 11 }}>
+                    {draftData._draftSavedAt ? `(${new Date(draftData._draftSavedAt).toLocaleString('zh-HK')})` : ''}
+                    {draftData.patientName ? ` — ${draftData.patientName}` : ''}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button type="button" className="btn btn-gold btn-sm" style={{ fontSize: 11 }} onClick={restoreDraft}>恢復草稿</button>
+                  <button type="button" className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={dismissDraft}>忽略</button>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSave}>
               {/* Patient selector */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>病人資料</h4></div>
@@ -1068,6 +1201,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 <button className="btn btn-gold btn-sm" onClick={() => sendToBilling(detail)}>送往配藥收費</button>
                 <button className="btn btn-green btn-sm" onClick={() => handleReferral(detail)}>轉介信</button>
                 {detail.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }} onClick={() => sendMedReminder(detail)}>💊 WhatsApp 服藥提醒</button>}
+                <button className="btn btn-sm" style={{ background: '#6366f1', color: '#fff', fontSize: 11 }} onClick={() => saveVersionSnapshot(detail)}>儲存版本</button>
+                <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => openVersionHistory(detail)}>版本歷史</button>
                 <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
               </div>
             </div>
@@ -1188,6 +1323,49 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
           onConfirm={(sig) => { setDoctorSig(sig); setShowSigPad(false); showToast('簽名已記錄'); }}
           onCancel={() => setShowSigPad(false)}
         />
+      )}
+
+      {/* Version History Modal */}
+      {showVersionHistory && (
+        <div className="modal-overlay" onClick={() => setShowVersionHistory(false)} role="dialog" aria-modal="true" aria-label="版本歷史">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>版本歷史</h3>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowVersionHistory(false)} aria-label="關閉">✕</button>
+            </div>
+            {versionHistoryData.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無版本歷史紀錄</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[...versionHistoryData].reverse().map((ver, idx) => (
+                  <div key={idx} style={{ padding: 12, border: '1px solid var(--gray-200)', borderRadius: 8, background: idx === 0 ? 'var(--teal-50)' : 'var(--gray-50)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div>
+                        <strong style={{ fontSize: 13 }}>{idx === 0 ? '最新版本' : `版本 ${versionHistoryData.length - idx}`}</strong>
+                        <span style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 8 }}>{new Date(ver.savedAt).toLocaleString('zh-HK')}</span>
+                        {ver.savedBy && <span style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 8 }}>by {ver.savedBy}</span>}
+                        {ver.note && <span style={{ fontSize: 11, color: '#6366f1', marginLeft: 8 }}>({ver.note})</span>}
+                      </div>
+                      {idx !== 0 && detail && (
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => restoreVersion(detail, ver.snapshot)}>還原此版本</button>
+                      )}
+                    </div>
+                    {ver.snapshot && (
+                      <div style={{ fontSize: 11, color: 'var(--gray-500)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                        {ver.snapshot.subjective && <div><strong>S:</strong> {ver.snapshot.subjective.substring(0, 40)}{ver.snapshot.subjective.length > 40 ? '...' : ''}</div>}
+                        {ver.snapshot.objective && <div><strong>O:</strong> {ver.snapshot.objective.substring(0, 40)}{ver.snapshot.objective.length > 40 ? '...' : ''}</div>}
+                        {ver.snapshot.assessment && <div><strong>A:</strong> {ver.snapshot.assessment.substring(0, 40)}{ver.snapshot.assessment.length > 40 ? '...' : ''}</div>}
+                        {ver.snapshot.plan && <div><strong>P:</strong> {ver.snapshot.plan.substring(0, 40)}{ver.snapshot.plan.length > 40 ? '...' : ''}</div>}
+                        {ver.snapshot.tcmDiagnosis && <div><strong>診斷:</strong> {ver.snapshot.tcmDiagnosis}</div>}
+                        {ver.snapshot.formulaName && <div><strong>方劑:</strong> {ver.snapshot.formulaName}</div>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </>
   );

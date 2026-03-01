@@ -118,7 +118,14 @@ export default function Dashboard({ data, onNavigate }) {
   const thisExp = filtered.exp.filter(r => getMonth(r.date) === thisMonth).reduce((s, r) => s + Number(r.amount), 0);
   const lastRev = filtered.rev.filter(r => getMonth(r.date) === lastMonth).reduce((s, r) => s + Number(r.amount), 0);
   const revGrowth = lastRev ? ((thisRev - lastRev) / lastRev * 100).toFixed(1) : 0;
+  const lastExp = filtered.exp.filter(r => getMonth(r.date) === lastMonth).reduce((s, r) => s + Number(r.amount), 0);
+  const expGrowth = lastExp ? ((thisExp - lastExp) / lastExp * 100).toFixed(1) : 0;
   const patientCount = filtered.rev.filter(r => getMonth(r.date) === thisMonth && !(r.name || '').includes('匯總')).length;
+  const lastPatientCount = filtered.rev.filter(r => getMonth(r.date) === lastMonth && !(r.name || '').includes('匯總')).length;
+  const patientGrowth = lastPatientCount ? ((patientCount - lastPatientCount) / lastPatientCount * 100).toFixed(1) : 0;
+  const thisBookings = (data.bookings || []).filter(b => (b.date || '').substring(0, 7) === thisMonth && b.status !== 'cancelled').length;
+  const lastBookings = (data.bookings || []).filter(b => (b.date || '').substring(0, 7) === lastMonth && b.status !== 'cancelled').length;
+  const bookingGrowth = lastBookings ? ((thisBookings - lastBookings) / lastBookings * 100).toFixed(1) : 0;
   const margin = totalRev ? ((net / totalRev) * 100).toFixed(1) : 0;
 
   // Chart data
@@ -374,41 +381,109 @@ export default function Dashboard({ data, onNavigate }) {
         ))}
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — with trend indicators */}
       <div className="stats-grid">
         <div className="stat-card gold">
-          <div className="stat-label">總營業額</div>
-          <div className="stat-value gold">{fmtM(totalRev)}</div>
-          <div className="stat-sub">{months.length} 個月累計</div>
-        </div>
-        <div className="stat-card red">
-          <div className="stat-label">總開支</div>
-          <div className="stat-value red">{fmtM(totalExp)}</div>
-          <div className="stat-sub">佔營業額 {totalRev ? (totalExp/totalRev*100).toFixed(0) : 0}%</div>
-        </div>
-        <div className="stat-card" style={{ '--c': net >= 0 ? 'var(--green-600)' : 'var(--red-500)' }}>
-          <div className="stat-label">累計損益</div>
-          <div className="stat-value" style={{ color: net >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>{fmtM(net)}</div>
-          <div className="stat-sub">利潤率 {margin}%</div>
-        </div>
-        <div className="stat-card teal">
           <div className="stat-label">本月營業額</div>
-          <div className="stat-value teal">{fmtM(thisRev)}</div>
-          <div className="stat-sub" style={{ color: revGrowth >= 0 ? 'var(--green-600)' : 'var(--red-500)' }}>
-            {revGrowth > 0 ? '↑' : '↓'} {Math.abs(revGrowth)}% vs 上月
+          <div className="stat-value gold">{fmtM(thisRev)}</div>
+          <div className="stat-sub" style={{ color: revGrowth >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+            {revGrowth > 0 ? '↑' : revGrowth < 0 ? '↓' : '→'} {Math.abs(revGrowth)}% vs 上月
           </div>
         </div>
         <div className="stat-card red">
           <div className="stat-label">本月開支</div>
           <div className="stat-value red">{fmtM(thisExp)}</div>
-        </div>
-        <div className="stat-card green">
-          <div className="stat-label">本月損益</div>
-          <div className="stat-value" style={{ color: thisRev - thisExp >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>
-            {fmtM(thisRev - thisExp)}
+          <div className="stat-sub" style={{ color: expGrowth <= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+            {expGrowth > 0 ? '↑' : expGrowth < 0 ? '↓' : '→'} {Math.abs(expGrowth)}% vs 上月
           </div>
         </div>
+        <div className="stat-card teal">
+          <div className="stat-label">本月診症人次</div>
+          <div className="stat-value teal">{patientCount}</div>
+          <div className="stat-sub" style={{ color: patientGrowth >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+            {patientGrowth > 0 ? '↑' : patientGrowth < 0 ? '↓' : '→'} {Math.abs(patientGrowth)}% vs 上月
+          </div>
+        </div>
+        <div className="stat-card green">
+          <div className="stat-label">本月預約數</div>
+          <div className="stat-value green">{thisBookings}</div>
+          <div className="stat-sub" style={{ color: bookingGrowth >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+            {bookingGrowth > 0 ? '↑' : bookingGrowth < 0 ? '↓' : '→'} {Math.abs(bookingGrowth)}% vs 上月
+          </div>
+        </div>
+        <div className="stat-card" style={{ '--c': net >= 0 ? 'var(--green-600)' : 'var(--red-500)' }}>
+          <div className="stat-label">本月損益</div>
+          <div className="stat-value" style={{ color: thisRev - thisExp >= 0 ? '#16a34a' : '#dc2626' }}>
+            {fmtM(thisRev - thisExp)}
+          </div>
+          <div className="stat-sub">利潤率 {thisRev ? ((thisRev - thisExp) / thisRev * 100).toFixed(1) : 0}%</div>
+        </div>
+        <div className="stat-card gold">
+          <div className="stat-label">總營業額</div>
+          <div className="stat-value gold">{fmtM(totalRev)}</div>
+          <div className="stat-sub">{months.length} 個月累計</div>
+        </div>
       </div>
+
+      {/* Quick Action Buttons */}
+      {onNavigate && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+          <button onClick={() => onNavigate('rev')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '14px 8px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#0e7490', transition: 'all 0.15s' }}>
+            <span style={{ fontSize: 22 }}>💰</span> 新增收入
+          </button>
+          <button onClick={() => onNavigate('booking')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '14px 8px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#0e7490', transition: 'all 0.15s' }}>
+            <span style={{ fontSize: 22 }}>📅</span> 新增預約
+          </button>
+          <button onClick={() => onNavigate('patient')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '14px 8px', borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#0e7490', transition: 'all 0.15s' }}>
+            <span style={{ fontSize: 22 }}>🧑‍⚕️</span> 登記病人
+          </button>
+          <button onClick={() => onNavigate('ai')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: '14px 8px', borderRadius: 10, border: '1px solid #d1d5db', background: 'linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: '#0e7490', transition: 'all 0.15s' }}>
+            <span style={{ fontSize: 22 }}>🤖</span> AI 對話
+          </button>
+        </div>
+      )}
+
+      {/* Today's Summary Card */}
+      {(() => {
+        const todaySummaryStr = new Date().toISOString().substring(0, 10);
+        const todayAppointments = (data.bookings || []).filter(b => b.date === todaySummaryStr && b.status !== 'cancelled').sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        const todaySummaryRev = (data.revenue || []).filter(r => r.date && r.date.substring(0, 10) === todaySummaryStr);
+        const todaySummaryRevTotal = todaySummaryRev.reduce((s, r) => s + Number(r.amount || 0), 0);
+        const todaySummaryNewPatients = (data.patients || []).filter(p => (p.createdAt || '').substring(0, 10) === todaySummaryStr).length;
+        return (
+          <div className="card" style={{ marginBottom: 16, border: '1px solid #bae6fd', background: 'linear-gradient(135deg, #f0f9ff 0%, #f0fdfa 100%)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <h3 style={{ margin: 0, fontSize: 14, color: '#0e7490' }}>📋 今日摘要 — {todaySummaryStr}</h3>
+              <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
+                <span>營業額 <strong style={{ color: '#16a34a' }}>{fmtM(todaySummaryRevTotal)}</strong></span>
+                <span>新病人 <strong style={{ color: '#2563eb' }}>{todaySummaryNewPatients}</strong></span>
+                <span>預約 <strong style={{ color: '#0e7490' }}>{todayAppointments.length}</strong></span>
+              </div>
+            </div>
+            {todayAppointments.length > 0 ? (
+              <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+                {todayAppointments.map(b => (
+                  <div key={b.id} style={{ display: 'flex', gap: 10, padding: '6px 0', borderBottom: '1px solid #e0f2fe', alignItems: 'center', fontSize: 12 }}>
+                    <span style={{ fontWeight: 700, minWidth: 48, color: '#0e7490' }}>{b.time || '--:--'}</span>
+                    <span style={{ fontWeight: 600, minWidth: 70 }}>{b.patientName}</span>
+                    <span style={{ color: '#6b7280' }}>{b.doctor}</span>
+                    <span style={{ color: '#9ca3af', marginLeft: 'auto', fontSize: 11 }}>{b.store || ''}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, padding: '1px 8px', borderRadius: 4,
+                      background: b.status === 'completed' ? '#dcfce7' : b.status === 'confirmed' ? '#dbeafe' : '#fef9c3',
+                      color: b.status === 'completed' ? '#16a34a' : b.status === 'confirmed' ? '#2563eb' : '#d97706',
+                    }}>
+                      {b.status === 'completed' ? '已完成' : b.status === 'confirmed' ? '已確認' : '待確認'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 16, color: '#9ca3af', fontSize: 12 }}>今日暫無預約</div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Today's Payment Breakdown */}
       {(() => {

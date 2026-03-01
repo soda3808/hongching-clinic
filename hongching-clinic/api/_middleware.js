@@ -3,20 +3,23 @@
 
 import jwt from 'jsonwebtoken';
 import { Redis } from '@upstash/redis';
+import crypto from 'crypto';
 
 // ── CORS ──
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
-// Use APP_URL env var for production origin; fallback to localhost for development
 const DEFAULT_ORIGINS = [process.env.APP_URL, 'http://localhost:5173', 'http://localhost:4173'].filter(Boolean);
 
 export function setCORS(req, res) {
   const origin = req.headers?.origin || '';
   const allowed = [...DEFAULT_ORIGINS, ...ALLOWED_ORIGINS];
-  // Allow if origin matches whitelist or is our own Vercel preview deploy
   const APP_NAME = process.env.VERCEL_PROJECT_NAME || '';
-  const isOwnVercel = origin.endsWith('.vercel.app') && origin.includes(APP_NAME);
-  if (!origin || allowed.some(a => origin === a) || isOwnVercel) {
-    res.setHeader('Access-Control-Allow-Origin', origin || allowed[0] || '');
+  const isOwnVercel = origin && origin.endsWith('.vercel.app') && APP_NAME && origin.includes(APP_NAME);
+  // Only set CORS header if origin is explicitly whitelisted (no empty origin bypass)
+  if (origin && (allowed.some(a => origin === a) || isOwnVercel)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    // Same-origin requests (no CORS header needed)
+    res.setHeader('Access-Control-Allow-Origin', allowed[0] || '');
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -44,13 +47,45 @@ export function validateRequired(body, fields) {
 export function validatePhone(phone) {
   if (!phone) return false;
   const cleaned = phone.replace(/[\s\-()+ ]/g, '');
-  // HK: 8 digits; with country code: 852 + 8 digits; international: 7-15 digits
   return /^\d{7,15}$/.test(cleaned);
+}
+
+export function validateEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  // RFC 5322 simplified — covers 99% of valid emails
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(email) && email.length <= 254;
 }
 
 export function sanitizeString(str, maxLen = 500) {
   if (!str || typeof str !== 'string') return '';
-  return str.trim().substring(0, maxLen).replace(/<[^>]*>/g, '');
+  // Multi-pass HTML stripping: removes tags, event handlers, encoded entities
+  let clean = str.trim().substring(0, maxLen);
+  clean = clean.replace(/<script[\s\S]*?<\/script>/gi, '');  // Remove script blocks
+  clean = clean.replace(/<style[\s\S]*?<\/style>/gi, '');    // Remove style blocks
+  clean = clean.replace(/on\w+\s*=\s*["'][^"']*["']/gi, ''); // Remove event handlers
+  clean = clean.replace(/on\w+\s*=\s*[^\s>]*/gi, '');        // Unquoted handlers
+  clean = clean.replace(/<[^>]*>/g, '');                       // Strip remaining tags
+  clean = clean.replace(/javascript\s*:/gi, '');               // Remove javascript: protocol
+  clean = clean.replace(/data\s*:/gi, 'data_');                // Neutralize data: URIs
+  return clean;
+}
+
+// Validate request body size (default 1MB)
+export function validateBodySize(req, maxBytes = 1048576) {
+  const contentLength = parseInt(req.headers?.['content-length'] || '0', 10);
+  if (contentLength > maxBytes) {
+    return { valid: false, error: `Request too large (${Math.round(contentLength / 1024)}KB > ${Math.round(maxBytes / 1024)}KB)` };
+  }
+  return { valid: true };
+}
+
+// Timing-safe string comparison (prevents timing attacks on secrets)
+export function timingSafeEqual(a, b) {
+  if (!a || !b) return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 // ── Rate Limiting (Upstash Redis persistent, with in-memory fallback) ──

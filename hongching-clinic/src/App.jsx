@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { loadAllData, saveAllLocal, subscribeToChanges, unsubscribe } from './api';
+import { loadAllData, saveAllLocal, subscribeToChanges, unsubscribe, flushOfflineQueue } from './api';
+import SyncIndicator from './components/SyncIndicator';
 import { SEED_DATA, fmtM, getMonth } from './data';
 import { exportCSV, exportJSON, importJSON } from './utils/export';
 import { PERMISSIONS, PAGE_PERMISSIONS, ROLE_LABELS, ROLE_TAGS } from './config';
@@ -926,9 +927,9 @@ function MainApp() {
 
   const handleLogout = useCallback(() => { logAction(user, 'logout', 'auth', '用戶登出'); logout(); setUser(null); }, [user]);
 
-  const showToast = useCallback((msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
+  const showToast = useCallback((msg, type = 'info') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), type === 'error' ? 4000 : 2500);
   }, []);
 
   const reload = useCallback(async () => {
@@ -1111,6 +1112,7 @@ function MainApp() {
             )}
             <button className="btn btn-outline btn-sm" onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             <button className="btn btn-outline btn-sm hide-mobile" onClick={reload}>🔄</button>
+            <SyncIndicator />
             <span className="hide-mobile" style={{ fontSize: 12, color: 'var(--gray-600)', display: 'flex', alignItems: 'center', gap: 4 }}>
               👤 {user.name} <span className={`tag ${ROLE_TAGS[user.role] || ''}`}>{ROLE_LABELS[user.role]}</span>
             </span>
@@ -1309,7 +1311,7 @@ function MainApp() {
       {showMoreMenu && <MobileMoreMenu pages={[...visiblePages, ...(perms.viewSettings ? [{ id:'settings', icon:'⚙️', label:'設定' }] : [])]} page={page} setPage={setPage} onClose={() => setShowMoreMenu(false)} user={user} onLogout={handleLogout} />}
       {showSearch && <SearchPanel data={filteredData} onNavigate={setPage} onClose={() => setShowSearch(false)} />}
       {(showNotif || showExport) && <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => { setShowNotif(false); setShowExport(false); }} />}
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className={`toast ${toast.type === 'error' ? 'toast-error' : toast.type === 'success' ? 'toast-success' : toast.type === 'warning' ? 'toast-warning' : ''}`}>{toast.type === 'error' ? '❌ ' : toast.type === 'success' ? '✅ ' : toast.type === 'warning' ? '⚠️ ' : ''}{toast.msg}</div>}
       <InstallPrompt />
     </>
   );

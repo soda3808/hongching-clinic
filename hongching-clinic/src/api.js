@@ -1,5 +1,6 @@
 // ══════════════════════════════════
 // Data Layer: Supabase → GAS → localStorage
+// With retry logic, offline queue, and sync status
 // ══════════════════════════════════
 
 import { supabase } from './supabase';
@@ -7,43 +8,111 @@ import { getTenantId, getAuthHeader } from './auth';
 
 const GAS_URL = import.meta.env.VITE_GAS_URL || '';
 
-// ── Supabase helpers (tenant-aware) ──
+// ── Sync Status (observable by UI) ──
+let _syncStatus = 'idle'; // 'idle' | 'syncing' | 'offline' | 'error'
+let _pendingCount = 0;
+const _listeners = new Set();
+export function onSyncChange(fn) { _listeners.add(fn); return () => _listeners.delete(fn); }
+export function getSyncStatus() { return { status: _syncStatus, pending: _pendingCount }; }
+function setSyncStatus(s, p) {
+  _syncStatus = s; if (p !== undefined) _pendingCount = p;
+  _listeners.forEach(fn => { try { fn({ status: _syncStatus, pending: _pendingCount }); } catch {} });
+}
+
+// ── Offline Queue (persisted in localStorage) ──
+const QUEUE_KEY = 'hc_offline_queue';
+function getOfflineQueue() { try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch { return []; } }
+function setOfflineQueue(q) { try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); setSyncStatus(q.length ? 'offline' : 'idle', q.length); } catch {} }
+
+function enqueueOffline(op, table, record, id) {
+  const q = getOfflineQueue();
+  q.push({ op, table, record, id, ts: Date.now() });
+  setOfflineQueue(q);
+}
+
+// Process offline queue when back online
+export async function flushOfflineQueue() {
+  const q = getOfflineQueue();
+  if (!q.length || !supabase) return;
+  setSyncStatus('syncing', q.length);
+  const failed = [];
+  for (const item of q) {
+    try {
+      if (item.op === 'upsert') await sbUpsert(item.table, item.record, false);
+      else if (item.op === 'delete') await sbDelete(item.table, item.id, false);
+    } catch { failed.push(item); }
+  }
+  setOfflineQueue(failed);
+  setSyncStatus(failed.length ? 'error' : 'idle', failed.length);
+}
+
+// Auto-flush when online
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => { flushOfflineQueue(); });
+  // Check on load
+  setTimeout(() => { if (navigator.onLine) flushOfflineQueue(); }, 3000);
+}
+
+// ── Retry with exponential backoff ──
+async function withRetry(fn, maxRetries = 2, baseDelay = 500) {
+  for (let i = 0; i <= maxRetries; i++) {
+    try { return await fn(); }
+    catch (err) {
+      if (i === maxRetries) throw err;
+      const delay = baseDelay * Math.pow(2, i) + Math.random() * 200;
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
+
+// ── Supabase helpers (tenant-aware, with retry) ──
 async function sbSelect(table) {
   if (!supabase) return null;
   try {
-    let query = supabase.from(table).select('*');
-    // Filter by tenant if available (multi-tenant mode)
-    const tenantId = getTenantId();
-    if (tenantId) query = query.eq('tenant_id', tenantId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    return await withRetry(async () => {
+      let query = supabase.from(table).select('*');
+      const tenantId = getTenantId();
+      if (tenantId) query = query.eq('tenant_id', tenantId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    });
   } catch (err) { console.error(`Supabase select ${table}:`, err); return null; }
 }
 
-async function sbUpsert(table, record) {
-  if (!supabase) return null;
+async function sbUpsert(table, record, enqueue = true) {
+  if (!supabase) { if (enqueue) enqueueOffline('upsert', table, record); return null; }
   try {
-    // Auto-inject tenant_id if not present
-    const tenantId = getTenantId();
-    const rec = tenantId && !record.tenant_id ? { ...record, tenant_id: tenantId } : record;
-    const { data, error } = await supabase.from(table).upsert(rec, { onConflict: 'id' });
-    if (error) throw error;
-    return data;
-  } catch (err) { console.error(`Supabase upsert ${table}:`, err); return null; }
+    return await withRetry(async () => {
+      const tenantId = getTenantId();
+      const rec = tenantId && !record.tenant_id ? { ...record, tenant_id: tenantId } : record;
+      const { data, error } = await supabase.from(table).upsert(rec, { onConflict: 'id' });
+      if (error) throw error;
+      return data;
+    });
+  } catch (err) {
+    console.error(`Supabase upsert ${table}:`, err);
+    if (enqueue && !navigator.onLine) enqueueOffline('upsert', table, record);
+    return null;
+  }
 }
 
-async function sbDelete(table, id) {
-  if (!supabase) return null;
+async function sbDelete(table, id, enqueue = true) {
+  if (!supabase) { if (enqueue) enqueueOffline('delete', table, null, id); return null; }
   try {
-    let query = supabase.from(table).delete().eq('id', id);
-    // Enforce tenant isolation on delete
-    const tenantId = getTenantId();
-    if (tenantId) query = query.eq('tenant_id', tenantId);
-    const { error } = await query;
-    if (error) throw error;
-    return true;
-  } catch (err) { console.error(`Supabase delete ${table}:`, err); return null; }
+    return await withRetry(async () => {
+      let query = supabase.from(table).delete().eq('id', id);
+      const tenantId = getTenantId();
+      if (tenantId) query = query.eq('tenant_id', tenantId);
+      const { error } = await query;
+      if (error) throw error;
+      return true;
+    });
+  } catch (err) {
+    console.error(`Supabase delete ${table}:`, err);
+    if (enqueue && !navigator.onLine) enqueueOffline('delete', table, null, id);
+    return null;
+  }
 }
 
 // ── GAS helpers ──
@@ -69,6 +138,7 @@ async function gasCall(action, payload = null) {
 const COLLECTIONS = ['revenue', 'expenses', 'arap', 'patients', 'bookings', 'payslips', 'consultations', 'packages', 'enrollments', 'conversations', 'inventory', 'queue', 'sickleaves', 'leaves', 'products', 'productSales', 'inquiries', 'surveys', 'communications', 'waitlist'];
 
 export async function loadAllData() {
+  setSyncStatus('syncing');
   // Try Supabase first
   if (supabase) {
     try {
@@ -77,6 +147,7 @@ export async function loadAllData() {
       COLLECTIONS.forEach((c, i) => { data[c] = results[i] || []; });
       if (data.revenue.length || data.patients.length || data.expenses.length) {
         saveAllLocal(data);
+        setSyncStatus('idle', 0);
         return data;
       }
     } catch (err) { console.error('Supabase loadAll failed:', err); }
@@ -86,10 +157,12 @@ export async function loadAllData() {
   const gasData = await gasCall('loadAll');
   if (gasData && !gasData.error) {
     saveAllLocal(gasData);
+    setSyncStatus('idle', 0);
     return gasData;
   }
 
   // Fallback to localStorage
+  setSyncStatus(navigator.onLine ? 'idle' : 'offline');
   try {
     const saved = localStorage.getItem('hc_data');
     if (saved) return JSON.parse(saved);
@@ -326,13 +399,35 @@ export async function persistHerbSourcingAll(records) {
 }
 
 // ── Factory: array-based standalone collections ──
-// Each record stored as { id, data: {...}, tenant_id }
 function mkOps(table) {
   return {
     load: async () => { const r = await sbSelect(table); return r?.length ? r : null; },
     persist: async (rec) => { await sbUpsert(table, rec); },
     remove: async (id) => { await sbDelete(table, id); },
-    persistAll: async (recs) => { for (const r of recs) await sbUpsert(table, r); },
+    persistAll: async (recs) => {
+      if (!recs?.length) return;
+      // Batch upsert in chunks of 50 for performance
+      if (supabase && recs.length > 1) {
+        const tenantId = getTenantId();
+        const chunks = [];
+        for (let i = 0; i < recs.length; i += 50) chunks.push(recs.slice(i, i + 50));
+        for (const chunk of chunks) {
+          try {
+            const records = tenantId ? chunk.map(r => r.tenant_id ? r : { ...r, tenant_id: tenantId }) : chunk;
+            await withRetry(async () => {
+              const { error } = await supabase.from(table).upsert(records, { onConflict: 'id' });
+              if (error) throw error;
+            });
+          } catch (err) {
+            console.error(`Batch upsert ${table}:`, err);
+            // Fallback to individual upserts
+            for (const r of chunk) await sbUpsert(table, r);
+          }
+        }
+      } else {
+        for (const r of recs) await sbUpsert(table, r);
+      }
+    },
     clear: async () => {
       if (!supabase) return;
       try { const t = getTenantId(); if (t) await supabase.from(table).delete().eq('tenant_id', t); } catch (e) { console.error(`Clear ${table}:`, e); }
