@@ -3,6 +3,7 @@ import { saveRevenue, deleteRecord } from '../api';
 import { uid, fmtM, fmt, getMonth, monthLabel, getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import ConfirmModal from './ConfirmModal';
+import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
 
 export default function Revenue({ data, setData, showToast, user, allData }) {
   const isDoctor = user?.role === 'doctor';
@@ -41,6 +42,8 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
     });
     return l;
   }, [data.revenue, filterMonth, filterStore, filterDoc, filterPay, sortBy, sortDir]);
+
+  const { paged, ...pgProps } = usePagination(list, 50);
 
   const total = list.reduce((s, r) => s + Number(r.amount), 0);
 
@@ -351,7 +354,7 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
             </thead>
             <tbody>
               {!list.length && <tr><td colSpan={11} className="empty" style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
-              {list.map(r => (
+              {paged.map(r => (
                 editRow?.id === r.id ? (
                   <tr key={r.id} style={{ background: 'var(--teal-50)' }}>
                     <td></td>
@@ -393,6 +396,7 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
             </tbody>
           </table>
         </div>
+        <PaginationBar {...pgProps} />
       </div>
 
       {/* P&L Report (#63) */}

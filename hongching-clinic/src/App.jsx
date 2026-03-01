@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { loadAllData, saveAllLocal, subscribeToChanges, unsubscribe, flushOfflineQueue } from './api';
 import SyncIndicator from './components/SyncIndicator';
+import useKeyboardShortcuts, { ShortcutsHelp } from './hooks/useKeyboardShortcuts.jsx';
+import useSessionManager, { IdleWarning } from './hooks/useSessionManager.jsx';
 import { SEED_DATA, fmtM, getMonth } from './data';
 import { exportCSV, exportJSON, importJSON } from './utils/export';
 import { PERMISSIONS, PAGE_PERMISSIONS, ROLE_LABELS, ROLE_TAGS } from './config';
@@ -649,49 +651,112 @@ function useNotifications(data) {
   }, [data]);
 }
 
-// ── Global Search ──
+// ── Global Search (enhanced with fuzzy matching + more categories) ──
 function SearchPanel({ data, onNavigate, onClose }) {
   const [q, setQ] = useState('');
   const inputRef = useRef(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  // Save recent searches
+  const [recents, setRecents] = useState(() => { try { return JSON.parse(localStorage.getItem('hc_recent_searches') || '[]'); } catch { return []; } });
+  const saveRecent = (term) => {
+    const next = [term, ...recents.filter(r => r !== term)].slice(0, 8);
+    setRecents(next);
+    try { localStorage.setItem('hc_recent_searches', JSON.stringify(next)); } catch {}
+  };
 
   const results = useMemo(() => {
-    if (!q) return { patients: [], revenue: [], expenses: [] };
-    const ql = q.toLowerCase();
+    if (!q || q.length < 1) return { patients: [], revenue: [], expenses: [], bookings: [], consultations: [] };
+    const ql = q.toLowerCase().trim();
+    const fz = (text) => {
+      if (!text) return 0;
+      const t = String(text).toLowerCase();
+      if (t === ql) return 100;
+      if (t.startsWith(ql)) return 90;
+      if (t.includes(ql)) return 70;
+      // Character-order fuzzy
+      let qi = 0;
+      for (let i = 0; i < t.length && qi < ql.length; i++) { if (t[i] === ql[qi]) qi++; }
+      return qi === ql.length ? 40 : 0;
+    };
+    const search = (arr, fields) => {
+      const scored = [];
+      for (const item of (arr || [])) {
+        let best = 0;
+        for (const f of fields) { const s = fz(item[f]); if (s > best) best = s; }
+        if (best > 0) scored.push({ item, score: best });
+      }
+      scored.sort((a, b) => b.score - a.score);
+      return scored.slice(0, 8).map(s => s.item);
+    };
     return {
-      patients: (data.patients || []).filter(p => p.name.toLowerCase().includes(ql) || p.phone.includes(ql)).slice(0, 5),
-      revenue: (data.revenue || []).filter(r => r.name.toLowerCase().includes(ql)).slice(0, 5),
-      expenses: (data.expenses || []).filter(r => r.merchant.toLowerCase().includes(ql)).slice(0, 5),
+      patients: search(data.patients, ['name', 'phone', 'email']),
+      revenue: search(data.revenue, ['name', 'item', 'doctor']),
+      expenses: search(data.expenses, ['merchant', 'category', 'description']),
+      bookings: search(data.bookings, ['patientName', 'doctor', 'patientPhone']),
+      consultations: search(data.consultations, ['patientName', 'diagnosis', 'tcmDiagnosis']),
     };
   }, [q, data]);
 
-  const hasResults = results.patients.length + results.revenue.length + results.expenses.length > 0;
+  const totalResults = Object.values(results).reduce((s, arr) => s + arr.length, 0);
+
+  const doNavigate = (page) => { if (q) saveRecent(q); onNavigate(page); onClose(); };
 
   return (
     <div className="search-overlay" onClick={onClose}>
       <div className="search-panel" onClick={e => e.stopPropagation()}>
-        <input ref={inputRef} className="search-input" placeholder="搜尋病人、營業、開支..." value={q} onChange={e => setQ(e.target.value)} aria-label="全域搜尋" />
+        <div style={{ position: 'relative' }}>
+          <input ref={inputRef} className="search-input" placeholder="搜尋病人、營業、開支、預約、診症...（支援模糊搜尋）" value={q} onChange={e => setQ(e.target.value)} aria-label="全域搜尋"
+            style={{ paddingRight: 60 }} />
+          <kbd style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 10, background: '#f3f4f6', padding: '2px 6px', borderRadius: 3, border: '1px solid #d1d5db', color: '#9ca3af' }}>ESC</kbd>
+        </div>
+        {!q && recents.length > 0 && (
+          <div style={{ padding: '8px 12px' }}>
+            <div style={{ fontSize: 10, color: 'var(--gray-400)', marginBottom: 6, fontWeight: 600 }}>最近搜尋</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {recents.map(r => <span key={r} onClick={() => setQ(r)} style={{ fontSize: 11, padding: '2px 8px', background: 'var(--gray-100)', borderRadius: 10, cursor: 'pointer', color: 'var(--gray-600)' }}>{r}</span>)}
+            </div>
+          </div>
+        )}
         {q && (
           <div className="search-results">
+            {totalResults > 0 && <div style={{ padding: '4px 12px', fontSize: 10, color: 'var(--gray-400)' }}>找到 {totalResults} 個結果</div>}
             {results.patients.length > 0 && (
               <div className="search-group">
                 <div className="search-group-title">👤 病人</div>
-                {results.patients.map(p => <div key={p.id} className="search-item" onClick={() => { onNavigate('patient'); onClose(); }}>{p.name} — {p.phone}</div>)}
+                {results.patients.map(p => <div key={p.id} className="search-item" onClick={() => doNavigate('patient')}>{p.name} — {p.phone || '無電話'}</div>)}
+              </div>
+            )}
+            {results.bookings.length > 0 && (
+              <div className="search-group">
+                <div className="search-group-title">📅 預約</div>
+                {results.bookings.map(b => <div key={b.id} className="search-item" onClick={() => doNavigate('booking')}>{b.patientName} — {b.date} {b.time} ({b.doctor})</div>)}
+              </div>
+            )}
+            {results.consultations.length > 0 && (
+              <div className="search-group">
+                <div className="search-group-title">🩺 診症</div>
+                {results.consultations.map(c => <div key={c.id} className="search-item" onClick={() => doNavigate('emr')}>{c.patientName} — {c.diagnosis || c.tcmDiagnosis || '未診斷'} ({c.date})</div>)}
               </div>
             )}
             {results.revenue.length > 0 && (
               <div className="search-group">
                 <div className="search-group-title">💰 營業</div>
-                {results.revenue.map(r => <div key={r.id} className="search-item" onClick={() => { onNavigate('rev'); onClose(); }}>{r.name} {fmtM(r.amount)} — {String(r.date).substring(0,10)}</div>)}
+                {results.revenue.map(r => <div key={r.id} className="search-item" onClick={() => doNavigate('rev')}>{r.name} {fmtM(r.amount)} — {String(r.date).substring(0,10)}</div>)}
               </div>
             )}
             {results.expenses.length > 0 && (
               <div className="search-group">
                 <div className="search-group-title">🧾 開支</div>
-                {results.expenses.map(r => <div key={r.id} className="search-item" onClick={() => { onNavigate('exp'); onClose(); }}>{r.merchant} {fmtM(r.amount)} — {String(r.date).substring(0,10)}</div>)}
+                {results.expenses.map(r => <div key={r.id} className="search-item" onClick={() => doNavigate('exp')}>{r.merchant} {fmtM(r.amount)} — {String(r.date).substring(0,10)}</div>)}
               </div>
             )}
-            {!hasResults && <div style={{ padding: 16, textAlign: 'center', color: 'var(--gray-400)', fontSize: 13 }}>找不到結果</div>}
+            {totalResults === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'var(--gray-400)', fontSize: 13 }}>找不到結果 — 試下用其他關鍵字</div>}
           </div>
         )}
       </div>
@@ -858,16 +923,18 @@ function MainApp() {
     try { return JSON.parse(sessionStorage.getItem('hcmc_read_notifs') || '[]'); } catch { return []; }
   });
 
-  // Auto-logout after 30 minutes of inactivity
-  useEffect(() => {
-    if (!user) return;
-    const TIMEOUT = 30 * 60 * 1000;
-    let timer = setTimeout(() => { logout(); setUser(null); }, TIMEOUT);
-    const reset = () => { clearTimeout(timer); timer = setTimeout(() => { logout(); setUser(null); }, TIMEOUT); touchActivity(); };
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
-    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
-    return () => { clearTimeout(timer); events.forEach(e => window.removeEventListener(e, reset)); };
-  }, [user]);
+  // Session management: idle timeout with warning + token refresh
+  const handleLogoutSession = useCallback(() => { logout(); setUser(null); }, []);
+  const { showIdleWarning, dismissWarning } = useSessionManager({
+    user, onLogout: handleLogoutSession, showToast, idleMinutes: 30, warningMinutes: 5,
+  });
+  const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
+  useKeyboardShortcuts({
+    onSearch: () => setShowSearch(true),
+    onNavigate: setPage,
+    onSave: () => showToast('已儲存', 'success'),
+    onShowHelp: () => setShowShortcutsHelp(h => !h),
+  });
 
   // Online/offline detection
   useEffect(() => {
@@ -1014,17 +1081,19 @@ function MainApp() {
   return (
     <>
       {/* SIDEBAR (desktop) */}
-      <div className="sidebar">
+      <aside className="sidebar" role="navigation" aria-label="主選單">
         <div className="sidebar-logo">
           <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} className="sidebar-logo-img" />
         </div>
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="頁面導覽">
           {Object.entries(sections).map(([section, items]) => (
-            <div key={section}>
-              <div className="nav-section">{section}</div>
+            <div key={section} role="group" aria-label={section}>
+              <div className="nav-section" id={`nav-${section}`}>{section}</div>
               {items.map(p => (
-                <div key={p.id} className={`nav-item ${page === p.id ? 'active' : ''}`} onClick={() => setPage(p.id)}>
-                  <span style={{ fontSize: 16 }}>{p.icon}</span><span>{p.label}</span>
+                <div key={p.id} className={`nav-item ${page === p.id ? 'active' : ''}`} onClick={() => setPage(p.id)}
+                  role="button" tabIndex={0} aria-current={page === p.id ? 'page' : undefined}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPage(p.id); } }}>
+                  <span style={{ fontSize: 16 }} aria-hidden="true">{p.icon}</span><span>{p.label}</span>
                 </div>
               ))}
             </div>
@@ -1032,8 +1101,10 @@ function MainApp() {
           {perms.viewSettings && (
             <>
               <div className="nav-section" style={{ borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 8, paddingTop: 12 }}></div>
-              <div className={`nav-item ${page === 'settings' ? 'active' : ''}`} onClick={() => setPage('settings')}>
-                <span style={{ fontSize: 16 }}>⚙️</span><span>設定</span>
+              <div className={`nav-item ${page === 'settings' ? 'active' : ''}`} onClick={() => setPage('settings')}
+                role="button" tabIndex={0} aria-current={page === 'settings' ? 'page' : undefined}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPage('settings'); } }}>
+                <span style={{ fontSize: 16 }} aria-hidden="true">⚙️</span><span>設定</span>
               </div>
             </>
           )}
@@ -1045,11 +1116,11 @@ function MainApp() {
           </div>
           <span>v6.8.0 • {new Date().getFullYear()}</span>
         </div>
-      </div>
+      </aside>
 
       {/* MAIN */}
-      <div className="main">
-        <div className="topbar">
+      <main className="main" role="main" aria-label="主要內容">
+        <div className="topbar" role="banner">
           <h2>{page === 'settings' ? '⚙️ 設定' : `${currentPage?.icon || ''} ${currentPage?.label || ''}`}</h2>
           <div className="topbar-actions">
             {isOffline && <span className="offline-badge">離線模式</span>}
@@ -1289,29 +1360,33 @@ function MainApp() {
             {page === 'billingsub' && <BillingSettings />}
           </Suspense>
         </div>
-      </div>
+      </main>
 
       {/* Mobile FAB (#65) */}
       <MobileFAB onAction={setPage} />
 
       {/* Mobile Bottom Tab Bar */}
-      <div className="mobile-tabbar">
+      <nav className="mobile-tabbar" role="tablist" aria-label="流動版導覽">
         {mobileTabs.map(t => (
           <div
             key={t.id}
             className={`mobile-tab ${(t.id === 'more' ? false : page === t.id) ? 'active' : ''}`}
             onClick={() => t.id === 'more' ? setShowMoreMenu(true) : setPage(t.id)}
+            role="tab" tabIndex={0} aria-selected={page === t.id} aria-label={t.label}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.id === 'more' ? setShowMoreMenu(true) : setPage(t.id); } }}
           >
-            <span className="mobile-tab-icon">{t.icon}</span>
+            <span className="mobile-tab-icon" aria-hidden="true">{t.icon}</span>
             <span className="mobile-tab-label">{t.label}</span>
           </div>
         ))}
-      </div>
+      </nav>
 
       {showMoreMenu && <MobileMoreMenu pages={[...visiblePages, ...(perms.viewSettings ? [{ id:'settings', icon:'⚙️', label:'設定' }] : [])]} page={page} setPage={setPage} onClose={() => setShowMoreMenu(false)} user={user} onLogout={handleLogout} />}
       {showSearch && <SearchPanel data={filteredData} onNavigate={setPage} onClose={() => setShowSearch(false)} />}
       {(showNotif || showExport) && <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => { setShowNotif(false); setShowExport(false); }} />}
       {toast && <div className={`toast ${toast.type === 'error' ? 'toast-error' : toast.type === 'success' ? 'toast-success' : toast.type === 'warning' ? 'toast-warning' : ''}`}>{toast.type === 'error' ? '❌ ' : toast.type === 'success' ? '✅ ' : toast.type === 'warning' ? '⚠️ ' : ''}{toast.msg}</div>}
+      {showShortcutsHelp && <ShortcutsHelp onClose={() => setShowShortcutsHelp(false)} />}
+      {showIdleWarning && <IdleWarning minutes={25} onDismiss={dismissWarning} onLogout={handleLogoutSession} />}
       <InstallPrompt />
     </>
   );

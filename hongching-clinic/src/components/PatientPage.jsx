@@ -4,6 +4,7 @@ import { uid, fmtM, getMonth, DOCTORS, getMembershipTier } from '../data';
 import { getPatientPoints, getLoyaltyTier, loadPointsHistory, addPointsEntry, LOYALTY_CONFIG } from '../utils/loyalty';
 import { getCurrentUser } from '../auth';
 import { getTenantStoreNames, getClinicName } from '../tenant';
+import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
 
 const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'' };
 const REFERRAL_SOURCES = ['親友推薦', '網上搜尋', '社交媒體', '路過', '醫師轉介', '舊病人回歸', '廣告', '其他'];
@@ -113,6 +114,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
     if (filterStatus !== 'all') list = list.filter(p => p.status === filterStatus);
     return list;
   }, [patients, search, filterDoc, filterStore, filterStatus]);
+
+  const { paged, ...pgProps } = usePagination(filtered, 50);
 
   const calcAge = (dob) => {
     if (!dob) return '-';
@@ -458,7 +461,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
+              {paged.map(p => (
                 <tr key={p.id} style={{ background: selected.has(p.id) ? 'var(--teal-50)' : undefined }}>
                   <td><input type="checkbox" checked={selected.has(p.id)} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(p.id) : s.delete(p.id); setSelected(s); }} /></td>
                   <td><span style={{ color: 'var(--teal-700)', cursor: 'pointer', fontWeight: 600 }} onClick={() => setDetail(p)}>{p.name}</span></td>
@@ -476,6 +479,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             </tbody>
           </table>
         </div>
+        <PaginationBar {...pgProps} />
       </div>
 
       {/* Batch WhatsApp Modal (#95) — Enhanced with scheduling, delivery log & analytics */}
