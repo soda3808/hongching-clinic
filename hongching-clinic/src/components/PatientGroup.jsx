@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_GROUPS = 'hcmc_patient_groups';
@@ -136,7 +137,7 @@ export default function PatientGroup({ data, showToast, user }) {
     const pts = groupPatients(selGroup.id);
     const clinic = getClinicName();
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>${selGroup.name} - 成員列表</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}th{background:#f5f5f5}.hdr{color:${ACCENT}}</style></head><body><h2 class="hdr">${clinic} — ${selGroup.name} 成員列表</h2><p>列印日期：${new Date().toLocaleDateString('zh-HK')}　共 ${pts.length} 人</p><table><tr><th>#</th><th>姓名</th><th>電話</th><th>性別</th><th>出生日期</th></tr>${pts.map((p, i) => `<tr><td>${i + 1}</td><td>${p.name}</td><td>${p.phone || '-'}</td><td>${p.gender || '-'}</td><td>${p.dob || '-'}</td></tr>`).join('')}</table></body></html>`);
+    w.document.write(`<html><head><title>${escapeHtml(selGroup.name)} - 成員列表</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}th{background:#f5f5f5}.hdr{color:${ACCENT}}</style></head><body><h2 class="hdr">${escapeHtml(clinic)} — ${escapeHtml(selGroup.name)} 成員列表</h2><p>列印日期：${new Date().toLocaleDateString('zh-HK')}　共 ${pts.length} 人</p><table><tr><th>#</th><th>姓名</th><th>電話</th><th>性別</th><th>出生日期</th></tr>${pts.map((p, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.phone || '-')}</td><td>${escapeHtml(p.gender || '-')}</td><td>${escapeHtml(p.dob || '-')}</td></tr>`).join('')}</table></body></html>`);
     w.document.close(); w.print();
   };
 

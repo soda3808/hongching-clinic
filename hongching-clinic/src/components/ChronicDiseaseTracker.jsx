@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const REG_KEY = 'hcmc_chronic_registry';
@@ -135,14 +136,14 @@ export default function ChronicDiseaseTracker({ data, showToast, user }) {
     const rNotes = getNotesFor(rec.id);
     const w = window.open('', '_blank');
     w.document.write(`<html><head><title>慢性病摘要</title><style>body{font-family:sans-serif;padding:20px;font-size:14px}h2{color:${ACCENT}}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f3f4f6}.meta{color:#666;font-size:13px}@media print{button{display:none}}</style></head><body>`);
-    w.document.write(`<h2>${clinicName} - 慢性病管理摘要</h2>`);
+    w.document.write(`<h2>${escapeHtml(clinicName)} - 慢性病管理摘要</h2>`);
     w.document.write(`<p class="meta">列印日期：${today()}</p>`);
-    w.document.write(`<table><tr><th>病人</th><td>${rec.patientName}</td><th>病症</th><td>${rec.condition}</td></tr>`);
-    w.document.write(`<tr><th>嚴重程度</th><td>${SEVERITY[rec.severity]}</td><th>登記日期</th><td>${rec.since}</td></tr>`);
-    w.document.write(`<tr><th>覆診頻率</th><td>${FREQ[rec.frequency]}</td><th>治療方案</th><td>${rec.treatment}</td></tr></table>`);
+    w.document.write(`<table><tr><th>病人</th><td>${escapeHtml(rec.patientName)}</td><th>病症</th><td>${escapeHtml(rec.condition)}</td></tr>`);
+    w.document.write(`<tr><th>嚴重程度</th><td>${escapeHtml(SEVERITY[rec.severity])}</td><th>登記日期</th><td>${escapeHtml(rec.since)}</td></tr>`);
+    w.document.write(`<tr><th>覆診頻率</th><td>${escapeHtml(FREQ[rec.frequency])}</td><th>治療方案</th><td>${escapeHtml(rec.treatment)}</td></tr></table>`);
     if (rNotes.length) {
       w.document.write('<h3>進度記錄</h3><table><tr><th>日期</th><th>症狀評分</th><th>備註</th><th>記錄者</th></tr>');
-      rNotes.forEach(n => w.document.write(`<tr><td>${n.date}</td><td>${n.score}/10</td><td>${n.text}</td><td>${n.by}</td></tr>`));
+      rNotes.forEach(n => w.document.write(`<tr><td>${escapeHtml(n.date)}</td><td>${n.score}/10</td><td>${escapeHtml(n.text)}</td><td>${escapeHtml(n.by)}</td></tr>`));
       w.document.write('</table>');
     }
     w.document.write(`<br/><button onclick="window.print()">列印</button></body></html>`);

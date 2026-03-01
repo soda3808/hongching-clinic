@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const TYPES = ['系統公告', '診所通知', '緊急通知', '排班變更', '促銷活動', '其他'];
 const PRIORITIES = ['普通', '重要', '緊急'];
@@ -90,7 +91,7 @@ export default function ClinicBroadcast({ showToast, user }) {
 
   const deleteBc = id => { saveBc(broadcasts.map(b => b.id === id ? { ...b, status: '已刪除' } : b)); showToast && showToast('已刪除'); };
   const archiveBc = id => { saveBc(broadcasts.map(b => b.id === id ? { ...b, status: '已過期' } : b)); showToast && showToast('已封存'); };
-  const printBc = b => { const w = window.open('', '_blank'); w.document.write(`<html><head><title>${b.title}</title><style>body{font-family:sans-serif;padding:40px;}</style></head><body><h1>${clinicName} - 公告</h1><h2>${b.title}</h2><p><b>類型:</b> ${b.type} | <b>優先級:</b> ${b.priority} | <b>日期:</b> ${b.createdAt}</p><hr/><div style="white-space:pre-wrap;line-height:1.8">${b.content}</div></body></html>`); w.document.close(); w.print(); };
+  const printBc = b => { const w = window.open('', '_blank'); w.document.write(`<html><head><title>${escapeHtml(b.title)}</title><style>body{font-family:sans-serif;padding:40px;}</style></head><body><h1>${escapeHtml(clinicName)} - 公告</h1><h2>${escapeHtml(b.title)}</h2><p><b>類型:</b> ${escapeHtml(b.type)} | <b>優先級:</b> ${escapeHtml(b.priority)} | <b>日期:</b> ${b.createdAt}</p><hr/><div style="white-space:pre-wrap;line-height:1.8">${escapeHtml(b.content)}</div></body></html>`); w.document.close(); w.print(); };
 
   const sendMsg = () => {
     if (!msgForm.subject.trim() || !msgForm.content.trim()) { showToast && showToast('請填寫主題及內容'); return; }

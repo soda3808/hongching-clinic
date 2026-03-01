@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const REC_KEY = 'hcmc_acu_records';
@@ -136,16 +137,16 @@ export default function AcupunctureChart({ data, showToast, user }) {
   const printChart = (pts) => {
     const clinic = getClinicName();
     const rows = pts.map(zh => ACUPOINTS.find(p => p.zh === zh)).filter(Boolean);
-    const html = `<html><head><meta charset="utf-8"><title>${clinic} - 穴位處方</title>
+    const html = `<html><head><meta charset="utf-8"><title>${escapeHtml(clinic)} - 穴位處方</title>
 <style>body{font-family:-apple-system,sans-serif;padding:30px;max-width:800px;margin:0 auto}
 h1{color:${ACCENT};font-size:22px;border-bottom:2px solid ${ACCENT};padding-bottom:8px}
 table{width:100%;border-collapse:collapse;margin-top:16px}th{background:${ACCENT};color:#fff;padding:8px 10px;text-align:left;font-size:13px}
 td{padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:13px}.foot{margin-top:24px;font-size:12px;color:#888;border-top:1px solid #ccc;padding-top:8px}
 @media print{body{padding:10px}}</style></head><body>
-<h1>${clinic} - 穴位處方</h1><p>日期：${new Date().toLocaleDateString('zh-TW')}</p>
+<h1>${escapeHtml(clinic)} - 穴位處方</h1><p>日期：${new Date().toLocaleDateString('zh-TW')}</p>
 <table><tr><th>穴位</th><th>拼音</th><th>經絡</th><th>位置</th><th>針刺深度</th></tr>
-${rows.map(p => `<tr><td><b>${p.zh}</b><br><small>${p.en}</small></td><td>${p.py}</td><td>${p.mer}</td><td>${p.loc}</td><td>${p.depth}</td></tr>`).join('')}
-</table><div class="foot">* 此處方僅供參考，實際治療請遵醫囑。<br>${clinic} | 列印時間：${new Date().toLocaleString('zh-TW')}</div>
+${rows.map(p => `<tr><td><b>${escapeHtml(p.zh)}</b><br><small>${escapeHtml(p.en)}</small></td><td>${escapeHtml(p.py)}</td><td>${escapeHtml(p.mer)}</td><td>${escapeHtml(p.loc)}</td><td>${escapeHtml(p.depth)}</td></tr>`).join('')}
+</table><div class="foot">* 此處方僅供參考，實際治療請遵醫囑。<br>${escapeHtml(clinic)} | 列印時間：${new Date().toLocaleString('zh-TW')}</div>
 <script>window.onload=function(){window.print()}<\/script></body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }

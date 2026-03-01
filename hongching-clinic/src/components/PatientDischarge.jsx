@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_discharges';
 const load = () => JSON.parse(localStorage.getItem(LS_KEY) || '[]');
@@ -127,25 +128,25 @@ export default function PatientDischarge({ data, showToast, user }) {
 
   const printSummary = (rec) => {
     const oc = OUTCOMES.find(o => o.value === rec.outcome) || OUTCOMES[0];
-    const cl = Object.entries(rec.checklist || {}).map(([k, v]) => `<tr><td style="padding:4px 10px">${k}</td><td style="padding:4px 10px;color:${v ? '#16a34a' : '#d97706'}">${v ? 'OK' : '--'}</td></tr>`).join('');
+    const cl = Object.entries(rec.checklist || {}).map(([k, v]) => `<tr><td style="padding:4px 10px">${escapeHtml(k)}</td><td style="padding:4px 10px;color:${v ? '#16a34a' : '#d97706'}">${v ? 'OK' : '--'}</td></tr>`).join('');
     const w = window.open('', '_blank');
     if (!w) return showToast('請允許彈出視窗');
     w.document.write(`<!DOCTYPE html><html><head><title>出院摘要</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:30px 40px;max-width:700px;margin:0 auto;color:#333}h2{color:${ACCENT};border-bottom:2px solid ${ACCENT};padding-bottom:8px}.row{display:flex;margin:6px 0;font-size:14px}.row b{width:120px;flex-shrink:0}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #ddd;text-align:left}th{background:#f0fdfa}@media print{body{padding:20px}}</style></head><body>
-      <h2>${clinicName} -- 出院摘要 Discharge Summary</h2>
-      <div class="row"><b>病人：</b>${rec.patientName}</div>
+      <h2>${escapeHtml(clinicName)} -- 出院摘要 Discharge Summary</h2>
+      <div class="row"><b>病人：</b>${escapeHtml(rec.patientName)}</div>
       <div class="row"><b>出院日期：</b>${rec.dischargeDate}</div>
-      <div class="row"><b>主診醫師：</b>${rec.doctor}</div>
-      <div class="row"><b>診斷：</b>${rec.diagnosis}</div>
-      <div class="row"><b>治療摘要：</b>${rec.treatmentSummary || '-'}</div>
-      <div class="row"><b>治療結果：</b>${oc.label}（${oc.en}）</div>
-      ${rec.medications ? `<div class="row"><b>持續用藥：</b>${rec.medications}</div>` : ''}
-      ${rec.followUpPlan ? `<div class="row"><b>跟進計劃：</b>${rec.followUpPlan}</div>` : ''}
-      ${rec.lifestyleAdvice ? `<div class="row"><b>生活建議：</b>${rec.lifestyleAdvice}</div>` : ''}
-      ${rec.referralTo ? `<div class="row"><b>轉介至：</b>${rec.referralTo}</div>` : ''}
+      <div class="row"><b>主診醫師：</b>${escapeHtml(rec.doctor)}</div>
+      <div class="row"><b>診斷：</b>${escapeHtml(rec.diagnosis)}</div>
+      <div class="row"><b>治療摘要：</b>${escapeHtml(rec.treatmentSummary || '-')}</div>
+      <div class="row"><b>治療結果：</b>${escapeHtml(oc.label)}（${oc.en}）</div>
+      ${rec.medications ? `<div class="row"><b>持續用藥：</b>${escapeHtml(rec.medications)}</div>` : ''}
+      ${rec.followUpPlan ? `<div class="row"><b>跟進計劃：</b>${escapeHtml(rec.followUpPlan)}</div>` : ''}
+      ${rec.lifestyleAdvice ? `<div class="row"><b>生活建議：</b>${escapeHtml(rec.lifestyleAdvice)}</div>` : ''}
+      ${rec.referralTo ? `<div class="row"><b>轉介至：</b>${escapeHtml(rec.referralTo)}</div>` : ''}
       ${rec.nextReviewDate ? `<div class="row"><b>下次覆診：</b>${rec.nextReviewDate}</div>` : ''}
       <h3 style="color:${ACCENT};margin-top:20px">出院核查清單</h3>
       <table>${cl}</table>
-      <div style="margin-top:40px;text-align:center;font-size:11px;color:#aaa">${clinicName} | ${rec.dischargeDate}</div>
+      <div style="margin-top:40px;text-align:center;font-size:11px;color:#aaa">${escapeHtml(clinicName)} | ${rec.dischargeDate}</div>
       <script>window.print()<\/script></body></html>`);
     w.document.close();
   };
@@ -154,8 +155,8 @@ export default function PatientDischarge({ data, showToast, user }) {
     const w = window.open('', '_blank');
     if (!w) return showToast('請允許彈出視窗');
     w.document.write(`<!DOCTYPE html><html><head><title>出院信函</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:40px 50px;max-width:700px;margin:0 auto;color:#333;white-space:pre-wrap;line-height:1.8;font-size:14px}h2{color:${ACCENT};text-align:center;border-bottom:2px solid ${ACCENT};padding-bottom:10px}@media print{body{padding:20px}}</style></head><body>
-      <h2>${clinicName} -- 出院信函 Discharge Letter</h2>
-      <div style="margin-top:20px">${(rec.dischargeLetter || '').replace(/\n/g, '<br/>')}</div>
+      <h2>${escapeHtml(clinicName)} -- 出院信函 Discharge Letter</h2>
+      <div style="margin-top:20px">${escapeHtml(rec.dischargeLetter || '').replace(/\n/g, '<br/>')}</div>
       <script>window.print()<\/script></body></html>`);
     w.document.close();
   };

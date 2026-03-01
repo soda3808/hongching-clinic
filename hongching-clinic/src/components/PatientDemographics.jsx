@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getStoreNames } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const COLORS = [ACCENT, '#16a34a', '#d97706', '#7c3aed', '#dc2626', '#0284c7', '#db2777', '#65a30d'];
@@ -135,10 +136,10 @@ export default function PatientDemographics({ data, showToast, user }) {
     const w = window.open('', '_blank');
     if (!w) return;
     const ageRows = AGE_GROUPS.map((g, i) => `<tr><td>${g}</td><td style="text-align:right">${ageDist.buckets[i]}</td><td style="text-align:right">${filtered.length ? (ageDist.buckets[i] / filtered.length * 100).toFixed(1) : 0}%</td></tr>`).join('');
-    const distRows = districtDist.map(([d, c]) => `<tr><td>${d}</td><td style="text-align:right">${c}</td></tr>`).join('');
-    const refRows = referralDist.map(([s, c]) => `<tr><td>${s}</td><td style="text-align:right">${c}</td></tr>`).join('');
+    const distRows = districtDist.map(([d, c]) => `<tr><td>${escapeHtml(d)}</td><td style="text-align:right">${c}</td></tr>`).join('');
+    const refRows = referralDist.map(([s, c]) => `<tr><td>${escapeHtml(s)}</td><td style="text-align:right">${c}</td></tr>`).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>病人統計報告</title><style>@page{size:A4;margin:12mm}body{font-family:'PingFang TC','Microsoft YaHei',sans-serif;font-size:12px;padding:20px;max-width:780px;margin:0 auto}h1{font-size:17px;text-align:center;margin:0 0 4px}p.sub{text-align:center;color:#888;font-size:11px;margin:0 0 16px}.row{display:flex;gap:16px;margin-bottom:14px}.stat{text-align:center;flex:1;padding:10px;border:1px solid #ddd;border-radius:6px}.stat b{font-size:18px;color:${ACCENT}}table{width:100%;border-collapse:collapse;margin-bottom:14px}th,td{padding:5px 8px;border-bottom:1px solid #ddd;font-size:11px}th{background:#f3f4f6;font-weight:700}h3{font-size:14px;margin:16px 0 8px;color:${ACCENT}}@media print{body{padding:8px}}</style></head><body>`);
-    w.document.write(`<h1>${clinicName} — 病人統計報告</h1><p class="sub">列印：${new Date().toLocaleString('zh-HK')}${dateFrom ? ` | 由 ${dateFrom}` : ''}${dateTo ? ` 至 ${dateTo}` : ''}${filterStore !== 'all' ? ` | 分店: ${filterStore}` : ''}</p>`);
+    w.document.write(`<h1>${escapeHtml(clinicName)} — 病人統計報告</h1><p class="sub">列印：${new Date().toLocaleString('zh-HK')}${dateFrom ? ` | 由 ${dateFrom}` : ''}${dateTo ? ` 至 ${dateTo}` : ''}${filterStore !== 'all' ? ` | 分店: ${escapeHtml(filterStore)}` : ''}</p>`);
     w.document.write(`<div class="row"><div class="stat">總病人<br/><b>${filtered.length}</b></div><div class="stat">平均年齡<br/><b>${avgAge}</b></div><div class="stat">男/女<br/><b>${genderDist.male}/${genderDist.female}</b></div><div class="stat">活躍率<br/><b>${filtered.length ? (activityDist.active / filtered.length * 100).toFixed(0) : 0}%</b></div></div>`);
     w.document.write(`<h3>年齡分布</h3><table><thead><tr><th>年齡段</th><th style="text-align:right">人數</th><th style="text-align:right">佔比</th></tr></thead><tbody>${ageRows}</tbody></table>`);
     w.document.write(`<h3>地區分布</h3><table><thead><tr><th>地區</th><th style="text-align:right">人數</th></tr></thead><tbody>${distRows}</tbody></table>`);

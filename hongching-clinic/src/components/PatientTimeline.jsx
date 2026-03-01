@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 
@@ -103,7 +104,7 @@ export default function PatientTimeline({ data, showToast, user }) {
     const clinic = getClinicName();
     const rows = timeline.map(e => {
       const t = typeMap[e.type] || {};
-      return `<tr><td>${e.date || ''}</td><td style="color:${t.color}">${t.label}</td><td>${e.title}</td><td>${e.detail || ''}</td></tr>`;
+      return `<tr><td>${e.date || ''}</td><td style="color:${t.color}">${escapeHtml(t.label)}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.detail || '')}</td></tr>`;
     }).join('');
     const w = window.open('', '_blank');
     w.document.write(`<!DOCTYPE html><html><head><title>病人時間軸 - ${selectedPatient.name}</title><style>
@@ -117,8 +118,8 @@ export default function PatientTimeline({ data, showToast, user }) {
       td{padding:5px 8px;border-bottom:1px solid #eee}
       @media print{body{padding:0}}
     </style></head><body>
-      <h2>${clinic} — 病人綜合時間軸</h2>
-      <div class="sub">病人：${selectedPatient.name}　電話：${selectedPatient.phone || '-'}　列印日期：${new Date().toISOString().substring(0, 10)}</div>
+      <h2>${escapeHtml(clinic)} — 病人綜合時間軸</h2>
+      <div class="sub">病人：${escapeHtml(selectedPatient.name)}　電話：${escapeHtml(selectedPatient.phone || '-')}　列印日期：${new Date().toISOString().substring(0, 10)}</div>
       ${summary ? `<div class="summary">
         <div class="stat"><b>${summary.visits}</b>總診症次數</div>
         <div class="stat"><b>${fmtM(summary.totalSpent)}</b>總消費</div>

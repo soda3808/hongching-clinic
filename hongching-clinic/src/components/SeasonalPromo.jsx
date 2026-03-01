@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_promotions';
 const ACCENT = '#0e7490';
@@ -119,18 +120,18 @@ export default function SeasonalPromo({ data, showToast, user }) {
     const clinic = getClinicName();
     const discLabel = p.type === '折扣' ? p.discount + '% OFF' : p.type === '體驗價' ? '體驗價 ' + p.discount + '折' : '優惠 ' + p.discount + '%';
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>${p.name}</title><style>
+    w.document.write(`<html><head><title>${escapeHtml(p.name)}</title><style>
       body{font-family:"Microsoft JhengHei",sans-serif;padding:40px;max-width:600px;margin:auto}
       h1{color:${ACCENT};margin-bottom:4px;font-size:24px}h2{font-size:22px;margin-top:24px}
       .period{color:#6b7280;font-size:14px}.box{border:2px solid ${ACCENT};border-radius:12px;padding:24px;margin:20px 0;text-align:center}
       .disc{font-size:36px;font-weight:700;color:${ACCENT}}.desc{font-size:14px;color:#374151;margin-top:8px}
       .info{font-size:13px;margin:6px 0}.terms{font-size:11px;color:#9ca3af;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:10px}
       @media print{body{padding:20px}}</style></head><body>`);
-    w.document.write(`<h1>${clinic}</h1><h2>${p.name}</h2><p class="period">推廣期間：${p.startDate} 至 ${p.endDate}</p>`);
-    w.document.write(`<div class="box"><div class="disc">${discLabel}</div><p class="desc">${p.desc || ''}</p></div>`);
-    w.document.write(`<p class="info"><b>適用服務：</b>${(p.services || []).join('、')}</p>`);
-    w.document.write(`<p class="info"><b>對象：</b>${p.audience || '全部顧客'}</p>`);
-    w.document.write(`<p class="terms">條款及細則：${p.terms || '詳情請向診所查詢'}<br/>列印日期：${new Date().toLocaleDateString('zh-HK')}</p></body></html>`);
+    w.document.write(`<h1>${escapeHtml(clinic)}</h1><h2>${escapeHtml(p.name)}</h2><p class="period">推廣期間：${p.startDate} 至 ${p.endDate}</p>`);
+    w.document.write(`<div class="box"><div class="disc">${escapeHtml(discLabel)}</div><p class="desc">${escapeHtml(p.desc || '')}</p></div>`);
+    w.document.write(`<p class="info"><b>適用服務：</b>${escapeHtml((p.services || []).join('、'))}</p>`);
+    w.document.write(`<p class="info"><b>對象：</b>${escapeHtml(p.audience || '全部顧客')}</p>`);
+    w.document.write(`<p class="terms">條款及細則：${escapeHtml(p.terms || '詳情請向診所查詢')}<br/>列印日期：${new Date().toLocaleDateString('zh-HK')}</p></body></html>`);
     w.document.close();
     w.print();
   };

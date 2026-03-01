@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { renovationProjectsOps, maintenanceScheduleOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -78,8 +79,8 @@ export default function ClinicRenovation({ data, showToast, user }) {
 
   const printReport = () => {
     const w = window.open('', '_blank');
-    const rows = projects.map(p => `<tr><td>${p.title}</td><td>${p.status}</td><td>${p.contractor || '-'}</td><td>${p.startDate || '-'} ~ ${p.endDate || '-'}</td><td style="text-align:right">$${Number(p.budget || 0).toLocaleString()}</td><td style="text-align:right">$${Number(p.actualCost || 0).toLocaleString()}</td></tr>`).join('');
-    w.document.write(`<html><head><title>裝修報告</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:13px}th{background:#0e7490;color:#fff}</style></head><body><h2>${getClinicName()} - 裝修／維護項目報告</h2><p>列印日期：${new Date().toLocaleDateString('zh-TW')}</p><table><thead><tr><th>項目</th><th>狀態</th><th>承辦商</th><th>日期</th><th>預算</th><th>實際費用</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+    const rows = projects.map(p => `<tr><td>${escapeHtml(p.title)}</td><td>${escapeHtml(p.status)}</td><td>${escapeHtml(p.contractor || '-')}</td><td>${p.startDate || '-'} ~ ${p.endDate || '-'}</td><td style="text-align:right">$${Number(p.budget || 0).toLocaleString()}</td><td style="text-align:right">$${Number(p.actualCost || 0).toLocaleString()}</td></tr>`).join('');
+    w.document.write(`<html><head><title>裝修報告</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:13px}th{background:#0e7490;color:#fff}</style></head><body><h2>${escapeHtml(getClinicName())} - 裝修／維護項目報告</h2><p>列印日期：${new Date().toLocaleDateString('zh-TW')}</p><table><thead><tr><th>項目</th><th>狀態</th><th>承辦商</th><th>日期</th><th>預算</th><th>實際費用</th></tr></thead><tbody>${rows}</tbody></table><script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
     w.document.close();
   };
 

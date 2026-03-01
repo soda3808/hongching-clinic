@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 import { bdaySettingsOps, bdayLogOps } from '../api';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -123,8 +124,8 @@ export default function BirthdayCampaign({ data, showToast, user }) {
   }
 
   function printList() {
-    const rows = thisMonthBdays.map(p => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${p.name}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${p.dob || '-'}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${p.phone || '-'}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${isBirthdayToday(p.dob) ? '今日' : `${getBirthDay(p.dob)}日`}</td></tr>`).join('');
-    const html = `<html><head><title>${clinicName} - ${mm + 1}月生日名單</title><style>body{font-family:-apple-system,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th{text-align:left;padding:8px 10px;border-bottom:2px solid #0e7490;font-size:13px}h2{color:#0e7490}</style></head><body><h2>${clinicName} - ${yyyy}年${mm + 1}月 生日病人名單</h2><p>列印日期：${todayStr}　共 ${thisMonthBdays.length} 位</p><table><tr><th>姓名</th><th>出生日期</th><th>電話</th><th>生日日期</th></tr>${rows}</table><script>window.print()<\/script></body></html>`;
+    const rows = thisMonthBdays.map(p => `<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${escapeHtml(p.name)}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${p.dob || '-'}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${escapeHtml(p.phone || '-')}</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${isBirthdayToday(p.dob) ? '今日' : `${getBirthDay(p.dob)}日`}</td></tr>`).join('');
+    const html = `<html><head><title>${escapeHtml(clinicName)} - ${mm + 1}月生日名單</title><style>body{font-family:-apple-system,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th{text-align:left;padding:8px 10px;border-bottom:2px solid #0e7490;font-size:13px}h2{color:#0e7490}</style></head><body><h2>${escapeHtml(clinicName)} - ${yyyy}年${mm + 1}月 生日病人名單</h2><p>列印日期：${todayStr}　共 ${thisMonthBdays.length} 位</p><table><tr><th>姓名</th><th>出生日期</th><th>電話</th><th>生日日期</th></tr>${rows}</table><script>window.print()<\/script></body></html>`;
     const w = window.open('', '_blank');
     if (w) { w.document.write(html); w.document.close(); }
   }

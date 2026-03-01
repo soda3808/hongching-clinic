@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -112,10 +113,10 @@ export default function ResourceScheduling({ data, showToast, user }) {
     const clinic = getClinicName();
     const rows = RESOURCES.map(r => {
       const items = dayEntries.filter(e => e.resource === r).sort((a, b) => a.startTime.localeCompare(b.startTime));
-      const cells = items.map(e => `<tr><td style="padding:4px 8px;border:1px solid #ccc">${e.startTime}-${e.endTime}</td><td style="padding:4px 8px;border:1px solid #ccc">${e.doctor}</td><td style="padding:4px 8px;border:1px solid #ccc">${e.patient || '-'}</td><td style="padding:4px 8px;border:1px solid #ccc">${e.purpose || '-'}</td></tr>`).join('');
+      const cells = items.map(e => `<tr><td style="padding:4px 8px;border:1px solid #ccc">${e.startTime}-${e.endTime}</td><td style="padding:4px 8px;border:1px solid #ccc">${escapeHtml(e.doctor)}</td><td style="padding:4px 8px;border:1px solid #ccc">${escapeHtml(e.patient || '-')}</td><td style="padding:4px 8px;border:1px solid #ccc">${escapeHtml(e.purpose || '-')}</td></tr>`).join('');
       return `<h3 style="margin:16px 0 4px;color:${ACCENT}">${r}</h3>${items.length ? `<table style="border-collapse:collapse;width:100%"><thead><tr style="background:#f0f0f0"><th style="padding:4px 8px;border:1px solid #ccc;text-align:left">時段</th><th style="padding:4px 8px;border:1px solid #ccc;text-align:left">醫師</th><th style="padding:4px 8px;border:1px solid #ccc;text-align:left">病人</th><th style="padding:4px 8px;border:1px solid #ccc;text-align:left">用途</th></tr></thead><tbody>${cells}</tbody></table>` : '<p style="color:#999">無預約</p>'}`;
     }).join('');
-    const html = `<html><head><title>${clinic} 資源排程 ${selDate}</title><style>body{font-family:sans-serif;padding:20px}h2{color:${ACCENT}}</style></head><body><h2>${clinic} — 資源排程表</h2><p>日期：${selDate}</p>${rows}<p style="margin-top:24px;color:#aaa;font-size:12px">列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`;
+    const html = `<html><head><title>${escapeHtml(clinic)} 資源排程 ${selDate}</title><style>body{font-family:sans-serif;padding:20px}h2{color:${ACCENT}}</style></head><body><h2>${escapeHtml(clinic)} — 資源排程表</h2><p>日期：${selDate}</p>${rows}<p style="margin-top:24px;color:#aaa;font-size:12px">列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html); w.document.close(); w.print();
   };

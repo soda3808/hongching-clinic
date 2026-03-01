@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { getDoctors, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
 import { auditTrailOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const AUDIT_KEY = 'hcmc_audit_log';
 const OP_TYPES = ['全部', '新增', '修改', '刪除', '查看', '匯出', '列印'];
@@ -109,8 +110,8 @@ export default function AuditTrail({ data, showToast, user }) {
   const handlePrint = () => {
     const clinic = getClinicName();
     const win = window.open('', '_blank');
-    const rows = filtered.slice(0, 200).map(l => `<tr><td>${fmtTs(l.ts)}</td><td>${l.op}</td><td>${l.entity}</td><td>${l.operator}</td><td style="max-width:300px;word-break:break-all;font-size:11px">${JSON.stringify(l.changes)}</td></tr>`).join('');
-    win.document.write(`<html><head><title>審計報告</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#0e7490;color:#fff}h2{color:#0e7490}</style></head><body><h2>${clinic} — 審計報告</h2><p>列印日期: ${new Date().toLocaleDateString('zh-HK')} | 共 ${filtered.length} 條記錄</p><table><tr><th>時間</th><th>操作</th><th>模組</th><th>操作者</th><th>詳細</th></tr>${rows}</table></body></html>`);
+    const rows = filtered.slice(0, 200).map(l => `<tr><td>${escapeHtml(fmtTs(l.ts))}</td><td>${escapeHtml(l.op)}</td><td>${escapeHtml(l.entity)}</td><td>${escapeHtml(l.operator)}</td><td style="max-width:300px;word-break:break-all;font-size:11px">${escapeHtml(JSON.stringify(l.changes))}</td></tr>`).join('');
+    win.document.write(`<html><head><title>審計報告</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:5px 8px;text-align:left}th{background:#0e7490;color:#fff}h2{color:#0e7490}</style></head><body><h2>${escapeHtml(clinic)} — 審計報告</h2><p>列印日期: ${new Date().toLocaleDateString('zh-HK')} | 共 ${filtered.length} 條記錄</p><table><tr><th>時間</th><th>操作</th><th>模組</th><th>操作者</th><th>詳細</th></tr>${rows}</table></body></html>`);
     win.document.close();
     win.print();
   };

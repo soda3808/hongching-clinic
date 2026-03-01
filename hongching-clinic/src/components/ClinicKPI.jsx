@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { fmtM, getMonth } from '../data';
 import { getClinicName } from '../tenant';
 import { kpiTargetsOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_kpi_targets';
@@ -193,14 +194,14 @@ export default function ClinicKPI({ data, showToast, user }) {
       const arrow = r.pct >= 100 ? '\u25B2' : r.pct >= 90 ? '\u25B3' : '\u25BC';
       const color = trafficColor(Math.min(r.pct, 100));
       return `<tr>
-        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb">${r.label}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb">${escapeHtml(r.label)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:right">${r.format(r.target)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:right">${r.format(r.actual)}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;text-align:center;color:${color};font-weight:700">${Math.min(r.pct, 100).toFixed(1)}% ${arrow}</td>
       </tr>`;
     }).join('');
     const html = `<html><head><title>KPI Report</title></head><body style="font-family:sans-serif;padding:30px;max-width:800px;margin:auto">
-      <h1 style="color:${ACCENT};margin-bottom:4px">${clinic}</h1>
+      <h1 style="color:${ACCENT};margin-bottom:4px">${escapeHtml(clinic)}</h1>
       <h2 style="color:#555;margin-top:0">${thisMonth} KPI Report</h2>
       <div style="text-align:center;margin:20px 0;padding:16px;background:${trafficBg(overallScore)};border-radius:12px">
         <div style="font-size:48px;font-weight:900;color:${trafficColor(overallScore)}">${overallScore}</div>

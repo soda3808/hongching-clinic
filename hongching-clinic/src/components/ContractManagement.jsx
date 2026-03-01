@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -97,7 +98,7 @@ export default function ContractManagement({ showToast, user }) {
     const clinic = getClinicName();
     const rows = contracts.filter(c => !c.terminated).map(c => {
       const st = STATUS_MAP[getStatus(c)];
-      return `<tr><td>${c.title}</td><td>${c.type}</td><td>${c.counterparty}</td><td>${c.startDate} ~ ${c.endDate}</td><td>${fmtM(Number(c.monthlyValue || 0))}</td><td>${fmtM(Number(c.totalValue || 0))}</td><td>${st.label}</td></tr>`;
+      return `<tr><td>${escapeHtml(c.title)}</td><td>${escapeHtml(c.type)}</td><td>${escapeHtml(c.counterparty)}</td><td>${escapeHtml(c.startDate)} ~ ${escapeHtml(c.endDate)}</td><td>${fmtM(Number(c.monthlyValue || 0))}</td><td>${fmtM(Number(c.totalValue || 0))}</td><td>${escapeHtml(st.label)}</td></tr>`;
     }).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>合約管理報告</title>
 <style>body{font-family:sans-serif;padding:40px;color:#333}h1{color:${ACCENT};margin-bottom:4px}
@@ -106,10 +107,10 @@ th{background:#f9fafb}.sub{color:#888;font-size:13px;margin-bottom:20px}
 .summary{margin-top:20px;padding:14px;background:#f0fdfa;border-radius:8px;font-size:14px}
 .footer{margin-top:40px;font-size:12px;color:#888;border-top:1px solid #eee;padding-top:12px}
 @media print{body{padding:20px}}</style></head><body>
-<h1>${clinic} — 合約管理報告</h1><div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
+<h1>${escapeHtml(clinic)} — 合約管理報告</h1><div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
 <div class="summary"><strong>每月合約總額：</strong>${fmtM(stats.monthlyTotal)} | <strong>年度預測：</strong>${fmtM(stats.annualTotal)} | <strong>生效合約：</strong>${stats.activeCount} 份</div>
 <table><thead><tr><th>合約名稱</th><th>類型</th><th>對方</th><th>期間</th><th>月費</th><th>總值</th><th>狀態</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#aaa">暫無合約</td></tr>'}</tbody></table>
-<div class="footer"><p>${clinic} - 合約管理</p></div>
+<div class="footer"><p>${escapeHtml(clinic)} - 合約管理</p></div>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   };

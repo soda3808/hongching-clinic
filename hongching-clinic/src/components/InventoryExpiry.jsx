@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { uid, fmtM } from '../data';
 import { getClinicName } from '../tenant';
 import { expiryRecordsOps, disposalLogOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_EXP = 'hcmc_expiry_records';
@@ -118,9 +119,9 @@ export default function InventoryExpiry({ data, showToast, user }) {
 
   const printReport = () => {
     const att = enriched.filter(r => r.daysLeft <= 90);
-    const rows = att.map(r => `<tr><td>${r.itemName}</td><td>${r.batch || '-'}</td><td>${r.expiryDate}</td><td style="color:${r.level.color}">${daysLabel(r)}</td><td>${r.stock}</td><td style="color:${r.level.color}">${r.level.label}</td></tr>`).join('');
+    const rows = att.map(r => `<tr><td>${escapeHtml(r.itemName)}</td><td>${escapeHtml(r.batch || '-')}</td><td>${r.expiryDate}</td><td style="color:${r.level.color}">${escapeHtml(daysLabel(r))}</td><td>${r.stock}</td><td style="color:${r.level.color}">${escapeHtml(r.level.label)}</td></tr>`).join('');
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>有效期報告</title><style>body{font-family:sans-serif;padding:30px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px 8px;font-size:13px;text-align:left}th{background:#f0f9ff;font-weight:700}.hdr{color:${ACCENT}}</style></head><body><h2 class="hdr">${clinicName} — 藥材有效期報告</h2><p>列印日期：${nowStr} ｜需注意項目：${att.length} 項</p><table><thead><tr><th>品名</th><th>批號</th><th>有效日期</th><th>剩餘天數</th><th>庫存量</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table><p style="margin-top:20px;font-size:12px;color:#888">經手人簽名：________________　日期：________________</p></body></html>`);
+    w.document.write(`<html><head><title>有效期報告</title><style>body{font-family:sans-serif;padding:30px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px 8px;font-size:13px;text-align:left}th{background:#f0f9ff;font-weight:700}.hdr{color:${ACCENT}}</style></head><body><h2 class="hdr">${escapeHtml(clinicName)} — 藥材有效期報告</h2><p>列印日期：${nowStr} ｜需注意項目：${att.length} 項</p><table><thead><tr><th>品名</th><th>批號</th><th>有效日期</th><th>剩餘天數</th><th>庫存量</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table><p style="margin-top:20px;font-size:12px;color:#888">經手人簽名：________________　日期：________________</p></body></html>`);
     w.document.close(); w.print();
   };
 

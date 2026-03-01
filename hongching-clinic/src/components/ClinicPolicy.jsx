@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -102,13 +103,13 @@ export default function ClinicPolicy({ data, showToast, user }) {
   const printPolicy = p => {
     const ackList = acks.filter(a => a.policyId === p.id);
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>${p.title}</title><style>body{font-family:serif;padding:50px 60px;color:#1e293b;line-height:1.8}h1{text-align:center;font-size:22px;border-bottom:2px solid #333;padding-bottom:10px}h2{font-size:18px;margin-top:30px}.meta{font-size:13px;color:#555;margin-bottom:20px;text-align:center}.content{white-space:pre-wrap;font-size:15px;margin:20px 0}.footer{margin-top:40px;border-top:1px solid #ccc;padding-top:16px;font-size:12px;color:#888}.ack-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}.ack-table th,.ack-table td{border:1px solid #ccc;padding:6px 10px;text-align:left}.ack-table th{background:#f5f5f5}</style></head><body>`
-      + `<h1>${clinicName}</h1>`
-      + `<h2>${p.title}</h2>`
-      + `<div class="meta">類別: ${p.category} | 版本: ${p.version || '1.0'} | 狀態: ${STATUS_LABELS[p.status] || p.status} | 生效日期: ${p.effectiveDate || '-'}</div>`
-      + `<div class="meta">批准人: ${p.approvedBy || '-'} | 上次審查: ${p.lastReviewDate || '-'} | 下次審查: ${p.nextReviewDate || '-'}</div>`
-      + `<hr/><div class="content">${p.content}</div>`
-      + (ackList.length ? `<div class="footer"><b>已確認閱讀人員 (${ackList.length})</b><table class="ack-table"><tr><th>姓名</th><th>日期</th></tr>${ackList.map(a => `<tr><td>${a.user}</td><td>${a.date}</td></tr>`).join('')}</table></div>` : '')
+    w.document.write(`<html><head><title>${escapeHtml(p.title)}</title><style>body{font-family:serif;padding:50px 60px;color:#1e293b;line-height:1.8}h1{text-align:center;font-size:22px;border-bottom:2px solid #333;padding-bottom:10px}h2{font-size:18px;margin-top:30px}.meta{font-size:13px;color:#555;margin-bottom:20px;text-align:center}.content{white-space:pre-wrap;font-size:15px;margin:20px 0}.footer{margin-top:40px;border-top:1px solid #ccc;padding-top:16px;font-size:12px;color:#888}.ack-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}.ack-table th,.ack-table td{border:1px solid #ccc;padding:6px 10px;text-align:left}.ack-table th{background:#f5f5f5}</style></head><body>`
+      + `<h1>${escapeHtml(clinicName)}</h1>`
+      + `<h2>${escapeHtml(p.title)}</h2>`
+      + `<div class="meta">類別: ${escapeHtml(p.category)} | 版本: ${escapeHtml(p.version || '1.0')} | 狀態: ${escapeHtml(STATUS_LABELS[p.status] || p.status)} | 生效日期: ${p.effectiveDate || '-'}</div>`
+      + `<div class="meta">批准人: ${escapeHtml(p.approvedBy || '-')} | 上次審查: ${p.lastReviewDate || '-'} | 下次審查: ${p.nextReviewDate || '-'}</div>`
+      + `<hr/><div class="content">${escapeHtml(p.content)}</div>`
+      + (ackList.length ? `<div class="footer"><b>已確認閱讀人員 (${ackList.length})</b><table class="ack-table"><tr><th>姓名</th><th>日期</th></tr>${ackList.map(a => `<tr><td>${escapeHtml(a.user)}</td><td>${a.date}</td></tr>`).join('')}</table></div>` : '')
       + `</body></html>`);
     w.document.close();
     w.print();

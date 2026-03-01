@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_safety_checklist';
 const ACCENT = '#0e7490';
@@ -107,13 +108,13 @@ export default function ClinicSafetyChecklist({ data, showToast, user }) {
     const clinic = getClinicName();
     const passCount = rec.items.filter(i => i.checked).length;
     const pctVal = Math.round(passCount / rec.items.length * 100);
-    const rows = rec.items.map(it => `<tr><td>${it.checked ? '&#10003;' : '&#10007;'}</td><td>${it.text}</td><td>${it.note || '-'}</td></tr>`).join('');
+    const rows = rec.items.map(it => `<tr><td>${it.checked ? '&#10003;' : '&#10007;'}</td><td>${escapeHtml(it.text)}</td><td>${escapeHtml(it.note || '-')}</td></tr>`).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>檢查報告</title>
 <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;text-align:left}th{background:#f0fdfa;font-weight:700}.hdr{color:${ACCENT}}.footer{margin-top:24px;font-size:11px;color:#888;border-top:1px solid #ddd;padding-top:8px}@media print{body{padding:0}}</style></head>
-<body><h2 class="hdr">${clinic} - ${rec.templateName}檢查報告</h2>
-<p>完成日期：${fmtDt(rec.completedAt)} | 執行人：${rec.completedBy} | 完成率：<strong>${pctVal}%</strong> (${passCount}/${rec.items.length})</p>
+<body><h2 class="hdr">${escapeHtml(clinic)} - ${escapeHtml(rec.templateName)}檢查報告</h2>
+<p>完成日期：${fmtDt(rec.completedAt)} | 執行人：${escapeHtml(rec.completedBy)} | 完成率：<strong>${pctVal}%</strong> (${passCount}/${rec.items.length})</p>
 <table><thead><tr><th style="width:40px">結果</th><th>檢查項目</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table>
-<div class="footer"><p>${clinic} - 安全衛生管理</p></div>
+<div class="footer"><p>${escapeHtml(clinic)} - 安全衛生管理</p></div>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   };
@@ -124,14 +125,14 @@ export default function ClinicSafetyChecklist({ data, showToast, user }) {
     const rows = last30.map(r => {
       const p = r.items.filter(i => i.checked).length;
       const t = r.items.length;
-      return `<tr><td>${r.templateName}</td><td>${r.freq}</td><td>${fmtDt(r.completedAt)}</td><td>${r.completedBy}</td><td>${Math.round(p / t * 100)}%</td></tr>`;
+      return `<tr><td>${escapeHtml(r.templateName)}</td><td>${escapeHtml(r.freq)}</td><td>${fmtDt(r.completedAt)}</td><td>${escapeHtml(r.completedBy)}</td><td>${Math.round(p / t * 100)}%</td></tr>`;
     }).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>安全檢查總覽</title>
 <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;text-align:left}th{background:#f0fdfa;font-weight:700}.hdr{color:${ACCENT}}.footer{margin-top:24px;font-size:11px;color:#888;border-top:1px solid #ddd;padding-top:8px}@media print{body{padding:0}}</style></head>
-<body><h2 class="hdr">${clinic} - 安全衛生檢查總覽</h2>
+<body><h2 class="hdr">${escapeHtml(clinic)} - 安全衛生檢查總覽</h2>
 <p>列印日期：${new Date().toLocaleDateString('zh-HK')} | 近30天完成：${last30.length} 次 | 逾期：${overdue.length} 項</p>
 <table><thead><tr><th>檢查表</th><th>頻率</th><th>完成日期</th><th>執行人</th><th>完成率</th></tr></thead><tbody>${rows}</tbody></table>
-<div class="footer"><p>${clinic} - 安全衛生管理</p></div>
+<div class="footer"><p>${escapeHtml(clinic)} - 安全衛生管理</p></div>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   };

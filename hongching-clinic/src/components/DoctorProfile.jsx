@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, fmtM, getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_doctor_profiles';
@@ -64,23 +65,23 @@ export default function DoctorProfile({ data, showToast, user }) {
   /* ── Print public card ── */
   const printCard = (p) => {
     const perf = perfMap[p.name] || { pts: new Set(), rev: 0, visits: 0 };
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${p.name} - ${clinicName}</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(p.name)} - ${escapeHtml(clinicName)}</title>
 <style>body{font-family:'Microsoft JhengHei',sans-serif;max-width:480px;margin:40px auto;padding:24px;border:2px solid ${ACCENT};border-radius:16px}
 h1{color:${ACCENT};margin:0 0 4px}h2{margin:0;font-size:14px;color:#666}.sec{margin-top:16px}.tag{display:inline-block;background:${ACCENT}22;color:${ACCENT};padding:2px 10px;border-radius:12px;font-size:13px;margin:2px}
 .stat{display:inline-block;text-align:center;padding:8px 16px}.stat b{font-size:18px;color:${ACCENT}}.bot{margin-top:20px;text-align:center;font-size:12px;color:#999}
 @media print{body{border:none}}</style></head><body>
 <div style="text-align:center"><div style="width:80px;height:80px;border-radius:50%;background:${ACCENT}22;margin:0 auto 12px;display:flex;align-items:center;justify-content:center">
-<span style="font-size:32px;color:${ACCENT}">${p.name.charAt(0)}</span></div>
-<h1>${p.name}</h1><h2>${p.title}${p.regNo ? ' | 註冊編號: ' + p.regNo : ''}</h2></div>
-${p.specialties.length ? '<div class="sec"><b>專科：</b>' + p.specialties.map(s => '<span class="tag">' + s + '</span>').join('') + '</div>' : ''}
-${p.education ? '<div class="sec"><b>學歷：</b>' + p.education + '</div>' : ''}
-${p.years ? '<div class="sec"><b>從業年資：</b>' + p.years + ' 年</div>' : ''}
-${p.bio ? '<div class="sec"><b>簡介：</b>' + p.bio + '</div>' : ''}
-${p.hours ? '<div class="sec"><b>應診時間：</b>' + p.hours + '</div>' : ''}
+<span style="font-size:32px;color:${ACCENT}">${escapeHtml(p.name.charAt(0))}</span></div>
+<h1>${escapeHtml(p.name)}</h1><h2>${escapeHtml(p.title)}${p.regNo ? ' | 註冊編號: ' + escapeHtml(p.regNo) : ''}</h2></div>
+${p.specialties.length ? '<div class="sec"><b>專科：</b>' + p.specialties.map(s => '<span class="tag">' + escapeHtml(s) + '</span>').join('') + '</div>' : ''}
+${p.education ? '<div class="sec"><b>學歷：</b>' + escapeHtml(p.education) + '</div>' : ''}
+${p.years ? '<div class="sec"><b>從業年資：</b>' + escapeHtml(p.years) + ' 年</div>' : ''}
+${p.bio ? '<div class="sec"><b>簡介：</b>' + escapeHtml(p.bio) + '</div>' : ''}
+${p.hours ? '<div class="sec"><b>應診時間：</b>' + escapeHtml(p.hours) + '</div>' : ''}
 <div class="sec" style="text-align:center;border-top:1px solid #eee;padding-top:12px">
 <div class="stat">累計病人<br><b>${perf.pts.size}</b></div>
 <div class="stat">診症次數<br><b>${perf.visits}</b></div></div>
-<div class="bot">${clinicName}</div></body></html>`;
+<div class="bot">${escapeHtml(clinicName)}</div></body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html); w.document.close(); w.print();
   };

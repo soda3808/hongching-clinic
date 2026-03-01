@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const LS_KEY = 'hcmc_survey_builder';
@@ -132,10 +133,10 @@ export default function ClinicSurveyBuilder({ data, showToast, user }) {
     const resps = respForSurvey(sid), w = window.open('', '_blank'); if (!w) return;
     const qRows = survey.questions.map(qn => {
       const ans = resps.map(r => r.answers?.[qn.id]).filter(a => a !== undefined && a !== '');
-      if (['rating5','rating10','nps'].includes(qn.type)) { const nums = ans.map(Number).filter(n => !isNaN(n)); const avg = nums.length ? (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(1) : '-'; return `<tr><td>${qn.title}</td><td class="r">${avg}</td><td class="r">${nums.length}</td></tr>`; }
-      return `<tr><td>${qn.title}</td><td class="r">-</td><td class="r">${ans.length}</td></tr>`;
+      if (['rating5','rating10','nps'].includes(qn.type)) { const nums = ans.map(Number).filter(n => !isNaN(n)); const avg = nums.length ? (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(1) : '-'; return `<tr><td>${escapeHtml(qn.title)}</td><td class="r">${avg}</td><td class="r">${nums.length}</td></tr>`; }
+      return `<tr><td>${escapeHtml(qn.title)}</td><td class="r">-</td><td class="r">${ans.length}</td></tr>`;
     }).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>問卷報告</title><style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:700px;margin:0 auto;font-size:13px}h1{font-size:18px;text-align:center;color:${ACC}}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}th{background:#f8f8f8}.r{text-align:right}@media print{body{padding:10mm}}</style></head><body><h1>${getClinicName()} — ${survey.title}</h1><p style="text-align:center;color:#888;font-size:11px">列印：${new Date().toLocaleString('zh-HK')} | 回覆數：${resps.length}</p><table><thead><tr><th>問題</th><th class="r">平均分/結果</th><th class="r">回覆數</th></tr></thead><tbody>${qRows}</tbody></table></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>問卷報告</title><style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:700px;margin:0 auto;font-size:13px}h1{font-size:18px;text-align:center;color:${ACC}}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}th{background:#f8f8f8}.r{text-align:right}@media print{body{padding:10mm}}</style></head><body><h1>${escapeHtml(getClinicName())} — ${escapeHtml(survey.title)}</h1><p style="text-align:center;color:#888;font-size:11px">列印：${new Date().toLocaleString('zh-HK')} | 回覆數：${resps.length}</p><table><thead><tr><th>問題</th><th class="r">平均分/結果</th><th class="r">回覆數</th></tr></thead><tbody>${qRows}</tbody></table></body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);
   };
 

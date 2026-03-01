@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_allergies';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -91,13 +92,13 @@ export default function AllergyAlert({ data, showToast, user }) {
   function handlePrint() {
     if (!selPatient || patientAllergies.length === 0) return;
     const rows = patientAllergies.map(r =>
-      `<tr><td>${r.allergen}</td><td>${r.type}</td><td style="color:${sevColor[r.severity] || RED};font-weight:700">${r.severity}</td><td>${r.reaction || '-'}</td><td>${r.onsetDate || '-'}</td><td>${r.doctor || '-'}</td></tr>`
+      `<tr><td>${escapeHtml(r.allergen)}</td><td>${escapeHtml(r.type)}</td><td style="color:${sevColor[r.severity] || RED};font-weight:700">${escapeHtml(r.severity)}</td><td>${escapeHtml(r.reaction || '-')}</td><td>${escapeHtml(r.onsetDate || '-')}</td><td>${escapeHtml(r.doctor || '-')}</td></tr>`
     ).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>過敏卡</title>
       <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 10px;font-size:13px;text-align:left}th{background:#f3f4f6}.alert{background:#fef2f2;border:2px solid ${RED};border-radius:8px;padding:12px;margin-bottom:16px;color:${RED};font-weight:700;font-size:16px;text-align:center}</style></head>
-      <body><h2 style="margin:0 0 4px">${clinicName} — 病人過敏卡</h2>
+      <body><h2 style="margin:0 0 4px">${escapeHtml(clinicName)} — 病人過敏卡</h2>
       <div class="alert">!! 此病人有 ${patientAllergies.length} 項過敏記錄 !!</div>
-      <p><b>姓名：</b>${selPatient.name}　<b>電話：</b>${selPatient.phone || '-'}　<b>列印日期：</b>${new Date().toISOString().substring(0, 10)}</p>
+      <p><b>姓名：</b>${escapeHtml(selPatient.name)}　<b>電話：</b>${escapeHtml(selPatient.phone || '-')}　<b>列印日期：</b>${new Date().toISOString().substring(0, 10)}</p>
       <table><thead><tr><th>過敏原</th><th>類型</th><th>嚴重度</th><th>反應描述</th><th>發現日期</th><th>確認醫師</th></tr></thead><tbody>${rows}</tbody></table>
       <p style="margin-top:20px;font-size:12px;color:#999">此卡由系統自動產生，僅供醫療參考。</p></body></html>`;
     const w = window.open('', '_blank', 'width=800,height=600');

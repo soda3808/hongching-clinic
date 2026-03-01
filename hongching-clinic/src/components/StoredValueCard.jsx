@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_CARDS = 'hcmc_stored_cards';
 const LS_TXN = 'hcmc_card_transactions';
@@ -119,10 +120,10 @@ export default function StoredValueCard({ data, showToast, user }) {
     const cardTxns = txns.filter(t => t.cardNo === card.cardNo).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     const w = window.open('', '_blank');
     w.document.write(`<html><head><title>充值卡對賬單</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f1f5f9}.hd{color:${ACC};margin-bottom:4px}</style></head><body>`);
-    w.document.write(`<h2 class="hd">${clinicName} - 充值卡對賬單</h2>`);
-    w.document.write(`<p>卡號: <b>${card.cardNo}</b> | 顧客: <b>${card.patientName}</b> | 餘額: <b>${fmtA(card.balance)}</b> | 列印日期: ${today()}</p>`);
+    w.document.write(`<h2 class="hd">${escapeHtml(clinicName)} - 充值卡對賬單</h2>`);
+    w.document.write(`<p>卡號: <b>${escapeHtml(card.cardNo)}</b> | 顧客: <b>${escapeHtml(card.patientName)}</b> | 餘額: <b>${fmtA(card.balance)}</b> | 列印日期: ${today()}</p>`);
     w.document.write('<table><tr><th>日期</th><th>類型</th><th>金額</th><th>餘額</th><th>操作人</th><th>備註</th></tr>');
-    cardTxns.forEach(t => { w.document.write(`<tr><td>${fmtD(t.date)}</td><td>${t.type}</td><td>${fmtA(t.amount)}</td><td>${fmtA(t.balance)}</td><td>${t.operator || ''}</td><td>${t.note || t.item || ''}</td></tr>`); });
+    cardTxns.forEach(t => { w.document.write(`<tr><td>${fmtD(t.date)}</td><td>${escapeHtml(t.type)}</td><td>${fmtA(t.amount)}</td><td>${fmtA(t.balance)}</td><td>${escapeHtml(t.operator || '')}</td><td>${escapeHtml(t.note || t.item || '')}</td></tr>`); });
     w.document.write('</table></body></html>');
     w.document.close(); w.print();
   };

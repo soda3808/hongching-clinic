@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_attendance';
 const LATE_H = 9, LATE_M = 30, END_H = 18;
@@ -139,8 +140,8 @@ export default function StaffAttendance({ data, showToast, user }) {
 
   const handlePrint = () => {
     const w = window.open('', '_blank');
-    const rows = filtered.map(r => { const s = getStatus(r.clockIn, r.clockOut); return `<tr><td>${r.date}</td><td>${r.staff}</td><td>${r.store}</td><td>${r.clockIn || '-'}</td><td>${r.clockOut || '-'}</td><td>${calcHrs(r.clockIn, r.clockOut)}</td><td>${s.label}</td></tr>`; }).join('');
-    w.document.write(`<html><head><title>考勤報表</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;font-size:13px}th{background:#0e7490;color:#fff}h2{color:#0e7490}</style></head><body><h2>${getClinicName()} - 員工考勤報表 (${fMonth})</h2><p>出勤率: ${stats.rate}% | 遲到: ${stats.late} | 早退: ${stats.early} | 缺勤: ${stats.absent}</p><table><tr><th>日期</th><th>員工</th><th>店舖</th><th>打卡</th><th>簽退</th><th>時數</th><th>狀態</th></tr>${rows}</table><script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+    const rows = filtered.map(r => { const s = getStatus(r.clockIn, r.clockOut); return `<tr><td>${r.date}</td><td>${escapeHtml(r.staff)}</td><td>${escapeHtml(r.store)}</td><td>${r.clockIn || '-'}</td><td>${r.clockOut || '-'}</td><td>${calcHrs(r.clockIn, r.clockOut)}</td><td>${escapeHtml(s.label)}</td></tr>`; }).join('');
+    w.document.write(`<html><head><title>考勤報表</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:6px;font-size:13px}th{background:#0e7490;color:#fff}h2{color:#0e7490}</style></head><body><h2>${escapeHtml(getClinicName())} - 員工考勤報表 (${fMonth})</h2><p>出勤率: ${stats.rate}% | 遲到: ${stats.late} | 早退: ${stats.early} | 缺勤: ${stats.absent}</p><table><tr><th>日期</th><th>員工</th><th>店舖</th><th>打卡</th><th>簽退</th><th>時數</th><th>狀態</th></tr>${rows}</table><script>setTimeout(()=>window.print(),300)<\/script></body></html>`);
     w.document.close();
   };
 

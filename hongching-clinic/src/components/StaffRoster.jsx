@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors, getStoreNames } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const LS_KEY = 'hcmc_staff_roster';
@@ -191,7 +192,7 @@ export default function StaffRoster({ data, showToast, user }) {
         const sh = shiftOf(getR(s, i));
         return `<td style="padding:6px;border:1px solid #ccc;text-align:center;background:${sh.bg};color:${sh.color};font-weight:600;font-size:11px">${sh.label}${sh.time ? '<br/><small>' + sh.time + '</small>' : ''}</td>`;
       }).join('');
-      return `<tr><td style="padding:6px;border:1px solid #ccc;font-weight:700;white-space:nowrap">${s}<br/><small style="color:#888">${rl}</small></td>${cells}<td style="padding:6px;border:1px solid #ccc;text-align:center;font-weight:700">${wkHrs[s]}h</td></tr>`;
+      return `<tr><td style="padding:6px;border:1px solid #ccc;font-weight:700;white-space:nowrap">${escapeHtml(s)}<br/><small style="color:#888">${escapeHtml(rl)}</small></td>${cells}<td style="padding:6px;border:1px solid #ccc;text-align:center;font-weight:700">${wkHrs[s]}h</td></tr>`;
     }).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>員工排班表</title>
       <style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:1000px;margin:0 auto;font-size:12px}
@@ -199,11 +200,11 @@ export default function StaffRoster({ data, showToast, user }) {
       .sub{text-align:center;color:#888;font-size:11px;margin-bottom:16px}
       table{width:100%;border-collapse:collapse}
       @media print{body{margin:0;padding:8mm}}</style></head><body>
-      <h1>${getClinicName()} — 員工排班表</h1>
+      <h1>${escapeHtml(getClinicName())} — 員工排班表</h1>
       <div class="sub">週期：${wkRange(monday)} | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
       <table><thead><tr><th style="padding:6px;border:1px solid #ccc;background:#f0f0f0;text-align:left">員工</th>${hCols}<th style="padding:6px;border:1px solid #ccc;background:#f0f0f0">週時數</th></tr></thead>
       <tbody>${rows}</tbody></table>
-      ${alerts.length ? '<div style="margin-top:14px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#991b1b;font-size:12px"><b>人手不足警示：</b><ul style="margin:4px 0 0 16px">' + alerts.map(a => `<li>${a}</li>`).join('') + '</ul></div>' : ''}
+      ${alerts.length ? '<div style="margin-top:14px;padding:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#991b1b;font-size:12px"><b>人手不足警示：</b><ul style="margin:4px 0 0 16px">' + alerts.map(a => `<li>${escapeHtml(a)}</li>`).join('') + '</ul></div>' : ''}
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

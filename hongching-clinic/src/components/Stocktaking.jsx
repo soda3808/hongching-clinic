@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
 import { stocktakingOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_stocktaking';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -90,9 +91,9 @@ export default function Stocktaking({ data, setData, showToast, user }) {
     const clinic = getClinicName();
     const rows = (rec.items || []).map(it => {
       const color = it.diff > 0 ? '#16a34a' : it.diff < 0 ? '#dc2626' : '#666';
-      return `<tr><td>${it.name}</td><td>${it.category}</td><td style="text-align:right">${it.systemQty}${it.unit}</td><td style="text-align:right">${it.actualQty}${it.unit}</td><td style="text-align:right;color:${color};font-weight:700">${it.diff > 0 ? '+' : ''}${it.diff}${it.unit}</td><td>${it.note}</td></tr>`;
+      return `<tr><td>${escapeHtml(it.name)}</td><td>${escapeHtml(it.category)}</td><td style="text-align:right">${it.systemQty}${escapeHtml(it.unit)}</td><td style="text-align:right">${it.actualQty}${escapeHtml(it.unit)}</td><td style="text-align:right;color:${color};font-weight:700">${it.diff > 0 ? '+' : ''}${it.diff}${escapeHtml(it.unit)}</td><td>${escapeHtml(it.note)}</td></tr>`;
     }).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>盤點報表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px;max-width:800px;margin:0 auto}h1{color:#0e7490;font-size:18px;border-bottom:2px solid #0e7490;padding-bottom:8px}table{width:100%;border-collapse:collapse}th,td{padding:6px 8px;border-bottom:1px solid #eee;font-size:12px}th{background:#f8f8f8;text-align:left;font-weight:700}.footer{text-align:center;font-size:10px;color:#aaa;margin-top:20px}@media print{body{padding:10px}}</style></head><body><h1>${clinic} — 盤點報表</h1><p style="font-size:12px;color:#666">日期: ${rec.date} | 店舖: ${rec.store} | 盤點人: ${rec.user} | 項目: ${rec.totalItems} | 差異: ${rec.diffItems}項</p><table><thead><tr><th>藥材</th><th>分類</th><th style="text-align:right">系統</th><th style="text-align:right">實際</th><th style="text-align:right">差異</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table><p style="font-weight:700;margin-top:12px">差異金額: <span style="color:${rec.diffAmount >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(rec.diffAmount)}</span></p><div class="footer">列印時間: ${new Date().toLocaleString('zh-HK')}</div></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>盤點報表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px;max-width:800px;margin:0 auto}h1{color:#0e7490;font-size:18px;border-bottom:2px solid #0e7490;padding-bottom:8px}table{width:100%;border-collapse:collapse}th,td{padding:6px 8px;border-bottom:1px solid #eee;font-size:12px}th{background:#f8f8f8;text-align:left;font-weight:700}.footer{text-align:center;font-size:10px;color:#aaa;margin-top:20px}@media print{body{padding:10px}}</style></head><body><h1>${escapeHtml(clinic)} — 盤點報表</h1><p style="font-size:12px;color:#666">日期: ${rec.date} | 店舖: ${escapeHtml(rec.store)} | 盤點人: ${escapeHtml(rec.user)} | 項目: ${rec.totalItems} | 差異: ${rec.diffItems}項</p><table><thead><tr><th>藥材</th><th>分類</th><th style="text-align:right">系統</th><th style="text-align:right">實際</th><th style="text-align:right">差異</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table><p style="font-weight:700;margin-top:12px">差異金額: <span style="color:${rec.diffAmount >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(rec.diffAmount)}</span></p><div class="footer">列印時間: ${new Date().toLocaleString('zh-HK')}</div></body></html>`);
     w.document.close(); w.print();
   };
 

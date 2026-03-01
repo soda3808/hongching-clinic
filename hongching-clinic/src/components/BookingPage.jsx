@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { saveBooking, updateBookingStatus, openWhatsApp, saveQueue, saveWaitlist, deleteWaitlist } from '../api';
 import { uid, getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import EmptyState from './EmptyState';
 
@@ -354,7 +355,7 @@ export default function BookingPage({ data, setData, showToast }) {
   const printAppointmentCard = (b) => {
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>預約卡 - ${b.patientName}</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>預約卡 - ${escapeHtml(b.patientName)}</title>
       <style>
         @page { size: 100mm 65mm; margin: 0; }
         body { font-family: 'Microsoft YaHei', 'PingFang TC', sans-serif; margin: 0; padding: 0; }
@@ -375,8 +376,8 @@ export default function BookingPage({ data, setData, showToast }) {
       <div class="card">
         <div class="header">
           <div>
-            <div class="clinic-name">${getClinicName()}</div>
-            <div class="clinic-en">${getClinicNameEn().toUpperCase()}</div>
+            <div class="clinic-name">${escapeHtml(getClinicName())}</div>
+            <div class="clinic-en">${escapeHtml(getClinicNameEn().toUpperCase())}</div>
           </div>
           <div class="badge">預約確認卡</div>
         </div>
@@ -384,11 +385,11 @@ export default function BookingPage({ data, setData, showToast }) {
           📅 ${b.date} &nbsp;&nbsp; ⏰ ${b.time}
         </div>
         <div class="info">
-          <div class="row"><span class="label">病人姓名：</span><span class="value">${b.patientName}</span></div>
-          <div class="row"><span class="label">主診醫師：</span><span class="value">👨‍⚕️ ${b.doctor}</span></div>
-          <div class="row"><span class="label">診所地址：</span><span class="value">📍 ${(getTenantStores().find(s => s.name === b.store) || {}).address || b.store}</span></div>
-          <div class="row"><span class="label">治療類型：</span><span class="value">${b.type}</span></div>
-          ${b.notes ? `<div class="row"><span class="label">備註：</span><span class="value">${b.notes}</span></div>` : ''}
+          <div class="row"><span class="label">病人姓名：</span><span class="value">${escapeHtml(b.patientName)}</span></div>
+          <div class="row"><span class="label">主診醫師：</span><span class="value">${escapeHtml(b.doctor)}</span></div>
+          <div class="row"><span class="label">診所地址：</span><span class="value">${escapeHtml((getTenantStores().find(s => s.name === b.store) || {}).address || b.store)}</span></div>
+          <div class="row"><span class="label">治療類型：</span><span class="value">${escapeHtml(b.type)}</span></div>
+          ${b.notes ? `<div class="row"><span class="label">備註：</span><span class="value">${escapeHtml(b.notes)}</span></div>` : ''}
         </div>
         <div class="footer">如需更改或取消預約，請提前致電診所。多謝！</div>
       </div>
@@ -438,7 +439,7 @@ export default function BookingPage({ data, setData, showToast }) {
         dates.map(d => {
           const items = bookings.filter(b => b.date === d && b.time >= time && b.time < nextTime && b.status !== 'cancelled');
           return `<td style="border:1px solid #eee;padding:2px;font-size:9px;vertical-align:top;min-width:100px">${
-            items.map(b => `<div style="background:${DOC_COLORS[b.doctor] || '#888'};color:#fff;padding:1px 4px;border-radius:3px;margin:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.time} ${b.patientName}</div>`).join('')
+            items.map(b => `<div style="background:${DOC_COLORS[b.doctor] || '#888'};color:#fff;padding:1px 4px;border-radius:3px;margin:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${b.time} ${escapeHtml(b.patientName)}</div>`).join('')
           }</td>`;
         }).join('') + '</tr>';
     }).join('');
@@ -448,10 +449,10 @@ export default function BookingPage({ data, setData, showToast }) {
       th{background:#0e7490;color:#fff;padding:6px;font-size:11px;text-align:center}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:10px}
     </style></head><body>
-      <h1>${getClinicName()} — 週預約排班表</h1>
+      <h1>${escapeHtml(getClinicName())} — 週預約排班表</h1>
       <p style="font-size:11px;color:#888">${dates[0]} ~ ${dates[6]}</p>
       <table><thead><tr><th></th>${dates.map((d, i) => `<th>星期${dayLabels[i]}<br/>${d.substring(5)}</th>`).join('')}</tr></thead><tbody>${cells}</tbody></table>
-      <div style="margin-top:8px;font-size:10px;display:flex;gap:12px">${DOCTORS.map(d => `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:3px;background:${DOC_COLORS[d] || '#888'}"></span>${d}</span>`).join('')}</div>
+      <div style="margin-top:8px;font-size:10px;display:flex;gap:12px">${DOCTORS.map(d => `<span style="display:inline-flex;align-items:center;gap:4px"><span style="width:12px;height:12px;border-radius:3px;background:${DOC_COLORS[d] || '#888'}"></span>${escapeHtml(d)}</span>`).join('')}</div>
       <div class="footer">列印時間: ${new Date().toLocaleString('zh-HK')}</div>
     </body></html>`);
     w.document.close();

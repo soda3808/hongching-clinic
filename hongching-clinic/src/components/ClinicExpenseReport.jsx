@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM, getMonth, monthLabel, EXPENSE_CATEGORIES, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const BUDGET_KEY = 'hcmc_expense_budgets';
@@ -134,10 +135,10 @@ export default function ClinicExpenseReport({ data, showToast, user }) {
   const handlePrint = () => {
     const clinic = getClinicName();
     const catRows = byCat.map(([c, a]) =>
-      `<tr><td>${c}</td><td class="r">${fmtM(a)}</td><td class="r">${totalExpense > 0 ? (a / totalExpense * 100).toFixed(1) : 0}%</td></tr>`
+      `<tr><td>${escapeHtml(c)}</td><td class="r">${fmtM(a)}</td><td class="r">${totalExpense > 0 ? (a / totalExpense * 100).toFixed(1) : 0}%</td></tr>`
     ).join('');
     const topRows = top20.map((e, i) =>
-      `<tr><td>${i + 1}</td><td>${e.date}</td><td>${e.merchant || '-'}</td><td>${e.category || '-'}</td><td class="r">${fmtM(Number(e.amount))}</td></tr>`
+      `<tr><td>${i + 1}</td><td>${e.date}</td><td>${escapeHtml(e.merchant || '-')}</td><td>${escapeHtml(e.category || '-')}</td><td class="r">${fmtM(Number(e.amount))}</td></tr>`
     ).join('');
     const w = window.open('', '_blank');
     if (!w) return;
@@ -153,8 +154,8 @@ export default function ClinicExpenseReport({ data, showToast, user }) {
       .total{font-weight:800;border-top:2px solid #333}
       .ft{text-align:center;font-size:10px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
     </style></head><body>
-      <div class="hd"><h1>${clinic}</h1><p>開支分析報告 Expense Analysis Report</p></div>
-      <div style="text-align:center;margin-bottom:18px;color:#555">報告期間：${periodLabel} ｜ 總開支：${fmtM(totalExpense)} ｜ 共 ${filtered.length} 筆</div>
+      <div class="hd"><h1>${escapeHtml(clinic)}</h1><p>開支分析報告 Expense Analysis Report</p></div>
+      <div style="text-align:center;margin-bottom:18px;color:#555">報告期間：${escapeHtml(periodLabel)} ｜ 總開支：${fmtM(totalExpense)} ｜ 共 ${filtered.length} 筆</div>
       <h2>按類別分析</h2>
       <table><thead><tr><th>類別</th><th class="r">金額</th><th class="r">佔比</th></tr></thead><tbody>
         ${catRows}
@@ -162,7 +163,7 @@ export default function ClinicExpenseReport({ data, showToast, user }) {
       </tbody></table>
       <h2>最大開支 Top 20</h2>
       <table><thead><tr><th>#</th><th>日期</th><th>商戶</th><th>類別</th><th class="r">金額</th></tr></thead><tbody>${topRows}</tbody></table>
-      <div class="ft">此報表由系統自動生成 | ${clinic} | ${new Date().toLocaleString('zh-HK')}</div>
+      <div class="ft">此報表由系統自動生成 | ${escapeHtml(clinic)} | ${new Date().toLocaleString('zh-HK')}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

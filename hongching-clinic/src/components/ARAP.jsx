@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { saveARAP, deleteRecord } from '../api';
 import { uid, fmtM, fmt, getMonth } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 import ConfirmModal from './ConfirmModal';
 
 export default function ARAP({ data, setData, showToast }) {
@@ -90,10 +91,10 @@ export default function ARAP({ data, setData, showToast }) {
     const w = window.open('', '_blank');
     if (!w) return;
     const typeLabel = tab === 'receivable' ? '應收' : '應付';
-    const rows = agingData.map(b => `<tr><td style="font-weight:600;color:${b.color}">${b.label}</td><td style="text-align:right">${b.items.length}</td><td style="text-align:right;font-weight:700">${fmtM(b.total)}</td></tr>`).join('');
+    const rows = agingData.map(b => `<tr><td style="font-weight:600;color:${b.color}">${escapeHtml(b.label)}</td><td style="text-align:right">${b.items.length}</td><td style="text-align:right;font-weight:700">${fmtM(b.total)}</td></tr>`).join('');
     const detailRows = agingData.filter(b => b.items.length).map(b =>
-      `<tr style="background:#f3f4f6"><td colspan="4" style="font-weight:700;color:${b.color}">${b.label} (${b.items.length}筆)</td></tr>` +
-      b.items.map(r => `<tr><td>${r.party}</td><td style="text-align:right">${fmtM(r.amount)}</td><td>${r.dueDate || '-'}</td><td>${r.desc || '-'}</td></tr>`).join('')
+      `<tr style="background:#f3f4f6"><td colspan="4" style="font-weight:700;color:${b.color}">${escapeHtml(b.label)} (${b.items.length}筆)</td></tr>` +
+      b.items.map(r => `<tr><td>${escapeHtml(r.party)}</td><td style="text-align:right">${fmtM(r.amount)}</td><td>${r.dueDate || '-'}</td><td>${escapeHtml(r.desc || '-')}</td></tr>`).join('')
     ).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>${typeLabel}帳齡分析</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:800px;margin:0 auto}
@@ -102,7 +103,7 @@ export default function ARAP({ data, setData, showToast }) {
       th{background:#0e7490;color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
     </style></head><body>
-      <h1>${getClinicName()} — ${typeLabel}帳齡分析</h1>
+      <h1>${escapeHtml(getClinicName())} — ${typeLabel}帳齡分析</h1>
       <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0, 10)}</p>
       <h3>摘要</h3><table><thead><tr><th>帳齡</th><th style="text-align:right">筆數</th><th style="text-align:right">金額</th></tr></thead><tbody>${rows}</tbody></table>
       <h3>明細</h3><table><thead><tr><th>對象</th><th style="text-align:right">金額</th><th>到期日</th><th>描述</th></tr></thead><tbody>${detailRows}</tbody></table>
@@ -167,19 +168,19 @@ export default function ARAP({ data, setData, showToast }) {
       .amount{font-size:24px;color:#dc2626;font-weight:800}
       .footer{margin-top:40px;padding-top:16px;border-top:1px solid #ddd;font-size:11px;color:#888;text-align:center}
     </style></head><body>
-      <h1>${getClinicName()} — 付款提醒通知</h1>
+      <h1>${escapeHtml(getClinicName())} — 付款提醒通知</h1>
       <p>日期：${new Date().toISOString().substring(0, 10)}</p>
       <div class="info">
-        <p><strong>${r.party}</strong> 閣下：</p>
+        <p><strong>${escapeHtml(r.party)}</strong> 閣下：</p>
         <p>根據本中心紀錄，閣下有以下款項尚未處理：</p>
         <p>金額：<span class="amount">$${Number(r.amount).toLocaleString()}</span></p>
         <p>到期日：${r.dueDate || '未設定'}</p>
         ${days > 0 ? `<p style="color:#dc2626;font-weight:700">已逾期 ${days} 天</p>` : ''}
-        <p>描述：${r.desc || '-'}</p>
+        <p>描述：${escapeHtml(r.desc || '-')}</p>
         <p style="margin-top:24px">敬請儘快安排付款，如已付款請忽略此通知。</p>
         <p>如有任何疑問，請聯絡本中心。</p>
       </div>
-      <div class="footer">${getClinicName()}</div>
+      <div class="footer">${escapeHtml(getClinicName())}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

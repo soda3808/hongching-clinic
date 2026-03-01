@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM, EXPENSE_CATEGORIES } from '../data';
 import { clinicBudgetOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -153,12 +154,12 @@ export default function ClinicBudget({ data, showToast, user }) {
     if (!w) return showToast?.('無法開啟列印視窗');
     const rows = summary.map(r => {
       const color = r.pct >= 100 ? '#dc2626' : r.pct >= 90 ? '#d97706' : '#333';
-      return `<tr><td>${r.cat}</td><td style="text-align:right">${fmtM(r.budget)}</td><td style="text-align:right">${fmtM(r.actual)}</td><td style="text-align:right;color:${r.variance >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(r.variance)}</td><td style="text-align:right;color:${color}">${r.budget > 0 ? r.pct.toFixed(1) + '%' : '-'}</td></tr>`;
+      return `<tr><td>${escapeHtml(r.cat)}</td><td style="text-align:right">${fmtM(r.budget)}</td><td style="text-align:right">${fmtM(r.actual)}</td><td style="text-align:right;color:${r.variance >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(r.variance)}</td><td style="text-align:right;color:${color}">${r.budget > 0 ? r.pct.toFixed(1) + '%' : '-'}</td></tr>`;
     }).join('');
     const totalRow = `<tr style="font-weight:700;background:#f0fdfa"><td>合計</td><td style="text-align:right">${fmtM(grandBudget)}</td><td style="text-align:right">${fmtM(grandActual)}</td><td style="text-align:right;color:${grandBudget - grandActual >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(grandBudget - grandActual)}</td><td style="text-align:right">${grandBudget > 0 ? ((grandActual / grandBudget) * 100).toFixed(1) + '%' : '-'}</td></tr>`;
-    w.document.write(`<!DOCTYPE html><html><head><title>${clinicName} ${selYear}年度預算報告</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(clinicName)} ${selYear}年度預算報告</title>
       <style>body{font-family:sans-serif;padding:24px;color:#333}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:8px 12px;font-size:13px}th{background:#f0fdfa;color:${ACCENT};text-align:left}.h{color:${ACCENT};margin-bottom:4px}@media print{body{padding:0}}</style>
-    </head><body><h2 class="h">${clinicName}</h2><h3>${selYear} 年度預算報告</h3><p>狀態：${STATUS_LABELS[plan?.status || 'draft']}　列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
+    </head><body><h2 class="h">${escapeHtml(clinicName)}</h2><h3>${selYear} 年度預算報告</h3><p>狀態：${escapeHtml(STATUS_LABELS[plan?.status || 'draft'])}　列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
     <table><thead><tr><th>類別</th><th style="text-align:right">預算</th><th style="text-align:right">實際</th><th style="text-align:right">差額</th><th style="text-align:right">使用率</th></tr></thead><tbody>${rows}${totalRow}</tbody></table>
     <script>setTimeout(()=>window.print(),400)<\/script></body></html>`);
     w.document.close();

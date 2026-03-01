@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_consents';
 const ACCENT = '#0e7490';
@@ -150,7 +151,7 @@ export default function ConsentForm({ data, showToast, user }) {
   const handlePrint = (c) => {
     const typeObj = TYPES.find(t => t.key === c.type);
     const clinic = getClinicName();
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${typeObj?.label || '同意書'}</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(typeObj?.label || '同意書')}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:40px;max-width:700px;margin:0 auto;color:#1e293b}
       h1{text-align:center;font-size:20px;margin-bottom:4px}h2{text-align:center;font-size:16px;color:#475569;margin-top:0}
       .info{margin:24px 0;font-size:14px;line-height:1.8}.info span{display:inline-block;min-width:80px;font-weight:600}
@@ -159,14 +160,14 @@ export default function ConsentForm({ data, showToast, user }) {
       .sig-line{border-top:1px solid #1e293b;margin-top:60px;padding-top:6px;font-size:13px}
       .footer{margin-top:40px;text-align:center;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
       @media print{body{padding:20px}}</style></head><body>
-      <h1>${clinic}</h1><h2>${typeObj?.label || '同意書'}</h2>
-      <div class="info"><p><span>病人姓名：</span>${c.patientName || '-'}</p>
+      <h1>${escapeHtml(clinic)}</h1><h2>${escapeHtml(typeObj?.label || '同意書')}</h2>
+      <div class="info"><p><span>病人姓名：</span>${escapeHtml(c.patientName || '-')}</p>
       <p><span>簽署日期：</span>${fmt(c.date)}</p>
-      <p><span>簽署方式：</span>${c.method || '-'}</p>
+      <p><span>簽署方式：</span>${escapeHtml(c.method || '-')}</p>
       <p><span>狀態：</span>${c.granted ? '已授權' : '已撤回'}</p></div>
-      <div class="text"><strong>同意書內容：</strong><br><br>${typeObj?.desc || ''}</div>
+      <div class="text"><strong>同意書內容：</strong><br><br>${escapeHtml(typeObj?.desc || '')}</div>
       <div class="sig"><div><div class="sig-line">病人簽署</div></div><div><div class="sig-line">見證人 / 職員</div></div></div>
-      <div class="footer">${clinic} | 列印日期：${new Date().toLocaleDateString('zh-HK')}</div>
+      <div class="footer">${escapeHtml(clinic)} | 列印日期：${new Date().toLocaleDateString('zh-HK')}</div>
       </body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);

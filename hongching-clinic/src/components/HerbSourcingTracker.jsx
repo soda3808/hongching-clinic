@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { loadHerbSourcing, persistHerbSourcingAll, removeHerbSourcing } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_herb_sourcing';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -164,24 +165,24 @@ th{background:#f0fdfa;color:#0e7490;font-weight:700}
 .sig{display:flex;justify-content:space-between;margin-top:40px;font-size:12px}
 .sig div{text-align:center;width:200px;border-top:1px solid #333;padding-top:6px}
 @media print{body{padding:15px}}</style></head>
-<body><h1>${clinic} — 中藥質量檢驗證書</h1>
+<body><h1>${escapeHtml(clinic)} — 中藥質量檢驗證書</h1>
 <h2>藥材基本資料</h2>
-<div class="info"><div>藥材名稱：<span>${batch.herbName}</span></div><div>批次編號：<span>${batch.batchNo}</span></div>
-<div>供應商：<span>${batch.supplier}</span></div><div>產地：<span>${batch.origin || '-'}</span></div>
+<div class="info"><div>藥材名稱：<span>${escapeHtml(batch.herbName)}</span></div><div>批次編號：<span>${escapeHtml(batch.batchNo)}</span></div>
+<div>供應商：<span>${escapeHtml(batch.supplier)}</span></div><div>產地：<span>${escapeHtml(batch.origin || '-')}</span></div>
 <div>採收日期：<span>${batch.harvestDate || '-'}</span></div><div>接收日期：<span>${batch.receivedDate || '-'}</span></div>
-<div>品質等級：<span>${batch.grade}</span></div><div>有效期至：<span>${batch.expiryDate || '-'}</span></div></div>
+<div>品質等級：<span>${escapeHtml(batch.grade)}</span></div><div>有效期至：<span>${batch.expiryDate || '-'}</span></div></div>
 <h2>感官及理化檢驗</h2>
 <table><thead><tr><th>檢驗項目</th><th>結果</th></tr></thead><tbody>
-<tr><td>外觀</td><td>${ins.appearance || '-'}</td></tr>
-<tr><td>氣味</td><td>${ins.smell || '-'}</td></tr>
-<tr><td>味道</td><td>${ins.taste || '-'}</td></tr>
+<tr><td>外觀</td><td>${escapeHtml(ins.appearance || '-')}</td></tr>
+<tr><td>氣味</td><td>${escapeHtml(ins.smell || '-')}</td></tr>
+<tr><td>味道</td><td>${escapeHtml(ins.taste || '-')}</td></tr>
 <tr><td>含水量 (%)</td><td>${ins.moisture || '-'}%</td></tr>
 <tr><td>雜質檢查</td><td>${ins.impurity ? '發現雜質' : '未發現雜質'}</td></tr>
 </tbody></table>
 <div class="result ${ins.result === 'pass' ? 'pass' : 'fail'}">${ins.result === 'pass' ? '合格 PASSED' : '不合格 FAILED'}</div>
-<p>備註：${ins.remarks || '無'}</p>
-<div class="sig"><div>檢驗人員：${ins.inspectedBy || ins.inspector || ''}</div><div>檢驗日期：${ins.inspectDate || ''}</div></div>
-<div class="footer">本證書由 ${clinic} 管理系統自動生成 | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
+<p>備註：${escapeHtml(ins.remarks || '無')}</p>
+<div class="sig"><div>檢驗人員：${escapeHtml(ins.inspectedBy || ins.inspector || '')}</div><div>檢驗日期：${ins.inspectDate || ''}</div></div>
+<div class="footer">本證書由 ${escapeHtml(clinic)} 管理系統自動生成 | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
 <script>setTimeout(()=>window.print(),300)</script></body></html>`;
     const w = window.open('', '_blank'); if (!w) return; w.document.write(html); w.document.close();
   };

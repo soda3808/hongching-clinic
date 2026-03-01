@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const today = () => new Date().toISOString().substring(0, 10);
 
@@ -59,44 +60,44 @@ const labelStyles = `
 
 function rxHtml(c, clinic, clinicName, storeName) {
   const rx = c.prescription || [];
-  const rows = rx.map((r, i) => `<tr><td>${i + 1}</td><td>${r.herb}</td><td>${r.dosage}</td></tr>`).join('');
+  const rows = rx.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.herb)}</td><td>${escapeHtml(r.dosage)}</td></tr>`).join('');
   return `
     <div class="header">
-      <h1>${clinic.name || clinicName}</h1>
-      <p>${storeName}</p>
-      <p>Tel: ${clinic.tel || ''}</p>
+      <h1>${escapeHtml(clinic.name || clinicName)}</h1>
+      <p>${escapeHtml(storeName)}</p>
+      <p>Tel: ${escapeHtml(clinic.tel || '')}</p>
     </div>
     <div class="title">中 藥 處 方 箋</div>
     <div class="info-grid">
-      <div><span class="lbl">病人姓名：</span>${c.patientName}</div>
-      <div><span class="lbl">就診日期：</span>${c.date}</div>
-      <div><span class="lbl">主診醫師：</span>${c.doctor}</div>
+      <div><span class="lbl">病人姓名：</span>${escapeHtml(c.patientName)}</div>
+      <div><span class="lbl">就診日期：</span>${escapeHtml(c.date)}</div>
+      <div><span class="lbl">主診醫師：</span>${escapeHtml(c.doctor)}</div>
       <div><span class="lbl">帖數：</span>${c.formulaDays || '-'} 帖</div>
-      ${c.formulaName ? `<div><span class="lbl">處方名稱：</span>${c.formulaName}</div>` : '<div></div>'}
-      <div><span class="lbl">分店：</span>${c.store || storeName}</div>
+      ${c.formulaName ? `<div><span class="lbl">處方名稱：</span>${escapeHtml(c.formulaName)}</div>` : '<div></div>'}
+      <div><span class="lbl">分店：</span>${escapeHtml(c.store || storeName)}</div>
     </div>
     ${rx.length > 0 ? `<table class="rx"><thead><tr><th>#</th><th>藥材名稱</th><th>劑量</th></tr></thead><tbody>${rows}</tbody></table>` : '<p style="color:#999;text-align:center">（無藥材記錄）</p>'}
-    ${c.formulaInstructions ? `<div class="section"><b>服藥方法：</b>${c.formulaInstructions}</div>` : ''}
-    ${c.specialNotes ? `<div class="section" style="border-left-color:#e67e22"><b>特別注意：</b>${c.specialNotes}</div>` : ''}
+    ${c.formulaInstructions ? `<div class="section"><b>服藥方法：</b>${escapeHtml(c.formulaInstructions)}</div>` : ''}
+    ${c.specialNotes ? `<div class="section" style="border-left-color:#e67e22"><b>特別注意：</b>${escapeHtml(c.specialNotes)}</div>` : ''}
     <div class="sig-row">
-      <div class="sig-box"><div class="sig-line">主診醫師簽署<br/>${c.doctor}</div></div>
+      <div class="sig-box"><div class="sig-line">主診醫師簽署<br/>${escapeHtml(c.doctor)}</div></div>
       <div class="sig-box"><div class="sig-line">診所蓋章</div></div>
     </div>
-    <div class="footer">Ref: ${(c.id || '').substring(0, 8)} | ${clinic.name || clinicName}</div>`;
+    <div class="footer">Ref: ${escapeHtml((c.id || '').substring(0, 8))} | ${escapeHtml(clinic.name || clinicName)}</div>`;
 }
 
 function labelHtml(c, clinic, clinicName, idx, total) {
   const rx = c.prescription || [];
-  const herbs = rx.map(r => `${r.herb} ${r.dosage}`).join('、');
+  const herbs = rx.map(r => `${escapeHtml(r.herb)} ${escapeHtml(r.dosage)}`).join('、');
   return `
     <div class="label">
-      <div class="lbl-header"><div class="name">${clinic.name || clinicName}</div></div>
-      <div class="lbl-row"><span><b>病人：</b>${c.patientName}</span><span><b>日期：</b>${c.date}</span></div>
-      <div class="lbl-row"><span><b>醫師：</b>${c.doctor}</span><span><b>帖數：</b>${c.formulaDays || '-'} 帖</span></div>
-      ${c.formulaName ? `<div style="font-size:12px;font-weight:700;margin-top:4px">處方：${c.formulaName}</div>` : ''}
+      <div class="lbl-header"><div class="name">${escapeHtml(clinic.name || clinicName)}</div></div>
+      <div class="lbl-row"><span><b>病人：</b>${escapeHtml(c.patientName)}</span><span><b>日期：</b>${escapeHtml(c.date)}</span></div>
+      <div class="lbl-row"><span><b>醫師：</b>${escapeHtml(c.doctor)}</span><span><b>帖數：</b>${c.formulaDays || '-'} 帖</span></div>
+      ${c.formulaName ? `<div style="font-size:12px;font-weight:700;margin-top:4px">處方：${escapeHtml(c.formulaName)}</div>` : ''}
       ${herbs ? `<div style="font-size:10px;margin-top:4px;padding:4px;background:#f9f9f9;border-radius:2px">${herbs}</div>` : ''}
-      <div class="lbl-inst">服法：${c.formulaInstructions || '每日一劑，水煎服'}</div>
-      ${c.specialNotes ? `<div class="lbl-note">注意：${c.specialNotes}</div>` : ''}
+      <div class="lbl-inst">服法：${escapeHtml(c.formulaInstructions || '每日一劑，水煎服')}</div>
+      ${c.specialNotes ? `<div class="lbl-note">注意：${escapeHtml(c.specialNotes)}</div>` : ''}
       <div class="lbl-foot">如有不適請立即停藥並聯絡本中心 | ${idx}/${total}</div>
     </div>`;
 }

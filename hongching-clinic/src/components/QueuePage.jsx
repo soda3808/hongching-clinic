@@ -6,6 +6,7 @@ import { getTenantStoreNames, getClinicName, getClinicNameEn } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import SignaturePad, { SignaturePreview } from './SignaturePad';
+import escapeHtml from '../utils/escapeHtml';
 
 const STATUS_LABELS = {
   waiting: '等候中',
@@ -351,17 +352,17 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
         @media print { body { margin: 0; padding: 15mm; } }
       </style>
     </head><body>
-      <h1>${getClinicName()}</h1>
-      <div class="en">${getClinicNameEn()}</div>
+      <h1>${escapeHtml(getClinicName())}</h1>
+      <div class="en">${escapeHtml(getClinicNameEn())}</div>
       <h2>治療同意書 Treatment Consent Form</h2>
 
       <div class="info-grid">
-        <div class="info-item"><span class="info-label">病人姓名：</span><span>${item.patientName}</span></div>
-        <div class="info-item"><span class="info-label">掛號編號：</span><span>${item.queueNo}</span></div>
+        <div class="info-item"><span class="info-label">病人姓名：</span><span>${escapeHtml(item.patientName)}</span></div>
+        <div class="info-item"><span class="info-label">掛號編號：</span><span>${escapeHtml(item.queueNo)}</span></div>
         <div class="info-item"><span class="info-label">就診日期：</span><span>${item.date}</span></div>
-        <div class="info-item"><span class="info-label">主診醫師：</span><span>${item.doctor}</span></div>
-        <div class="info-item"><span class="info-label">診所分店：</span><span>${item.store}</span></div>
-        <div class="info-item"><span class="info-label">治療項目：</span><span>${item.services}</span></div>
+        <div class="info-item"><span class="info-label">主診醫師：</span><span>${escapeHtml(item.doctor)}</span></div>
+        <div class="info-item"><span class="info-label">診所分店：</span><span>${escapeHtml(item.store)}</span></div>
+        <div class="info-item"><span class="info-label">治療項目：</span><span>${escapeHtml(item.services)}</span></div>
       </div>
 
       <div class="section">
@@ -400,7 +401,7 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
         </div>
         <div>
           ${dSig ? `<img src="${dSig}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:50px"></div>'}
-          <div class="sign-box">醫師簽名 Doctor Signature<br/>${item.doctor}</div>
+          <div class="sign-box">醫師簽名 Doctor Signature<br/>${escapeHtml(item.doctor)}</div>
         </div>
       </div>
       <div style="text-align:center; margin-top:20px; font-size:11px; color:#aaa">

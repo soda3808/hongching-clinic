@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_patient_community';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -134,7 +135,7 @@ export default function PatientCommunity({ data, showToast, user }) {
   const printPost = p => {
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${p.title}</title>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(p.title)}</title>
       <style>body{font-family:-apple-system,sans-serif;padding:40px;max-width:700px;margin:0 auto}
       h1{font-size:22px;color:#1e293b;margin-bottom:8px}
       .meta{color:#64748b;font-size:13px;margin-bottom:20px}
@@ -142,10 +143,10 @@ export default function PatientCommunity({ data, showToast, user }) {
       .content{font-size:15px;line-height:1.8;color:#334155;white-space:pre-wrap}
       .footer{margin-top:30px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:12px;color:#94a3b8;text-align:center}
       @media print{body{padding:20px}}</style></head>
-      <body><h1>${p.title}</h1>
-      <div class="meta"><span class="badge">${p.category}</span>作者：${p.author || '匿名'} | 日期：${p.date || ''}</div>
+      <body><h1>${escapeHtml(p.title)}</h1>
+      <div class="meta"><span class="badge">${escapeHtml(p.category)}</span>作者：${escapeHtml(p.author || '匿名')} | 日期：${p.date || ''}</div>
       <div class="content">${(p.content || '').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</div>
-      <div class="footer">${clinicName} - 健康教育專欄 | 列印日期：${today()}</div>
+      <div class="footer">${escapeHtml(clinicName)} - 健康教育專欄 | 列印日期：${today()}</div>
       </body></html>`);
     w.document.close(); w.print();
   };

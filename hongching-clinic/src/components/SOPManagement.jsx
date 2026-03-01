@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const SOP_KEY = 'hcmc_sops';
 const ACK_KEY = 'hcmc_sop_acks';
@@ -197,19 +198,19 @@ export default function SOPManagement({ showToast, user }) {
   const printSop = (sop) => {
     const w = window.open('', '_blank', 'width=800,height=600');
     if (!w) return;
-    const stepsHtml = sop.steps.map((s, i) => `<tr><td style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:700;color:${ACCENT}">${i + 1}</td><td style="padding:8px;border:1px solid #ddd">${s.text}</td><td style="padding:8px;border:1px solid #ddd">${s.responsible}</td></tr>`).join('');
+    const stepsHtml = sop.steps.map((s, i) => `<tr><td style="padding:8px;border:1px solid #ddd;text-align:center;font-weight:700;color:${ACCENT}">${i + 1}</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(s.text)}</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(s.responsible)}</td></tr>`).join('');
     const ackList = getSopAcks(sop.id);
-    const ackHtml = ackList.length ? `<h3 style="margin-top:24px">確認閱讀記錄</h3><table style="width:100%;border-collapse:collapse">${ackList.map(a => `<tr><td style="padding:6px;border:1px solid #ddd">${a.user}</td><td style="padding:6px;border:1px solid #ddd">${a.date}</td></tr>`).join('')}</table>` : '';
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${sop.title}</title></head><body style="font-family:'Microsoft YaHei',sans-serif;padding:40px;max-width:700px;margin:0 auto">
-      <h2 style="color:${ACCENT};margin-bottom:4px">${getClinicName()}</h2>
-      <h1 style="font-size:22px;margin:12px 0">${sop.title}</h1>
-      <p style="color:#64748b;font-size:13px">分類：${sop.category} | 版本：${sop.version} | 生效日期：${sop.effectiveDate} | 批准人：${sop.approvedBy || '-'}</p>
+    const ackHtml = ackList.length ? `<h3 style="margin-top:24px">確認閱讀記錄</h3><table style="width:100%;border-collapse:collapse">${ackList.map(a => `<tr><td style="padding:6px;border:1px solid #ddd">${escapeHtml(a.user)}</td><td style="padding:6px;border:1px solid #ddd">${a.date}</td></tr>`).join('')}</table>` : '';
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(sop.title)}</title></head><body style="font-family:'Microsoft YaHei',sans-serif;padding:40px;max-width:700px;margin:0 auto">
+      <h2 style="color:${ACCENT};margin-bottom:4px">${escapeHtml(getClinicName())}</h2>
+      <h1 style="font-size:22px;margin:12px 0">${escapeHtml(sop.title)}</h1>
+      <p style="color:#64748b;font-size:13px">分類：${escapeHtml(sop.category)} | 版本：${escapeHtml(sop.version)} | 生效日期：${sop.effectiveDate} | 批准人：${escapeHtml(sop.approvedBy || '-')}</p>
       <table style="width:100%;border-collapse:collapse;margin-top:16px">
         <thead><tr><th style="padding:8px;border:1px solid #ddd;background:#f1f5f9;width:40px">步驟</th><th style="padding:8px;border:1px solid #ddd;background:#f1f5f9">內容</th><th style="padding:8px;border:1px solid #ddd;background:#f1f5f9;width:100px">負責人</th></tr></thead>
         <tbody>${stepsHtml}</tbody>
       </table>
       ${ackHtml}
-      <p style="margin-top:30px;font-size:11px;color:#94a3b8;text-align:center">列印日期：${today()} | ${getClinicName()} SOP管理系統</p>
+      <p style="margin-top:30px;font-size:11px;color:#94a3b8;text-align:center">列印日期：${today()} | ${escapeHtml(getClinicName())} SOP管理系統</p>
       <script>setTimeout(()=>{window.print();},300)<\/script></body></html>`);
     w.document.close();
   };

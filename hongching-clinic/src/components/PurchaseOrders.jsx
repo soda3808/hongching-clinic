@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const PO_KEY = 'hcmc_purchase_orders';
 const SUPPLIER_KEY = 'hcmc_suppliers';
@@ -91,9 +92,9 @@ export default function PurchaseOrders({ data, setData, showToast, user }) {
   };
 
   const handlePrint = (po) => {
-    const rows = po.items.map((i, idx) => `<tr><td>${idx + 1}</td><td>${i.name}</td><td>${i.qty} ${i.unit}</td><td>$${Number(i.unitPrice || 0).toFixed(2)}</td><td>$${((Number(i.qty) || 0) * (Number(i.unitPrice) || 0)).toFixed(2)}</td><td>${i.notes || ''}</td></tr>`).join('');
+    const rows = po.items.map((i, idx) => `<tr><td>${idx + 1}</td><td>${escapeHtml(i.name)}</td><td>${i.qty} ${escapeHtml(i.unit)}</td><td>$${Number(i.unitPrice || 0).toFixed(2)}</td><td>$${((Number(i.qty) || 0) * (Number(i.unitPrice) || 0)).toFixed(2)}</td><td>${escapeHtml(i.notes || '')}</td></tr>`).join('');
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>採購單 ${po.poNo}</title><style>body{font:12px sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:5px 8px;font-size:11px}th{background:#f3f4f6}h1{font-size:16px;margin:0}@media print{body{padding:10px}}</style></head><body><h1>${clinicName} — 採購單</h1><p>單號：<strong>${po.poNo}</strong> | 供應商：<strong>${po.supplier}</strong> | 日期：${po.poDate} | 預計到貨：${po.expectedDate || '-'}</p><table><thead><tr><th>#</th><th>藥材/物品</th><th>數量</th><th>單價</th><th>小計</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table><p style="text-align:right;font-weight:700">總計：$${po.totalAmount?.toFixed(2)}</p><p style="font-size:10px;color:#999;margin-top:20px">建立者：${po.createdBy} | 列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`);
+    w.document.write(`<html><head><title>採購單 ${escapeHtml(po.poNo)}</title><style>body{font:12px sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:5px 8px;font-size:11px}th{background:#f3f4f6}h1{font-size:16px;margin:0}@media print{body{padding:10px}}</style></head><body><h1>${escapeHtml(clinicName)} — 採購單</h1><p>單號：<strong>${escapeHtml(po.poNo)}</strong> | 供應商：<strong>${escapeHtml(po.supplier)}</strong> | 日期：${po.poDate} | 預計到貨：${po.expectedDate || '-'}</p><table><thead><tr><th>#</th><th>藥材/物品</th><th>數量</th><th>單價</th><th>小計</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table><p style="text-align:right;font-weight:700">總計：$${po.totalAmount?.toFixed(2)}</p><p style="font-size:10px;color:#999;margin-top:20px">建立者：${escapeHtml(po.createdBy)} | 列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   };

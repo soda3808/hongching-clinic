@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM, getMonth, getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_RULES = 'hcmc_commission_rules';
@@ -115,9 +116,9 @@ export default function CommissionCalculator({ data, showToast, user }) {
       .sig{display:flex;justify-content:space-between;margin-top:60px;padding:0 40px}
       .sig-box{text-align:center;width:35%}.sig-box div{border-bottom:1px solid #999;height:30px;margin-bottom:6px}
     </style></head><body>
-    <div class="header"><div><b style="font-size:17px">${getClinicName()}</b></div><div style="text-align:right"><b style="font-size:18px">佣金結算單</b></div></div>
+    <div class="header"><div><b style="font-size:17px">${escapeHtml(getClinicName())}</b></div><div style="text-align:right"><b style="font-size:18px">佣金結算單</b></div></div>
     <div style="display:flex;justify-content:space-between;margin-bottom:14px">
-      <div><b>醫師：</b>${c.doc}</div>
+      <div><b>醫師：</b>${escapeHtml(c.doc)}</div>
       <div><b>月份：</b>${selMonth}</div>
       <div><b>列印日期：</b>${new Date().toISOString().split('T')[0]}</div>
     </div>

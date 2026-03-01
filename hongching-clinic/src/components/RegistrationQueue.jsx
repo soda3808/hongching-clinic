@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const STATUS_FLOW = ['已預約', '已到達', '診症中', '已完成'];
 const STATUS_COLORS = { '已預約': '#d97706', '已到達': '#0e7490', '診症中': '#7c3aed', '已完成': '#16a34a' };
@@ -120,13 +121,13 @@ export default function RegistrationQueue({ data, setData, showToast, user }) {
   // Print queue list
   const handlePrint = () => {
     const rows = queue.map(r =>
-      `<tr><td>${r.queueNo || '-'}</td><td>${r.patientName}</td><td>${r.time || '-'}</td><td>${r.doctor}</td><td>${r.regStatus}</td></tr>`
+      `<tr><td>${escapeHtml(r.queueNo || '-')}</td><td>${escapeHtml(r.patientName)}</td><td>${r.time || '-'}</td><td>${escapeHtml(r.doctor)}</td><td>${escapeHtml(r.regStatus)}</td></tr>`
     ).join('');
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>掛號列表</title>
       <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;font-size:13px}th{background:#0e7490;color:#fff}h2{color:#0e7490}@media print{body{padding:10px}}</style>
-    </head><body><h2>${getClinicName()} — 今日掛號列表 (${todayStr})</h2>
+    </head><body><h2>${escapeHtml(getClinicName())} — 今日掛號列表 (${todayStr})</h2>
     <table><thead><tr><th>號碼</th><th>病人</th><th>時間</th><th>醫師</th><th>狀態</th></tr></thead><tbody>${rows || '<tr><td colspan="5" style="text-align:center">暫無紀錄</td></tr>'}</tbody></table>
     </body></html>`);
     w.document.close();

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getStoreNames, getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -100,21 +101,21 @@ export default function ShiftHandover({ data, showToast, user }) {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>交更報告</title>
       <style>body{font-family:Arial,sans-serif;padding:20px;max-width:700px;margin:0 auto}h2{color:${ACCENT};margin-bottom:4px}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{padding:6px 8px;border:1px solid #ddd;text-align:left;font-size:13px}th{background:#f0fdfa;color:${ACCENT}}.section{margin-top:16px;font-weight:700;font-size:14px;color:#1f2937;border-bottom:2px solid ${ACCENT};padding-bottom:4px}.footer{margin-top:30px;font-size:11px;color:#888;text-align:center}@media print{body{padding:0}}</style>
     </head><body>
-      <h2>${clinic} - 交更報告</h2>
-      <p style="color:#666;font-size:13px">日期：${rec.date} ｜ 班次：${shiftLabel(rec.shift)}</p>
-      <table><tr><th>交班人員</th><td>${rec.outgoingStaff}</td><th>接班人員</th><td>${rec.incomingStaff}</td></tr>
+      <h2>${escapeHtml(clinic)} - 交更報告</h2>
+      <p style="color:#666;font-size:13px">日期：${rec.date} ｜ 班次：${escapeHtml(shiftLabel(rec.shift))}</p>
+      <table><tr><th>交班人員</th><td>${escapeHtml(rec.outgoingStaff)}</td><th>接班人員</th><td>${escapeHtml(rec.incomingStaff)}</td></tr>
       <tr><th>當日診症人數</th><td>${rec.patientCount || '-'}</td><th>現金結餘</th><td>${rec.cashBalance ? '$' + rec.cashBalance : '-'}</td></tr></table>
       <div class="section">交更核對清單</div>
       <table><tr><th>項目</th><th style="width:60px">狀態</th></tr>${checkHtml}</table>
-      ${rec.pendingTasks ? `<div class="section">待辦事項</div><p style="font-size:13px;white-space:pre-wrap">${rec.pendingTasks}</p>` : ''}
-      ${rec.urgentMatters ? `<div class="section">緊急事項</div><p style="font-size:13px;white-space:pre-wrap;color:#dc2626">${rec.urgentMatters}</p>` : ''}
-      ${rec.inventoryNotes ? `<div class="section">藥材/庫存備註</div><p style="font-size:13px;white-space:pre-wrap">${rec.inventoryNotes}</p>` : ''}
-      ${rec.equipmentIssues ? `<div class="section">設備問題</div><p style="font-size:13px;white-space:pre-wrap">${rec.equipmentIssues}</p>` : ''}
-      ${rec.generalNotes ? `<div class="section">一般備註</div><p style="font-size:13px;white-space:pre-wrap">${rec.generalNotes}</p>` : ''}
+      ${rec.pendingTasks ? `<div class="section">待辦事項</div><p style="font-size:13px;white-space:pre-wrap">${escapeHtml(rec.pendingTasks)}</p>` : ''}
+      ${rec.urgentMatters ? `<div class="section">緊急事項</div><p style="font-size:13px;white-space:pre-wrap;color:#dc2626">${escapeHtml(rec.urgentMatters)}</p>` : ''}
+      ${rec.inventoryNotes ? `<div class="section">藥材/庫存備註</div><p style="font-size:13px;white-space:pre-wrap">${escapeHtml(rec.inventoryNotes)}</p>` : ''}
+      ${rec.equipmentIssues ? `<div class="section">設備問題</div><p style="font-size:13px;white-space:pre-wrap">${escapeHtml(rec.equipmentIssues)}</p>` : ''}
+      ${rec.generalNotes ? `<div class="section">一般備註</div><p style="font-size:13px;white-space:pre-wrap">${escapeHtml(rec.generalNotes)}</p>` : ''}
       <div class="section">確認狀態</div>
-      <p style="font-size:13px">${rec.acknowledged ? `已確認 - ${rec.ackBy}（${new Date(rec.ackAt).toLocaleString('zh-HK')}）` : '尚未確認'}</p>
-      ${rec.ackComment ? `<p style="font-size:13px">接班備註：${rec.ackComment}</p>` : ''}
-      <div class="footer">列印時間：${new Date().toLocaleString('zh-HK')} ｜ ${clinic}</div>
+      <p style="font-size:13px">${rec.acknowledged ? `已確認 - ${escapeHtml(rec.ackBy)}（${new Date(rec.ackAt).toLocaleString('zh-HK')}）` : '尚未確認'}</p>
+      ${rec.ackComment ? `<p style="font-size:13px">接班備註：${escapeHtml(rec.ackComment)}</p>` : ''}
+      <div class="footer">列印時間：${new Date().toLocaleString('zh-HK')} ｜ ${escapeHtml(clinic)}</div>
     </body></html>`;
     const w = window.open('', '_blank', 'width=800,height=600');
     w.document.write(html); w.document.close(); w.print();

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 import { fmtM, getMonth, monthLabel } from '../data';
 
 const ACCENT = '#0e7490';
@@ -121,7 +122,7 @@ export default function IncomeStatement({ data, showToast, user }) {
     const expRows = EXP_ORDER.map(k => `<tr><td style="padding-left:24px">${k}</td><td class="m">${fmtM(expBreakdown.map[k] || 0)}</td></tr>`).join('');
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>損益表 ${period}</title><style>
+    w.document.write(`<!DOCTYPE html><html><head><title>損益表 ${escapeHtml(period)}</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:30px 50px;max-width:700px;margin:0 auto;color:#333}
       .hd{text-align:center;border-bottom:3px double ${ACCENT};padding-bottom:12px;margin-bottom:20px}
       .hd h1{font-size:18px;color:${ACCENT};margin:0}
@@ -135,9 +136,9 @@ export default function IncomeStatement({ data, showToast, user }) {
       .pf{color:${netProfit >= 0 ? '#16a34a' : '#dc2626'}}
       .ft{text-align:center;font-size:10px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
     </style></head><body>
-      <div class="hd"><h1>${clinic}</h1></div>
+      <div class="hd"><h1>${escapeHtml(clinic)}</h1></div>
       <div class="ti">損益表 Income Statement</div>
-      <div style="text-align:center;font-size:13px;margin-bottom:20px;color:#555">報告期間：${period}</div>
+      <div style="text-align:center;font-size:13px;margin-bottom:20px;color:#555">報告期間：${escapeHtml(period)}</div>
       <table>
         <tr style="background:#e0f2fe"><th colspan="2" style="font-size:14px;color:${ACCENT}">營業收入 Revenue</th></tr>
         ${revRows}
@@ -152,7 +153,7 @@ export default function IncomeStatement({ data, showToast, user }) {
         <tr class="tot pf"><td style="font-size:16px">淨利潤 Net Profit</td><td class="m" style="font-size:16px">${fmtM(netProfit)}</td></tr>
         <tr><td style="padding-left:24px">淨利率</td><td class="m">${netMargin}%</td></tr>
       </table>
-      <div class="ft">此報表由系統自動生成 | ${clinic} | ${new Date().toLocaleString('zh-HK')}</div>
+      <div class="ft">此報表由系統自動生成 | ${escapeHtml(clinic)} | ${new Date().toLocaleString('zh-HK')}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

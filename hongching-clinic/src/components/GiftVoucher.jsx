@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_gift_vouchers';
 const ACC = '#0e7490';
@@ -127,15 +128,15 @@ export default function GiftVoucher({ data, showToast, user }) {
     w.document.write(`<!DOCTYPE html><html><head><title>禮券</title></head><body style="margin:0;padding:40px;font-family:'Helvetica Neue',Arial,sans-serif;background:#f8fafc">
       <div style="max-width:480px;margin:0 auto;border:3px solid ${ACC};border-radius:16px;overflow:hidden;background:#fff">
         <div style="background:${ACC};padding:20px 24px;text-align:center">
-          <div style="color:#fff;font-size:22px;font-weight:700;letter-spacing:2px">${clinicName}</div>
+          <div style="color:#fff;font-size:22px;font-weight:700;letter-spacing:2px">${escapeHtml(clinicName)}</div>
           <div style="color:rgba(255,255,255,.8);font-size:13px;margin-top:4px">GIFT VOUCHER</div>
         </div>
         <div style="padding:28px 24px;text-align:center">
-          <div style="font-size:14px;color:#64748b;margin-bottom:8px">${v.type}</div>
-          <div style="font-size:36px;font-weight:700;color:${ACC};margin-bottom:4px">${v.type === '現金券' ? fmtA(v.value) : (v.serviceName || v.type)}</div>
-          <div style="font-size:20px;letter-spacing:4px;color:#334155;margin:16px 0;padding:10px;background:#f1f5f9;border-radius:8px;font-family:monospace;font-weight:600">${v.code}</div>
+          <div style="font-size:14px;color:#64748b;margin-bottom:8px">${escapeHtml(v.type)}</div>
+          <div style="font-size:36px;font-weight:700;color:${ACC};margin-bottom:4px">${v.type === '現金券' ? fmtA(v.value) : escapeHtml(v.serviceName || v.type)}</div>
+          <div style="font-size:20px;letter-spacing:4px;color:#334155;margin:16px 0;padding:10px;background:#f1f5f9;border-radius:8px;font-family:monospace;font-weight:600">${escapeHtml(v.code)}</div>
           <div style="display:flex;justify-content:space-between;font-size:13px;color:#64748b;margin-top:16px;padding-top:16px;border-top:1px dashed #e2e8f0">
-            <span>受贈人: ${v.recipientName || '-'}</span>
+            <span>受贈人: ${escapeHtml(v.recipientName || '-')}</span>
             <span>有效期至: ${v.expiryDate}</span>
           </div>
         </div>

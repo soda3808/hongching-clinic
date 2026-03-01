@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { uid } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_clinic_events';
@@ -145,7 +146,7 @@ export default function ClinicCalendar({ data, showToast, user }) {
         const dayColor = isHol ? '#dc2626' : '#333';
         let inner = `<div style="font-weight:600;color:${dayColor};margin-bottom:2px;">${d}</div>`;
         evts.slice(0, 3).forEach(e => {
-          inner += `<div style="font-size:10px;padding:1px 3px;margin-bottom:1px;border-radius:2px;background:${TYPE_COLORS[e._type]}15;color:${TYPE_COLORS[e._type]};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e._time ? e._time + ' ' : ''}${e._label}</div>`;
+          inner += `<div style="font-size:10px;padding:1px 3px;margin-bottom:1px;border-radius:2px;background:${TYPE_COLORS[e._type]}15;color:${TYPE_COLORS[e._type]};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e._time ? escapeHtml(e._time) + ' ' : ''}${escapeHtml(e._label)}</div>`;
         });
         if (evts.length > 3) inner += `<div style="font-size:10px;color:#888;">+${evts.length - 3}...</div>`;
         cells += `<td style="border:1px solid #ddd;padding:4px;height:70px;vertical-align:top;width:14.28%;">${inner}</td>`;

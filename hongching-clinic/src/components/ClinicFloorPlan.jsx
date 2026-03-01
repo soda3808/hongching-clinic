@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
@@ -122,11 +123,11 @@ export default function ClinicFloorPlan({ data, showToast, user }) {
       const sc = STATUS_MAP[r.status] || STATUS_MAP['available'];
       const fill = ROOM_COLORS[r.type] || '#e5e7eb';
       return `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="6" fill="${fill}" stroke="${sc.color}" stroke-width="2.5"/>
-        <text x="${r.x+r.w/2}" y="${r.y+r.h/2-6}" text-anchor="middle" font-size="13" font-weight="600">${r.name}</text>
-        <text x="${r.x+r.w/2}" y="${r.y+r.h/2+12}" text-anchor="middle" font-size="10" fill="#555">${r.type} · ${sc.label}</text>`;
+        <text x="${r.x+r.w/2}" y="${r.y+r.h/2-6}" text-anchor="middle" font-size="13" font-weight="600">${escapeHtml(r.name)}</text>
+        <text x="${r.x+r.w/2}" y="${r.y+r.h/2+12}" text-anchor="middle" font-size="10" fill="#555">${escapeHtml(r.type)} · ${escapeHtml(sc.label)}</text>`;
     }).join('');
-    const html = `<html><head><title>${clinic} 平面圖</title><style>body{font-family:sans-serif;padding:24px}h2{color:${ACCENT}}svg{border:1px solid #ddd;border-radius:8px}</style></head>
-      <body><h2>${clinic} — 診所平面圖</h2><p>列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
+    const html = `<html><head><title>${escapeHtml(clinic)} 平面圖</title><style>body{font-family:sans-serif;padding:24px}h2{color:${ACCENT}}svg{border:1px solid #ddd;border-radius:8px}</style></head>
+      <body><h2>${escapeHtml(clinic)} — 診所平面圖</h2><p>列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
       <svg viewBox="0 0 ${CANVAS_W} ${CANVAS_H}" width="100%" style="max-width:${CANVAS_W}px;background:#f9fafb">${rects}</svg>
       <script>window.onload=()=>window.print()<\/script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();

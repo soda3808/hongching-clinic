@@ -4,6 +4,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -93,36 +94,36 @@ const printCSS = (size) => {
 };
 
 const buildLabelHtml = (f, idx, total, size) => {
-  const herbStr = f.herbs.map(h => `${h.herb} ${h.g}g`).join('、');
+  const herbStr = f.herbs.map(h => `${escapeHtml(h.herb)} ${h.g}g`).join('、');
   const totalW = f.herbs.reduce((s, h) => s + (parseFloat(h.g) || 0), 0);
   if (size === 'a5') {
-    const rows = f.herbs.map((h, i) => `<tr><td>${i + 1}</td><td>${h.herb}</td><td>${h.g}g</td></tr>`).join('');
+    const rows = f.herbs.map((h, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(h.herb)}</td><td>${h.g}g</td></tr>`).join('');
     return `<div class="card">
-      <div class="hdr"><div class="cn">${f.clinicName}</div></div>
-      <div class="ttl">${f.formulaName || '中藥處方'}</div>
+      <div class="hdr"><div class="cn">${escapeHtml(f.clinicName)}</div></div>
+      <div class="ttl">${escapeHtml(f.formulaName || '中藥處方')}</div>
       <div class="grid">
-        <div><b>病人姓名：</b>${f.patientName}</div>
-        <div><b>日期：</b>${f.date}</div>
-        <div><b>主診醫師：</b>${f.doctor}</div>
+        <div><b>病人姓名：</b>${escapeHtml(f.patientName)}</div>
+        <div><b>日期：</b>${escapeHtml(f.date)}</div>
+        <div><b>主診醫師：</b>${escapeHtml(f.doctor)}</div>
         <div><b>帖數：</b>${f.doses} 帖</div>
       </div>
       <table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="total">每帖總重：${totalW}g</div>
-      <div class="sec"><b>煎服法：</b>${f.method}</div>
-      ${f.contra ? `<div class="sec warn"><b>禁忌注意：</b>${f.contra}</div>` : ''}
+      <div class="sec"><b>煎服法：</b>${escapeHtml(f.method)}</div>
+      ${f.contra ? `<div class="sec warn"><b>禁忌注意：</b>${escapeHtml(f.contra)}</div>` : ''}
       <div class="foot">${idx}/${total} | 如有不適請立即停藥並聯絡本中心</div>
     </div>`;
   }
   // small / medium label
   return `<div class="lbl">
-    <div class="hdr"><div class="cn">${f.clinicName}</div></div>
-    ${size === 'medium' && f.formulaName ? `<div class="fname">${f.formulaName}</div>` : ''}
-    <div class="row"><span><b>病人：</b>${f.patientName}</span><span><b>日期：</b>${f.date}</span></div>
-    <div class="row"><span><b>醫師：</b>${f.doctor}</span><span><b>帖數：</b>${f.doses} 帖</span></div>
-    ${size === 'small' && f.formulaName ? `<div style="font-size:11px;font-weight:700;margin-top:3px">處方：${f.formulaName}</div>` : ''}
+    <div class="hdr"><div class="cn">${escapeHtml(f.clinicName)}</div></div>
+    ${size === 'medium' && f.formulaName ? `<div class="fname">${escapeHtml(f.formulaName)}</div>` : ''}
+    <div class="row"><span><b>病人：</b>${escapeHtml(f.patientName)}</span><span><b>日期：</b>${escapeHtml(f.date)}</span></div>
+    <div class="row"><span><b>醫師：</b>${escapeHtml(f.doctor)}</span><span><b>帖數：</b>${f.doses} 帖</span></div>
+    ${size === 'small' && f.formulaName ? `<div style="font-size:11px;font-weight:700;margin-top:3px">處方：${escapeHtml(f.formulaName)}</div>` : ''}
     <div class="herbs"><b>藥材（${totalW}g）：</b>${herbStr}</div>
-    <div class="inst">煎服法：${f.method}</div>
-    ${f.contra ? `<div class="warn">禁忌：${f.contra}</div>` : ''}
+    <div class="inst">煎服法：${escapeHtml(f.method)}</div>
+    ${f.contra ? `<div class="warn">禁忌：${escapeHtml(f.contra)}</div>` : ''}
     <div class="foot">${idx}/${total} | 如有不適請立即停藥並聯絡本中心</div>
   </div>`;
 };
@@ -203,7 +204,7 @@ export default function HerbFormulaPrint({ data, showToast, user }) {
     if (!w) return showToast?.('請允許彈出視窗');
     const total = doses;
     const body = Array.from({ length: total }, (_, i) => buildLabelHtml(payload, i + 1, total, labelSize)).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>藥方標籤 - ${formulaName || '處方'}</title><style>${printCSS(labelSize)}</style></head><body>${body}</body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>藥方標籤 - ${escapeHtml(formulaName || '處方')}</title><style>${printCSS(labelSize)}</style></head><body>${body}</body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
     // Save to history

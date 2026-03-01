@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getStoreNames, uid } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_transfers';
 const today = () => new Date().toISOString().substring(0, 10);
@@ -110,10 +111,10 @@ export default function InterClinicTransfer({ data, showToast, user }) {
   };
 
   const handlePrint = (rec) => {
-    const rows = rec.items.map((i, idx) => `<tr><td>${idx + 1}</td><td>${i.name}</td><td>${i.qty}</td><td>${i.unit}</td></tr>`).join('');
+    const rows = rec.items.map((i, idx) => `<tr><td>${idx + 1}</td><td>${escapeHtml(i.name)}</td><td>${i.qty}</td><td>${escapeHtml(i.unit)}</td></tr>`).join('');
     const st = statusOf(rec.status);
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>調撥單 ${rec.transferNo}</title><style>body{font:12px sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:5px 8px;font-size:11px}th{background:#f3f4f6}h1{font-size:16px;margin:0 0 8px}p{margin:4px 0;font-size:12px}.row{display:flex;justify-content:space-between;margin-bottom:10px}.box{border:1px solid #ccc;border-radius:6px;padding:8px 12px;flex:1;margin:0 4px}.lbl{font-size:10px;color:#888}@media print{body{padding:10px}}</style></head><body><h1>${clinicName} — 跨店調撥單</h1><p>單號：<strong>${rec.transferNo}</strong> | 日期：${rec.date} | 狀態：${st.label}</p><div class="row"><div class="box"><div class="lbl">調出分店</div><strong>${rec.fromStore}</strong></div><div style="align-self:center;font-size:18px;padding:0 6px">→</div><div class="box"><div class="lbl">調入分店</div><strong>${rec.toStore}</strong></div></div><table><thead><tr><th>#</th><th>藥材/物品</th><th>數量</th><th>單位</th></tr></thead><tbody>${rows}</tbody></table>${rec.notes ? `<p>備註：${rec.notes}</p>` : ''}<p style="font-size:10px;color:#999;margin-top:20px">建立者：${rec.createdBy} | 列印時間：${new Date().toLocaleString('zh-HK')}</p><div style="display:flex;justify-content:space-between;margin-top:40px;font-size:11px"><div>調出方簽名：_______________</div><div>調入方簽名：_______________</div></div></body></html>`);
+    w.document.write(`<html><head><title>調撥單 ${escapeHtml(rec.transferNo)}</title><style>body{font:12px sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:5px 8px;font-size:11px}th{background:#f3f4f6}h1{font-size:16px;margin:0 0 8px}p{margin:4px 0;font-size:12px}.row{display:flex;justify-content:space-between;margin-bottom:10px}.box{border:1px solid #ccc;border-radius:6px;padding:8px 12px;flex:1;margin:0 4px}.lbl{font-size:10px;color:#888}@media print{body{padding:10px}}</style></head><body><h1>${escapeHtml(clinicName)} — 跨店調撥單</h1><p>單號：<strong>${escapeHtml(rec.transferNo)}</strong> | 日期：${rec.date} | 狀態：${escapeHtml(st.label)}</p><div class="row"><div class="box"><div class="lbl">調出分店</div><strong>${escapeHtml(rec.fromStore)}</strong></div><div style="align-self:center;font-size:18px;padding:0 6px">→</div><div class="box"><div class="lbl">調入分店</div><strong>${escapeHtml(rec.toStore)}</strong></div></div><table><thead><tr><th>#</th><th>藥材/物品</th><th>數量</th><th>單位</th></tr></thead><tbody>${rows}</tbody></table>${rec.notes ? `<p>備註：${escapeHtml(rec.notes)}</p>` : ''}<p style="font-size:10px;color:#999;margin-top:20px">建立者：${escapeHtml(rec.createdBy)} | 列印時間：${new Date().toLocaleString('zh-HK')}</p><div style="display:flex;justify-content:space-between;margin-top:40px;font-size:11px"><div>調出方簽名：_______________</div><div>調入方簽名：_______________</div></div></body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   };

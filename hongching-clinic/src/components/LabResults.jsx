@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_lab_results';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -108,11 +109,11 @@ export default function LabResults({ data, showToast, user }) {
     if (!w) return showToast('請允許彈出視窗');
     const valRows = (rec.values || []).filter(v => v.key).map(v => {
       const abnorm = isAbnormal(v);
-      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${v.key}</td>
-        <td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:700;${abnorm ? 'color:#dc2626' : ''}">${v.value} ${v.unit || ''} ${abnorm ? ' ⚠' : ''}</td>
-        <td style="padding:6px 12px;border-bottom:1px solid #eee;color:#888">${v.normalRange || '-'}</td></tr>`;
+      return `<tr><td style="padding:6px 12px;border-bottom:1px solid #eee">${escapeHtml(v.key)}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;font-weight:700;${abnorm ? 'color:#dc2626' : ''}">${escapeHtml(v.value)} ${escapeHtml(v.unit || '')} ${abnorm ? ' ⚠' : ''}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #eee;color:#888">${escapeHtml(v.normalRange || '-')}</td></tr>`;
     }).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>化驗報告 - ${rec.patientName}</title><style>
+    w.document.write(`<!DOCTYPE html><html><head><title>化驗報告 - ${escapeHtml(rec.patientName)}</title><style>
       body{font-family:'Microsoft YaHei','Arial',sans-serif;padding:40px 50px;max-width:750px;margin:0 auto;color:#333}
       .header{text-align:center;border-bottom:3px double ${ACCENT};padding-bottom:14px;margin-bottom:18px}
       .header h1{font-size:18px;color:${ACCENT};margin:0} .header p{font-size:11px;color:#888;margin:2px 0}
@@ -125,22 +126,22 @@ export default function LabResults({ data, showToast, user }) {
       .sig div{text-align:center;min-width:150px} .sig .line{border-top:1px solid #333;margin-top:50px;padding-top:4px}
       @media print{body{padding:20px}}
     </style></head><body>
-      <div class="header"><h1>${clinicName}</h1><p>化驗報告 Laboratory Report</p></div>
+      <div class="header"><h1>${escapeHtml(clinicName)}</h1><p>化驗報告 Laboratory Report</p></div>
       <div class="info">
-        <span><span class="label">病人：</span>${rec.patientName}</span>
-        <span><span class="label">電話：</span>${pt.phone || '-'}</span>
-        <span><span class="label">性別：</span>${pt.gender || '-'}</span>
+        <span><span class="label">病人：</span>${escapeHtml(rec.patientName)}</span>
+        <span><span class="label">電話：</span>${escapeHtml(pt.phone || '-')}</span>
+        <span><span class="label">性別：</span>${escapeHtml(pt.gender || '-')}</span>
         <span><span class="label">年齡：</span>${pt.dob ? Math.floor((Date.now() - new Date(pt.dob)) / 31557600000) : '-'}</span>
-        <span><span class="label">檢驗類型：</span>${rec.testType}</span>
+        <span><span class="label">檢驗類型：</span>${escapeHtml(rec.testType)}</span>
         <span><span class="label">檢驗日期：</span>${rec.testDate}</span>
         <span><span class="label">報告日期：</span>${rec.reportDate || '-'}</span>
-        <span><span class="label">化驗所：</span>${rec.labName || '-'}</span>
+        <span><span class="label">化驗所：</span>${escapeHtml(rec.labName || '-')}</span>
       </div>
       <table><thead><tr><th>項目</th><th>結果</th><th>參考範圍</th></tr></thead><tbody>${valRows}</tbody></table>
-      ${rec.summary ? `<div class="summary"><strong>報告摘要：</strong><br/>${rec.summary.replace(/\n/g, '<br/>')}</div>` : ''}
-      ${rec.notes ? `<div class="summary"><strong>臨床備注：</strong><br/>${rec.notes.replace(/\n/g, '<br/>')}</div>` : ''}
-      ${rec.followUp ? `<div class="summary"><strong>跟進建議：</strong><br/>${rec.followUp.replace(/\n/g, '<br/>')}</div>` : ''}
-      <div class="sig"><div><div class="line">主診醫師：${rec.doctor || ''}</div></div><div><div class="line">日期：${new Date().toISOString().substring(0, 10)}</div></div></div>
+      ${rec.summary ? `<div class="summary"><strong>報告摘要：</strong><br/>${escapeHtml(rec.summary).replace(/\n/g, '<br/>')}</div>` : ''}
+      ${rec.notes ? `<div class="summary"><strong>臨床備注：</strong><br/>${escapeHtml(rec.notes).replace(/\n/g, '<br/>')}</div>` : ''}
+      ${rec.followUp ? `<div class="summary"><strong>跟進建議：</strong><br/>${escapeHtml(rec.followUp).replace(/\n/g, '<br/>')}</div>` : ''}
+      <div class="sig"><div><div class="line">主診醫師：${escapeHtml(rec.doctor || '')}</div></div><div><div class="line">日期：${new Date().toISOString().substring(0, 10)}</div></div></div>
     </body></html>`);
     w.document.close(); setTimeout(() => w.print(), 400);
   };

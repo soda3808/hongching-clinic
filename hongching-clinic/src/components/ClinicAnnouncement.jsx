@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const TYPES = ['重要通知', '人事公告', '營運更新', '培訓通知', '系統維護', '一般公告'];
@@ -116,7 +117,7 @@ export default function ClinicAnnouncement({ data, showToast, user }) {
   const printAnn = a => {
     const w = window.open('', '_blank');
     w.document.write(
-      `<html><head><title>${a.title}</title><style>` +
+      `<html><head><title>${escapeHtml(a.title)}</title><style>` +
       `body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:40px;color:#1e293b;max-width:700px;margin:0 auto}` +
       `h1{font-size:20px;color:${A};margin-bottom:4px}h2{font-size:18px;margin:8px 0}` +
       `.meta{font-size:13px;color:#64748b;margin:8px 0 16px;line-height:1.6}` +
@@ -124,11 +125,11 @@ export default function ClinicAnnouncement({ data, showToast, user }) {
       `.body{white-space:pre-wrap;line-height:1.8;font-size:14px}` +
       `.footer{margin-top:32px;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}` +
       `</style></head><body>` +
-      `<h1>${clinicName}</h1><h2>${a.title}</h2>` +
-      `<div class="meta">類型: ${a.type} | 優先級: ${PRI_LABEL[a.priority]} | 對象: ${AUD_LABEL[a.targetAudience]}<br/>` +
-      `發布日期: ${a.publishDate}${a.expiryDate ? ' | 到期日期: ' + a.expiryDate : ''} | 發布者: ${a.author}</div>` +
-      `<hr/><div class="body">${a.content}</div>` +
-      `<div class="footer">此公告由 ${clinicName} 管理系統列印 | ${now()}</div>` +
+      `<h1>${escapeHtml(clinicName)}</h1><h2>${escapeHtml(a.title)}</h2>` +
+      `<div class="meta">類型: ${escapeHtml(a.type)} | 優先級: ${escapeHtml(PRI_LABEL[a.priority])} | 對象: ${escapeHtml(AUD_LABEL[a.targetAudience])}<br/>` +
+      `發布日期: ${a.publishDate}${a.expiryDate ? ' | 到期日期: ' + a.expiryDate : ''} | 發布者: ${escapeHtml(a.author)}</div>` +
+      `<hr/><div class="body">${escapeHtml(a.content)}</div>` +
+      `<div class="footer">此公告由 ${escapeHtml(clinicName)} 管理系統列印 | ${now()}</div>` +
       `</body></html>`
     );
     w.document.close();

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_portal_settings';
@@ -82,11 +83,11 @@ export default function PatientPortal({ showToast, user }) {
       .clinic{font-size:11px;color:#888}
       @media print{body{margin:0;padding:10mm}.cards{page-break-inside:avoid}}
       </style></head><body>
-      <h1>${getClinicName()} - 病人自助服務 QR Code</h1>
+      <h1>${escapeHtml(getClinicName())} - 病人自助服務 QR Code</h1>
       <div class="cards">${qrLinks.map(q => `<div class="card">
-        <div class="label">${q.label}</div>
-        <div class="qr">[QR]<br/>${q.url}</div>
-        <div class="clinic">${getClinicName()}</div>
+        <div class="label">${escapeHtml(q.label)}</div>
+        <div class="qr">[QR]<br/>${escapeHtml(q.url)}</div>
+        <div class="clinic">${escapeHtml(getClinicName())}</div>
       </div>`).join('')}</div>
       </body></html>`);
     w.document.close();

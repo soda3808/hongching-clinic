@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM, getMonth, monthLabel } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const PAY_METHODS = ['現金', '信用卡', '醫療券', '轉賬', '其他'];
@@ -130,10 +131,10 @@ export default function CashFlowReport({ data, showToast, user }) {
       `<tr><td>${d.date.slice(5)}</td><td class="r g">${fmtM(d.inflow)}</td><td class="r rd">${fmtM(d.outflow)}</td><td class="r" style="color:${d.net >= 0 ? '#16a34a' : '#dc2626'}">${d.net >= 0 ? '+' : ''}${fmtM(d.net)}</td><td class="r">${fmtM(d.balance)}</td></tr>`
     ).join('');
     const payRows = byPayment.map(p =>
-      `<tr><td>${p.method}</td><td class="r">${p.count}</td><td class="r">${fmtM(p.amount)}</td><td class="r">${totalPayAmt > 0 ? (p.amount / totalPayAmt * 100).toFixed(1) : 0}%</td></tr>`
+      `<tr><td>${escapeHtml(p.method)}</td><td class="r">${p.count}</td><td class="r">${fmtM(p.amount)}</td><td class="r">${totalPayAmt > 0 ? (p.amount / totalPayAmt * 100).toFixed(1) : 0}%</td></tr>`
     ).join('');
     const fcRows = forecast.map(f =>
-      `<tr><td>${f.label}</td><td class="r g">${fmtM(f.estRev)}</td><td class="r rd">${fmtM(f.estExp)}</td><td class="r" style="color:${f.estNet >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(f.estNet)}</td></tr>`
+      `<tr><td>${escapeHtml(f.label)}</td><td class="r g">${fmtM(f.estRev)}</td><td class="r rd">${fmtM(f.estExp)}</td><td class="r" style="color:${f.estNet >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(f.estNet)}</td></tr>`
     ).join('');
     const w = window.open('', '_blank');
     if (!w) return;
@@ -152,7 +153,7 @@ export default function CashFlowReport({ data, showToast, user }) {
       .summary-item .label{font-size:11px;color:#666}.summary-item .value{font-size:18px;font-weight:800}
       .ft{text-align:center;font-size:10px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
     </style></head><body>
-      <div class="hd"><h1>${clinic}</h1><p>現金流量報告 Cash Flow Statement</p><p>報告期間：${monthLabel(selMonth)}</p></div>
+      <div class="hd"><h1>${escapeHtml(clinic)}</h1><p>現金流量報告 Cash Flow Statement</p><p>報告期間：${escapeHtml(monthLabel(selMonth))}</p></div>
       <h2>現金流量摘要</h2>
       <div class="summary-box">
         <div class="summary-item"><div class="label">營業活動現金流</div><div class="value" style="color:${operatingCF >= 0 ? '#16a34a' : '#dc2626'}">${fmtM(operatingCF)}</div></div>
@@ -168,7 +169,7 @@ export default function CashFlowReport({ data, showToast, user }) {
       <table><thead><tr><th>付款方式</th><th class="r">筆數</th><th class="r">金額</th><th class="r">佔比</th></tr></thead><tbody>${payRows}</tbody></table>
       <h2>未來 3 個月現金流預測</h2>
       <table><thead><tr><th>月份</th><th class="r">預計收入</th><th class="r">預計支出</th><th class="r">預計淨額</th></tr></thead><tbody>${fcRows}</tbody></table>
-      <div class="ft">此報表由系統自動生成 | ${clinic} | ${new Date().toLocaleString('zh-HK')}</div>
+      <div class="ft">此報表由系統自動生成 | ${escapeHtml(clinic)} | ${new Date().toLocaleString('zh-HK')}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

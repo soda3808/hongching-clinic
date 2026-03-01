@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_ART = 'hcmc_edu_articles';
@@ -136,7 +137,7 @@ export default function PatientEducation({ data, showToast, user }) {
   function printArticle(article) {
     const clinic = getClinicName();
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${article.title}</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:700px;margin:40px auto;padding:0 20px;color:#1e293b;line-height:1.8}h1{color:${ACCENT};font-size:22px;border-bottom:2px solid ${ACCENT};padding-bottom:8px}h2{font-size:14px;color:#64748b;margin-bottom:24px}.content{font-size:15px;white-space:pre-wrap}.footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}@media print{body{margin:20px}}</style></head><body><h1>${article.title}</h1><h2>${clinic} - 健康教育資料 | 分類：${article.cat}</h2><div class="content">${article.body}</div><div class="footer">${clinic} | 此資料僅供參考，如有不適請諮詢註冊中醫師 | 列印日期：${new Date().toLocaleDateString('zh-HK')}</div><script>window.print();<\/script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(article.title)}</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:700px;margin:40px auto;padding:0 20px;color:#1e293b;line-height:1.8}h1{color:${ACCENT};font-size:22px;border-bottom:2px solid ${ACCENT};padding-bottom:8px}h2{font-size:14px;color:#64748b;margin-bottom:24px}.content{font-size:15px;white-space:pre-wrap}.footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8;text-align:center}@media print{body{margin:20px}}</style></head><body><h1>${escapeHtml(article.title)}</h1><h2>${escapeHtml(clinic)} - 健康教育資料 | 分類：${escapeHtml(article.cat)}</h2><div class="content">${escapeHtml(article.body)}</div><div class="footer">${escapeHtml(clinic)} | 此資料僅供參考，如有不適請諮詢註冊中醫師 | 列印日期：${new Date().toLocaleDateString('zh-HK')}</div><script>window.print();<\/script></body></html>`);
     w.document.close();
   }
 

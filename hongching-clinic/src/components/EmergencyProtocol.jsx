@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { uid, getEmployees } from '../data';
 import { emergencyContactsOps, emergencyEquipmentOps, drillLogOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const A = '#0e7490', BG = '#f0fdfa', BDR = '#cffafe', DANGER = '#dc2626', WARN = '#f59e0b';
 const card = { background: '#fff', borderRadius: 10, padding: 16, marginBottom: 14, border: '1px solid #e5e7eb' };
@@ -112,12 +113,12 @@ export default function EmergencyProtocol({ showToast, user }) {
 h2{color:${A};font-size:14px;margin:12px 0 4px}.steps{margin:0;padding-left:18px}.steps li{margin-bottom:2px}
 .contacts{border-collapse:collapse;width:100%;margin:8px 0}.contacts td,.contacts th{border:1px solid #ccc;padding:4px 8px;text-align:left;font-size:11px}
 @media print{body{padding:10px}}</style></head><body>
-<h1>${clinic} — 緊急應變快速參考卡</h1>
+<h1>${escapeHtml(clinic)} — 緊急應變快速參考卡</h1>
 <p style="color:#666;font-size:11px">列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
-${PROTOCOLS.map(p => `<h2>${p.icon} ${p.name}</h2><ol class="steps">${p.steps.map(s => `<li>${s}</li>`).join('')}</ol>`).join('')}
+${PROTOCOLS.map(p => `<h2>${p.icon} ${escapeHtml(p.name)}</h2><ol class="steps">${p.steps.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ol>`).join('')}
 <h2>緊急聯絡電話</h2>
 <table class="contacts"><tr><th>名稱</th><th>電話</th><th>備註</th></tr>
-${contacts.map(c => `<tr><td>${c.name}</td><td><b>${c.phone}</b></td><td>${c.note || ''}</td></tr>`).join('')}</table>
+${contacts.map(c => `<tr><td>${escapeHtml(c.name)}</td><td><b>${escapeHtml(c.phone)}</b></td><td>${escapeHtml(c.note || '')}</td></tr>`).join('')}</table>
 <p style="margin-top:16px;color:#999;font-size:10px">此卡應張貼於診所當眼處，所有員工必須熟悉內容。</p>
 </body></html>`;
     const w = window.open('', '_blank');

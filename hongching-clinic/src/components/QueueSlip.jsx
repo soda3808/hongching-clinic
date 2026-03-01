@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const today = () => new Date().toISOString().substring(0, 10);
 const nowTime = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -88,14 +89,14 @@ export default function QueueSlip({ data, showToast, user }) {
     if (!w) return showToast?.('請允許彈出視窗');
     w.document.write(`<!DOCTYPE html><html><head><title>候診號碼</title><style>${slipCSS}</style></head><body>
       <div class="slip">
-        <div class="slip-logo">${clinicName}</div>
-        <div class="slip-sub">${item.store || defaultStore}</div>
+        <div class="slip-logo">${escapeHtml(clinicName)}</div>
+        <div class="slip-sub">${escapeHtml(item.store || defaultStore)}</div>
         <div class="slip-label">候診號碼 Queue Number</div>
-        <div class="slip-num">${item._queueNum}</div>
+        <div class="slip-num">${escapeHtml(item._queueNum)}</div>
         <div class="slip-info">
-          <div><b>姓名：</b>${item.patientName}</div>
-          <div><b>醫師：</b>${item.doctor}</div>
-          <div><b>服務：</b>${item.services || '-'}</div>
+          <div><b>姓名：</b>${escapeHtml(item.patientName)}</div>
+          <div><b>醫師：</b>${escapeHtml(item.doctor)}</div>
+          <div><b>服務：</b>${escapeHtml(item.services || '-')}</div>
         </div>
         <div class="slip-wait">預計等候時間：約 ${Math.max(5, estWait)} 分鐘</div>
         <div class="slip-time">${todayStr}　${item.registeredAt || nowTime()}</div>
@@ -120,25 +121,25 @@ export default function QueueSlip({ data, showToast, user }) {
       const gender = r.patientGender || r.gender || '-';
       const statusColor = STATUS_COLORS[r.status] || '#888';
       return `<tr>
-        <td style="font-weight:800;color:#0e7490">${r._queueNum}</td>
-        <td>${r.registeredAt || '-'}</td>
-        <td style="font-weight:600">${r.patientName}</td>
-        <td>${gender}</td>
-        <td>${age}</td>
-        <td style="font-size:11px">${r.services || '-'}</td>
-        <td><span class="tag" style="background:${statusColor}">${STATUS_LABELS[r.status] || r.status}</span></td>
+        <td style="font-weight:800;color:#0e7490">${escapeHtml(r._queueNum)}</td>
+        <td>${escapeHtml(r.registeredAt || '-')}</td>
+        <td style="font-weight:600">${escapeHtml(r.patientName)}</td>
+        <td>${escapeHtml(gender)}</td>
+        <td>${escapeHtml(age)}</td>
+        <td style="font-size:11px">${escapeHtml(r.services || '-')}</td>
+        <td><span class="tag" style="background:${statusColor}">${escapeHtml(STATUS_LABELS[r.status] || r.status)}</span></td>
       </tr>`;
     }).join('');
 
     const doctorLabel = docName === 'all' ? '全部醫師' : docName;
     w.document.write(`<!DOCTYPE html><html><head><title>醫師登記表</title><style>${tableCSS}</style></head><body>
-      <h1>${clinicName} — 醫師登記表</h1>
-      <div class="sub">${doctorLabel}　|　${todayStr}　|　${storeNames[0] || defaultStore}　|　共 ${items.length} 人</div>
+      <h1>${escapeHtml(clinicName)} — 醫師登記表</h1>
+      <div class="sub">${escapeHtml(doctorLabel)}　|　${todayStr}　|　${escapeHtml(storeNames[0] || defaultStore)}　|　共 ${items.length} 人</div>
       <table>
         <thead><tr><th>排號</th><th>時間</th><th>姓名</th><th>性別</th><th>年齡</th><th>服務</th><th>狀態</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div class="footer">列印時間：${todayStr} ${nowTime()} | ${clinicName}</div>
+      <div class="footer">列印時間：${todayStr} ${nowTime()} | ${escapeHtml(clinicName)}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
@@ -154,14 +155,14 @@ export default function QueueSlip({ data, showToast, user }) {
     const body = waiting.map(item => {
       const estWait = todayQueue.filter(r => r.status === 'waiting' && (r._queueNum || '') < (item._queueNum || '')).length * 15;
       return `<div class="slip" style="page-break-after:always">
-        <div class="slip-logo">${clinicName}</div>
-        <div class="slip-sub">${item.store || defaultStore}</div>
+        <div class="slip-logo">${escapeHtml(clinicName)}</div>
+        <div class="slip-sub">${escapeHtml(item.store || defaultStore)}</div>
         <div class="slip-label">候診號碼 Queue Number</div>
-        <div class="slip-num">${item._queueNum}</div>
+        <div class="slip-num">${escapeHtml(item._queueNum)}</div>
         <div class="slip-info">
-          <div><b>姓名：</b>${item.patientName}</div>
-          <div><b>醫師：</b>${item.doctor}</div>
-          <div><b>服務：</b>${item.services || '-'}</div>
+          <div><b>姓名：</b>${escapeHtml(item.patientName)}</div>
+          <div><b>醫師：</b>${escapeHtml(item.doctor)}</div>
+          <div><b>服務：</b>${escapeHtml(item.services || '-')}</div>
         </div>
         <div class="slip-wait">預計等候時間：約 ${Math.max(5, estWait)} 分鐘</div>
         <div class="slip-time">${todayStr}　${item.registeredAt || nowTime()}</div>

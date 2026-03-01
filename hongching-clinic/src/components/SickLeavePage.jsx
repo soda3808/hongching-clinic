@@ -5,6 +5,7 @@ import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantDoctors, 
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import SignaturePad, { SignaturePreview } from './SignaturePad';
+import escapeHtml from '../utils/escapeHtml';
 
 export default function SickLeavePage({ data, setData, showToast, allData, user }) {
   const DOCTORS = getTenantDoctors();
@@ -121,28 +122,28 @@ export default function SickLeavePage({ data, setData, showToast, allData, user 
       @media print{body{padding:20px 30px}}
     </style></head><body>
       <div class="header">
-        <h1>${clinic.name || clinicName}</h1>
-        <h2>${clinic.nameEn || clinicNameEn}</h2>
-        <p>${(() => { const s = stores.find(st => st.name === item.store); return s?.address ? s.address : (clinic.addr1 || ''); })()}</p>
-        <p>Tel: ${clinic.tel || getTenantSettings().phone || ''}</p>
+        <h1>${escapeHtml(clinic.name || clinicName)}</h1>
+        <h2>${escapeHtml(clinic.nameEn || clinicNameEn)}</h2>
+        <p>${escapeHtml((() => { const s = stores.find(st => st.name === item.store); return s?.address ? s.address : (clinic.addr1 || ''); })())}</p>
+        <p>Tel: ${escapeHtml(clinic.tel || getTenantSettings().phone || '')}</p>
       </div>
-      <div class="cert-no">證明書編號 Cert No.: ${certNo}</div>
+      <div class="cert-no">證明書編號 Cert No.: ${escapeHtml(certNo)}</div>
       <div class="title">病 假 證 明 書</div>
       <div class="title-en">MEDICAL CERTIFICATE FOR SICK LEAVE</div>
       <div class="body-text">
-        茲證明 <strong>${item.patientName}</strong> 於 <strong>${item.issuedAt}</strong> 到本醫療中心就診，經診斷後建議病假休息，日期由 <strong>${item.startDate}</strong> 至 <strong>${item.endDate}</strong>，共 <strong>${item.days}</strong> 天。
+        茲證明 <strong>${escapeHtml(item.patientName)}</strong> 於 <strong>${escapeHtml(item.issuedAt)}</strong> 到本醫療中心就診，經診斷後建議病假休息，日期由 <strong>${escapeHtml(item.startDate)}</strong> 至 <strong>${escapeHtml(item.endDate)}</strong>，共 <strong>${item.days}</strong> 天。
       </div>
       <div class="body-text" style="font-size:12px;color:#666;background:#fff;border-left-color:#ccc">
-        This is to certify that <strong>${item.patientName}</strong> attended this medical centre on <strong>${item.issuedAt}</strong> and is granted sick leave from <strong>${item.startDate}</strong> to <strong>${item.endDate}</strong>, a total of <strong>${item.days}</strong> day(s).
+        This is to certify that <strong>${escapeHtml(item.patientName)}</strong> attended this medical centre on <strong>${escapeHtml(item.issuedAt)}</strong> and is granted sick leave from <strong>${escapeHtml(item.startDate)}</strong> to <strong>${escapeHtml(item.endDate)}</strong>, a total of <strong>${item.days}</strong> day(s).
       </div>
-      <div class="field"><span class="label">診斷 Diagnosis：</span><span class="value">${item.diagnosis || '-'}</span></div>
-      ${item.notes ? `<div class="field"><span class="label">備註 Remarks：</span><span class="value">${item.notes}</span></div>` : ''}
-      <div class="field"><span class="label">簽發日期 Date：</span><span class="value">${item.issuedAt}</span></div>
+      <div class="field"><span class="label">診斷 Diagnosis：</span><span class="value">${escapeHtml(item.diagnosis || '-')}</span></div>
+      ${item.notes ? `<div class="field"><span class="label">備註 Remarks：</span><span class="value">${escapeHtml(item.notes)}</span></div>` : ''}
+      <div class="field"><span class="label">簽發日期 Date：</span><span class="value">${escapeHtml(item.issuedAt)}</span></div>
       <div class="sig">
-        <div class="sig-box">${item.doctorSignature ? `<img src="${item.doctorSignature}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:60px"></div>'}<div class="sig-line">主診醫師 Attending Practitioner<br/>${item.doctor}</div></div>
+        <div class="sig-box">${item.doctorSignature ? `<img src="${escapeHtml(item.doctorSignature)}" style="height:50px;object-fit:contain;display:block;margin:0 auto 4px" />` : '<div style="margin-top:60px"></div>'}<div class="sig-line">主診醫師 Attending Practitioner<br/>${escapeHtml(item.doctor)}</div></div>
         <div class="sig-box"><div style="margin-top:60px"></div><div class="sig-line">診所蓋章 Clinic Stamp</div></div>
       </div>
-      <div class="footer">此證明書僅供病假證明用途 This certificate is issued for sick leave purposes only.${item.doctorSignature ? ' | 已電子簽署 Digitally Signed' : ''}<br/>${certNo} | ${clinic.name || clinicName}</div>
+      <div class="footer">此證明書僅供病假證明用途 This certificate is issued for sick leave purposes only.${item.doctorSignature ? ' | 已電子簽署 Digitally Signed' : ''}<br/>${escapeHtml(certNo)} | ${escapeHtml(clinic.name || clinicName)}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const NK = 'hcmc_newsletters', SK = 'hcmc_newsletter_sends';
@@ -136,9 +137,9 @@ export default function ClinicNewsletter({ data, showToast, user }) {
   };
 
   const printFlyer = n => {
-    const sections = (n.sections || []).map(s => `${s.heading ? `<h3 style="color:${ACCENT};margin:16px 0 6px">${s.heading}</h3>` : ''}<p style="line-height:1.8;white-space:pre-wrap">${s.body}</p>`).join('');
+    const sections = (n.sections || []).map(s => `${s.heading ? `<h3 style="color:${ACCENT};margin:16px 0 6px">${escapeHtml(s.heading)}</h3>` : ''}<p style="line-height:1.8;white-space:pre-wrap">${escapeHtml(s.body)}</p>`).join('');
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>${n.title}</title><style>body{font-family:sans-serif;padding:40px;max-width:700px;margin:auto}h1{color:${ACCENT}}h2{color:#475569;font-size:16px;font-weight:400}hr{border:none;border-top:2px solid ${ACCENT};margin:20px 0}.footer{margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:13px;color:#94a3b8}</style></head><body><h1>${clinicName}</h1><h1>${n.title}</h1>${n.subtitle ? `<h2>${n.subtitle}</h2>` : ''}<hr/>${sections}${n.footer ? `<div class="footer">${n.footer}</div>` : ''}</body></html>`);
+    w.document.write(`<html><head><title>${escapeHtml(n.title)}</title><style>body{font-family:sans-serif;padding:40px;max-width:700px;margin:auto}h1{color:${ACCENT}}h2{color:#475569;font-size:16px;font-weight:400}hr{border:none;border-top:2px solid ${ACCENT};margin:20px 0}.footer{margin-top:30px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:13px;color:#94a3b8}</style></head><body><h1>${escapeHtml(clinicName)}</h1><h1>${escapeHtml(n.title)}</h1>${n.subtitle ? `<h2>${escapeHtml(n.subtitle)}</h2>` : ''}<hr/>${sections}${n.footer ? `<div class="footer">${escapeHtml(n.footer)}</div>` : ''}</body></html>`);
     w.document.close();
     w.print();
   };

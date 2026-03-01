@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -106,13 +107,13 @@ export default function ClinicGoalSetting({ data, showToast, user }) {
         const t = Number(kr.target) || 1;
         const c = Number(kr.current) || 0;
         const p = Math.round((c / t) * 100);
-        return `<div style="margin:2px 0;font-size:12px">• ${kr.description}: ${c}/${t} ${kr.unit} (${p}%)</div>`;
+        return `<div style="margin:2px 0;font-size:12px">• ${escapeHtml(kr.description)}: ${c}/${t} ${escapeHtml(kr.unit)} (${p}%)</div>`;
       }).join('');
-      return `<tr><td>${g.title}</td><td>${g.category}</td><td>${g.period} ${g.year}</td><td>${g.level}</td><td style="text-align:center"><span style="color:${st.color};font-weight:700">${sc}%</span></td><td>${krs}</td></tr>`;
+      return `<tr><td>${escapeHtml(g.title)}</td><td>${escapeHtml(g.category)}</td><td>${escapeHtml(g.period)} ${g.year}</td><td>${escapeHtml(g.level)}</td><td style="text-align:center"><span style="color:${st.color};font-weight:700">${sc}%</span></td><td>${krs}</td></tr>`;
     }).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>${clinicName} OKR報告</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(clinicName)} OKR報告</title>
       <style>body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ddd;padding:8px;font-size:13px;vertical-align:top}th{background:#f0fdfa;color:${ACCENT}}.hdr{color:${ACCENT}}@media print{body{padding:0}}</style>
-      </head><body><h2 class="hdr">${clinicName} - OKR 目標追蹤報告</h2>
+      </head><body><h2 class="hdr">${escapeHtml(clinicName)} - OKR 目標追蹤報告</h2>
       <p style="color:#666;font-size:13px">整體OKR評分: ${overallScore}% | 報告日期: ${now.toLocaleDateString('zh-HK')}</p>
       <table><thead><tr><th>目標</th><th>類別</th><th>週期</th><th>層級</th><th>評分</th><th>關鍵結果</th></tr></thead><tbody>${rows}</tbody></table>
       <p style="margin-top:20px;font-size:11px;color:#999">列印時間: ${now.toLocaleString('zh-HK')}</p></body></html>`);

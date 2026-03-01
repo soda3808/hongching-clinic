@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { fmtM, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 import { dailyClosingsOps, settlementLocksOps } from '../api';
 
 const PAYMENT_METHODS = ['現金', 'FPS', '信用卡', 'PayMe', '八達通', '長者醫療券', '其他'];
@@ -130,9 +131,9 @@ export default function DailyClosing({ data, showToast, user }) {
       const exp = expectedTotals[m] || 0;
       const act = Number(actualAmounts[m] || 0);
       const diff = act - exp;
-      return `<tr><td>${m}</td><td style="text-align:right">${fmtM(exp)}</td><td style="text-align:right">${act ? fmtM(act) : '-'}</td><td style="text-align:right;color:${diff > 0 ? '#16a34a' : diff < 0 ? '#dc2626' : '#666'}">${act ? fmtM(diff) : '-'}</td></tr>`;
+      return `<tr><td>${escapeHtml(m)}</td><td style="text-align:right">${fmtM(exp)}</td><td style="text-align:right">${act ? fmtM(act) : '-'}</td><td style="text-align:right;color:${diff > 0 ? '#16a34a' : diff < 0 ? '#dc2626' : '#666'}">${act ? fmtM(diff) : '-'}</td></tr>`;
     }).join('');
-    const docRows = byDoctor.map(([doc, d]) => `<tr><td>${doc}</td><td style="text-align:right">${d.count}</td><td style="text-align:right">${fmtM(d.total)}</td></tr>`).join('');
+    const docRows = byDoctor.map(([doc, d]) => `<tr><td>${escapeHtml(doc)}</td><td style="text-align:right">${d.count}</td><td style="text-align:right">${fmtM(d.total)}</td></tr>`).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>日結報表 ${selectedDate}</title>
       <style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px;max-width:600px;margin:0 auto}
       h1{color:#0e7490;font-size:18px;border-bottom:2px solid #0e7490;padding-bottom:8px}
@@ -143,8 +144,8 @@ export default function DailyClosing({ data, showToast, user }) {
       .total-row{font-weight:700;border-top:2px solid #333;font-size:13px}
       .footer{text-align:center;font-size:10px;color:#aaa;margin-top:20px;padding-top:10px;border-top:1px dashed #ddd}
       @media print{body{padding:10px}}</style></head><body>
-      <h1>${clinic} — 日結報表</h1>
-      <p style="font-size:12px;color:#666">日期: ${selectedDate} | 店舖: ${selectedStore === 'all' ? '全部' : selectedStore} | 交易數: ${transactionCount}</p>
+      <h1>${escapeHtml(clinic)} — 日結報表</h1>
+      <p style="font-size:12px;color:#666">日期: ${selectedDate} | 店舖: ${selectedStore === 'all' ? '全部' : escapeHtml(selectedStore)} | 交易數: ${transactionCount}</p>
       <h2>付款方式明細</h2>
       <table><thead><tr><th>付款方式</th><th style="text-align:right">應收</th><th style="text-align:right">實收</th><th style="text-align:right">差異</th></tr></thead>
       <tbody>${rows}
@@ -153,7 +154,7 @@ export default function DailyClosing({ data, showToast, user }) {
       <h2>醫師業績</h2>
       <table><thead><tr><th>醫師</th><th style="text-align:right">人次</th><th style="text-align:right">金額</th></tr></thead>
       <tbody>${docRows}</tbody></table>
-      ${notes ? `<h2>備註</h2><p style="font-size:12px">${notes}</p>` : ''}
+      ${notes ? `<h2>備註</h2><p style="font-size:12px">${escapeHtml(notes)}</p>` : ''}
       <div class="footer">列印時間: ${new Date().toLocaleString('zh-HK')}</div>
       </body></html>`);
     w.document.close();

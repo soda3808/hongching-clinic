@@ -6,6 +6,7 @@ import { parseInventoryXLS, getImportSummary } from '../utils/inventoryImport';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { getTenantStoreNames, getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const CATEGORIES = ['中藥', '耗材', '器材', '其他'];
 const UNITS = ['g', 'kg', '件', '包', '盒'];
@@ -336,7 +337,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
     const today = new Date().toISOString().substring(0, 10);
     const rows = lowStockItems.map(r => {
       const orderQty = Math.max(Number(r.minStock) * 2 - Number(r.stock), Number(r.minStock));
-      return `<tr><td>${r.medicineCode || '-'}</td><td>${r.name}</td><td>${r.category}</td><td>${r.stock} ${r.unit}</td><td>${r.minStock} ${r.unit}</td><td style="font-weight:700;color:#0e7490">${orderQty} ${r.unit}</td><td>${r.supplier || '-'}</td></tr>`;
+      return `<tr><td>${escapeHtml(r.medicineCode || '-')}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.category)}</td><td>${r.stock} ${escapeHtml(r.unit)}</td><td>${r.minStock} ${escapeHtml(r.unit)}</td><td style="font-weight:700;color:#0e7490">${orderQty} ${escapeHtml(r.unit)}</td><td>${escapeHtml(r.supplier || '-')}</td></tr>`;
     }).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>採購單</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:900px;margin:0 auto}
@@ -349,7 +350,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       .footer{margin-top:30px;font-size:11px;color:#999;text-align:center}
       @media print{body{padding:10px}}
     </style></head><body>
-      <h1>${getClinicName()} — 藥材採購單</h1>
+      <h1>${escapeHtml(getClinicName())} — 藥材採購單</h1>
       <div class="info">日期：${today} | 低庫存品項：${lowStockItems.length} 項</div>
       <table><thead><tr><th>編號</th><th>品名</th><th>分類</th><th>現有庫存</th><th>最低庫存</th><th>建議採購量</th><th>供應商</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="footer">此採購單由系統自動生成 | 請核實後再向供應商下單</div>

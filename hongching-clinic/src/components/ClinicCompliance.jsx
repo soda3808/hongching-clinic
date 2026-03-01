@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_compliance_items';
 const ACCENT = '#0e7490';
@@ -91,13 +92,13 @@ export default function ClinicCompliance({ data, showToast, user }) {
   /* ── Print ── */
   const printReport = () => {
     const clinic = getClinicName();
-    const rows = items.map(i => `<tr><td>${i.name}</td><td>${CAT_MAP[i.category] || i.category}</td><td>${i.status}</td><td>${i.expiryDate || '-'}</td><td>${i.responsiblePerson || '-'}</td><td>${i.notes || '-'}</td></tr>`).join('');
+    const rows = items.map(i => `<tr><td>${escapeHtml(i.name)}</td><td>${escapeHtml(CAT_MAP[i.category] || i.category)}</td><td>${escapeHtml(i.status)}</td><td>${i.expiryDate || '-'}</td><td>${escapeHtml(i.responsiblePerson || '-')}</td><td>${escapeHtml(i.notes || '-')}</td></tr>`).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>合規報告</title>
 <style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #ccc;padding:6px 8px;font-size:12px;text-align:left}th{background:#f0fdfa;font-weight:700}.hdr{color:${ACCENT}}.score{font-size:28px;font-weight:700;color:${ACCENT}}.footer{margin-top:24px;font-size:11px;color:#888;border-top:1px solid #ddd;padding-top:8px}@media print{body{padding:0}}</style></head>
-<body><h2 class="hdr">${clinic} - 法規合規報告</h2><p>列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
+<body><h2 class="hdr">${escapeHtml(clinic)} - 法規合規報告</h2><p>列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
 <p>整體合規評分：<span class="score">${score}%</span></p>
 <table><thead><tr><th>項目</th><th>類別</th><th>狀態</th><th>到期日</th><th>負責人</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table>
-<div class="footer"><p>${clinic} - 法規合規管理</p></div>
+<div class="footer"><p>${escapeHtml(clinic)} - 法規合規管理</p></div>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   };

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
 import { roomBookingsOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
@@ -110,13 +111,13 @@ export default function ClinicRoomBooking({ data, showToast, user }) {
     const rows = ROOMS.map(room => {
       const cells = SLOTS.map(slot => {
         const bk = dayBookings.find(b => b.roomId === room.id && b.time === slot);
-        if (bk) return `<td style="border:1px solid #ccc;padding:4px 6px;font-size:12px;background:${ROOM_COLORS[room.type] || ACC}22">${bk.doctor}<br/>${bk.patient}<br/><small>${bk.treatment}</small></td>`;
+        if (bk) return `<td style="border:1px solid #ccc;padding:4px 6px;font-size:12px;background:${ROOM_COLORS[room.type] || ACC}22">${escapeHtml(bk.doctor)}<br/>${escapeHtml(bk.patient)}<br/><small>${escapeHtml(bk.treatment)}</small></td>`;
         return '<td style="border:1px solid #eee;padding:4px 6px;color:#ccc;font-size:11px">-</td>';
       }).join('');
-      return `<tr><td style="border:1px solid #ccc;padding:6px;font-weight:700;white-space:nowrap;background:#f9fafb">${room.name}</td>${cells}</tr>`;
+      return `<tr><td style="border:1px solid #ccc;padding:6px;font-weight:700;white-space:nowrap;background:#f9fafb">${escapeHtml(room.name)}</td>${cells}</tr>`;
     }).join('');
     const headers = SLOTS.map(s => `<th style="border:1px solid #ccc;padding:4px;font-size:11px;background:#f0fdfa;white-space:nowrap">${s}</th>`).join('');
-    const html = `<html><head><title>房間排表 ${selDate}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{button{display:none}}</style></head><body><h2 style="color:${ACC}">${getClinicName()} — 房間排表</h2><p>日期：${selDate}（星期${WEEKDAYS[new Date(selDate).getDay()]}）</p><table><thead><tr><th style="border:1px solid #ccc;padding:6px;background:#f0fdfa">房間</th>${headers}</tr></thead><tbody>${rows}</tbody></table><br/><button onclick="window.print()">列印</button></body></html>`;
+    const html = `<html><head><title>房間排表 ${selDate}</title><style>body{font-family:sans-serif;padding:20px}table{border-collapse:collapse;width:100%}@media print{button{display:none}}</style></head><body><h2 style="color:${ACC}">${escapeHtml(getClinicName())} — 房間排表</h2><p>日期：${selDate}（星期${WEEKDAYS[new Date(selDate).getDay()]}）</p><table><thead><tr><th style="border:1px solid #ccc;padding:6px;background:#f0fdfa">房間</th>${headers}</tr></thead><tbody>${rows}</tbody></table><br/><button onclick="window.print()">列印</button></body></html>`;
     w.document.write(html);
     w.document.close();
   };

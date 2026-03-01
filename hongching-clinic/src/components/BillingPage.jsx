@@ -4,6 +4,7 @@ import { uid, fmtM } from '../data';
 import { getDoctors } from '../data';
 import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantStores, getTenantSettings } from '../tenant';
 import { exportCSV } from '../utils/export';
+import escapeHtml from '../utils/escapeHtml';
 
 const DISPENSING_LABELS = {
   'not-needed': '不需配藥',
@@ -370,7 +371,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
         @media print { body { margin: 0; padding: 10mm; } }
       </style>
     </head><body>
-      <h1>${getClinicName()} — 日結報告</h1>
+      <h1>${escapeHtml(getClinicName())} — 日結報告</h1>
       <div class="subtitle">DAILY CLOSING REPORT | ${filterDate} | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
 
       <div class="summary-grid">
@@ -384,7 +385,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       <table>
         <thead><tr><th>付款方式</th><th class="right">金額</th><th class="right">筆數</th></tr></thead>
         <tbody>
-          ${Object.entries(payMethods).map(([m, amt]) => `<tr><td>${m}</td><td class="right">$${amt.toLocaleString()}</td><td class="right">${paidItems.filter(r => (r.paymentMethod || 'FPS') === m).length}</td></tr>`).join('')}
+          ${Object.entries(payMethods).map(([m, amt]) => `<tr><td>${escapeHtml(m)}</td><td class="right">$${amt.toLocaleString()}</td><td class="right">${paidItems.filter(r => (r.paymentMethod || 'FPS') === m).length}</td></tr>`).join('')}
           <tr class="total-row"><td>合計</td><td class="right">$${totalRevenue.toLocaleString()}</td><td class="right">${paidItems.length}</td></tr>
           ${totalRefunds > 0 ? `<tr style="color:#dc2626"><td>退款</td><td class="right">-$${totalRefunds.toLocaleString()}</td><td class="right">${refundedItems.length}</td></tr>` : ''}
         </tbody>
@@ -394,7 +395,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       <table>
         <thead><tr><th>醫師</th><th class="right">帳單數</th><th class="right">金額</th></tr></thead>
         <tbody>
-          ${Object.entries(docBreak).map(([d, v]) => `<tr><td>${d}</td><td class="right">${v.count}</td><td class="right">$${v.amount.toLocaleString()}</td></tr>`).join('')}
+          ${Object.entries(docBreak).map(([d, v]) => `<tr><td>${escapeHtml(d)}</td><td class="right">${v.count}</td><td class="right">$${v.amount.toLocaleString()}</td></tr>`).join('')}
         </tbody>
       </table>
 
@@ -402,7 +403,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       <table>
         <thead><tr><th>分店</th><th class="right">帳單數</th><th class="right">金額</th></tr></thead>
         <tbody>
-          ${Object.entries(storeBreak).map(([s, v]) => `<tr><td>${s}</td><td class="right">${v.count}</td><td class="right">$${v.amount.toLocaleString()}</td></tr>`).join('')}
+          ${Object.entries(storeBreak).map(([s, v]) => `<tr><td>${escapeHtml(s)}</td><td class="right">${v.count}</td><td class="right">$${v.amount.toLocaleString()}</td></tr>`).join('')}
         </tbody>
       </table>
 
@@ -479,21 +480,21 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       </style>
     </head><body>
       <div class="center">
-        <div class="bold" style="font-size:14px">${getClinicName()}</div>
-        <div class="small">${getClinicNameEn().toUpperCase()}</div>
-        <div class="small">${storeAddr}</div>
+        <div class="bold" style="font-size:14px">${escapeHtml(getClinicName())}</div>
+        <div class="small">${escapeHtml(getClinicNameEn().toUpperCase())}</div>
+        <div class="small">${escapeHtml(storeAddr)}</div>
       </div>
       <div class="double-divider"></div>
       <div class="center bold" style="font-size:12px">正式收據 RECEIPT</div>
       <div class="divider"></div>
-      <div class="row"><span>收據編號：</span><span class="bold">${receiptNo}</span></div>
-      <div class="row"><span>日期：</span><span>${item.date}</span></div>
-      <div class="row"><span>時間：</span><span>${item.completedAt || item.registeredAt || '-'}</span></div>
-      <div class="row"><span>商業登記：</span><span>${brNo}</span></div>
+      <div class="row"><span>收據編號：</span><span class="bold">${escapeHtml(receiptNo)}</span></div>
+      <div class="row"><span>日期：</span><span>${escapeHtml(item.date)}</span></div>
+      <div class="row"><span>時間：</span><span>${escapeHtml(item.completedAt || item.registeredAt || '-')}</span></div>
+      <div class="row"><span>商業登記：</span><span>${escapeHtml(brNo)}</span></div>
       <div class="divider"></div>
-      <div class="row"><span class="row-label">病人姓名：</span><span>${item.patientName}</span></div>
-      <div class="row"><span class="row-label">主診醫師：</span><span>${item.doctor}</span></div>
-      <div class="row"><span class="row-label">掛號編號：</span><span>${item.queueNo || '-'}</span></div>
+      <div class="row"><span class="row-label">病人姓名：</span><span>${escapeHtml(item.patientName)}</span></div>
+      <div class="row"><span class="row-label">主診醫師：</span><span>${escapeHtml(item.doctor)}</span></div>
+      <div class="row"><span class="row-label">掛號編號：</span><span>${escapeHtml(item.queueNo || '-')}</span></div>
       <div class="divider"></div>
       <div class="bold" style="margin-bottom:4px">收費項目：</div>
       <table>
@@ -502,19 +503,19 @@ export default function BillingPage({ data, setData, showToast, allData, user })
           ${medFee > 0 ? `<tr><td>藥費 Medicine Fee</td><td class="amt">$${medFee.toLocaleString()}</td></tr>` : ''}
           ${totalFee - consultFee - medFee > 0 ? `<tr><td>其他 Others</td><td class="amt">$${(totalFee - consultFee - medFee).toLocaleString()}</td></tr>` : ''}
         ` : `
-          ${services.map(s => `<tr><td>${s}</td><td class="amt"></td></tr>`).join('')}
+          ${services.map(s => `<tr><td>${escapeHtml(s)}</td><td class="amt"></td></tr>`).join('')}
           <tr><td>費用 Fee</td><td class="amt">$${totalFee.toLocaleString()}</td></tr>
         `}
       </table>
       <div class="double-divider"></div>
       <div class="row total"><span>合計 TOTAL：</span><span>HK$ ${totalFee.toLocaleString()}</span></div>
-      <div class="row"><span>付款方式：</span><span>${item.paymentMethod || 'FPS'}</span></div>
+      <div class="row"><span>付款方式：</span><span>${escapeHtml(item.paymentMethod || 'FPS')}</span></div>
       <div class="divider"></div>
       <div class="center small" style="margin-top:8px">
         <div>此收據可用作醫療費用扣稅憑證</div>
         <div>This receipt is valid for tax deduction purposes</div>
         <div style="margin-top:6px">多謝惠顧 Thank You</div>
-        <div style="margin-top:4px">${getTenantSettings()?.website || ''}</div>
+        <div style="margin-top:4px">${escapeHtml(getTenantSettings()?.website || '')}</div>
       </div>
     </body></html>`);
     w.document.close();

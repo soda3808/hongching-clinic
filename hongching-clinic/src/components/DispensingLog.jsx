@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
 import { dispensingLogOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const STATUS_MAP = {
   pending: { label: '待配藥', color: '#f59e0b', bg: '#fffbeb' },
@@ -98,10 +99,10 @@ export default function DispensingLog({ data, showToast, user }) {
   // Print dispensing report
   const handlePrint = () => {
     const rows = items.filter(i => i.rxCount > 0).map(i =>
-      `<tr><td>${i.patientName}</td><td>${i.doctor}</td><td>${i.formulaName || '-'}</td><td>${i.rxList.map(r => `${r.herb} ${r.dosage}`).join('<br/>')}</td><td>${i.formulaDays || '-'}天</td><td>${STATUS_MAP[i.dispenseStatus]?.label}</td></tr>`
+      `<tr><td>${escapeHtml(i.patientName)}</td><td>${escapeHtml(i.doctor)}</td><td>${escapeHtml(i.formulaName || '-')}</td><td>${i.rxList.map(r => `${escapeHtml(r.herb)} ${escapeHtml(r.dosage)}`).join('<br/>')}</td><td>${i.formulaDays || '-'}天</td><td>${STATUS_MAP[i.dispenseStatus]?.label}</td></tr>`
     ).join('');
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>配藥日誌</title><style>body{font:12px sans-serif;padding:15px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:5px;text-align:left;font-size:11px}th{background:#f3f4f6}.header{text-align:center;margin-bottom:12px}h1{font-size:16px;margin:0}@media print{body{padding:10px}}</style></head><body><div class="header"><h1>${clinicName} — 配藥日誌</h1><p>${filterDate}</p></div><table><thead><tr><th>病人</th><th>醫師</th><th>處方</th><th>藥材</th><th>天數</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table><p style="font-size:10px;color:#999;margin-top:12px">列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`);
+    w.document.write(`<html><head><title>配藥日誌</title><style>body{font:12px sans-serif;padding:15px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ddd;padding:5px;text-align:left;font-size:11px}th{background:#f3f4f6}.header{text-align:center;margin-bottom:12px}h1{font-size:16px;margin:0}@media print{body{padding:10px}}</style></head><body><div class="header"><h1>${escapeHtml(clinicName)} — 配藥日誌</h1><p>${filterDate}</p></div><table><thead><tr><th>病人</th><th>醫師</th><th>處方</th><th>藥材</th><th>天數</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table><p style="font-size:10px;color:#999;margin-top:12px">列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   };

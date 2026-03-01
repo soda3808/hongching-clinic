@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_waitlist';
 const ACCENT = '#0e7490';
@@ -102,9 +103,9 @@ export default function PatientWaitlist({ data, showToast, user }) {
 
   const handlePrint = () => {
     const w = window.open('', '_blank'); if (!w) return;
-    const rows = filtered.map(e => `<tr><td>${e.patientName}</td><td>${e.service}</td><td>${e.preferredDoctor}</td><td>${e.preferredDate} ${e.preferredTime}</td><td style="color:${STATUS_COLOR[e.status]};font-weight:700">${e.status}</td><td>${e.priority==='urgent'?'緊急':'普通'}</td><td>${e.notes||'-'}</td></tr>`).join('');
+    const rows = filtered.map(e => `<tr><td>${escapeHtml(e.patientName)}</td><td>${escapeHtml(e.service)}</td><td>${escapeHtml(e.preferredDoctor)}</td><td>${e.preferredDate} ${e.preferredTime}</td><td style="color:${STATUS_COLOR[e.status]};font-weight:700">${escapeHtml(e.status)}</td><td>${e.priority==='urgent'?'緊急':'普通'}</td><td>${escapeHtml(e.notes||'-')}</td></tr>`).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>候補名單</title><style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:900px;margin:0 auto;font-size:12px}h1{font-size:18px;text-align:center;color:${ACCENT}}.sub{text-align:center;color:#888;font-size:11px;margin-bottom:16px}.g{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}.b{border:1px solid #ddd;border-radius:8px;padding:10px;text-align:center}.b .n{font-size:20px;font-weight:800}.b .l{font-size:10px;color:#888}table{width:100%;border-collapse:collapse}th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}th{background:#f8f8f8;font-weight:700;font-size:11px}@media print{body{margin:0;padding:8mm}}</style></head><body>
-    <h1>${getClinicName()} — 候補名單</h1>
+    <h1>${escapeHtml(getClinicName())} — 候補名單</h1>
     <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')} | 共 ${filtered.length} 筆</div>
     <div class="g"><div class="b"><div class="n" style="color:${ACCENT}">${stats.waiting}</div><div class="l">等待中</div></div><div class="b"><div class="n" style="color:#16a34a">${stats.booked}</div><div class="l">已預約</div></div><div class="b"><div class="n" style="color:#d97706">${stats.avgWait}天</div><div class="l">平均等待</div></div><div class="b"><div class="n" style="color:#2563eb">${stats.conversion}%</div><div class="l">轉換率</div></div></div>
     <table><thead><tr><th>病人</th><th>服務</th><th>醫師</th><th>期望日期/時間</th><th>狀態</th><th>優先</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);

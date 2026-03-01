@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { uid, fmtM, getMonth } from '../data';
 import { savePatient } from '../api';
 import { getClinicName, getTenantStoreNames } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const VOUCHER_LIMIT = 2000; // Annual limit
 const ELIGIBLE_AGE = 65;
@@ -268,7 +269,7 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
               .box .l{font-size:10px;color:#888}
               @media print{body{margin:0;padding:10mm}}
               </style></head><body>
-              <h1>${clinicName} — 長者醫療券報告</h1>
+              <h1>${escapeHtml(clinicName)} — 長者醫療券報告</h1>
               <div class="sub">${CURRENT_YEAR}年度 | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
               <div class="grid">
                 <div class="box"><div class="n" style="color:#0e7490">${stats.totalEligible}</div><div class="l">合資格長者</div></div>
@@ -281,7 +282,7 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
               <tbody>${compliance.monthly.map(([m, d]) => `<tr><td>${m}</td><td class="r">${d.count}</td><td class="r">${fmtM(d.amount)}</td></tr>`).join('')}</tbody></table>
               <h2>長者使用詳情</h2>
               <table><thead><tr><th>姓名</th><th>年齡</th><th class="r">已使用</th><th class="r">剩餘</th></tr></thead>
-              <tbody>${eligiblePatients.slice(0, 50).map(p => `<tr><td>${p.name}</td><td>${p.age}歲</td><td class="r">${fmtM(p.totalUsed)}</td><td class="r">${fmtM(p.remaining)}</td></tr>`).join('')}</tbody></table>
+              <tbody>${eligiblePatients.slice(0, 50).map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${p.age}歲</td><td class="r">${fmtM(p.totalUsed)}</td><td class="r">${fmtM(p.remaining)}</td></tr>`).join('')}</tbody></table>
             </body></html>`);
             w.document.close();
             setTimeout(() => w.print(), 300);

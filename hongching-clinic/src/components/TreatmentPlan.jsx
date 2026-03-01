@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_treatment_plans';
 const load = () => JSON.parse(localStorage.getItem(LS_KEY) || '[]');
@@ -67,13 +68,13 @@ export default function TreatmentPlan({ data, showToast, user }) {
 
   const printPlan = (plan) => {
     const w = window.open('', '_blank');
-    const sessRows = plan.sessions.map((s, i) => `<tr><td>${i + 1}</td><td>${s.date}</td><td>${s.type}</td><td>${s.done ? '已完成' : '未完成'}</td><td>${s.notes || ''}</td></tr>`).join('');
+    const sessRows = plan.sessions.map((s, i) => `<tr><td>${i + 1}</td><td>${s.date}</td><td>${escapeHtml(s.type)}</td><td>${s.done ? '已完成' : '未完成'}</td><td>${escapeHtml(s.notes || '')}</td></tr>`).join('');
     w.document.write(`<html><head><title>治療計劃</title><style>body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left}th{background:#f0fdfa}</style></head><body>
-      <h2>${clinicName} — 治療計劃</h2><p><b>病人：</b>${plan.patientName}　<b>醫師：</b>${plan.doctor}　<b>日期：</b>${plan.createdAt}</p>
-      <p><b>計劃名稱：</b>${plan.name}　<b>狀態：</b>${STATUS_MAP[plan.status]}</p>
-      <p><b>診斷：</b>${plan.diagnosis || '-'}</p><p><b>治療目標：</b>${plan.goals || '-'}</p>
+      <h2>${escapeHtml(clinicName)} — 治療計劃</h2><p><b>病人：</b>${escapeHtml(plan.patientName)}　<b>醫師：</b>${escapeHtml(plan.doctor)}　<b>日期：</b>${plan.createdAt}</p>
+      <p><b>計劃名稱：</b>${escapeHtml(plan.name)}　<b>狀態：</b>${escapeHtml(STATUS_MAP[plan.status])}</p>
+      <p><b>診斷：</b>${escapeHtml(plan.diagnosis || '-')}</p><p><b>治療目標：</b>${escapeHtml(plan.goals || '-')}</p>
       <table><tr><th>#</th><th>日期</th><th>治療</th><th>狀態</th><th>備註</th></tr>${sessRows}</table>
-      <p><b>處方建議：</b>${plan.prescription || '-'}</p><p><b>注意事項：</b>${plan.precautions || '-'}</p>
+      <p><b>處方建議：</b>${escapeHtml(plan.prescription || '-')}</p><p><b>注意事項：</b>${escapeHtml(plan.precautions || '-')}</p>
       <script>window.print()</script></body></html>`);
     w.document.close();
   };

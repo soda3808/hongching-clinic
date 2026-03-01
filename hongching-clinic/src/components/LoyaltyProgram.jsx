@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const LS_SET = 'hcmc_loyalty_settings';
@@ -121,9 +122,9 @@ h2{color:${ACC};margin:0 0 8px}h3{margin:4px 0 16px;color:#64748b;font-size:14px
 .pts{font-size:48px;color:${ACC};font-weight:700;margin:16px 0}.lbl{color:#94a3b8;font-size:13px}
 .name{font-size:20px;font-weight:600;margin-bottom:4px}.footer{margin-top:16px;font-size:11px;color:#94a3b8}
 @media print{body{padding:20px}}</style></head><body onload="window.print()">
-<div class="card"><h2>${clinic}</h2><h3>積分獎賞會員卡</h3><div class="name">${p.name}</div>
-<div class="lbl">會員電話：${p.phone || '-'}</div><div class="pts">${bal.toLocaleString()}</div>
-<div class="lbl">目前積分餘額</div><div class="footer">列印日期：${today()} | ${clinic}</div></div></body></html>`);
+<div class="card"><h2>${escapeHtml(clinic)}</h2><h3>積分獎賞會員卡</h3><div class="name">${escapeHtml(p.name)}</div>
+<div class="lbl">會員電話：${escapeHtml(p.phone || '-')}</div><div class="pts">${bal.toLocaleString()}</div>
+<div class="lbl">目前積分餘額</div><div class="footer">列印日期：${today()} | ${escapeHtml(clinic)}</div></div></body></html>`);
     w.document.close();
   };
 

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 export default function PrescriptionHistory({ data, showToast, user }) {
   const [search, setSearch] = useState('');
@@ -92,11 +93,11 @@ export default function PrescriptionHistory({ data, showToast, user }) {
   const handlePrint = () => {
     if (!patientRx.length) return;
     const rows = patientRx.map(c =>
-      `<tr><td>${c.date}</td><td>${c.doctor || '-'}</td><td>${c.formulaName || '-'}</td><td>${c.formulaDays || '-'}天</td><td>${(c.prescription || []).filter(p => p.herb).map(p => `${p.herb} ${p.dosage}`).join('、')}</td><td>${c.specialNotes || '-'}</td></tr>`
+      `<tr><td>${c.date}</td><td>${escapeHtml(c.doctor || '-')}</td><td>${escapeHtml(c.formulaName || '-')}</td><td>${c.formulaDays || '-'}天</td><td>${(c.prescription || []).filter(p => p.herb).map(p => `${escapeHtml(p.herb)} ${escapeHtml(p.dosage)}`).join('、')}</td><td>${escapeHtml(c.specialNotes || '-')}</td></tr>`
     ).join('');
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>處方歷史 - ${selectedPatient}</title><style>@page{size:A4;margin:12mm}body{font-family:'PingFang TC','Microsoft YaHei',sans-serif;font-size:12px;padding:15px;max-width:780px;margin:0 auto;color:#333}h1{font-size:17px;text-align:center;margin:0 0 2px}p.sub{text-align:center;color:#888;font-size:11px;margin:0 0 16px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th,td{padding:5px 8px;border-bottom:1px solid #ddd;text-align:left;font-size:11px}th{background:#f3f4f6;font-weight:700}.stats{display:flex;gap:20px;margin-bottom:14px;font-size:12px}.stats b{color:#0e7490}@media print{body{padding:8px}}</style></head><body><h1>${clinicName} — 病人處方歷史</h1><p class="sub">${selectedPatient} | 共 ${patientRx.length} 次就診 | 列印：${new Date().toLocaleString('zh-HK')}</p><table><thead><tr><th>日期</th><th>醫師</th><th>處方</th><th>天數</th><th>藥材明細</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>處方歷史 - ${escapeHtml(selectedPatient)}</title><style>@page{size:A4;margin:12mm}body{font-family:'PingFang TC','Microsoft YaHei',sans-serif;font-size:12px;padding:15px;max-width:780px;margin:0 auto;color:#333}h1{font-size:17px;text-align:center;margin:0 0 2px}p.sub{text-align:center;color:#888;font-size:11px;margin:0 0 16px}table{width:100%;border-collapse:collapse;margin-bottom:14px}th,td{padding:5px 8px;border-bottom:1px solid #ddd;text-align:left;font-size:11px}th{background:#f3f4f6;font-weight:700}.stats{display:flex;gap:20px;margin-bottom:14px;font-size:12px}.stats b{color:#0e7490}@media print{body{padding:8px}}</style></head><body><h1>${escapeHtml(clinicName)} — 病人處方歷史</h1><p class="sub">${escapeHtml(selectedPatient)} | 共 ${patientRx.length} 次就診 | 列印：${new Date().toLocaleString('zh-HK')}</p><table><thead><tr><th>日期</th><th>醫師</th><th>處方</th><th>天數</th><th>藥材明細</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   };

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 import { fmtM } from '../data';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -147,11 +148,11 @@ export default function DailyRevenueTarget({ data, showToast, user }) {
   /* --- print --- */
   const handlePrint = () => {
     const clinic = getClinicName();
-    const rows = PAY_METHODS.map(m => `<tr><td style="padding:6px 12px;border:1px solid #ddd">${m}</td><td style="padding:6px 12px;border:1px solid #ddd;text-align:right">${fmtM(payBreakdown[m])}</td></tr>`).join('');
+    const rows = PAY_METHODS.map(m => `<tr><td style="padding:6px 12px;border:1px solid #ddd">${escapeHtml(m)}</td><td style="padding:6px 12px;border:1px solid #ddd;text-align:right">${fmtM(payBreakdown[m])}</td></tr>`).join('');
     const hourRows = HOURS.map(h => `<tr><td style="padding:4px 8px;border:1px solid #eee">${h}:00</td><td style="padding:4px 8px;border:1px solid #eee;text-align:right">${fmtM(hourlyData[h])}</td></tr>`).join('');
-    const html = `<html><head><title>${clinic} - 每日營業目標報表</title>
+    const html = `<html><head><title>${escapeHtml(clinic)} - 每日營業目標報表</title>
       <style>body{font-family:sans-serif;padding:24px;color:#333}table{border-collapse:collapse;width:100%;margin:12px 0}h2{color:${A}}</style></head><body>
-      <h2>${clinic} - 每日營業目標報表</h2>
+      <h2>${escapeHtml(clinic)} - 每日營業目標報表</h2>
       <p><strong>日期：</strong>${today} (星期${DAYS[todayDow]})</p>
       <p><strong>目標金額：</strong>${fmtM(todayTarget)}</p>
       <p><strong>實際營業額：</strong>${fmtM(todayTotal)} (${rawPct.toFixed(1)}%)</p>

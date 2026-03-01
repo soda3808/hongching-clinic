@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_referrals';
 const load = () => JSON.parse(localStorage.getItem(LS_KEY) || '[]');
@@ -101,26 +102,26 @@ export default function ReferralTracking({ data, showToast, user }) {
       .urgency{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
       @media print{body{padding:20px 30px}}
     </style></head><body>
-      <div class="header"><h1>${clinicName}</h1><p style="font-size:12px;color:#888">轉介信 Referral Letter</p></div>
+      <div class="header"><h1>${escapeHtml(clinicName)}</h1><p style="font-size:12px;color:#888">轉介信 Referral Letter</p></div>
       <div class="title">轉 介 信</div>
-      <div class="field"><span class="lb">轉介編號：</span><span class="val">REF-${(ref.createdAt || '').replace(/-/g, '')}-${(ref.id || '').substring(0, 6).toUpperCase()}</span></div>
+      <div class="field"><span class="lb">轉介編號：</span><span class="val">REF-${(ref.createdAt || '').replace(/-/g, '')}-${escapeHtml((ref.id || '').substring(0, 6).toUpperCase())}</span></div>
       <div class="field"><span class="lb">日期：</span><span class="val">${ref.createdAt}</span></div>
-      <div class="field"><span class="lb">轉介類型：</span><span class="val">${ref.type}</span></div>
-      <div class="field"><span class="lb">緊急程度：</span><span class="val"><span class="urgency" style="background:${(URGENCY_COLORS[ref.urgency] || '#888')}22;color:${URGENCY_COLORS[ref.urgency] || '#888'}">${ref.urgency}</span></span></div>
+      <div class="field"><span class="lb">轉介類型：</span><span class="val">${escapeHtml(ref.type)}</span></div>
+      <div class="field"><span class="lb">緊急程度：</span><span class="val"><span class="urgency" style="background:${(URGENCY_COLORS[ref.urgency] || '#888')}22;color:${URGENCY_COLORS[ref.urgency] || '#888'}">${escapeHtml(ref.urgency)}</span></span></div>
       <div class="section">病人資料</div>
-      <div class="field"><span class="lb">病人姓名：</span><span class="val">${ref.patientName}</span></div>
+      <div class="field"><span class="lb">病人姓名：</span><span class="val">${escapeHtml(ref.patientName)}</span></div>
       <div class="section">轉介詳情</div>
-      <div class="field"><span class="lb">轉介醫師：</span><span class="val">${ref.fromDoctor}</span></div>
-      <div class="field"><span class="lb">接收醫師：</span><span class="val">${ref.toDoctor || '-'}</span></div>
-      <div class="field"><span class="lb">接收機構：</span><span class="val">${ref.toClinic || '-'}</span></div>
+      <div class="field"><span class="lb">轉介醫師：</span><span class="val">${escapeHtml(ref.fromDoctor)}</span></div>
+      <div class="field"><span class="lb">接收醫師：</span><span class="val">${escapeHtml(ref.toDoctor || '-')}</span></div>
+      <div class="field"><span class="lb">接收機構：</span><span class="val">${escapeHtml(ref.toClinic || '-')}</span></div>
       <div class="section">轉介原因</div>
-      <div class="body">${ref.reason}</div>
-      ${ref.notes ? `<div class="section">備註</div><div class="body" style="border-left-color:#d1d5db;background:#fff">${ref.notes}</div>` : ''}
+      <div class="body">${escapeHtml(ref.reason)}</div>
+      ${ref.notes ? `<div class="section">備註</div><div class="body" style="border-left-color:#d1d5db;background:#fff">${escapeHtml(ref.notes)}</div>` : ''}
       <div class="sig">
-        <div class="sig-box"><div class="sig-line">轉介醫師簽署<br/>${ref.fromDoctor}</div></div>
-        <div class="sig-box"><div class="sig-line">診所蓋章<br/>${clinicName}</div></div>
+        <div class="sig-box"><div class="sig-line">轉介醫師簽署<br/>${escapeHtml(ref.fromDoctor)}</div></div>
+        <div class="sig-box"><div class="sig-line">診所蓋章<br/>${escapeHtml(clinicName)}</div></div>
       </div>
-      <div class="footer">REF-${(ref.createdAt || '').replace(/-/g, '')}-${(ref.id || '').substring(0, 6).toUpperCase()} | ${clinicName}</div>
+      <div class="footer">REF-${(ref.createdAt || '').replace(/-/g, '')}-${escapeHtml((ref.id || '').substring(0, 6).toUpperCase())} | ${escapeHtml(clinicName)}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

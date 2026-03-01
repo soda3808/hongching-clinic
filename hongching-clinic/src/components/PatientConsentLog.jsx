@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_patient_consents';
 const ACCENT = '#0e7490';
@@ -192,7 +193,7 @@ export default function PatientConsentLog({ data, showToast, user }) {
     const typeObj = CONSENT_TYPES.find(t => t.key === c.consentType);
     const clinic = getClinicName();
     const sigHtml = c.digitalSignature ? `<img src="${c.digitalSignature}" style="max-width:220px;max-height:80px;display:block;margin:8px auto 0" />` : '<div style="height:60px"></div>';
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${typeObj?.label || '同意書'}</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(typeObj?.label || '同意書')}</title>
       <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;padding:40px;max-width:700px;margin:0 auto;color:#1e293b}
       h1{text-align:center;font-size:20px;margin-bottom:4px}h2{text-align:center;font-size:16px;color:#475569;margin-top:0}
       .info{margin:24px 0;font-size:14px;line-height:1.8}.info span{display:inline-block;min-width:100px;font-weight:600}
@@ -202,16 +203,16 @@ export default function PatientConsentLog({ data, showToast, user }) {
       .footer{margin-top:40px;text-align:center;font-size:12px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}
       .revoked{color:#dc2626;font-weight:700;text-align:center;padding:8px;border:2px solid #dc2626;border-radius:6px;margin:16px 0}
       @media print{body{padding:20px}}</style></head><body>
-      <h1>${clinic}</h1><h2>${typeObj?.label || '同意書'}</h2>
+      <h1>${escapeHtml(clinic)}</h1><h2>${escapeHtml(typeObj?.label || '同意書')}</h2>
       ${c.status === '已撤回' ? '<div class="revoked">*** 此同意書已撤回 ***</div>' : ''}
-      <div class="info"><p><span>病人姓名：</span>${c.patientName || '-'}</p>
+      <div class="info"><p><span>病人姓名：</span>${escapeHtml(c.patientName || '-')}</p>
       <p><span>簽署日期：</span>${fmt(c.date)}</p>
-      <p><span>見證人：</span>${c.witnessName || '-'}</p>
-      <p><span>狀態：</span>${c.status}${c.revokedAt ? '（' + fmt(c.revokedAt) + '）' : ''}</p></div>
-      <div class="text"><strong>同意書內容：</strong><br><br>${c.consentText || typeObj?.template || ''}</div>
+      <p><span>見證人：</span>${escapeHtml(c.witnessName || '-')}</p>
+      <p><span>狀態：</span>${escapeHtml(c.status)}${c.revokedAt ? '（' + fmt(c.revokedAt) + '）' : ''}</p></div>
+      <div class="text"><strong>同意書內容：</strong><br><br>${escapeHtml(c.consentText || typeObj?.template || '')}</div>
       <div class="sig"><div class="sig-box">${sigHtml}<div class="sig-line">病人簽署</div></div>
-      <div class="sig-box"><div style="height:60px"></div><div class="sig-line">見證人：${c.witnessName || ''}</div></div></div>
-      <div class="footer">${clinic} | 列印日期：${new Date().toLocaleDateString('zh-HK')}</div>
+      <div class="sig-box"><div style="height:60px"></div><div class="sig-line">見證人：${escapeHtml(c.witnessName || '')}</div></div></div>
+      <div class="footer">${escapeHtml(clinic)} | 列印日期：${new Date().toLocaleDateString('zh-HK')}</div>
       </body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html); w.document.close(); w.print();

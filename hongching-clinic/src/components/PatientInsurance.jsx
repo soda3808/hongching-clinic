@@ -3,6 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_patient_insurance';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -157,14 +158,14 @@ export default function PatientInsurance({ data, showToast, user }) {
   // ── Print ──
   const printSummary = () => {
     const w = window.open('', '_blank');
-    const polRows = patientPolicies.map(p => `<tr><td>${p.company}</td><td>${p.policyNumber}</td><td>${p.coverageType}</td><td>${fmtA(p.coverageAmount)}</td><td>${p.expiryDate || '-'}</td></tr>`).join('');
+    const polRows = patientPolicies.map(p => `<tr><td>${escapeHtml(p.company)}</td><td>${escapeHtml(p.policyNumber)}</td><td>${escapeHtml(p.coverageType)}</td><td>${fmtA(p.coverageAmount)}</td><td>${p.expiryDate || '-'}</td></tr>`).join('');
     const clmRows = patientClaims.map(c => {
       const pol = store.policies.find(p => p.id === c.policyId);
-      return `<tr><td>${c.claimId || '-'}</td><td>${c.date}</td><td>${pol?.company || '-'}</td><td>${fmtA(c.amount)}</td><td>${c.status}</td><td>${c.description || ''}</td></tr>`;
+      return `<tr><td>${escapeHtml(c.claimId || '-')}</td><td>${c.date}</td><td>${escapeHtml(pol?.company || '-')}</td><td>${fmtA(c.amount)}</td><td>${escapeHtml(c.status)}</td><td>${escapeHtml(c.description || '')}</td></tr>`;
     }).join('');
     w.document.write(`<html><head><title>保險摘要</title><style>body{font-family:sans-serif;padding:24px;color:#1e293b}table{width:100%;border-collapse:collapse;margin:10px 0}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:13px}th{background:#f0fdfa}h2{color:${ACC}}h3{margin-top:20px;color:#334155}.stats{display:flex;gap:20px;margin:12px 0}.stat{padding:8px 16px;background:#f0fdfa;border-radius:8px}.stat b{color:${ACC}}</style></head><body>`);
-    w.document.write(`<h2>${clinicName} — 病人保險摘要</h2>`);
-    w.document.write(`<p><b>病人：</b>${selPatient.name}　<b>電話：</b>${selPatient.phone || '-'}　<b>列印日期：</b>${today()}</p>`);
+    w.document.write(`<h2>${escapeHtml(clinicName)} — 病人保險摘要</h2>`);
+    w.document.write(`<p><b>病人：</b>${escapeHtml(selPatient.name)}　<b>電話：</b>${escapeHtml(selPatient.phone || '-')}　<b>列印日期：</b>${today()}</p>`);
     w.document.write(`<div class="stats"><div class="stat">總保額：<b>${fmtA(stats.totalCoverage)}</b></div><div class="stat">已索償：<b>${fmtA(stats.totalClaimed)}</b></div><div class="stat">餘額：<b>${fmtA(stats.remaining)}</b></div><div class="stat">成功率：<b>${stats.successRate}%</b></div></div>`);
     w.document.write(`<h3>保險資料</h3><table><tr><th>保險公司</th><th>保單號碼</th><th>保障類型</th><th>保額</th><th>到期日</th></tr>${polRows || '<tr><td colspan="5" style="text-align:center">暫無記錄</td></tr>'}</table>`);
     w.document.write(`<h3>索償記錄</h3><table><tr><th>索償編號</th><th>日期</th><th>保險公司</th><th>金額</th><th>狀態</th><th>描述</th></tr>${clmRows || '<tr><td colspan="6" style="text-align:center">暫無記錄</td></tr>'}</table>`);

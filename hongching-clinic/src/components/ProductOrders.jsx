@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_product_orders';
 const STATUSES = [
@@ -99,9 +100,9 @@ export default function ProductOrders({ data, showToast, user }) {
   };
 
   const handlePrint = (o) => {
-    const rows = o.items.map((i, idx) => `<tr><td>${idx + 1}</td><td>${i.name}</td><td>${i.qty}</td><td>$${Number(i.price || 0).toFixed(2)}</td><td>$${((Number(i.qty) || 0) * (Number(i.price) || 0)).toFixed(2)}</td></tr>`).join('');
+    const rows = o.items.map((i, idx) => `<tr><td>${idx + 1}</td><td>${escapeHtml(i.name)}</td><td>${i.qty}</td><td>$${Number(i.price || 0).toFixed(2)}</td><td>$${((Number(i.qty) || 0) * (Number(i.price) || 0)).toFixed(2)}</td></tr>`).join('');
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>訂單 ${o.orderNo}</title><style>body{font:12px sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:5px 8px;font-size:11px}th{background:#f3f4f6}h1{font-size:16px;margin:0}@media print{body{padding:10px}}</style></head><body><h1>${clinicName} — 銷售訂單</h1><p>單號：<b>${o.orderNo}</b> | 購買人：<b>${o.buyer}</b> | 店舖：${o.store} | 支付：${o.payment}</p><table><thead><tr><th>#</th><th>商品</th><th>數量</th><th>單價</th><th>小計</th></tr></thead><tbody>${rows}</tbody></table><p style="text-align:right;font-weight:700">訂單金額：${fmt$(o.totalAmount)} | 已付：${fmt$(o.paidAmount || 0)}</p>${o.notes ? `<p>備註：${o.notes}</p>` : ''}<p style="font-size:10px;color:#999;margin-top:20px">銷售員：${o.seller} | 列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`);
+    w.document.write(`<html><head><title>訂單 ${escapeHtml(o.orderNo)}</title><style>body{font:12px sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{border:1px solid #ddd;padding:5px 8px;font-size:11px}th{background:#f3f4f6}h1{font-size:16px;margin:0}@media print{body{padding:10px}}</style></head><body><h1>${escapeHtml(clinicName)} — 銷售訂單</h1><p>單號：<b>${escapeHtml(o.orderNo)}</b> | 購買人：<b>${escapeHtml(o.buyer)}</b> | 店舖：${escapeHtml(o.store)} | 支付：${escapeHtml(o.payment)}</p><table><thead><tr><th>#</th><th>商品</th><th>數量</th><th>單價</th><th>小計</th></tr></thead><tbody>${rows}</tbody></table><p style="text-align:right;font-weight:700">訂單金額：${fmt$(o.totalAmount)} | 已付：${fmt$(o.paidAmount || 0)}</p>${o.notes ? `<p>備註：${escapeHtml(o.notes)}</p>` : ''}<p style="font-size:10px;color:#999;margin-top:20px">銷售員：${escapeHtml(o.seller)} | 列印時間：${new Date().toLocaleString('zh-HK')}</p></body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);
   };
 

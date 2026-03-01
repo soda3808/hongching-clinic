@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { fmtM, getMonth, monthLabel, getDoctors, getStoreNames } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const COLORS = ['#0e7490','#16a34a','#DAA520','#dc2626','#7C3AED','#0284c7','#f97316','#ec4899'];
@@ -204,10 +205,10 @@ export default function FinancialDashboard({ data, showToast, user }) {
         <div class="mc"><div class="lbl">現金餘額(估)</div><div class="val">${fmtM(metrics.cashEst)}</div></div>
       </div>
       <h2>收入按服務</h2><table><tr><th>類別</th><th class="r">金額</th><th class="r">佔比</th></tr>
-      ${byService.items.map(it => `<tr><td>${it.label}</td><td class="r">${fmtM(it.value)}</td><td class="r">${byService.total > 0 ? (it.value / byService.total * 100).toFixed(1) : 0}%</td></tr>`).join('')}
+      ${byService.items.map(it => `<tr><td>${escapeHtml(it.label)}</td><td class="r">${fmtM(it.value)}</td><td class="r">${byService.total > 0 ? (it.value / byService.total * 100).toFixed(1) : 0}%</td></tr>`).join('')}
       </table>
       <h2>收入按醫師</h2><table><tr><th>醫師</th><th class="r">金額</th><th class="r">佔比</th></tr>
-      ${byDoctor.items.map(it => `<tr><td>${it.label}</td><td class="r">${fmtM(it.value)}</td><td class="r">${byDoctor.total > 0 ? (it.value / byDoctor.total * 100).toFixed(1) : 0}%</td></tr>`).join('')}
+      ${byDoctor.items.map(it => `<tr><td>${escapeHtml(it.label)}</td><td class="r">${fmtM(it.value)}</td><td class="r">${byDoctor.total > 0 ? (it.value / byDoctor.total * 100).toFixed(1) : 0}%</td></tr>`).join('')}
       </table>
       <h2>經營比率 (本月)</h2><table><tr><th>指標</th><th class="r">數值</th></tr>
       <tr><td>營運利潤率</td><td class="r">${ratios.opMargin.toFixed(1)}%</td></tr>

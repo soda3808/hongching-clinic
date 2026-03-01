@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_risk_scores';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -139,17 +140,17 @@ th{background:#f9fafb;font-size:13px;color:#555}
 .bar{height:10px;border-radius:4px;background:#e5e7eb}
 .fill{height:10px;border-radius:4px;background:${ACCENT}}
 .footer{margin-top:30px;font-size:12px;color:#999}</style></head>
-<body><h1>${clinicName} - 患者風險評估報告</h1>
-<p><b>患者：</b>${r.patientName}　<b>年齡：</b>${r.age}歲　<b>評估日期：</b>${r.updatedAt}</p>
+<body><h1>${escapeHtml(clinicName)} - 患者風險評估報告</h1>
+<p><b>患者：</b>${escapeHtml(r.patientName)}　<b>年齡：</b>${r.age}歲　<b>評估日期：</b>${r.updatedAt}</p>
 <p>整體風險分數：<b style="font-size:22px;color:${rl.color}">${r.totalScore}</b>/100　<span class="badge">${rl.label}</span></p>
 <h2>各項風險因子</h2><table><tr><th>因子</th><th>分數</th><th>比例</th></tr>${rows}</table>
 <h2>詳細資料</h2>
-<p><b>慢性病：</b>${(r.chronic || []).join('、') || '無'}</p>
+<p><b>慢性病：</b>${escapeHtml((r.chronic || []).join('、') || '無')}</p>
 <p><b>已知過敏數：</b>${r.allergyCount}　<b>同時用藥數：</b>${r.medCount}</p>
 <p><b>覆診出席率：</b>${r.complianceRate}%</p>
-<p><b>生活習慣風險：</b>${lifeStr}</p>
-<div class="footer"><p>評估者：${r.updatedBy}　列印日期：${new Date().toISOString().slice(0, 10)}</p>
-<p>${clinicName} 風險評估系統 - 僅供臨床參考</p></div></body></html>`;
+<p><b>生活習慣風險：</b>${escapeHtml(lifeStr)}</p>
+<div class="footer"><p>評估者：${escapeHtml(r.updatedBy)}　列印日期：${new Date().toISOString().slice(0, 10)}</p>
+<p>${escapeHtml(clinicName)} 風險評估系統 - 僅供臨床參考</p></div></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close(); w.print();
   }
 

@@ -3,6 +3,7 @@ import { uid, DOCTORS } from '../data';
 import { saveSurvey, deleteSurvey as deleteSurveyApi } from '../api';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { getTenantStoreNames, getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const QUESTIONS = [
   { id: 'q1', label: '整體滿意度', desc: '對今次診症的整體滿意程度' },
@@ -169,7 +170,7 @@ export default function SurveyPage({ data, setData, showToast, user }) {
             .box .l{font-size:10px;color:#888}
             @media print{body{margin:0;padding:10mm}}
             </style></head><body>
-            <h1>${getClinicName()} — 滿意度報告</h1>
+            <h1>${escapeHtml(getClinicName())} — 滿意度報告</h1>
             <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')} | 總問卷數：${surveys.length}</div>
             <div class="grid">
               <div class="box"><div class="n" style="color:#0e7490">${stats.total}</div><div class="l">總問卷</div></div>
@@ -179,10 +180,10 @@ export default function SurveyPage({ data, setData, showToast, user }) {
             </div>
             <h2>各項評分</h2>
             <table><thead><tr><th>項目</th><th class="r">平均分</th></tr></thead>
-            <tbody>${questionAvg.map(q => `<tr><td>${q.label}</td><td class="r">${q.avg}/5</td></tr>`).join('')}</tbody></table>
+            <tbody>${questionAvg.map(q => `<tr><td>${escapeHtml(q.label)}</td><td class="r">${q.avg}/5</td></tr>`).join('')}</tbody></table>
             <h2>醫師滿意度</h2>
             <table><thead><tr><th>醫師</th><th class="r">平均分</th><th class="r">問卷數</th></tr></thead>
-            <tbody>${doctorAvg.map(d => `<tr><td>${d.doctor}</td><td class="r">${d.avg}/5</td><td class="r">${d.count}</td></tr>`).join('')}</tbody></table>
+            <tbody>${doctorAvg.map(d => `<tr><td>${escapeHtml(d.doctor)}</td><td class="r">${d.avg}/5</td><td class="r">${d.count}</td></tr>`).join('')}</tbody></table>
           </body></html>`);
           w.document.close();
           setTimeout(() => w.print(), 300);

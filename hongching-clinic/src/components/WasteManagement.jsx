@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_LOG = 'hcmc_waste_log';
 const LS_CON = 'hcmc_waste_contractors';
@@ -97,10 +98,10 @@ export default function WasteManagement({ showToast, user }) {
     const w = window.open('', '_blank'); if (!w) return;
     const clinic = getClinicName();
     const rows = filtered.filter(l => !l.type).map(l =>
-      `<tr><td>${l.date}</td><td><span style="color:${CAT_COLORS[l.category] || '#333'};font-weight:600">${l.category}</span></td><td style="text-align:right">${l.weight} kg</td><td>${l.containerId || '-'}</td><td>${l.method}</td><td>${l.handler}</td></tr>`
+      `<tr><td>${l.date}</td><td><span style="color:${CAT_COLORS[l.category] || '#333'};font-weight:600">${escapeHtml(l.category)}</span></td><td style="text-align:right">${l.weight} kg</td><td>${escapeHtml(l.containerId || '-')}</td><td>${escapeHtml(l.method)}</td><td>${escapeHtml(l.handler)}</td></tr>`
     ).join('');
-    const catRows = CATS.map(c => `<tr><td>${c}</td><td style="text-align:right;font-weight:700">${(stats.byCat[c] || 0).toFixed(1)} kg</td></tr>`).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>醫療廢物報表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px;max-width:800px;margin:0 auto}h1{color:${ACCENT};font-size:18px;border-bottom:2px solid ${ACCENT};padding-bottom:8px}h2{font-size:14px;color:#333;margin:18px 0 6px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{padding:6px 8px;border-bottom:1px solid #eee;font-size:12px}th{background:#f8f8f8;text-align:left;font-weight:700}.footer{text-align:center;font-size:10px;color:#aaa;margin-top:20px}@media print{body{padding:10px}}</style></head><body><h1>${clinic} — 醫療廢物月報</h1><p style="font-size:12px;color:#666">月份: ${filterMonth} | 總記錄: ${stats.count} | 總重量: ${stats.total.toFixed(1)} kg</p><h2>分類統計</h2><table><thead><tr><th>類別</th><th style="text-align:right">重量</th></tr></thead><tbody>${catRows}</tbody></table><h2>棄置明細</h2><table><thead><tr><th>日期</th><th>類別</th><th style="text-align:right">重量</th><th>容器編號</th><th>處理方式</th><th>處理人</th></tr></thead><tbody>${rows}</tbody></table><div class="footer">列印時間: ${new Date().toLocaleString('zh-HK')}</div></body></html>`);
+    const catRows = CATS.map(c => `<tr><td>${escapeHtml(c)}</td><td style="text-align:right;font-weight:700">${(stats.byCat[c] || 0).toFixed(1)} kg</td></tr>`).join('');
+    w.document.write(`<!DOCTYPE html><html><head><title>醫療廢物報表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px;max-width:800px;margin:0 auto}h1{color:${ACCENT};font-size:18px;border-bottom:2px solid ${ACCENT};padding-bottom:8px}h2{font-size:14px;color:#333;margin:18px 0 6px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{padding:6px 8px;border-bottom:1px solid #eee;font-size:12px}th{background:#f8f8f8;text-align:left;font-weight:700}.footer{text-align:center;font-size:10px;color:#aaa;margin-top:20px}@media print{body{padding:10px}}</style></head><body><h1>${escapeHtml(clinic)} — 醫療廢物月報</h1><p style="font-size:12px;color:#666">月份: ${filterMonth} | 總記錄: ${stats.count} | 總重量: ${stats.total.toFixed(1)} kg</p><h2>分類統計</h2><table><thead><tr><th>類別</th><th style="text-align:right">重量</th></tr></thead><tbody>${catRows}</tbody></table><h2>棄置明細</h2><table><thead><tr><th>日期</th><th>類別</th><th style="text-align:right">重量</th><th>容器編號</th><th>處理方式</th><th>處理人</th></tr></thead><tbody>${rows}</tbody></table><div class="footer">列印時間: ${new Date().toLocaleString('zh-HK')}</div></body></html>`);
     w.document.close(); w.print();
   };
 

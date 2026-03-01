@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM } from '../data';
 import { utilityBillsOps } from '../api';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -151,13 +152,13 @@ export default function ClinicUtility({ data, showToast, user }) {
     const hdr = MONTHS.map(m => `<th style="text-align:right;padding:6px 8px;font-size:12px;border-bottom:2px solid ${ACCENT}20">${m}</th>`).join('');
     const rows = TYPES.map(t => {
       const cells = yearlySummary[t].map(v => `<td style="text-align:right;padding:6px 8px;font-size:12px;border-bottom:1px solid #eee">${v > 0 ? fmtM(v) : '-'}</td>`).join('');
-      return `<tr><td style="padding:6px 8px;font-weight:600;border-bottom:1px solid #eee">${t}</td>${cells}<td style="text-align:right;padding:6px 8px;font-weight:700;border-bottom:1px solid #eee">${fmtM(yearlyTotals[t])}</td><td style="text-align:right;padding:6px 8px;font-size:12px;border-bottom:1px solid #eee">${fmtM(yearlyTotals[t] / 12)}</td></tr>`;
+      return `<tr><td style="padding:6px 8px;font-weight:600;border-bottom:1px solid #eee">${escapeHtml(t)}</td>${cells}<td style="text-align:right;padding:6px 8px;font-weight:700;border-bottom:1px solid #eee">${fmtM(yearlyTotals[t])}</td><td style="text-align:right;padding:6px 8px;font-size:12px;border-bottom:1px solid #eee">${fmtM(yearlyTotals[t] / 12)}</td></tr>`;
     }).join('');
     const mTotals = Array.from({ length: 12 }, (_, i) => TYPES.reduce((s, t) => s + yearlySummary[t][i], 0));
     const footer = `<tr style="font-weight:700;background:#f0fdfa"><td style="padding:6px 8px">合計</td>${mTotals.map(v => `<td style="text-align:right;padding:6px 8px">${fmtM(v)}</td>`).join('')}<td style="text-align:right;padding:6px 8px;color:${ACCENT}">${fmtM(grandTotal)}</td><td style="text-align:right;padding:6px 8px">${fmtM(grandTotal / 12)}</td></tr>`;
-    w.document.write(`<!DOCTYPE html><html><head><title>${clinicName} ${selYear}年度雜費總結</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(clinicName)} ${selYear}年度雜費總結</title>
       <style>body{font-family:sans-serif;padding:24px;color:#333}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f0fdfa;color:${ACCENT};text-align:left;padding:6px 8px;font-size:12px;border-bottom:2px solid ${ACCENT}20}.h{color:${ACCENT};margin-bottom:4px}@media print{body{padding:0}}</style>
-    </head><body><h2 class="h">${clinicName}</h2><h3>${selYear} 年度雜費總結</h3><p>列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
+    </head><body><h2 class="h">${escapeHtml(clinicName)}</h2><h3>${selYear} 年度雜費總結</h3><p>列印日期：${new Date().toLocaleDateString('zh-HK')}</p>
     <table><thead><tr><th style="text-align:left">費用類型</th>${hdr}<th style="text-align:right;padding:6px 8px;font-size:12px;border-bottom:2px solid ${ACCENT}20">年度合計</th><th style="text-align:right;padding:6px 8px;font-size:12px;border-bottom:2px solid ${ACCENT}20">月均</th></tr></thead><tbody>${rows}${footer}</tbody></table>
     <script>setTimeout(()=>window.print(),400)<\/script></body></html>`);
     w.document.close();

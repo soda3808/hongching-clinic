@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_lab_orders';
@@ -119,11 +120,11 @@ export default function LabOrderTracking({ data, showToast, user }) {
     const p = patients.find(pt => pt.id === o.patientId) || {};
     const w = window.open('', '_blank');
     w.document.write(`<html><head><title>化驗單</title><style>body{font-family:sans-serif;padding:40px;color:#222}h2{color:${ACCENT};margin-bottom:4px}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #ccc;padding:8px 12px;text-align:left}th{background:#f3f4f6}.sig{margin-top:60px;display:flex;justify-content:space-between}.sig div{width:40%;border-top:1px solid #333;padding-top:4px;text-align:center}</style></head><body>`);
-    w.document.write(`<h2>${clinicName}</h2><p>外判化驗申請單</p><hr/>`);
-    w.document.write(`<table><tr><th>病人姓名</th><td>${o.patientName}</td><th>電話</th><td>${p.phone || '-'}</td></tr><tr><th>主診醫師</th><td>${o.doctor || '-'}</td><th>緊急程度</th><td>${URGENCY_MAP[o.urgency] || o.urgency}</td></tr><tr><th>化驗所</th><td>${o.lab}</td><th>樣本類型</th><td>${o.sampleType || '-'}</td></tr><tr><th>採樣日期</th><td>${o.collectedDate || '-'}</td><th>送出日期</th><td>${o.sentDate || '-'}</td></tr><tr><th>預計日期</th><td>${o.expectedDate || '-'}</td><th>狀態</th><td>${o.status}</td></tr></table>`);
-    w.document.write(`<h3>化驗項目</h3><ul>${o.tests.map(t => `<li>${t}</li>`).join('')}</ul>`);
-    if (o.notes) w.document.write(`<p><b>備註：</b>${o.notes}</p>`);
-    if (o.results) w.document.write(`<p><b>結果：</b>${o.results}</p>`);
+    w.document.write(`<h2>${escapeHtml(clinicName)}</h2><p>外判化驗申請單</p><hr/>`);
+    w.document.write(`<table><tr><th>病人姓名</th><td>${escapeHtml(o.patientName)}</td><th>電話</th><td>${escapeHtml(p.phone || '-')}</td></tr><tr><th>主診醫師</th><td>${escapeHtml(o.doctor || '-')}</td><th>緊急程度</th><td>${escapeHtml(URGENCY_MAP[o.urgency] || o.urgency)}</td></tr><tr><th>化驗所</th><td>${escapeHtml(o.lab)}</td><th>樣本類型</th><td>${escapeHtml(o.sampleType || '-')}</td></tr><tr><th>採樣日期</th><td>${o.collectedDate || '-'}</td><th>送出日期</th><td>${o.sentDate || '-'}</td></tr><tr><th>預計日期</th><td>${o.expectedDate || '-'}</td><th>狀態</th><td>${escapeHtml(o.status)}</td></tr></table>`);
+    w.document.write(`<h3>化驗項目</h3><ul>${o.tests.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>`);
+    if (o.notes) w.document.write(`<p><b>備註：</b>${escapeHtml(o.notes)}</p>`);
+    if (o.results) w.document.write(`<p><b>結果：</b>${escapeHtml(o.results)}</p>`);
     w.document.write(`<div class="sig"><div>醫師簽名</div><div>日期</div></div>`);
     w.document.write(`<script>window.print();<\/script></body></html>`);
     w.document.close();

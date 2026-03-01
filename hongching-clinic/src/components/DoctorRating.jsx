@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_doctor_ratings';
 const ACCENT = '#0e7490';
@@ -122,11 +123,11 @@ export default function DoctorRating({ data, showToast, user }) {
     const avg = avgOf(src.map(r => r.avgScore || 0));
     const dimRows = DIMS.map(d => {
       const a = avgOf(src.map(r => r.ratings?.[d.key] || 0));
-      return `<tr><td>${d.label}</td><td style="text-align:right;font-weight:700;color:${starClr(a)}">${a}/5</td></tr>`;
+      return `<tr><td>${escapeHtml(d.label)}</td><td style="text-align:right;font-weight:700;color:${starClr(a)}">${a}/5</td></tr>`;
     }).join('');
     const w = window.open('', '_blank'); if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>醫師評價報告</title><style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:700px;margin:0 auto;font-size:13px}h1{font-size:18px;text-align:center;color:${ACCENT}}h2{font-size:14px;border-bottom:2px solid ${ACCENT};padding-bottom:4px;margin-top:20px;color:${ACCENT}}.sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}table{width:100%;border-collapse:collapse}th,td{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}th{background:#f8f8f8;font-weight:700}.g{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}.b{border:1px solid #ddd;border-radius:8px;padding:12px;text-align:center}.b .n{font-size:22px;font-weight:800}.b .l{font-size:10px;color:#888}@media print{body{margin:0;padding:10mm}}</style></head><body>
-    <h1>${getClinicName()} — 醫師評價報告</h1><div class="sub">${doc} | 列印時間：${new Date().toLocaleString('zh-HK')} | 評價數：${src.length}</div>
+    <h1>${escapeHtml(getClinicName())} — 醫師評價報告</h1><div class="sub">${escapeHtml(doc)} | 列印時間：${new Date().toLocaleString('zh-HK')} | 評價數：${src.length}</div>
     <div class="g"><div class="b"><div class="n" style="color:${ACCENT}">${avg}/5</div><div class="l">平均評分</div></div><div class="b"><div class="n">${src.length}</div><div class="l">評價總數</div></div><div class="b"><div class="n" style="color:${stats.nps>=0?'#16a34a':'#dc2626'}">${stats.nps}</div><div class="l">NPS 指數</div></div></div>
     <h2>各維度平均分</h2><table><thead><tr><th>維度</th><th style="text-align:right">平均分</th></tr></thead><tbody>${dimRows}</tbody></table></body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);

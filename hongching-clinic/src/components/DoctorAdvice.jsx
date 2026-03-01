@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { uid } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const PERSONAL_KEY = 'hcmc_doctor_advice';
 const COMPANY_KEY = 'hcmc_company_advice';
@@ -69,7 +70,7 @@ export default function DoctorAdvice({ showToast, user }) {
   };
 
   const handlePrint = () => {
-    const rows = filtered.map(a => `${a.text}  [${a.category}]  ${a.showOnRx ? '處方顯示' : ''}  ${a.createdBy} ${a.createdAt}`).join('\n');
+    const rows = filtered.map(a => `${escapeHtml(a.text)}  [${escapeHtml(a.category)}]  ${a.showOnRx ? '處方顯示' : ''}  ${escapeHtml(a.createdBy)} ${escapeHtml(a.createdAt)}`).join('\n');
     const w = window.open('', '_blank');
     w.document.write(`<pre style="font-family:serif;font-size:14px;line-height:1.8">${tab === 'personal' ? '我的醫囑' : '公司醫囑'} 範本列表\n${'─'.repeat(40)}\n${rows || '(無資料)'}\n${'─'.repeat(40)}\n列印日期：${new Date().toLocaleDateString('zh-TW')}</pre>`);
     w.document.close();

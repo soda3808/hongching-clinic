@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_LIST = 'hcmc_price_list';
 const LS_HIST = 'hcmc_price_history';
@@ -144,13 +145,13 @@ export default function PriceList({ data, showToast, user }) {
     const grouped = {};
     activeItems.forEach(i => { (grouped[i.category] = grouped[i.category] || []).push(i); });
     const catHtml = CATS.filter(c => grouped[c]?.length).map(c => `
-      <h2 style="color:${ACCENT};font-size:16px;border-bottom:2px solid ${ACCENT};padding-bottom:4px;margin:18px 0 8px">${c}</h2>
+      <h2 style="color:${ACCENT};font-size:16px;border-bottom:2px solid ${ACCENT};padding-bottom:4px;margin:18px 0 8px">${escapeHtml(c)}</h2>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead><tr style="background:#f8fafc"><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">項目</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">收費</th><th style="text-align:right;padding:6px;border-bottom:1px solid #ddd">會員價</th><th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">備註</th></tr></thead>
-        <tbody>${grouped[c].map(i => `<tr><td style="padding:5px 6px;border-bottom:1px solid #f0f0f0">${i.name}</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #f0f0f0;font-weight:600">${fmtD(i.price)}</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #f0f0f0;color:#059669">${i.memberPrice > 0 ? fmtD(i.memberPrice) : '-'}</td><td style="padding:5px 6px;border-bottom:1px solid #f0f0f0;font-size:11px;color:#888">${i.description || ''}</td></tr>`).join('')}</tbody>
+        <tbody>${grouped[c].map(i => `<tr><td style="padding:5px 6px;border-bottom:1px solid #f0f0f0">${escapeHtml(i.name)}</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #f0f0f0;font-weight:600">${fmtD(i.price)}</td><td style="text-align:right;padding:5px 6px;border-bottom:1px solid #f0f0f0;color:#059669">${i.memberPrice > 0 ? fmtD(i.memberPrice) : '-'}</td><td style="padding:5px 6px;border-bottom:1px solid #f0f0f0;font-size:11px;color:#888">${escapeHtml(i.description || '')}</td></tr>`).join('')}</tbody>
       </table>`).join('');
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${clinic} 價目表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:800px;margin:0 auto}@media print{body{padding:10px}}</style></head><body><h1 style="text-align:center;color:${ACCENT};margin-bottom:4px">${clinic}</h1><p style="text-align:center;color:#666;font-size:13px;margin-top:0">服務及收費價目表 (${today()})</p>${catHtml}<p style="text-align:center;color:#999;font-size:11px;margin-top:24px">* 以上價格僅供參考，實際收費以診所為準</p></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(clinic)} 價目表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:800px;margin:0 auto}@media print{body{padding:10px}}</style></head><body><h1 style="text-align:center;color:${ACCENT};margin-bottom:4px">${escapeHtml(clinic)}</h1><p style="text-align:center;color:#666;font-size:13px;margin-top:0">服務及收費價目表 (${today()})</p>${catHtml}<p style="text-align:center;color:#999;font-size:11px;margin-top:24px">* 以上價格僅供參考，實際收費以診所為準</p></body></html>`);
     w.document.close(); w.print();
   };
 

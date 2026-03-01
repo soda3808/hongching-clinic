@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getEmployees, uid } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_evaluations';
@@ -87,13 +88,13 @@ export default function StaffEvaluation({ showToast, user }) {
     const rows = CATS.map(c => `<tr><td style="padding:6px 10px;border:1px solid #ccc">${c.label}</td>
       <td style="padding:6px 10px;border:1px solid #ccc;color:${(ev.ratings[c.key]||0)>=4?'#16a34a':'#d97706'}">${'★'.repeat(ev.ratings[c.key]||0)}${'☆'.repeat(5-(ev.ratings[c.key]||0))}</td></tr>`).join('');
     const html = `<html><head><title>員工考核</title></head><body style="font-family:sans-serif;padding:30px;max-width:700px;margin:auto">
-      <h2 style="color:${ACCENT}">${clinic} — 員工考核表</h2>
-      <p><b>員工：</b>${empName(ev.empId)}　<b>考核期間：</b>${ev.period}　<b>評核人：</b>${ev.evaluator}</p>
+      <h2 style="color:${ACCENT}">${escapeHtml(clinic)} — 員工考核表</h2>
+      <p><b>員工：</b>${escapeHtml(empName(ev.empId))}　<b>考核期間：</b>${escapeHtml(ev.period)}　<b>評核人：</b>${escapeHtml(ev.evaluator)}</p>
       <table style="width:100%;border-collapse:collapse;margin:14px 0">${rows}
       <tr><td style="padding:6px 10px;border:1px solid #ccc;font-weight:bold">平均分</td>
       <td style="padding:6px 10px;border:1px solid #ccc;font-weight:bold">${ev.avgScore} / 5</td></tr></table>
-      <p><b>整體評語：</b>${ev.comment || '—'}</p><p><b>下期目標：</b>${ev.goals || '—'}</p>
-      <p style="margin-top:40px;color:#888;font-size:12px">日期：${ev.date}</p></body></html>`;
+      <p><b>整體評語：</b>${escapeHtml(ev.comment || '—')}</p><p><b>下期目標：</b>${escapeHtml(ev.goals || '—')}</p>
+      <p style="margin-top:40px;color:#888;font-size:12px">日期：${escapeHtml(ev.date)}</p></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close(); w.print();
   };
 

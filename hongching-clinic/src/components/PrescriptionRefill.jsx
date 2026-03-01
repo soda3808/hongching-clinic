@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_refills';
 function loadRefills() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; } }
@@ -124,11 +125,11 @@ export default function PrescriptionRefill({ data, setData, showToast, user }) {
   // Print refill prescription
   const handlePrint = (c) => {
     const herbs = (c.prescription || []).filter(p => p.herb);
-    const rows = herbs.map((p, i) => `<tr><td style="text-align:center">${i + 1}</td><td style="font-weight:600">${p.herb}</td><td style="text-align:center">${p.dosage}</td></tr>`).join('');
+    const rows = herbs.map((p, i) => `<tr><td style="text-align:center">${i + 1}</td><td style="font-weight:600">${escapeHtml(p.herb)}</td><td style="text-align:center">${escapeHtml(p.dosage)}</td></tr>`).join('');
     const refillInfo = refills[c.id] ? `<div style="color:#d97706;font-size:11px;margin:6px 0">重配處方 | 原處方日期：${refills[c.id].refillDate || '-'}</div>` : '';
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>處方 - ${c.patientName}</title><style>@page{size:A4;margin:12mm}body{font-family:'PingFang TC','Microsoft YaHei',sans-serif;font-size:12px;padding:20px;max-width:700px;margin:0 auto}h1{font-size:17px;text-align:center;margin:0 0 2px}p.sub{text-align:center;color:#888;font-size:11px;margin:0 0 14px}table{width:100%;border-collapse:collapse}th,td{padding:5px 10px;border-bottom:1px solid #ddd;font-size:12px}th{background:#f3f4f6;font-weight:700}.info{display:flex;justify-content:space-between;margin-bottom:12px;font-size:12px}@media print{body{padding:8px}}</style></head><body><h1>${clinicName} — 處方箋</h1><p class="sub">${isRefill(c.id) ? '【重配處方】' : ''}</p><div class="info"><span>病人：${c.patientName}</span><span>醫師：${c.doctor || '-'}</span><span>日期：${c.date}</span></div>${refillInfo}${c.formulaName ? `<div style="font-weight:700;color:#0e7490;margin:8px 0">方劑：${c.formulaName}（${c.formulaDays || '-'}天）</div>` : ''}<table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:12px;font-size:11px;color:#555">服法：${c.formulaInstructions || '每日一劑，水煎服'}</div></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>處方 - ${escapeHtml(c.patientName)}</title><style>@page{size:A4;margin:12mm}body{font-family:'PingFang TC','Microsoft YaHei',sans-serif;font-size:12px;padding:20px;max-width:700px;margin:0 auto}h1{font-size:17px;text-align:center;margin:0 0 2px}p.sub{text-align:center;color:#888;font-size:11px;margin:0 0 14px}table{width:100%;border-collapse:collapse}th,td{padding:5px 10px;border-bottom:1px solid #ddd;font-size:12px}th{background:#f3f4f6;font-weight:700}.info{display:flex;justify-content:space-between;margin-bottom:12px;font-size:12px}@media print{body{padding:8px}}</style></head><body><h1>${escapeHtml(clinicName)} — 處方箋</h1><p class="sub">${isRefill(c.id) ? '【重配處方】' : ''}</p><div class="info"><span>病人：${escapeHtml(c.patientName)}</span><span>醫師：${escapeHtml(c.doctor || '-')}</span><span>日期：${c.date}</span></div>${refillInfo}${c.formulaName ? `<div style="font-weight:700;color:#0e7490;margin:8px 0">方劑：${escapeHtml(c.formulaName)}（${c.formulaDays || '-'}天）</div>` : ''}<table><thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:12px;font-size:11px;color:#555">服法：${escapeHtml(c.formulaInstructions || '每日一劑，水煎服')}</div></body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);
   };

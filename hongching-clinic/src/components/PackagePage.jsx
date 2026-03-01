@@ -4,6 +4,7 @@ import { uid, fmtM, getMonth, DOCTORS, MEMBERSHIP_TIERS, getMembershipTier, TCM_
 import { getTenantStoreNames, getClinicName } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
+import escapeHtml from '../utils/escapeHtml';
 
 const EMPTY_PKG = { name: '', type: 'session', sessions: 10, price: '', validDays: 180, treatments: [], active: true };
 const _defaultStore = () => { const names = getTenantStoreNames(); return names[0] || ''; };
@@ -138,8 +139,8 @@ export default function PackagePage({ data, setData, showToast, allData }) {
   const printEnrollReport = () => {
     const w = window.open('', '_blank');
     if (!w) return;
-    const rows = enrichedEnrollments.map(e => `<tr><td>${e.patientName}</td><td>${e.packageName}</td><td>${e.store}</td><td>${e.purchaseDate}</td><td>${e.expiryDate}</td><td>${e.usedSessions}/${e.totalSessions}</td><td>${STATUS_LABELS[e.status]}</td></tr>`).join('');
-    const pkgRows = analytics.byPackage.map(p => `<tr><td>${p.name}</td><td style="text-align:right">${p.enrollCount}</td><td style="text-align:right">${p.activeCount}</td><td style="text-align:right">${fmtM(p.revenue)}</td><td style="text-align:right">${p.avgUtil.toFixed(0)}%</td></tr>`).join('');
+    const rows = enrichedEnrollments.map(e => `<tr><td>${escapeHtml(e.patientName)}</td><td>${escapeHtml(e.packageName)}</td><td>${escapeHtml(e.store)}</td><td>${escapeHtml(e.purchaseDate)}</td><td>${escapeHtml(e.expiryDate)}</td><td>${e.usedSessions}/${e.totalSessions}</td><td>${escapeHtml(STATUS_LABELS[e.status])}</td></tr>`).join('');
+    const pkgRows = analytics.byPackage.map(p => `<tr><td>${escapeHtml(p.name)}</td><td style="text-align:right">${p.enrollCount}</td><td style="text-align:right">${p.activeCount}</td><td style="text-align:right">${fmtM(p.revenue)}</td><td style="text-align:right">${p.avgUtil.toFixed(0)}%</td></tr>`).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>套餐分析報告</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:900px;margin:0 auto}
       h1{color:#0e7490;font-size:18px;border-bottom:3px solid #0e7490;padding-bottom:8px}
@@ -148,7 +149,7 @@ export default function PackagePage({ data, setData, showToast, allData }) {
       th{background:#0e7490;color:#fff;padding:5px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
     </style></head><body>
-      <h1>${getClinicName()} — 套餐分析報告</h1>
+      <h1>${escapeHtml(getClinicName())} — 套餐分析報告</h1>
       <p style="font-size:12px;color:#888">生成日期：${new Date().toISOString().substring(0, 10)} | 總套餐：${packages.length} | 總登記：${enrollments.length}</p>
       <h3>套餐業績</h3>
       <table><thead><tr><th>套餐名稱</th><th style="text-align:right">登記數</th><th style="text-align:right">活躍</th><th style="text-align:right">總收入</th><th style="text-align:right">使用率</th></tr></thead><tbody>${pkgRows}</tbody></table>

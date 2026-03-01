@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const today = () => new Date().toISOString().substring(0, 10);
 const clinicMeta = () => { try { return JSON.parse(localStorage.getItem('hcmc_clinic') || '{}'); } catch { return {}; } };
@@ -130,75 +131,75 @@ const bilingualCSS = `
 /* ── HTML builders ── */
 function rxEnHtml(c, clinic, clinicName, storeName) {
   const rx = c.prescription || [];
-  const rows = rx.map((r, i) => `<tr><td>${i + 1}</td><td>${r.herb}${pinyin(r.herb) ? ` <span style="color:#888;font-size:11px">(${pinyin(r.herb)})</span>` : ''}</td><td>${r.dosage}</td></tr>`).join('');
+  const rows = rx.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.herb)}${pinyin(r.herb) ? ` <span style="color:#888;font-size:11px">(${escapeHtml(pinyin(r.herb))})</span>` : ''}</td><td>${escapeHtml(r.dosage)}</td></tr>`).join('');
   const enInstr = translateInstr(c.formulaInstructions);
   return `<div class="header">
       <h1>Hong Ching Integrated Medical Centre</h1>
-      <div class="sub">${clinic.name || clinicName}</div>
-      <p>${storeName}</p>
-      <p>Tel: ${clinic.tel || ''}</p>
+      <div class="sub">${escapeHtml(clinic.name || clinicName)}</div>
+      <p>${escapeHtml(storeName)}</p>
+      <p>Tel: ${escapeHtml(clinic.tel || '')}</p>
     </div>
     <div class="title">Prescription</div>
     <div class="info-grid">
-      <div><span class="lbl">Patient Name: </span>${c.patientName}</div>
-      <div><span class="lbl">Date: </span>${c.date}</div>
-      <div><span class="lbl">Attending Doctor: </span>${c.doctor}</div>
+      <div><span class="lbl">Patient Name: </span>${escapeHtml(c.patientName)}</div>
+      <div><span class="lbl">Date: </span>${escapeHtml(c.date)}</div>
+      <div><span class="lbl">Attending Doctor: </span>${escapeHtml(c.doctor)}</div>
       <div><span class="lbl">Days / Doses: </span>${c.formulaDays || '-'}</div>
-      ${c.formulaName ? `<div><span class="lbl">Formula: </span>${c.formulaName}</div>` : '<div></div>'}
-      <div><span class="lbl">Branch: </span>${c.store || storeName}</div>
+      ${c.formulaName ? `<div><span class="lbl">Formula: </span>${escapeHtml(c.formulaName)}</div>` : '<div></div>'}
+      <div><span class="lbl">Branch: </span>${escapeHtml(c.store || storeName)}</div>
     </div>
     ${rx.length > 0 ? `<table class="rx"><thead><tr><th>No.</th><th>Herb (Chinese / Pinyin)</th><th>Dosage</th></tr></thead><tbody>${rows}</tbody></table>` : '<p style="color:#999;text-align:center">(No prescription items)</p>'}
-    ${enInstr ? `<div class="section"><b>Instructions: </b>${enInstr}</div>` : ''}
-    ${c.specialNotes ? `<div class="section" style="border-left-color:#e67e22"><b>Special Notes: </b>${c.specialNotes}</div>` : ''}
+    ${enInstr ? `<div class="section"><b>Instructions: </b>${escapeHtml(enInstr)}</div>` : ''}
+    ${c.specialNotes ? `<div class="section" style="border-left-color:#e67e22"><b>Special Notes: </b>${escapeHtml(c.specialNotes)}</div>` : ''}
     <div class="sig-row">
-      <div class="sig-box"><div class="sig-line">Doctor Signature<br/>${c.doctor}</div></div>
+      <div class="sig-box"><div class="sig-line">Doctor Signature<br/>${escapeHtml(c.doctor)}</div></div>
       <div class="sig-box"><div class="sig-line">Clinic Stamp</div></div>
     </div>
-    <div class="footer">Ref: ${(c.id || '').substring(0, 8)} | Hong Ching Integrated Medical Centre</div>`;
+    <div class="footer">Ref: ${escapeHtml((c.id || '').substring(0, 8))} | Hong Ching Integrated Medical Centre</div>`;
 }
 
 function labelEnHtml(c, clinic, clinicName, idx, total) {
   const rx = c.prescription || [];
-  const herbs = rx.map(r => `${r.herb}${pinyin(r.herb) ? ` (${pinyin(r.herb)})` : ''} ${r.dosage}`).join(', ');
+  const herbs = rx.map(r => `${escapeHtml(r.herb)}${pinyin(r.herb) ? ` (${escapeHtml(pinyin(r.herb))})` : ''} ${escapeHtml(r.dosage)}`).join(', ');
   const enInstr = translateInstr(c.formulaInstructions);
   return `<div class="label">
       <div class="lbl-header"><div class="name">Hong Ching Integrated Medical Centre</div></div>
-      <div class="lbl-row"><span><b>Patient: </b>${c.patientName}</span><span><b>Date: </b>${c.date}</span></div>
-      <div class="lbl-row"><span><b>Doctor: </b>${c.doctor}</span><span><b>Doses: </b>${c.formulaDays || '-'}</span></div>
-      ${c.formulaName ? `<div style="font-size:12px;font-weight:700;margin-top:4px">Formula: ${c.formulaName}</div>` : ''}
+      <div class="lbl-row"><span><b>Patient: </b>${escapeHtml(c.patientName)}</span><span><b>Date: </b>${escapeHtml(c.date)}</span></div>
+      <div class="lbl-row"><span><b>Doctor: </b>${escapeHtml(c.doctor)}</span><span><b>Doses: </b>${c.formulaDays || '-'}</span></div>
+      ${c.formulaName ? `<div style="font-size:12px;font-weight:700;margin-top:4px">Formula: ${escapeHtml(c.formulaName)}</div>` : ''}
       ${herbs ? `<div style="font-size:10px;margin-top:4px;padding:4px;background:#f9f9f9;border-radius:2px">${herbs}</div>` : ''}
-      <div class="lbl-inst">Directions: ${enInstr}</div>
-      ${c.specialNotes ? `<div class="lbl-note">Warning: ${c.specialNotes}</div>` : ''}
+      <div class="lbl-inst">Directions: ${escapeHtml(enInstr)}</div>
+      ${c.specialNotes ? `<div class="lbl-note">Warning: ${escapeHtml(c.specialNotes)}</div>` : ''}
       <div class="lbl-foot">If any discomfort, stop medication and contact the clinic immediately | ${idx}/${total}</div>
     </div>`;
 }
 
 function bilingualHtml(c, clinic, clinicName, storeName) {
   const rx = c.prescription || [];
-  const rows = rx.map((r, i) => `<tr><td>${i + 1}</td><td>${r.herb}</td><td>${pinyin(r.herb) || '-'}</td><td>${r.dosage}</td></tr>`).join('');
+  const rows = rx.map((r, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(r.herb)}</td><td>${escapeHtml(pinyin(r.herb) || '-')}</td><td>${escapeHtml(r.dosage)}</td></tr>`).join('');
   const enInstr = translateInstr(c.formulaInstructions);
   return `<div class="header">
       <h1>Hong Ching Integrated Medical Centre</h1>
-      <div class="cn">${clinic.name || clinicName}</div>
-      <p>${storeName}</p><p>Tel: ${clinic.tel || ''}</p>
+      <div class="cn">${escapeHtml(clinic.name || clinicName)}</div>
+      <p>${escapeHtml(storeName)}</p><p>Tel: ${escapeHtml(clinic.tel || '')}</p>
     </div>
     <div class="title">PRESCRIPTION / 中藥處方箋</div>
     <div class="bi-grid">
-      <div><span class="lbl">Patient 病人: </span>${c.patientName}</div>
-      <div><span class="lbl">Date 日期: </span>${c.date}</div>
-      <div><span class="lbl">Doctor 醫師: </span>${c.doctor}</div>
+      <div><span class="lbl">Patient 病人: </span>${escapeHtml(c.patientName)}</div>
+      <div><span class="lbl">Date 日期: </span>${escapeHtml(c.date)}</div>
+      <div><span class="lbl">Doctor 醫師: </span>${escapeHtml(c.doctor)}</div>
       <div><span class="lbl">Days 帖數: </span>${c.formulaDays || '-'}</div>
-      ${c.formulaName ? `<div><span class="lbl">Formula 處方: </span>${c.formulaName}</div>` : '<div></div>'}
-      <div><span class="lbl">Branch 分店: </span>${c.store || storeName}</div>
+      ${c.formulaName ? `<div><span class="lbl">Formula 處方: </span>${escapeHtml(c.formulaName)}</div>` : '<div></div>'}
+      <div><span class="lbl">Branch 分店: </span>${escapeHtml(c.store || storeName)}</div>
     </div>
     ${rx.length > 0 ? `<table class="rx"><thead><tr><th>#</th><th>Herb 藥材</th><th>Pinyin 拼音</th><th>Dosage 劑量</th></tr></thead><tbody>${rows}</tbody></table>` : '<p style="color:#999;text-align:center">(No items / 無藥材記錄)</p>'}
-    ${c.formulaInstructions || enInstr ? `<div class="section"><b>Instructions 服藥方法: </b><br/>${c.formulaInstructions || ''}<br/>${enInstr}</div>` : ''}
-    ${c.specialNotes ? `<div class="section" style="border-left-color:#e67e22"><b>Special Notes 特別注意: </b>${c.specialNotes}</div>` : ''}
+    ${c.formulaInstructions || enInstr ? `<div class="section"><b>Instructions 服藥方法: </b><br/>${escapeHtml(c.formulaInstructions || '')}<br/>${escapeHtml(enInstr)}</div>` : ''}
+    ${c.specialNotes ? `<div class="section" style="border-left-color:#e67e22"><b>Special Notes 特別注意: </b>${escapeHtml(c.specialNotes)}</div>` : ''}
     <div class="sig-row">
-      <div class="sig-box"><div class="sig-line">Doctor Signature 醫師簽署<br/>${c.doctor}</div></div>
+      <div class="sig-box"><div class="sig-line">Doctor Signature 醫師簽署<br/>${escapeHtml(c.doctor)}</div></div>
       <div class="sig-box"><div class="sig-line">Clinic Stamp 診所蓋章</div></div>
     </div>
-    <div class="footer">Ref: ${(c.id || '').substring(0, 8)} | Hong Ching Integrated Medical Centre | ${clinic.name || clinicName}</div>`;
+    <div class="footer">Ref: ${escapeHtml((c.id || '').substring(0, 8))} | Hong Ching Integrated Medical Centre | ${escapeHtml(clinic.name || clinicName)}</div>`;
 }
 
 /* ── Component ── */

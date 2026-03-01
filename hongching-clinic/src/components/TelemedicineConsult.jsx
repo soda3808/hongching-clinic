@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const LS_KEY = 'hcmc_telemedicine';
@@ -91,21 +92,21 @@ export default function TelemedicineConsult({ data, showToast, user }) {
   const handlePrint = (r) => {
     const w = window.open('', '_blank'); if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>遠程診症摘要</title><style>body{font-family:'PingFang TC','Microsoft YaHei',sans-serif;padding:24px;max-width:650px;margin:0 auto;font-size:13px}h1{font-size:18px;color:${ACCENT};text-align:center;margin-bottom:4px}.sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}.section{margin-bottom:16px;border:1px solid #e5e7eb;border-radius:8px;padding:14px}.section h2{font-size:13px;color:${ACCENT};margin:0 0 8px;border-bottom:1px solid #e5e7eb;padding-bottom:4px}.row{display:flex;margin-bottom:6px;font-size:12px}.lbl{color:#6b7280;min-width:80px}.val{font-weight:600}.badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:600;background:${STATUS_BG[r.status]};color:${STATUS_CLR[r.status]}}.footer{margin-top:24px;text-align:center;font-size:10px;color:#aaa;border-top:1px dashed #ddd;padding-top:10px}@media print{body{padding:10mm}}</style></head><body>` +
-    `<h1>${getClinicName()}</h1><div class="sub">遠程診症摘要</div>` +
-    `<div class="section"><h2>預約資料</h2><div class="row"><span class="lbl">病人：</span><span class="val">${r.patientName}</span></div>` +
-    `<div class="row"><span class="lbl">電話：</span><span class="val">${r.patientPhone || '-'}</span></div>` +
-    `<div class="row"><span class="lbl">醫師：</span><span class="val">${r.doctor}</span></div>` +
+    `<h1>${escapeHtml(getClinicName())}</h1><div class="sub">遠程診症摘要</div>` +
+    `<div class="section"><h2>預約資料</h2><div class="row"><span class="lbl">病人：</span><span class="val">${escapeHtml(r.patientName)}</span></div>` +
+    `<div class="row"><span class="lbl">電話：</span><span class="val">${escapeHtml(r.patientPhone || '-')}</span></div>` +
+    `<div class="row"><span class="lbl">醫師：</span><span class="val">${escapeHtml(r.doctor)}</span></div>` +
     `<div class="row"><span class="lbl">日期時間：</span><span class="val">${r.date} ${r.time}</span></div>` +
-    `<div class="row"><span class="lbl">類型：</span><span class="val">${r.type}</span></div>` +
+    `<div class="row"><span class="lbl">類型：</span><span class="val">${escapeHtml(r.type)}</span></div>` +
     `<div class="row"><span class="lbl">時長：</span><span class="val">${r.duration} 分鐘</span></div>` +
     `<div class="row"><span class="lbl">費用：</span><span class="val">$${r.fee || 0}</span></div>` +
-    `<div class="row"><span class="lbl">狀態：</span><span class="badge">${r.status}</span></div>` +
-    (r.reason ? `<div class="row"><span class="lbl">原因：</span><span class="val">${r.reason}</span></div>` : '') + '</div>' +
+    `<div class="row"><span class="lbl">狀態：</span><span class="badge">${escapeHtml(r.status)}</span></div>` +
+    (r.reason ? `<div class="row"><span class="lbl">原因：</span><span class="val">${escapeHtml(r.reason)}</span></div>` : '') + '</div>' +
     (r.diagnosis || r.prescription || r.followUp ? `<div class="section"><h2>診後記錄</h2>` +
-    (r.diagnosis ? `<div class="row"><span class="lbl">診斷：</span><span class="val">${r.diagnosis}</span></div>` : '') +
-    (r.prescription ? `<div class="row"><span class="lbl">處方：</span><span class="val">${r.prescription}</span></div>` : '') +
-    (r.followUp ? `<div class="row"><span class="lbl">覆診：</span><span class="val">${r.followUp}</span></div>` : '') + '</div>' : '') +
-    `<div class="footer">列印時間：${new Date().toLocaleString('zh-HK')} | ${getClinicName()}</div></body></html>`);
+    (r.diagnosis ? `<div class="row"><span class="lbl">診斷：</span><span class="val">${escapeHtml(r.diagnosis)}</span></div>` : '') +
+    (r.prescription ? `<div class="row"><span class="lbl">處方：</span><span class="val">${escapeHtml(r.prescription)}</span></div>` : '') +
+    (r.followUp ? `<div class="row"><span class="lbl">覆診：</span><span class="val">${escapeHtml(r.followUp)}</span></div>` : '') + '</div>' : '') +
+    `<div class="footer">列印時間：${new Date().toLocaleString('zh-HK')} | ${escapeHtml(getClinicName())}</div></body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);
   };
 

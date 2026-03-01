@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_patient_med';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -136,7 +137,7 @@ export default function PatientMedication({ data, showToast, user }) {
   function handlePrint() {
     const meds = activeMeds;
     const rows = meds.map(m =>
-      `<tr><td>${m.name}</td><td>${m.category}</td><td>${m.dosage}</td><td>${m.frequency}</td><td>${m.route}</td><td>${m.doctor}</td><td>${m.startDate || '-'}</td></tr>`
+      `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.category)}</td><td>${escapeHtml(m.dosage)}</td><td>${escapeHtml(m.frequency)}</td><td>${escapeHtml(m.route)}</td><td>${escapeHtml(m.doctor)}</td><td>${m.startDate || '-'}</td></tr>`
     ).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>藥物清單</title>
 <style>body{font-family:sans-serif;padding:30px;max-width:800px;margin:0 auto}
@@ -144,12 +145,12 @@ h1{color:${ACCENT};font-size:20px}table{width:100%;border-collapse:collapse;marg
 th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:13px}
 th{background:#f9fafb;color:#555;font-size:12px}.footer{margin-top:30px;font-size:11px;color:#999}
 </style></head><body>
-<h1>${clinicName} - 患者藥物清單</h1>
-<p><b>患者：</b>${selPatient.name}　<b>列印日期：</b>${new Date().toISOString().substring(0, 10)}</p>
+<h1>${escapeHtml(clinicName)} - 患者藥物清單</h1>
+<p><b>患者：</b>${escapeHtml(selPatient.name)}　<b>列印日期：</b>${new Date().toISOString().substring(0, 10)}</p>
 <h3 style="font-size:15px;color:#333">現行藥物（共 ${meds.length} 項）</h3>
 <table><tr><th>藥物名稱</th><th>分類</th><th>劑量</th><th>頻率</th><th>途徑</th><th>處方醫師</th><th>開始日期</th></tr>${rows}</table>
-${interactions.length ? `<h3 style="font-size:15px;color:${RED};margin-top:24px">藥物交互作用警告</h3><ul>${interactions.map(w => `<li>${w.a} + ${w.b}：${w.note}</li>`).join('')}</ul>` : ''}
-<p class="footer">本清單由 ${clinicName} 管理系統生成，僅供參考。如有疑問請聯絡您的醫師。</p>
+${interactions.length ? `<h3 style="font-size:15px;color:${RED};margin-top:24px">藥物交互作用警告</h3><ul>${interactions.map(w => `<li>${escapeHtml(w.a)} + ${escapeHtml(w.b)}：${escapeHtml(w.note)}</li>`).join('')}</ul>` : ''}
+<p class="footer">本清單由 ${escapeHtml(clinicName)} 管理系統生成，僅供參考。如有疑問請聯絡您的醫師。</p>
 </body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);

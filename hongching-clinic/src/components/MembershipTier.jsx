@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_TIERS = 'hcmc_membership_tiers';
 const LS_MEMBER = 'hcmc_member_tiers';
@@ -115,10 +116,10 @@ export default function MembershipTier({ data, showToast, user }) {
     </style></head><body>
       <div class="card">
         <div class="bg-circle"></div>
-        <div class="logo">${clinicName}</div>
-        <div class="tier">${member.tier.name}</div>
-        <div class="name">${member.name}</div>
-        <div class="info">${member.phone || ''}</div>
+        <div class="logo">${escapeHtml(clinicName)}</div>
+        <div class="tier">${escapeHtml(member.tier.name)}</div>
+        <div class="name">${escapeHtml(member.name)}</div>
+        <div class="info">${escapeHtml(member.phone || '')}</div>
         <div class="info">年度消費: ${fmtA(member.annualSpend)} | 積分倍率: ${member.tier.pointsMultiplier}x</div>
         <div class="info">列印日期: ${today()}</div>
         <div class="disc">${member.tier.discount > 0 ? member.tier.discount + '% OFF' : ''}</div>

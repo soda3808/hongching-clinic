@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getDoctorSchedule, saveDoctorSchedule } from '../config';
 import { getTenantDoctors, getTenantStoreNames, getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const DAYS = [
   { id: 'mon', label: '星期一' },
@@ -165,15 +166,15 @@ export default function DoctorSchedule({ data, showToast, user }) {
               const w = window.open('', '_blank');
               if (!w) return;
               const docRows = allDoctors.map(doc => {
-                return `<tr><td style="font-weight:700" rowspan="${SLOTS.length}">${doc}</td>` +
+                return `<tr><td style="font-weight:700" rowspan="${SLOTS.length}">${escapeHtml(doc)}</td>` +
                   SLOTS.map((slot, si) => {
                     const printStoreColors = getStoreColors();
                     const cells = DAYS.map(d => {
                       const val = getSlot(doc, d.id, slot) || '休息';
                       const sc = printStoreColors[val] || printStoreColors['休息'];
-                      return `<td style="background:${sc.bg};color:${sc.color};text-align:center;font-weight:600">${val}</td>`;
+                      return `<td style="background:${sc.bg};color:${sc.color};text-align:center;font-weight:600">${escapeHtml(val)}</td>`;
                     }).join('');
-                    return si === 0 ? `<td>${slot}</td>${cells}</tr>` : `<tr><td>${slot}</td>${cells}</tr>`;
+                    return si === 0 ? `<td>${escapeHtml(slot)}</td>${cells}</tr>` : `<tr><td>${escapeHtml(slot)}</td>${cells}</tr>`;
                   }).join('');
               }).join('');
               w.document.write(`<!DOCTYPE html><html><head><title>醫師排班表</title>
@@ -185,9 +186,9 @@ export default function DoctorSchedule({ data, showToast, user }) {
                 th{background:#f0f0f0;font-weight:700}
                 @media print{body{margin:0;padding:10mm}}
                 </style></head><body>
-                <h1>${getClinicName()} — 醫師排班表</h1>
+                <h1>${escapeHtml(getClinicName())} — 醫師排班表</h1>
                 <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
-                <table><thead><tr><th>醫師</th><th>時段</th>${DAYS.map(d => `<th>${d.label}</th>`).join('')}</tr></thead>
+                <table><thead><tr><th>醫師</th><th>時段</th>${DAYS.map(d => `<th>${escapeHtml(d.label)}</th>`).join('')}</tr></thead>
                 <tbody>${docRows}</tbody></table>
               </body></html>`);
               w.document.close();

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const A = '#0e7490';
@@ -154,9 +155,9 @@ export default function InventoryValuation({ data, showToast, user }) {
     const clinic = getClinicName();
     const now = new Date().toLocaleString('zh-HK');
     const mLabel = METHODS.find(m => m.key === method)?.label || '';
-    const catRows = catBreakdown.map(([c, v]) => `<tr><td>${c}</td><td style="text-align:right">${v.skus}</td><td style="text-align:right">${v.qty.toLocaleString()}</td><td style="text-align:right;font-weight:700">${fmtM(v.value)}</td><td style="text-align:right">${totalVal > 0 ? (v.value / totalVal * 100).toFixed(1) + '%' : '-'}</td></tr>`).join('');
-    const topRows = top20.map((i, idx) => `<tr><td>${idx + 1}</td><td>${i.name}</td><td>${i.category || '-'}</td><td style="text-align:right">${i.qty} ${i.unit || 'g'}</td><td style="text-align:right">${fmtM(i.unitVal)}</td><td style="text-align:right;font-weight:700">${fmtM(i.totalVal)}</td></tr>`).join('');
-    const compRows = METHODS.map(m => `<tr><td>${m.label}</td><td style="text-align:right">${summary[m.key].skus}</td><td style="text-align:right">${summary[m.key].totalQty.toLocaleString()}</td><td style="text-align:right;font-weight:700">${fmtM(summary[m.key].totalVal)}</td></tr>`).join('');
+    const catRows = catBreakdown.map(([c, v]) => `<tr><td>${escapeHtml(c)}</td><td style="text-align:right">${v.skus}</td><td style="text-align:right">${v.qty.toLocaleString()}</td><td style="text-align:right;font-weight:700">${fmtM(v.value)}</td><td style="text-align:right">${totalVal > 0 ? (v.value / totalVal * 100).toFixed(1) + '%' : '-'}</td></tr>`).join('');
+    const topRows = top20.map((i, idx) => `<tr><td>${idx + 1}</td><td>${escapeHtml(i.name)}</td><td>${escapeHtml(i.category || '-')}</td><td style="text-align:right">${i.qty} ${escapeHtml(i.unit || 'g')}</td><td style="text-align:right">${fmtM(i.unitVal)}</td><td style="text-align:right;font-weight:700">${fmtM(i.totalVal)}</td></tr>`).join('');
+    const compRows = METHODS.map(m => `<tr><td>${escapeHtml(m.label)}</td><td style="text-align:right">${summary[m.key].skus}</td><td style="text-align:right">${summary[m.key].totalQty.toLocaleString()}</td><td style="text-align:right;font-weight:700">${fmtM(summary[m.key].totalVal)}</td></tr>`).join('');
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>存貨估值報告</title><style>
@@ -170,8 +171,8 @@ export default function InventoryValuation({ data, showToast, user }) {
       .meta{color:#666;font-size:11px;text-align:center;margin-bottom:16px}
       @media print{body{padding:10px}h1{font-size:16px}}
     </style></head><body>
-      <h1>${clinic} - 存貨估值報告</h1>
-      <div class="meta">估值方法：${mLabel}　｜　列印時間：${now}　｜　操作員：${user?.name || '-'}</div>
+      <h1>${escapeHtml(clinic)} - 存貨估值報告</h1>
+      <div class="meta">估值方法：${escapeHtml(mLabel)}　｜　列印時間：${now}　｜　操作員：${escapeHtml(user?.name || '-')}</div>
       <h2>各方法估值比較</h2>
       <table><tr><th>估值方法</th><th style="text-align:right">品項數</th><th style="text-align:right">總數量</th><th style="text-align:right">總估值</th></tr>${compRows}</table>
       <h2>分類明細（${mLabel}）</h2>

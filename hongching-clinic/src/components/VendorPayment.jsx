@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const A = '#0e7490';
@@ -115,19 +116,19 @@ export default function VendorPayment({ data, showToast, user }) {
       .sig{display:flex;justify-content:space-between;margin-top:50px;font-size:12px}
       .sig div{text-align:center;width:40%;border-top:1px solid #333;padding-top:6px}
     </style></head><body>
-      <h1>${getClinicName()} - 付款憑證</h1>
+      <h1>${escapeHtml(getClinicName())} - 付款憑證</h1>
       <p style="font-size:11px;color:#888">列印日期：${today()}</p>
       <div class="amount">${fmtM(r.amount)}</div>
-      <div class="row"><span class="label">供應商</span><span class="val">${r.vendor}</span></div>
-      <div class="row"><span class="label">發票編號</span><span class="val">${r.invoiceNumber || '-'}</span></div>
+      <div class="row"><span class="label">供應商</span><span class="val">${escapeHtml(r.vendor)}</span></div>
+      <div class="row"><span class="label">發票編號</span><span class="val">${escapeHtml(r.invoiceNumber || '-')}</span></div>
       <div class="row"><span class="label">付款日期</span><span class="val">${r.paymentDate || '-'}</span></div>
       <div class="row"><span class="label">到期日</span><span class="val">${r.dueDate || '-'}</span></div>
-      <div class="row"><span class="label">付款方式</span><span class="val">${r.paymentMethod || '-'}</span></div>
-      ${r.chequeNumber ? `<div class="row"><span class="label">支票號碼</span><span class="val">${r.chequeNumber}</span></div>` : ''}
-      <div class="row"><span class="label">狀態</span><span class="val">${r.status}</span></div>
-      <div class="row"><span class="label">備註</span><span class="val">${r.notes || '-'}</span></div>
+      <div class="row"><span class="label">付款方式</span><span class="val">${escapeHtml(r.paymentMethod || '-')}</span></div>
+      ${r.chequeNumber ? `<div class="row"><span class="label">支票號碼</span><span class="val">${escapeHtml(r.chequeNumber)}</span></div>` : ''}
+      <div class="row"><span class="label">狀態</span><span class="val">${escapeHtml(r.status)}</span></div>
+      <div class="row"><span class="label">備註</span><span class="val">${escapeHtml(r.notes || '-')}</span></div>
       <div class="sig"><div>經手人簽署</div><div>批核人簽署</div></div>
-      <div class="footer">${getClinicName()} - 此憑證由系統自動生成</div>
+      <div class="footer">${escapeHtml(getClinicName())} - 此憑證由系統自動生成</div>
     </body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);
   };
@@ -137,8 +138,8 @@ export default function VendorPayment({ data, showToast, user }) {
     const w = window.open('', '_blank'); if (!w) return;
     const rows = aging.map(b => `<tr><td style="font-weight:600;color:${b.color}">${b.label}</td><td style="text-align:right">${b.items.length}</td><td style="text-align:right;font-weight:700">${fmtM(b.total)}</td></tr>`).join('');
     const detail = aging.filter(b => b.items.length).map(b =>
-      `<tr style="background:#f3f4f6"><td colspan="5" style="font-weight:700;color:${b.color}">${b.label} (${b.items.length}筆)</td></tr>` +
-      b.items.map(r => `<tr><td>${r.vendor}</td><td>${r.invoiceNumber || '-'}</td><td style="text-align:right">${fmtM(r.amount)}</td><td>${r.dueDate || '-'}</td><td>${r.notes || '-'}</td></tr>`).join('')
+      `<tr style="background:#f3f4f6"><td colspan="5" style="font-weight:700;color:${b.color}">${escapeHtml(b.label)} (${b.items.length}筆)</td></tr>` +
+      b.items.map(r => `<tr><td>${escapeHtml(r.vendor)}</td><td>${escapeHtml(r.invoiceNumber || '-')}</td><td style="text-align:right">${fmtM(r.amount)}</td><td>${r.dueDate || '-'}</td><td>${escapeHtml(r.notes || '-')}</td></tr>`).join('')
     ).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>應付帳齡報告</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:800px;margin:0 auto}
@@ -147,7 +148,7 @@ export default function VendorPayment({ data, showToast, user }) {
       th{background:${A};color:#fff;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:20px}
     </style></head><body>
-      <h1>${getClinicName()} - 供應商應付帳齡分析</h1>
+      <h1>${escapeHtml(getClinicName())} - 供應商應付帳齡分析</h1>
       <p style="font-size:12px;color:#888">生成日期：${today()}</p>
       <h3>摘要</h3><table><thead><tr><th>帳齡</th><th style="text-align:right">筆數</th><th style="text-align:right">金額</th></tr></thead><tbody>${rows}</tbody></table>
       <h3>明細</h3><table><thead><tr><th>供應商</th><th>發票號</th><th style="text-align:right">金額</th><th>到期日</th><th>備註</th></tr></thead><tbody>${detail}</tbody></table>

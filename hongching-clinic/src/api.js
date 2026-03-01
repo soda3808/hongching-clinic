@@ -5,6 +5,7 @@
 
 import { supabase } from './supabase';
 import { getTenantId, getAuthHeader } from './auth';
+import { encryptPII, decryptPII } from './utils/piiFields';
 
 const GAS_URL = import.meta.env.VITE_GAS_URL || '';
 
@@ -145,6 +146,10 @@ export async function loadAllData() {
       const results = await Promise.all(COLLECTIONS.map(c => sbSelect(c)));
       const data = {};
       COLLECTIONS.forEach((c, i) => { data[c] = results[i] || []; });
+      // Decrypt PII fields in patient records
+      if (data.patients?.length) {
+        try { data.patients = await decryptPII(data.patients); } catch (err) { console.error('[loadAllData] PII decryption failed:', err); }
+      }
       if (data.revenue.length || data.patients.length || data.expenses.length) {
         saveAllLocal(data);
         setSyncStatus('idle', 0);
@@ -156,6 +161,10 @@ export async function loadAllData() {
   // Try GAS
   const gasData = await gasCall('loadAll');
   if (gasData && !gasData.error) {
+    // Decrypt PII fields in patient records from GAS
+    if (gasData.patients?.length) {
+      try { gasData.patients = await decryptPII(gasData.patients); } catch (err) { console.error('[loadAllData] GAS PII decryption failed:', err); }
+    }
     saveAllLocal(gasData);
     setSyncStatus('idle', 0);
     return gasData;
@@ -165,7 +174,14 @@ export async function loadAllData() {
   setSyncStatus(navigator.onLine ? 'idle' : 'offline');
   try {
     const saved = localStorage.getItem('hc_data');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Decrypt PII fields in patient records from localStorage
+      if (parsed.patients?.length) {
+        try { parsed.patients = await decryptPII(parsed.patients); } catch (err) { console.error('[loadAllData] localStorage PII decryption failed:', err); }
+      }
+      return parsed;
+    }
   } catch {}
   const empty = {};
   COLLECTIONS.forEach(c => { empty[c] = []; });
@@ -186,8 +202,16 @@ export async function saveRevenue(record) { return saveRecord('revenue', record,
 export async function saveExpense(record) { return saveRecord('expenses', record, 'saveExpense'); }
 // ── ARAP ──
 export async function saveARAP(record) { return saveRecord('arap', record, 'saveARAP'); }
-// ── Patients ──
-export async function savePatient(record) { return saveRecord('patients', record, 'savePatient'); }
+// ── Patients (PII fields encrypted before storage) ──
+export async function savePatient(record) {
+  try {
+    const encrypted = await encryptPII(record);
+    return await saveRecord('patients', encrypted, 'savePatient');
+  } catch (err) {
+    console.error('[savePatient] PII encryption failed, saving unencrypted:', err);
+    return saveRecord('patients', record, 'savePatient');
+  }
+}
 // ── Bookings ──
 export async function saveBooking(record) { return saveRecord('bookings', record, 'saveBooking'); }
 // ── Payslips ──
@@ -270,7 +294,11 @@ export async function bulkImport(data) {
     const tenantId = getTenantId();
     for (const col of COLLECTIONS) {
       if (data[col]?.length) {
-        const records = tenantId ? data[col].map(r => r.tenant_id ? r : { ...r, tenant_id: tenantId }) : data[col];
+        let records = tenantId ? data[col].map(r => r.tenant_id ? r : { ...r, tenant_id: tenantId }) : data[col];
+        // Encrypt PII fields in patient records before bulk insert
+        if (col === 'patients') {
+          try { records = await Promise.all(records.map(r => encryptPII(r))); } catch (err) { console.error('[bulkImport] PII encryption failed:', err); }
+        }
         await sbUpsert(col, records);
       }
     }

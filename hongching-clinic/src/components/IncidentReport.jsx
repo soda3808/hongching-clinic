@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS = 'hcmc_incidents';
 const ACCENT = '#0e7490';
@@ -83,10 +84,10 @@ export default function IncidentReport({ showToast, user }) {
 
   const handlePrint = () => {
     const w = window.open('', '_blank'); if (!w) return;
-    const trs = filtered.map(r => `<tr><td>${r.date}</td><td>${r.time||''}</td><td>${r.type}</td><td style="color:${SEV_C[r.severity]};font-weight:700">${r.severity}</td><td>${r.patient||'-'}</td><td style="color:${STA_C[r.status]};font-weight:700">${r.status}</td><td>${r.reporter}</td></tr>`).join('');
-    const typeRows = stats.byType.filter(t => t.count).map(t => `<tr><td>${t.label}</td><td style="text-align:right;font-weight:700">${t.count}</td></tr>`).join('');
+    const trs = filtered.map(r => `<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.time||'')}</td><td>${escapeHtml(r.type)}</td><td style="color:${SEV_C[r.severity]};font-weight:700">${escapeHtml(r.severity)}</td><td>${escapeHtml(r.patient||'-')}</td><td style="color:${STA_C[r.status]};font-weight:700">${escapeHtml(r.status)}</td><td>${escapeHtml(r.reporter)}</td></tr>`).join('');
+    const typeRows = stats.byType.filter(t => t.count).map(t => `<tr><td>${escapeHtml(t.label)}</td><td style="text-align:right;font-weight:700">${t.count}</td></tr>`).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>事故報告</title><style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:750px;margin:0 auto;font-size:13px}h1{font-size:18px;text-align:center;color:${ACCENT}}h2{font-size:14px;border-bottom:2px solid ${ACCENT};padding-bottom:4px;margin-top:20px;color:${ACCENT}}.sub{text-align:center;color:#888;font-size:11px;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}th{background:#f8f8f8;font-weight:700}.g{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}.b{border:1px solid #ddd;border-radius:8px;padding:12px;text-align:center}.b .n{font-size:22px;font-weight:800}.b .l{font-size:10px;color:#888}@media print{body{margin:0;padding:10mm}}</style></head><body>
-    <h1>${getClinicName()} — 事故報告</h1><div class="sub">列印時間：${new Date().toLocaleString('zh-HK')} | 總事故：${stats.total}</div>
+    <h1>${escapeHtml(getClinicName())} — 事故報告</h1><div class="sub">列印時間：${new Date().toLocaleString('zh-HK')} | 總事故：${stats.total}</div>
     <div class="g"><div class="b"><div class="n" style="color:${ACCENT}">${stats.total}</div><div class="l">總事故</div></div><div class="b"><div class="n" style="color:#d97706">${stats.mCount}</div><div class="l">本月事故</div></div><div class="b"><div class="n" style="color:${stats.trend>0?'#dc2626':'#16a34a'}">${stats.trend>0?'+':''}${stats.trend}%</div><div class="l">月度變化</div></div><div class="b"><div class="n" style="color:#dc2626">${stats.bySev.find(s=>s.label==='嚴重')?.count||0}</div><div class="l">嚴重事故</div></div></div>
     <h2>按類型統計</h2><table><thead><tr><th>類型</th><th style="text-align:right">數量</th></tr></thead><tbody>${typeRows}</tbody></table>
     <h2>事故列表</h2><table><thead><tr><th>日期</th><th>時間</th><th>類型</th><th>嚴重程度</th><th>病人</th><th>狀態</th><th>報告人</th></tr></thead><tbody>${trs||'<tr><td colspan="7" style="text-align:center;color:#aaa">暫無記錄</td></tr>'}</tbody></table></body></html>`);

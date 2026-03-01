@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getEmployees } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const CRS_KEY = 'hcmc_training_courses';
 const REC_KEY = 'hcmc_training_records';
@@ -130,14 +131,14 @@ export default function StaffTraining({ data, showToast, user }) {
     if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>培訓證書</title></head><body style="font-family:'Microsoft YaHei',sans-serif;padding:60px;text-align:center">
       <div style="border:3px double ${ACCENT};padding:50px;max-width:600px;margin:0 auto">
-        <h2 style="color:${ACCENT};margin-bottom:6px">${getClinicName()}</h2>
+        <h2 style="color:${ACCENT};margin-bottom:6px">${escapeHtml(getClinicName())}</h2>
         <h1 style="font-size:28px;margin:20px 0">培訓完成證書</h1>
-        <p style="font-size:18px;margin:30px 0">茲證明 <strong style="font-size:22px;color:${ACCENT}">${cert.staffName}</strong></p>
+        <p style="font-size:18px;margin:30px 0">茲證明 <strong style="font-size:22px;color:${ACCENT}">${escapeHtml(cert.staffName)}</strong></p>
         <p style="font-size:16px">已完成以下培訓課程：</p>
-        <p style="font-size:20px;font-weight:700;margin:16px 0">${cert.certName}</p>
-        <p>頒發機構：${cert.issuer || getClinicName()}</p>
-        <p>頒發日期：${cert.issueDate || '-'}</p>
-        ${cert.expiryDate ? `<p>有效期至：${cert.expiryDate}</p>` : ''}
+        <p style="font-size:20px;font-weight:700;margin:16px 0">${escapeHtml(cert.certName)}</p>
+        <p>頒發機構：${escapeHtml(cert.issuer || getClinicName())}</p>
+        <p>頒發日期：${escapeHtml(cert.issueDate || '-')}</p>
+        ${cert.expiryDate ? `<p>有效期至：${escapeHtml(cert.expiryDate)}</p>` : ''}
         <div style="margin-top:50px;display:flex;justify-content:space-around">
           <div><div style="border-top:1px solid #333;width:160px;margin-bottom:4px"></div><span style="font-size:12px">負責人簽署</span></div>
           <div><div style="border-top:1px solid #333;width:160px;margin-bottom:4px"></div><span style="font-size:12px">機構蓋章</span></div>

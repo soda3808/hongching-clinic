@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LABEL_STYLES = {
   container: {
@@ -104,31 +105,33 @@ export default function MedicineLabel({ consultation, onClose, showToast }) {
     const matchedStore = tenantStores.find(s => s.name === store) || tenantStores[0] || {};
     const storeAddr = matchedStore.address || '';
 
+    const safeHerbList = rx.map(r => `${escapeHtml(r.herb)} ${escapeHtml(r.dosage)}`).join('、');
+
     const labelHtml = (num) => `
       <div class="label">
         <div class="header">
-          <div class="clinic-name">${clinicInfo?.name || clinicName}</div>
-          <div class="clinic-en">${clinicInfo?.nameEn || clinicNameEn}</div>
-          <div class="clinic-addr">${storeAddr}</div>
+          <div class="clinic-name">${escapeHtml(clinicInfo?.name || clinicName)}</div>
+          <div class="clinic-en">${escapeHtml(clinicInfo?.nameEn || clinicNameEn)}</div>
+          <div class="clinic-addr">${escapeHtml(storeAddr)}</div>
         </div>
         <div class="row">
-          <span><b>病人：</b>${consultation.patientName}</span>
-          <span><b>日期：</b>${consultation.date}</span>
+          <span><b>病人：</b>${escapeHtml(consultation.patientName)}</span>
+          <span><b>日期：</b>${escapeHtml(consultation.date)}</span>
         </div>
         <div class="row">
-          <span><b>醫師：</b>${consultation.doctor}</span>
+          <span><b>醫師：</b>${escapeHtml(consultation.doctor)}</span>
           <span><b>帖數：</b>${days} 帖</span>
         </div>
-        ${consultation.formulaName ? `<div class="formula"><b>處方：</b>${consultation.formulaName}</div>` : ''}
-        ${rx.length > 0 ? `<div class="herbs"><span class="herbs-label">藥材組成：</span>${herbList}</div>` : ''}
+        ${consultation.formulaName ? `<div class="formula"><b>處方：</b>${escapeHtml(consultation.formulaName)}</div>` : ''}
+        ${rx.length > 0 ? `<div class="herbs"><span class="herbs-label">藥材組成：</span>${safeHerbList}</div>` : ''}
         <div class="instructions">
-          <b>服法：</b>${consultation.formulaInstructions || '每日一劑，水煎服'}
+          <b>服法：</b>${escapeHtml(consultation.formulaInstructions || '每日一劑，水煎服')}
           ${consultation.prescriptionType === 'granule' ? `<div>每日 ${consultation.granuleDosesPerDay || 2} 次，每次以溫水沖服</div>` : ''}
         </div>
-        ${consultation.specialNotes ? `<div class="warning">注意：${consultation.specialNotes}</div>` : ''}
+        ${consultation.specialNotes ? `<div class="warning">注意：${escapeHtml(consultation.specialNotes)}</div>` : ''}
         <div class="footer">
           <div>如有不適請立即停藥並聯絡本中心</div>
-          <div>Label ${num}/${copies} | Ref: ${consultation.id?.substring(0, 8) || '-'}</div>
+          <div>Label ${num}/${copies} | Ref: ${escapeHtml(consultation.id?.substring(0, 8) || '-')}</div>
         </div>
       </div>`;
 

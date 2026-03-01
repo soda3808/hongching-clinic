@@ -2,6 +2,7 @@
 import { useState, useMemo } from 'react';
 import { uid, fmtM } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_CLAIMS = 'hcmc_insurance_claims';
@@ -130,23 +131,23 @@ export default function InsuranceClaim({ data, showToast, user }) {
       .footer{margin-top:30px;text-align:center;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:10px}
       @media print{body{padding:20px 30px}}
     </style></head><body>
-      <div class="header"><h1>${clinicName}</h1><p style="font-size:12px;color:#888">保險索償申請表 Insurance Claim Form</p></div>
+      <div class="header"><h1>${escapeHtml(clinicName)}</h1><p style="font-size:12px;color:#888">保險索償申請表 Insurance Claim Form</p></div>
       <div class="title">保 險 索 償 表</div>
-      <div class="field"><span class="lb">索償編號：</span><span class="val">${c.id}</span></div>
-      <div class="field"><span class="lb">病人姓名：</span><span class="val">${c.patientName}</span></div>
-      <div class="field"><span class="lb">聯絡電話：</span><span class="val">${c.patientPhone || '-'}</span></div>
-      <div class="field"><span class="lb">保險公司：</span><span class="val">${c.company}</span></div>
-      <div class="field"><span class="lb">保單號碼：</span><span class="val">${c.policyNo || '-'}</span></div>
-      <div class="field"><span class="lb">索償類別：</span><span class="val">${c.claimType}</span></div>
+      <div class="field"><span class="lb">索償編號：</span><span class="val">${escapeHtml(c.id)}</span></div>
+      <div class="field"><span class="lb">病人姓名：</span><span class="val">${escapeHtml(c.patientName)}</span></div>
+      <div class="field"><span class="lb">聯絡電話：</span><span class="val">${escapeHtml(c.patientPhone || '-')}</span></div>
+      <div class="field"><span class="lb">保險公司：</span><span class="val">${escapeHtml(c.company)}</span></div>
+      <div class="field"><span class="lb">保單號碼：</span><span class="val">${escapeHtml(c.policyNo || '-')}</span></div>
+      <div class="field"><span class="lb">索償類別：</span><span class="val">${escapeHtml(c.claimType)}</span></div>
       <div class="section">診療資料</div>
       <div class="field"><span class="lb">就診日期：</span><span class="val">${c.treatmentDate}</span></div>
-      <div class="field"><span class="lb">診斷：</span><span class="val">${c.diagnosis || '-'}</span></div>
+      <div class="field"><span class="lb">診斷：</span><span class="val">${escapeHtml(c.diagnosis || '-')}</span></div>
       <div class="field"><span class="lb">索償金額：</span><span class="val" style="font-weight:700;color:${ACCENT}">${fmtM(c.amount)}</span></div>
       <div class="section">附件文件</div>
-      <div class="docs">${(c.docs || []).length ? c.docs.map(d => `<span>✓ ${d}</span>`).join('') : '<span style="color:#aaa">無附件</span>'}</div>
-      ${c.notes ? `<div class="section">備註</div><p style="font-size:13px;line-height:1.8">${c.notes}</p>` : ''}
+      <div class="docs">${(c.docs || []).length ? c.docs.map(d => `<span>✓ ${escapeHtml(d)}</span>`).join('') : '<span style="color:#aaa">無附件</span>'}</div>
+      ${c.notes ? `<div class="section">備註</div><p style="font-size:13px;line-height:1.8">${escapeHtml(c.notes)}</p>` : ''}
       <div class="sig"><div class="sig-box"><div class="sig-line">病人簽署</div></div><div class="sig-box"><div class="sig-line">診所蓋章</div></div></div>
-      <div class="footer">列印日期：${today()} ｜ ${clinicName}</div>
+      <div class="footer">列印日期：${today()} ｜ ${escapeHtml(clinicName)}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 400);

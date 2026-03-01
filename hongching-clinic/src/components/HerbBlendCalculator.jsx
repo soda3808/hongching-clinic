@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const CALC_KEY = 'hcmc_herb_calculator';
@@ -121,7 +122,7 @@ export default function HerbBlendCalculator({ data, showToast, user }) {
     const date = new Date().toISOString().slice(0, 10);
     const modeLabel = mode === 'raw' ? '飲片' : '濃縮顆粒';
     const herbRows = calc.rows.map(r =>
-      `<tr><td>${r.name}</td><td>${r.role}</td><td>${mode === 'raw' ? r.rawAdj + 'g' : r.granule + 'g'}</td></tr>`
+      `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.role)}</td><td>${mode === 'raw' ? r.rawAdj + 'g' : r.granule + 'g'}</td></tr>`
     ).join('');
     const adj = patientType === 'adult' ? '' : patientType === 'child' ? `（兒童劑量 x${factor}）` : '（妊娠減量 x0.7）';
     const decoction = mode === 'raw' ? `<p><b>煎煮說明：</b>加水 ${calc.waterAmount}ml，大火煮沸後轉小火煎煮30分鐘，濾渣取汁，分2-3次溫服。</p>` : '<p><b>服用說明：</b>溫水沖服，每日2-3次。</p>';
@@ -139,15 +140,15 @@ td{padding:5px 10px;border-bottom:1px solid #eee;font-size:12px}
 .instructions{border:1px dashed #999;padding:10px;border-radius:4px;font-size:12px;margin:10px 0}
 .footer{text-align:center;font-size:9px;color:#aaa;border-top:1px solid #eee;padding-top:8px;margin-top:20px}
 @media print{body{margin:0}.page{padding:20px 30px}}</style></head><body>
-<div class="page"><div class="header"><h1>${clinic}</h1><p>${modeLabel}處方</p></div>
-<div class="meta"><span>日期：${date}</span><span>醫師：${user?.name || '-'}</span><span>帖數：${days} 帖${adj}</span></div>
+<div class="page"><div class="header"><h1>${escapeHtml(clinic)}</h1><p>${escapeHtml(modeLabel)}處方</p></div>
+<div class="meta"><span>日期：${escapeHtml(date)}</span><span>醫師：${escapeHtml(user?.name || '-')}</span><span>帖數：${days} 帖${escapeHtml(adj)}</span></div>
 <table><thead><tr><th>藥材</th><th>角色</th><th>劑量</th></tr></thead><tbody>${herbRows}</tbody></table>
 <div class="totals"><b>合計：</b>${mode === 'raw' ? calc.totalRaw + 'g' : calc.totalGranule + 'g'}
 ${mode === 'raw' ? `　｜　<b>水量：</b>${calc.waterAmount}ml` : ''}
 　｜　<b>帖數：</b>${days} 帖${calc.totalDaysCost > 0 ? `　｜　<b>費用：</b>$${calc.sellingPrice}` : ''}</div>
 <div class="instructions">${decoction}</div>
 ${patientType === 'pregnant' ? '<p style="color:#c00;font-weight:700;font-size:12px">&#9888; 妊娠用藥，請遵醫囑</p>' : ''}
-<div class="footer"><p>${clinic} - 處方標籤　列印時間：${new Date().toLocaleString('zh-TW')}</p></div></div>
+<div class="footer"><p>${escapeHtml(clinic)} - 處方標籤　列印時間：${escapeHtml(new Date().toLocaleString('zh-TW'))}</p></div></div>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   };

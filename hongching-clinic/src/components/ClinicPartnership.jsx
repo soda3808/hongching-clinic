@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const STORE_KEY = 'hcmc_partnerships';
 const TYPES = ['西醫診所', '物理治療', '營養師', '健身中心', '保險公司', '企業客戶', 'NGO/社福機構', '學校'];
@@ -106,32 +107,32 @@ export default function ClinicPartnership({ data, showToast, user }) {
     const refs = (Number(p.referralIn) || 0) + (Number(p.referralOut) || 0);
     const comm = refs * (Number(p.commissionRate) || 0);
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>合作協議 - ${p.name}</title>
+    w.document.write(`<html><head><title>合作協議 - ${escapeHtml(p.name)}</title>
       <style>body{font-family:sans-serif;padding:32px;max-width:700px;margin:0 auto;color:#333}
       h1{color:#0e7490;font-size:22px;border-bottom:2px solid #0e7490;padding-bottom:8px}
       h2{color:#0e7490;font-size:16px;margin-top:24px}.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;font-size:14px}
       .lbl{color:#666;min-width:120px}.val{font-weight:600;text-align:right}
       .footer{margin-top:40px;font-size:12px;color:#999;text-align:center}
       @media print{body{padding:0}}</style></head><body>
-      <h1>${clinic} - 合作協議摘要</h1>
+      <h1>${escapeHtml(clinic)} - 合作協議摘要</h1>
       <h2>合作夥伴資料</h2>
-      <div class="row"><span class="lbl">名稱</span><span class="val">${p.name}</span></div>
-      <div class="row"><span class="lbl">類別</span><span class="val">${p.type}</span></div>
-      <div class="row"><span class="lbl">聯絡人</span><span class="val">${p.contactPerson || '-'}</span></div>
-      <div class="row"><span class="lbl">電話</span><span class="val">${p.phone || '-'}</span></div>
-      <div class="row"><span class="lbl">電郵</span><span class="val">${p.email || '-'}</span></div>
-      <div class="row"><span class="lbl">地址</span><span class="val">${p.address || '-'}</span></div>
+      <div class="row"><span class="lbl">名稱</span><span class="val">${escapeHtml(p.name)}</span></div>
+      <div class="row"><span class="lbl">類別</span><span class="val">${escapeHtml(p.type)}</span></div>
+      <div class="row"><span class="lbl">聯絡人</span><span class="val">${escapeHtml(p.contactPerson || '-')}</span></div>
+      <div class="row"><span class="lbl">電話</span><span class="val">${escapeHtml(p.phone || '-')}</span></div>
+      <div class="row"><span class="lbl">電郵</span><span class="val">${escapeHtml(p.email || '-')}</span></div>
+      <div class="row"><span class="lbl">地址</span><span class="val">${escapeHtml(p.address || '-')}</span></div>
       <h2>協議詳情</h2>
       <div class="row"><span class="lbl">合作開始日期</span><span class="val">${p.agreementDate || '-'}</span></div>
       <div class="row"><span class="lbl">到期日期</span><span class="val">${p.expiryDate || '-'}</span></div>
       <div class="row"><span class="lbl">佣金比率</span><span class="val">$${p.commissionRate} / 轉介</span></div>
-      <div class="row"><span class="lbl">狀態</span><span class="val">${STATUS_LABEL[p.status]}</span></div>
-      ${p.terms ? `<h2>合作條款</h2><p style="font-size:14px;white-space:pre-wrap">${p.terms}</p>` : ''}
+      <div class="row"><span class="lbl">狀態</span><span class="val">${escapeHtml(STATUS_LABEL[p.status])}</span></div>
+      ${p.terms ? `<h2>合作條款</h2><p style="font-size:14px;white-space:pre-wrap">${escapeHtml(p.terms)}</p>` : ''}
       <h2>轉介統計</h2>
       <div class="row"><span class="lbl">轉介入（來自夥伴）</span><span class="val">${p.referralIn || 0}</span></div>
       <div class="row"><span class="lbl">轉介出（轉至夥伴）</span><span class="val">${p.referralOut || 0}</span></div>
       <div class="row"><span class="lbl">佣金總額</span><span class="val">$${comm.toLocaleString()}</span></div>
-      <div class="footer">列印日期：${today()} | ${clinic}</div>
+      <div class="footer">列印日期：${today()} | ${escapeHtml(clinic)}</div>
       </body></html>`);
     w.document.close(); w.print();
   };

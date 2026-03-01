@@ -4,6 +4,7 @@ import { uid } from '../data';
 import { getClinicName } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
+import escapeHtml from '../utils/escapeHtml';
 
 const LEAVE_TYPES = ['年假', '病假', '事假', '補假', '產假', '婚假'];
 const DEFAULT_BALANCE = { annual: 12, sick: 14, personal: 5 };
@@ -209,14 +210,14 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
               .r{text-align:right}
               @media print{body{margin:0;padding:10mm}}
               </style></head><body>
-              <h1>${getClinicName()} — 請假報告</h1>
+              <h1>${escapeHtml(getClinicName())} — 請假報告</h1>
               <div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
               <h2>員工已用假期統計</h2>
               <table><thead><tr><th>員工</th><th class="r">年假</th><th class="r">病假</th><th class="r">事假</th><th class="r">合計</th></tr></thead>
-              <tbody>${Object.entries(staffBalance).map(([name, b]) => `<tr><td>${name}</td><td class="r">${b.annual}</td><td class="r">${b.sick}</td><td class="r">${b.personal}</td><td class="r" style="font-weight:700">${b.annual + b.sick + b.personal}</td></tr>`).join('')}</tbody></table>
+              <tbody>${Object.entries(staffBalance).map(([name, b]) => `<tr><td>${escapeHtml(name)}</td><td class="r">${b.annual}</td><td class="r">${b.sick}</td><td class="r">${b.personal}</td><td class="r" style="font-weight:700">${b.annual + b.sick + b.personal}</td></tr>`).join('')}</tbody></table>
               <h2>請假記錄</h2>
               <table><thead><tr><th>申請人</th><th>類別</th><th>日期</th><th class="r">天數</th><th>狀態</th></tr></thead>
-              <tbody>${[...myLeaves].sort((a,b) => (b.startDate||'').localeCompare(a.startDate||'')).map(l => `<tr><td>${l.userName}</td><td>${l.type}</td><td>${l.startDate} ~ ${l.endDate}</td><td class="r">${l.days}</td><td>${STATUS_LABELS[l.status] || l.status}</td></tr>`).join('')}</tbody></table>
+              <tbody>${[...myLeaves].sort((a,b) => (b.startDate||'').localeCompare(a.startDate||'')).map(l => `<tr><td>${escapeHtml(l.userName)}</td><td>${escapeHtml(l.type)}</td><td>${escapeHtml(l.startDate)} ~ ${escapeHtml(l.endDate)}</td><td class="r">${l.days}</td><td>${escapeHtml(STATUS_LABELS[l.status] || l.status)}</td></tr>`).join('')}</tbody></table>
             </body></html>`);
             w.document.close();
             setTimeout(() => w.print(), 300);

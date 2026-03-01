@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_patient_allergy';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -130,27 +131,27 @@ export default function PatientAllergy({ data, showToast, user }) {
     const active = records.filter(r => r.patientId === selPatient.id && !r.removed);
     const emergencyContact = selPatient.emergencyContact || selPatient.phone || '未填寫';
     const rows = active.map(a =>
-      `<tr><td style="padding:6px 10px;border:1px solid #ccc">${a.allergen}</td>` +
-      `<td style="padding:6px 10px;border:1px solid #ccc">${a.category}</td>` +
+      `<tr><td style="padding:6px 10px;border:1px solid #ccc">${escapeHtml(a.allergen)}</td>` +
+      `<td style="padding:6px 10px;border:1px solid #ccc">${escapeHtml(a.category)}</td>` +
       `<td style="padding:6px 10px;border:1px solid #ccc;color:${sevColor(a.severity)};font-weight:600">${sevLabel(a.severity)}</td>` +
-      `<td style="padding:6px 10px;border:1px solid #ccc">${a.reaction || '-'}</td></tr>`
+      `<td style="padding:6px 10px;border:1px solid #ccc">${escapeHtml(a.reaction || '-')}</td></tr>`
     ).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>過敏警示卡</title></head>` +
       `<body style="font-family:'Microsoft YaHei',sans-serif;padding:24px;max-width:600px;margin:0 auto">` +
       `<div style="border:3px solid ${RED};border-radius:10px;padding:20px">` +
       `<div style="text-align:center;margin-bottom:16px">` +
       `<h2 style="color:${RED};margin:0 0 4px">過敏警示卡</h2>` +
-      `<p style="color:#666;margin:0;font-size:13px">${clinicName}</p></div>` +
-      `<table style="width:100%;margin-bottom:12px"><tr><td style="font-size:14px"><strong>患者姓名：</strong>${selPatient.name}</td>` +
-      `<td style="font-size:14px"><strong>出生日期：</strong>${selPatient.dob || '-'}</td></tr>` +
-      `<tr><td colspan="2" style="font-size:14px"><strong>緊急聯絡：</strong>${emergencyContact}</td></tr></table>` +
+      `<p style="color:#666;margin:0;font-size:13px">${escapeHtml(clinicName)}</p></div>` +
+      `<table style="width:100%;margin-bottom:12px"><tr><td style="font-size:14px"><strong>患者姓名：</strong>${escapeHtml(selPatient.name)}</td>` +
+      `<td style="font-size:14px"><strong>出生日期：</strong>${escapeHtml(selPatient.dob || '-')}</td></tr>` +
+      `<tr><td colspan="2" style="font-size:14px"><strong>緊急聯絡：</strong>${escapeHtml(emergencyContact)}</td></tr></table>` +
       `<table style="width:100%;border-collapse:collapse;font-size:13px">` +
       `<thead><tr style="background:#fef2f2"><th style="padding:6px 10px;border:1px solid #ccc;text-align:left">過敏原</th>` +
       `<th style="padding:6px 10px;border:1px solid #ccc;text-align:left">類別</th>` +
       `<th style="padding:6px 10px;border:1px solid #ccc;text-align:left">嚴重程度</th>` +
       `<th style="padding:6px 10px;border:1px solid #ccc;text-align:left">反應</th></tr></thead>` +
       `<tbody>${rows || '<tr><td colspan="4" style="padding:10px;text-align:center;color:#999">無過敏記錄</td></tr>'}</tbody></table>` +
-      `<p style="font-size:11px;color:#999;margin-top:14px;text-align:center">列印日期：${new Date().toISOString().substring(0, 10)} | ${clinicName}</p>` +
+      `<p style="font-size:11px;color:#999;margin-top:14px;text-align:center">列印日期：${new Date().toISOString().substring(0, 10)} | ${escapeHtml(clinicName)}</p>` +
       `</div></body></html>`;
     const w = window.open('', '_blank', 'width=700,height=500');
     w.document.write(html); w.document.close(); w.print();

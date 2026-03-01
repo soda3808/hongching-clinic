@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const TPL_KEY = 'hcmc_doc_templates';
 const USE_KEY = 'hcmc_template_usage';
@@ -117,7 +118,7 @@ export default function DocumentTemplate({ showToast, user }) {
     const content = renderFilled();
     const clinic = getClinicName();
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fillTpl.name} — ${clinic}</title><style>body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;padding:40px 60px;font-size:15px;line-height:1.8;white-space:pre-wrap;color:#1a1a1a}h1{text-align:center;font-size:20px;margin-bottom:24px}@media print{body{padding:20px 40px}}</style></head><body>${content.replace(/\n/g, '<br>')}</body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(fillTpl.name)} — ${escapeHtml(clinic)}</title><style>body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;padding:40px 60px;font-size:15px;line-height:1.8;white-space:pre-wrap;color:#1a1a1a}h1{text-align:center;font-size:20px;margin-bottom:24px}@media print{body{padding:20px 40px}}</style></head><body>${escapeHtml(content).replace(/\n/g, '<br>')}</body></html>`);
     w.document.close();
     w.print();
     const u = { ...usage, [fillTpl.id]: (usage[fillTpl.id] || 0) + 1 };

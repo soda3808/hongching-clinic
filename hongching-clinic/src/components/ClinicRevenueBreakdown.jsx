@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors, getStoreNames, fmtM } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const COLORS = ['#0e7490', '#16a34a', '#DAA520', '#dc2626', '#7C3AED', '#0284c7', '#f97316', '#059669', '#9333ea', '#b91c1c'];
@@ -183,8 +184,8 @@ export default function ClinicRevenueBreakdown({ data, showToast, user }) {
   const handlePrint = () => {
     const fs = toDS(range.from), ts = toDS(range.to);
     const td = 'padding:5px 8px;border-bottom:1px solid #eee';
-    const bR = (rows) => rows.map(r => `<tr><td style="${td};font-weight:600">${r.label}</td><td style="${td};text-align:right;font-family:monospace">${fmtM(r.value)}</td><td style="${td};text-align:right;color:#888">${curTotal ? (r.value / curTotal * 100).toFixed(1) : 0}%</td></tr>`).join('');
-    const tR = topItems.map((t, i) => `<tr><td style="${td}">${i + 1}</td><td style="${td};font-weight:600">${t.name}</td><td style="${td};text-align:right">${t.count}</td><td style="${td};text-align:right;font-family:monospace">${fmtM(t.total)}</td></tr>`).join('');
+    const bR = (rows) => rows.map(r => `<tr><td style="${td};font-weight:600">${escapeHtml(r.label)}</td><td style="${td};text-align:right;font-family:monospace">${fmtM(r.value)}</td><td style="${td};text-align:right;color:#888">${curTotal ? (r.value / curTotal * 100).toFixed(1) : 0}%</td></tr>`).join('');
+    const tR = topItems.map((t, i) => `<tr><td style="${td}">${i + 1}</td><td style="${td};font-weight:600">${escapeHtml(t.name)}</td><td style="${td};text-align:right">${t.count}</td><td style="${td};text-align:right;font-family:monospace">${fmtM(t.total)}</td></tr>`).join('');
     const sec = (title, hdr, body) => `<h2>${title}</h2><table><thead><tr>${hdr}</tr></thead><tbody>${body}</tbody></table>`;
     const thH = (cols) => cols.map(c => `<th${c[1] ? ' class="r"' : ''}>${c[0]}</th>`).join('');
     const w = window.open('', '_blank');
@@ -196,7 +197,7 @@ h2{font-size:14px;color:${ACCENT};border-bottom:2px solid ${ACCENT};padding-bott
 table{width:100%;border-collapse:collapse;margin:8px 0}th{background:#f8f8f8;font-weight:700;font-size:11px;padding:6px 8px;text-align:left;border-bottom:2px solid #ddd}.r{text-align:right}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}.box{border:1px solid #ddd;border-radius:8px;padding:12px;text-align:center}.box .n{font-size:20px;font-weight:800}.box .l{font-size:10px;color:#888;margin-top:2px}
 .footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}</style></head><body>
-<h1>${clinicName} — 營業額分析報告</h1>
+<h1>${escapeHtml(clinicName)} — 營業額分析報告</h1>
 <div class="sub">REVENUE ANALYSIS REPORT | ${fs} ~ ${ts} | 列印: ${new Date().toLocaleString('zh-HK')}</div>
 <div class="grid"><div class="box"><div class="n" style="color:${ACCENT}">${fmtM(curTotal)}</div><div class="l">${rangeLabel}營業額</div></div><div class="box"><div class="n" style="color:#666">${curN}</div><div class="l">交易筆數</div></div><div class="box"><div class="n" style="color:${ACCENT}">${fmtM(avgPer)}</div><div class="l">平均每筆</div></div></div>
 ${sec('按服務類型', thH([['服務'],['金額',1],['佔比',1]]), bR(byService))}
@@ -204,7 +205,7 @@ ${sec('按醫師', thH([['醫師'],['金額',1],['佔比',1]]), bR(byDoctor))}
 ${sec('按分店', thH([['分店'],['金額',1],['佔比',1]]), bR(byStore))}
 ${sec('按付款方式', thH([['方式'],['金額',1],['佔比',1]]), bR(byPayment))}
 ${sec('Top 10 項目', thH([['#'],['項目'],['筆數',1],['金額',1]]), tR)}
-<div class="footer">${clinicName} | 報告由系統自動生成 | ${new Date().toLocaleString('zh-HK')}</div></body></html>`);
+<div class="footer">${escapeHtml(clinicName)} | 報告由系統自動生成 | ${new Date().toLocaleString('zh-HK')}</div></body></html>`);
     w.document.close(); w.print();
     showToast && showToast('已開啟列印視窗');
   };

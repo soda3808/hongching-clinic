@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors, fmtM } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -115,17 +116,17 @@ table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid
 th{background:#f9fafb}.total{font-size:18px;font-weight:700;margin-top:20px}
 .footer{margin-top:40px;font-size:12px;color:#888;border-top:1px solid #eee;padding-top:12px}
 @media print{body{padding:20px}}</style></head><body>
-<h1>${clinic}</h1><p style="margin:0 0 20px;color:#888">企業服務帳單</p>
-<table><tr><th>公司名稱</th><td>${c.company}</td><th>聯絡人</th><td>${c.contact}</td></tr>
-<tr><th>服務類型</th><td>${c.serviceType}</td><th>合約期間</th><td>${c.startDate} ~ ${c.endDate}</td></tr>
+<h1>${escapeHtml(clinic)}</h1><p style="margin:0 0 20px;color:#888">企業服務帳單</p>
+<table><tr><th>公司名稱</th><td>${escapeHtml(c.company)}</td><th>聯絡人</th><td>${escapeHtml(c.contact)}</td></tr>
+<tr><th>服務類型</th><td>${escapeHtml(c.serviceType)}</td><th>合約期間</th><td>${c.startDate} ~ ${c.endDate}</td></tr>
 <tr><th>總次數</th><td>${c.totalSessions}</td><th>已使用</th><td>${used.length}</td></tr></table>
 <h3 style="margin-top:24px">使用明細</h3>
 <table><thead><tr><th>日期</th><th>員工</th><th>服務內容</th><th>醫師</th></tr></thead><tbody>
-${used.map(s => `<tr><td>${s.date}</td><td>${s.employeeName}</td><td>${s.service}</td><td>${s.doctor || '-'}</td></tr>`).join('')}
+${used.map(s => `<tr><td>${s.date}</td><td>${escapeHtml(s.employeeName)}</td><td>${escapeHtml(s.service)}</td><td>${escapeHtml(s.doctor || '-')}</td></tr>`).join('')}
 ${used.length === 0 ? '<tr><td colspan="4" style="text-align:center;color:#aaa">暫無紀錄</td></tr>' : ''}
 </tbody></table>
 <p class="total">合約金額：${fmtM(Number(c.price || 0))}</p>
-<div class="footer"><p>帳單日期：${today()}</p><p>${clinic} - 企業服務部</p></div>
+<div class="footer"><p>帳單日期：${today()}</p><p>${escapeHtml(clinic)} - 企業服務部</p></div>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);

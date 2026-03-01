@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const FAV_KEY = 'hcmc_herb_favorites';
@@ -79,20 +80,20 @@ export default function HerbWiki({ showToast, user }) {
   const printHerb = (herb) => {
     const w = window.open('', '_blank', 'width=600,height=800');
     if (!w) return showToast?.('無法開啟列印視窗，請允許彈出視窗');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${herb.zh} - 中藥百科</title>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(herb.zh)} - 中藥百科</title>
 <style>body{font-family:"Microsoft JhengHei","PingFang TC",sans-serif;padding:30px;color:#222;max-width:540px;margin:0 auto}
 h1{color:${ACCENT};font-size:22px;border-bottom:2px solid ${ACCENT};padding-bottom:8px;margin-bottom:4px}
 .sub{color:#666;font-size:13px;margin-bottom:16px}.section{margin-bottom:12px}
 .label{font-weight:bold;color:${ACCENT};font-size:13px;margin-bottom:2px}.val{font-size:14px;line-height:1.6}
 .footer{margin-top:24px;padding-top:12px;border-top:1px solid #ddd;font-size:11px;color:#999;text-align:center}
 @media print{body{padding:15px}}</style></head><body>
-<h1>${herb.zh}（${herb.py}）</h1><div class="sub">${herb.en} ─ ${herb.cat}</div>
-<div class="section"><div class="label">性味歸經</div><div class="val">${herb.prop}　${herb.mer}</div></div>
-<div class="section"><div class="label">功效</div><div class="val">${herb.fx}</div></div>
-<div class="section"><div class="label">主治</div><div class="val">${herb.zz}</div></div>
-<div class="section"><div class="label">用法用量</div><div class="val">${herb.dose}</div></div>
-<div class="section"><div class="label">禁忌</div><div class="val">${herb.contra}</div></div>
-<div class="section"><div class="label">常用配伍</div><div class="val">${herb.combo}</div></div>
+<h1>${escapeHtml(herb.zh)}（${escapeHtml(herb.py)}）</h1><div class="sub">${escapeHtml(herb.en)} ─ ${escapeHtml(herb.cat)}</div>
+<div class="section"><div class="label">性味歸經</div><div class="val">${escapeHtml(herb.prop)}　${escapeHtml(herb.mer)}</div></div>
+<div class="section"><div class="label">功效</div><div class="val">${escapeHtml(herb.fx)}</div></div>
+<div class="section"><div class="label">主治</div><div class="val">${escapeHtml(herb.zz)}</div></div>
+<div class="section"><div class="label">用法用量</div><div class="val">${escapeHtml(herb.dose)}</div></div>
+<div class="section"><div class="label">禁忌</div><div class="val">${escapeHtml(herb.contra)}</div></div>
+<div class="section"><div class="label">常用配伍</div><div class="val">${escapeHtml(herb.combo)}</div></div>
 <div class="footer">康晴診所 ─ 中藥百科 ─ 僅供臨床參考</div>
 <script>window.onload=()=>window.print();<\/script></body></html>`);
     w.document.close();

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const BK_KEY = 'hcmc_transport_bookings';
@@ -108,10 +109,10 @@ export default function PatientTransport({ data, showToast, user }) {
   const handlePrint = () => {
     const w = window.open('', '_blank'); if (!w) return;
     const rows = dayBookings.map(b =>
-      `<tr><td>${b.pickupTime}</td><td>${b.patientName}</td><td>${b.pickupAddress}</td><td>${b.appointmentTime}</td><td>${driverName(b.driverId)}</td><td>${b.wheelchair?'是':'-'}</td><td>${b.returnTrip?'是':'-'}</td><td style="color:${STATUS_COLOR[b.status]};font-weight:700">${b.status}</td><td>${b.notes||'-'}</td></tr>`
+      `<tr><td>${b.pickupTime}</td><td>${escapeHtml(b.patientName)}</td><td>${escapeHtml(b.pickupAddress)}</td><td>${b.appointmentTime}</td><td>${escapeHtml(driverName(b.driverId))}</td><td>${b.wheelchair?'是':'-'}</td><td>${b.returnTrip?'是':'-'}</td><td style="color:${STATUS_COLOR[b.status]};font-weight:700">${escapeHtml(b.status)}</td><td>${escapeHtml(b.notes||'-')}</td></tr>`
     ).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>接送日程</title><style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:1000px;margin:0 auto;font-size:12px}h1{font-size:18px;text-align:center;color:${ACCENT}}.sub{text-align:center;color:#888;font-size:11px;margin-bottom:16px}table{width:100%;border-collapse:collapse}th,td{padding:6px 8px;border-bottom:1px solid #eee;text-align:left}th{background:#f8f8f8;font-weight:700;font-size:11px}@media print{body{margin:0;padding:8mm}}</style></head><body>
-    <h1>${getClinicName()} — 病人接送日程表</h1>
+    <h1>${escapeHtml(getClinicName())} — 病人接送日程表</h1>
     <div class="sub">日期：${filterDate} | 共 ${dayBookings.length} 程 | 列印時間：${new Date().toLocaleString('zh-HK')}</div>
     <table><thead><tr><th>接送時間</th><th>病人</th><th>地址</th><th>診症時間</th><th>司機</th><th>輪椅</th><th>回程</th><th>狀態</th><th>備註</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);

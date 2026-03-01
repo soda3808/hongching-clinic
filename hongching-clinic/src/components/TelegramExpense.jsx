@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { EXPENSE_CATEGORIES, fmtM } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const A = '#0e7490';
@@ -230,14 +231,14 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
     const topCats = Object.entries(catBreak).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
     const storeRows = Object.entries(storeMap).sort((a, b) => (b[1].rev - b[1].exp) - (a[1].rev - a[1].exp))
-      .map(([st, v]) => `<tr><td>${st}</td><td class="pos">${fmtM(v.rev)}</td><td class="neg">${fmtM(v.exp)}</td><td class="${v.rev - v.exp >= 0 ? 'pos' : 'neg'}">${fmtM(v.rev - v.exp)}</td></tr>`).join('');
+      .map(([st, v]) => `<tr><td>${escapeHtml(st)}</td><td class="pos">${fmtM(v.rev)}</td><td class="neg">${fmtM(v.exp)}</td><td class="${v.rev - v.exp >= 0 ? 'pos' : 'neg'}">${fmtM(v.rev - v.exp)}</td></tr>`).join('');
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${clinic} 月度報表</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(clinic)} 月度報表</title>
       <style>body{font-family:sans-serif;padding:30px;max-width:700px;margin:auto}h1{color:${A}}
       table{width:100%;border-collapse:collapse;margin:16px 0}th,td{border:1px solid #ddd;padding:8px;text-align:left}
       th{background:${A};color:#fff}.total{font-size:22px;font-weight:700;color:${A}}
       .neg{color:#dc2626}.pos{color:#16a34a}</style></head>
-      <body><h1>${clinic} - ${ym} 月度損益摘要</h1>
+      <body><h1>${escapeHtml(clinic)} - ${ym} 月度損益摘要</h1>
       <p>報表生成時間：${now.toLocaleString('zh-HK')}</p>
       <table><tr><td>總收入</td><td class="total pos">${fmtM(totalRev)}</td></tr>
       <tr><td>總支出</td><td class="total neg">${fmtM(totalExp)}</td></tr>
@@ -246,7 +247,7 @@ export default function TelegramExpense({ data, setData, showToast, user }) {
       ${storeRows || '<tr><td colspan="4">本月暫無分店記錄</td></tr>'}
       </table>
       <h2>支出分類排行</h2><table><tr><th>分類</th><th>金額</th></tr>
-      ${topCats.map(([c, v]) => `<tr><td>${c}</td><td>${fmtM(v)}</td></tr>`).join('')}
+      ${topCats.map(([c, v]) => `<tr><td>${escapeHtml(c)}</td><td>${fmtM(v)}</td></tr>`).join('')}
       ${!topCats.length ? '<tr><td colspan="2">本月暫無開支記錄</td></tr>' : ''}
       </table><p style="color:#888;font-size:12px;margin-top:30px">此報表由 Telegram 智能記帳 Bot v5 自動生成</p></body></html>`;
     const w = window.open('', '_blank');

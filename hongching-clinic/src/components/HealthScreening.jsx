@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, fmtM, getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const A = '#0e7490';
 const LS_PKG = 'hcmc_screening_packages';
@@ -98,13 +99,13 @@ export default function HealthScreening({ data, showToast, user }) {
   const printReport = b => {
     const pkg = pkgs.find(p => p.id === b.packageId);
     const clinic = getClinicName();
-    const rows = (pkg?.items || []).map(it => `<tr><td style="padding:8px;border:1px solid #ddd">${it}</td><td style="padding:8px;border:1px solid #ddd">${b.results?.[it] || '-'}</td></tr>`).join('');
+    const rows = (pkg?.items || []).map(it => `<tr><td style="padding:8px;border:1px solid #ddd">${escapeHtml(it)}</td><td style="padding:8px;border:1px solid #ddd">${escapeHtml(b.results?.[it] || '-')}</td></tr>`).join('');
     const html = `<html><head><title>健康檢查報告</title><style>body{font-family:"Microsoft JhengHei",sans-serif;padding:40px;color:#333}table{width:100%;border-collapse:collapse;margin:16px 0}th{background:${A};color:#fff;padding:10px;text-align:left}h1{color:${A}}</style></head><body>
-      <h1>${clinic}</h1><h2>健康檢查報告</h2>
-      <p><b>病人：</b>${b.patientName} &nbsp; <b>套餐：</b>${pkg?.name || '-'} &nbsp; <b>日期：</b>${b.date} &nbsp; <b>醫師：</b>${b.doctor}</p>
+      <h1>${escapeHtml(clinic)}</h1><h2>健康檢查報告</h2>
+      <p><b>病人：</b>${escapeHtml(b.patientName)} &nbsp; <b>套餐：</b>${escapeHtml(pkg?.name || '-')} &nbsp; <b>日期：</b>${escapeHtml(b.date)} &nbsp; <b>醫師：</b>${escapeHtml(b.doctor)}</p>
       <table><thead><tr><th>檢查項目</th><th>結果</th></tr></thead><tbody>${rows}</tbody></table>
-      ${b.notes ? `<p><b>備註：</b>${b.notes}</p>` : ''}
-      <p style="margin-top:32px;color:#888;font-size:12px">此報告由 ${clinic} 健康檢查系統產生</p></body></html>`;
+      ${b.notes ? `<p><b>備註：</b>${escapeHtml(b.notes)}</p>` : ''}
+      <p style="margin-top:32px;color:#888;font-size:12px">此報告由 ${escapeHtml(clinic)} 健康檢查系統產生</p></body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { uid } from '../data';
 import { getClinicName, getClinicNameEn } from '../tenant';
 import SignaturePad, { SignaturePreview } from './SignaturePad';
+import escapeHtml from '../utils/escapeHtml';
 
 // PDPO Privacy Center — Consent Management, DSAR, Data Retention
 export default function PrivacyCenter({ data, setData, showToast, user }) {
@@ -158,17 +159,17 @@ export default function PrivacyCenter({ data, setData, showToast, user }) {
       .sig-line{border-top:1px solid #333;display:inline-block;width:250px;margin-top:8px;padding-top:6px;font-size:11px;color:#888}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:30px;border-top:1px solid #eee;padding-top:8px}
     </style></head><body>
-      <h1>${clinicName}</h1><div class="en">${clinicNameEn}</div>
+      <h1>${escapeHtml(clinicName)}</h1><div class="en">${escapeHtml(clinicNameEn)}</div>
       <h2>個人資料收集聲明及同意書</h2>
-      <p>本人 <strong>${name}</strong> 已閱讀及明白${clinicName}的個人資料收集聲明，並同意以下用途：</p>
-      ${items.map(i => `<div class="item"><span class="check">&#10003;</span> ${i}</div>`).join('')}
+      <p>本人 <strong>${escapeHtml(name)}</strong> 已閱讀及明白${escapeHtml(clinicName)}的個人資料收集聲明，並同意以下用途：</p>
+      ${items.map(i => `<div class="item"><span class="check">&#10003;</span> ${escapeHtml(i)}</div>`).join('')}
       <p style="margin-top:16px;font-size:12px;color:#666">根據香港《個人資料（私隱）條例》（第486章），閣下有權查閱及更正本中心所持有的個人資料。如欲行使此權利，請聯絡本中心。</p>
       <div class="sig-area">
-        ${sig ? `<img src="${sig}" style="height:60px;object-fit:contain;display:block;margin:0 auto 4px" />` : ''}
+        ${sig ? `<img src="${escapeHtml(sig)}" style="height:60px;object-fit:contain;display:block;margin:0 auto 4px" />` : ''}
         <div class="sig-line">病人簽名 Patient Signature</div>
         <div style="margin-top:8px;font-size:12px">日期：${new Date().toISOString().substring(0, 10)}</div>
       </div>
-      <div class="footer">已電子簽署 Digitally Signed | ${clinicName}</div>
+      <div class="footer">已電子簽署 Digitally Signed | ${escapeHtml(clinicName)}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

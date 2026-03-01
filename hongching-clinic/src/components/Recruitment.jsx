@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const JOB_KEY = 'hcmc_jobs';
 const APP_KEY = 'hcmc_applications';
@@ -103,15 +104,15 @@ export default function Recruitment({ showToast, user }) {
   const printJobListing = () => {
     const w = window.open('', '_blank');
     const active = openJobs;
-    w.document.write(`<html><head><title>招聘職位列表 - ${getClinicName()}</title>
+    w.document.write(`<html><head><title>招聘職位列表 - ${escapeHtml(getClinicName())}</title>
       <style>body{font-family:sans-serif;padding:24px;max-width:800px;margin:0 auto}h1{color:#0e7490;font-size:22px}
       .job{border:1px solid #ddd;border-radius:8px;padding:14px;margin-bottom:12px}
       .job h3{margin:0 0 6px;color:#0e7490}.meta{font-size:13px;color:#555}
       @media print{body{padding:0}}</style></head><body>
-      <h1>${getClinicName()} - 招聘職位</h1><p style="color:#666;font-size:13px">列印日期：${today()}</p>
-      ${active.map(j => `<div class="job"><h3>${j.title}</h3>
-        <div class="meta">部門：${j.dept} | 地點：${j.location || '-'} | 薪資：${j.salaryMin || '?'} - ${j.salaryMax || '?'}</div>
-        ${j.requirements ? `<p style="font-size:13px;margin:8px 0 0">${j.requirements}</p>` : ''}
+      <h1>${escapeHtml(getClinicName())} - 招聘職位</h1><p style="color:#666;font-size:13px">列印日期：${today()}</p>
+      ${active.map(j => `<div class="job"><h3>${escapeHtml(j.title)}</h3>
+        <div class="meta">部門：${escapeHtml(j.dept)} | 地點：${escapeHtml(j.location || '-')} | 薪資：${j.salaryMin || '?'} - ${j.salaryMax || '?'}</div>
+        ${j.requirements ? `<p style="font-size:13px;margin:8px 0 0">${escapeHtml(j.requirements)}</p>` : ''}
       </div>`).join('')}
       ${active.length === 0 ? '<p style="color:#999">目前沒有招聘中的職位</p>' : ''}
       </body></html>`);

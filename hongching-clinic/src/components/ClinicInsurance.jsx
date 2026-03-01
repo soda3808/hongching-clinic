@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -109,7 +110,7 @@ export default function ClinicInsurance({ data, showToast, user }) {
     const clinic = getClinicName();
     const rows = policies.map(p => {
       const st = deriveStatus(p);
-      return `<tr><td>${p.type}</td><td>${p.insurer}</td><td>${p.policyNumber}</td><td>${fmtD(p.premium)}</td><td>${fmtD(p.coverAmount)}</td><td>${p.startDate} ~ ${p.endDate}</td><td style="color:${STATUS_COLORS[st]}">${STATUS_LABELS[st]}</td><td>${p.agent || '-'}</td></tr>`;
+      return `<tr><td>${escapeHtml(p.type)}</td><td>${escapeHtml(p.insurer)}</td><td>${escapeHtml(p.policyNumber)}</td><td>${fmtD(p.premium)}</td><td>${fmtD(p.coverAmount)}</td><td>${p.startDate} ~ ${p.endDate}</td><td style="color:${STATUS_COLORS[st]}">${escapeHtml(STATUS_LABELS[st])}</td><td>${escapeHtml(p.agent || '-')}</td></tr>`;
     }).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>保險一覽表</title>
 <style>body{font-family:sans-serif;padding:40px;color:#333}h1{color:${ACCENT};margin-bottom:4px}
@@ -118,11 +119,11 @@ th{background:#f9fafb}.sub{color:#888;font-size:13px;margin-bottom:20px}
 .summary{margin-top:20px;padding:14px;background:#f0fdfa;border-radius:8px;font-size:14px}
 .footer{margin-top:40px;font-size:12px;color:#888;border-top:1px solid #eee;padding-top:12px}
 @media print{body{padding:20px}}</style></head><body>
-<h1>${clinic} — 保險一覽表</h1><div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
+<h1>${escapeHtml(clinic)} — 保險一覽表</h1><div class="sub">列印時間：${new Date().toLocaleString('zh-HK')}</div>
 <div class="summary"><strong>生效保單：</strong>${stats.activeCount} 份 | <strong>年度保費：</strong>${fmtD(stats.totalPremium)} | <strong>總保額：</strong>${fmtD(stats.totalCover)}</div>
 <table><thead><tr><th>保險類型</th><th>保險公司</th><th>保單號碼</th><th>年保費</th><th>保額</th><th>保障期間</th><th>狀態</th><th>經紀</th></tr></thead>
 <tbody>${rows || '<tr><td colspan="8" style="text-align:center;color:#aaa">暫無保單</td></tr>'}</tbody></table>
-<div class="footer"><p>${clinic} - 保險管理</p></div>
+<div class="footer"><p>${escapeHtml(clinic)} - 保險管理</p></div>
 <script>window.onload=()=>window.print()</script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   };

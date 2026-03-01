@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_medical_history';
 const ALLERGY_KEY = 'hcmc_allergies';
@@ -81,35 +82,35 @@ export default function MedicalHistory({ data, showToast, user }) {
     const w = window.open('', '_blank', 'width=800,height=900');
     const sevColor = { '輕微': '#16a34a', '中度': '#ea580c', '嚴重': '#dc2626', '致命': '#7c2d12' };
     const allergyRows = patientAllergies.map(a =>
-      `<tr><td>${a.allergen || ''}</td><td>${a.type || ''}</td><td style="color:${sevColor[a.severity] || '#333'}">${a.severity || ''}</td><td>${a.reaction || ''}</td></tr>`
+      `<tr><td>${escapeHtml(a.allergen || '')}</td><td>${escapeHtml(a.type || '')}</td><td style="color:${sevColor[a.severity] || '#333'}">${escapeHtml(a.severity || '')}</td><td>${escapeHtml(a.reaction || '')}</td></tr>`
     ).join('');
     const consultRows = patientConsults.slice(0, 20).map(c =>
-      `<tr><td>${c.date || ''}</td><td>${c.doctor || ''}</td><td>${c.tcmDiagnosis || c.assessment || ''}</td><td>${c.tcmPattern || ''}</td></tr>`
+      `<tr><td>${c.date || ''}</td><td>${escapeHtml(c.doctor || '')}</td><td>${escapeHtml(c.tcmDiagnosis || c.assessment || '')}</td><td>${escapeHtml(c.tcmPattern || '')}</td></tr>`
     ).join('');
     const h = patientHistory;
     const sm = { smoking: '吸煙', alcohol: '飲酒', exercise: '運動' };
     const socialText = Object.entries(sm).map(([k, l]) => `${l}：${h.socialHistory?.[k] || '無'}`).join('　');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>病歷總覽 - ${selPatient.name}</title>
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>病歷總覽 - ${escapeHtml(selPatient.name)}</title>
 <style>body{font-family:sans-serif;padding:20px;color:#333}h1{color:${ACCENT};font-size:20px;border-bottom:2px solid ${ACCENT};padding-bottom:6px}
 h2{color:${ACCENT};font-size:16px;margin:16px 0 6px;border-left:4px solid ${ACCENT};padding-left:8px}
 table{width:100%;border-collapse:collapse;margin:6px 0}th,td{border:1px solid #d1d5db;padding:5px 8px;font-size:13px;text-align:left}
 th{background:#f0fdfa}p{margin:4px 0;font-size:13px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
 @media print{body{padding:0}}</style></head><body>
-<h1>${clinicName} — 病歷總覽</h1>
+<h1>${escapeHtml(clinicName)} — 病歷總覽</h1>
 <h2>基本資料</h2>
 <div class="info-grid">
-<p><b>姓名：</b>${selPatient.name || ''}</p><p><b>電話：</b>${selPatient.phone || ''}</p>
-<p><b>性別：</b>${selPatient.gender || ''}</p><p><b>出生日期：</b>${selPatient.dob || ''}</p>
-<p><b>地址：</b>${selPatient.address || ''}</p><p><b>血型：</b>${selPatient.bloodType || ''}</p>
+<p><b>姓名：</b>${escapeHtml(selPatient.name || '')}</p><p><b>電話：</b>${escapeHtml(selPatient.phone || '')}</p>
+<p><b>性別：</b>${escapeHtml(selPatient.gender || '')}</p><p><b>出生日期：</b>${selPatient.dob || ''}</p>
+<p><b>地址：</b>${escapeHtml(selPatient.address || '')}</p><p><b>血型：</b>${escapeHtml(selPatient.bloodType || '')}</p>
 </div>
-<h2>過往病史</h2><p>${h.pastMedical?.conditions || '無記錄'}</p><p>${h.pastMedical?.details || ''}</p>
-<h2>家族病史</h2><p>${h.familyHistory?.conditions || '無記錄'}</p><p>${h.familyHistory?.details || ''}</p>
+<h2>過往病史</h2><p>${escapeHtml(h.pastMedical?.conditions || '無記錄')}</p><p>${escapeHtml(h.pastMedical?.details || '')}</p>
+<h2>家族病史</h2><p>${escapeHtml(h.familyHistory?.conditions || '無記錄')}</p><p>${escapeHtml(h.familyHistory?.details || '')}</p>
 <h2>過敏史</h2>${patientAllergies.length ? `<table><tr><th>過敏原</th><th>類型</th><th>嚴重程度</th><th>反應</th></tr>${allergyRows}</table>` : '<p>無記錄</p>'}
-<h2>手術史</h2><p>${h.surgicalHistory?.surgeries || '無記錄'}</p><p>${h.surgicalHistory?.details || ''}</p>
-<h2>用藥史</h2><p><b>目前用藥：</b>${h.medicationHistory?.currentMeds || '無'}</p><p><b>過往用藥：</b>${h.medicationHistory?.pastMeds || '無'}</p>
-<h2>社交史</h2><p>${socialText}</p><p>${h.socialHistory?.details || ''}</p>
+<h2>手術史</h2><p>${escapeHtml(h.surgicalHistory?.surgeries || '無記錄')}</p><p>${escapeHtml(h.surgicalHistory?.details || '')}</p>
+<h2>用藥史</h2><p><b>目前用藥：</b>${escapeHtml(h.medicationHistory?.currentMeds || '無')}</p><p><b>過往用藥：</b>${escapeHtml(h.medicationHistory?.pastMeds || '無')}</p>
+<h2>社交史</h2><p>${escapeHtml(socialText)}</p><p>${escapeHtml(h.socialHistory?.details || '')}</p>
 <h2>診症記錄（近20次）</h2>${patientConsults.length ? `<table><tr><th>日期</th><th>醫師</th><th>診斷</th><th>辨證</th></tr>${consultRows}</table>` : '<p>無記錄</p>'}
-<p style="margin-top:20px;font-size:11px;color:#999">列印日期：${new Date().toLocaleDateString('zh-TW')}　${clinicName}</p>
+<p style="margin-top:20px;font-size:11px;color:#999">列印日期：${new Date().toLocaleDateString('zh-TW')}　${escapeHtml(clinicName)}</p>
 </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 400);

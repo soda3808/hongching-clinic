@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const A = '#0e7490';
@@ -148,17 +149,17 @@ export default function DebtCollection({ data, showToast, user }) {
       .amt{font-size:24px;color:#dc2626;font-weight:800}
       .footer{margin-top:40px;border-top:1px solid #ddd;padding-top:12px;font-size:10px;color:#999;text-align:center}
     </style></head><body>
-      <h1>${getClinicName()} — 付款提醒函</h1>
+      <h1>${escapeHtml(getClinicName())} — 付款提醒函</h1>
       <p>日期：${today()}</p>
-      <p style="margin-top:20px"><strong>${d.patientName}</strong> 閣下：</p>
+      <p style="margin-top:20px"><strong>${escapeHtml(d.patientName)}</strong> 閣下：</p>
       <p>根據本診所紀錄，閣下尚有以下款項未繳：</p>
       <p>帳單日期：${d.invoiceDate}</p>
       <p>應繳金額：<span class="amt">${fmtM(remaining(d))}</span></p>
       <p>逾期天數：${days} 天</p>
-      <p>服務描述：${d.desc || '-'}</p>
+      <p>服務描述：${escapeHtml(d.desc || '-')}</p>
       <p style="margin-top:24px">敬請於收到本函後七日內安排繳付。如已繳款請忽略此通知。</p>
       <p>如有疑問，歡迎聯絡本診所。</p>
-      <p style="margin-top:32px">此致<br/>${getClinicName()}</p>
+      <p style="margin-top:32px">此致<br/>${escapeHtml(getClinicName())}</p>
       <div class="footer">此函件由系統自動生成</div>
     </body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);
@@ -167,7 +168,7 @@ export default function DebtCollection({ data, showToast, user }) {
   const printStatement = (d) => {
     const w = window.open('', '_blank'); if (!w) return;
     const dPayments = payments.filter(p => p.debtId === d.id);
-    const rows = dPayments.map(p => `<tr><td>${p.date}</td><td style="text-align:right">${fmtM(p.amount)}</td><td>${p.note || '-'}</td></tr>`).join('');
+    const rows = dPayments.map(p => `<tr><td>${p.date}</td><td style="text-align:right">${fmtM(p.amount)}</td><td>${escapeHtml(p.note || '-')}</td></tr>`).join('');
     w.document.write(`<!DOCTYPE html><html><head><title>欠款結算單</title><style>
       body{font-family:'Microsoft YaHei',sans-serif;padding:30px;max-width:700px;margin:0 auto}
       h1{color:${A};font-size:18px;border-bottom:3px solid ${A};padding-bottom:8px}
@@ -176,11 +177,11 @@ export default function DebtCollection({ data, showToast, user }) {
       .summary{background:#f8fafc;padding:12px;border-radius:6px;margin:16px 0}
       .footer{text-align:center;font-size:9px;color:#aaa;margin-top:24px}
     </style></head><body>
-      <h1>${getClinicName()} — 病人欠款結算單</h1>
+      <h1>${escapeHtml(getClinicName())} — 病人欠款結算單</h1>
       <p style="font-size:12px;color:#888">列印日期：${today()}</p>
       <div class="summary">
-        <p><strong>病人：</strong>${d.patientName}　　<strong>電話：</strong>${d.patientPhone || '-'}</p>
-        <p><strong>帳單日期：</strong>${d.invoiceDate}　　<strong>服務：</strong>${d.desc || '-'}</p>
+        <p><strong>病人：</strong>${escapeHtml(d.patientName)}　　<strong>電話：</strong>${escapeHtml(d.patientPhone || '-')}</p>
+        <p><strong>帳單日期：</strong>${d.invoiceDate}　　<strong>服務：</strong>${escapeHtml(d.desc || '-')}</p>
         <p><strong>應繳總額：</strong>${fmtM(d.amount)}　　<strong>已繳：</strong>${fmtM(paidFor(d.id))}　　<strong style="color:#dc2626">尚欠：${fmtM(remaining(d))}</strong></p>
         <p><strong>狀態：</strong>${d.status}</p>
       </div>

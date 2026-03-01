@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_staff_cert';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -143,13 +144,13 @@ export default function StaffCertification({ data, showToast, user }) {
 
   const printReport = () => {
     const clinic = getClinicName();
-    const rows = filtered.map(c => { const b = expiryBadge(c.expiryDate); return `<tr><td>${c.staff}</td><td>${c.certType}</td><td>${c.certNumber}</td><td>${c.issueDate || '-'}</td><td>${c.expiryDate || '-'}</td><td>${c.issuingBody || '-'}</td><td style="color:${b.bg};font-weight:600">${b.label}</td></tr>`; }).join('');
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${clinic} - 員工證照報告</title>
+    const rows = filtered.map(c => { const b = expiryBadge(c.expiryDate); return `<tr><td>${escapeHtml(c.staff)}</td><td>${escapeHtml(c.certType)}</td><td>${escapeHtml(c.certNumber)}</td><td>${c.issueDate || '-'}</td><td>${c.expiryDate || '-'}</td><td>${escapeHtml(c.issuingBody || '-')}</td><td style="color:${b.bg};font-weight:600">${escapeHtml(b.label)}</td></tr>`; }).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(clinic)} - 員工證照報告</title>
 <style>body{font-family:sans-serif;padding:20px;font-size:13px}h2{color:#0e7490;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:12px}th{background:#0e7490;color:#fff;padding:8px 6px;text-align:left}td,th{padding:6px;border:1px solid #ddd}.sum{display:flex;gap:20px;margin:12px 0}.sb{background:#f0fdfa;padding:10px 16px;border-radius:8px;text-align:center}.sb b{font-size:20px;color:#0e7490}@media print{body{padding:0}}</style></head>
-<body><h2>${clinic} - 員工專業證照報告</h2><p style="color:#666;font-size:12px">列印日期：${today()}　｜　合規審查報告</p>
+<body><h2>${escapeHtml(clinic)} - 員工專業證照報告</h2><p style="color:#666;font-size:12px">列印日期：${today()}　｜　合規審查報告</p>
 <div class="sum"><div class="sb">總計<br><b>${stats.total}</b></div><div class="sb">有效<br><b>${stats.valid}</b></div><div class="sb">即將到期<br><b style="color:#f59e0b">${stats.expiring}</b></div><div class="sb">已過期<br><b style="color:#dc2626">${stats.expired}</b></div><div class="sb">合規率<br><b>${stats.compliance}%</b></div></div>
 <table><thead><tr><th>員工</th><th>證照類別</th><th>證照號碼</th><th>發證日期</th><th>到期日期</th><th>發證機構</th><th>狀態</th></tr></thead><tbody>${rows}</tbody></table>
-<p style="margin-top:20px;font-size:11px;color:#999">本報告由 ${clinic} 管理系統自動生成，僅供內部合規審查使用。</p>
+<p style="margin-top:20px;font-size:11px;color:#999">本報告由 ${escapeHtml(clinic)} 管理系統自動生成，僅供內部合規審查使用。</p>
 <script>setTimeout(()=>window.print(),300)</script></body></html>`;
     const w = window.open('', '_blank'); w.document.write(html); w.document.close();
   };

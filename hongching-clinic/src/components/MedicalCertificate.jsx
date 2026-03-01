@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { uid, getDoctors } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStores, getTenantSettings } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_med_certs';
@@ -133,7 +134,7 @@ export default function MedicalCertificate({ data, showToast, user }) {
     const tel = settings.phone || '';
     const w = window.open('', '_blank');
     if (!w) return showToast('請允許彈出視窗');
-    w.document.write(`<!DOCTYPE html><html><head><title>${typeLabel(item.type)} - ${item.patientName}</title><style>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(typeLabel(item.type))} - ${escapeHtml(item.patientName)}</title><style>
       body{font-family:'Microsoft YaHei','Arial',sans-serif;padding:40px 50px;max-width:700px;margin:0 auto;color:#333}
       .header{text-align:center;border-bottom:3px double ${ACCENT};padding-bottom:16px;margin-bottom:8px}
       .header h1{font-size:18px;color:${ACCENT};margin:0}
@@ -150,20 +151,20 @@ export default function MedicalCertificate({ data, showToast, user }) {
       @media print{body{padding:20px 30px}}
     </style></head><body>
       <div class="header">
-        <h1>${clinicName}</h1>
-        <h2>${clinicNameEn}</h2>
-        <p>${storeAddr}</p>
-        <p>Tel: ${tel}</p>
+        <h1>${escapeHtml(clinicName)}</h1>
+        <h2>${escapeHtml(clinicNameEn)}</h2>
+        <p>${escapeHtml(storeAddr)}</p>
+        <p>Tel: ${escapeHtml(tel)}</p>
       </div>
-      <div class="cert-no">編號 Cert No.: ${item.certNo}</div>
-      <div class="title">${typeLabel(item.type)}</div>
-      <div class="title-en">${typeLabelEn(item.type).toUpperCase()}</div>
-      <div class="content">${(item.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      <div class="cert-no">編號 Cert No.: ${escapeHtml(item.certNo)}</div>
+      <div class="title">${escapeHtml(typeLabel(item.type))}</div>
+      <div class="title-en">${escapeHtml(typeLabelEn(item.type).toUpperCase())}</div>
+      <div class="content">${escapeHtml(item.content || '')}</div>
       <div class="sig">
-        <div class="sig-box"><div class="sig-line">主診醫師 Attending Practitioner<br/>${item.doctor}</div></div>
+        <div class="sig-box"><div class="sig-line">主診醫師 Attending Practitioner<br/>${escapeHtml(item.doctor)}</div></div>
         <div class="sig-box"><div class="sig-line">診所蓋章 Clinic Stamp</div></div>
       </div>
-      <div class="footer">此證明書由 ${clinicName} 簽發 | ${item.certNo} | 簽發日期：${item.date}</div>
+      <div class="footer">此證明書由 ${escapeHtml(clinicName)} 簽發 | ${escapeHtml(item.certNo)} | 簽發日期：${escapeHtml(item.date)}</div>
     </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

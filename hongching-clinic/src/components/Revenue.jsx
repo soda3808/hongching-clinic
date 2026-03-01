@@ -4,6 +4,7 @@ import { uid, fmtM, fmt, getMonth, monthLabel, getDoctors, getStoreNames, getDef
 import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import ConfirmModal from './ConfirmModal';
 import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
+import escapeHtml from '../utils/escapeHtml';
 
 export default function Revenue({ data, setData, showToast, user, allData }) {
   const isDoctor = user?.role === 'doctor';
@@ -213,7 +214,7 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
     const receiptNo = `RC${r.date.replace(/-/g, '')}${r.id.substring(0, 4).toUpperCase()}`;
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>收據 ${receiptNo}</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>收據 ${escapeHtml(receiptNo)}</title>
       <style>
         @page{size:80mm auto;margin:5mm}
         body{font-family:'Microsoft YaHei',sans-serif;font-size:12px;color:#333;max-width:300px;margin:0 auto;padding:10px}
@@ -228,23 +229,23 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
         .receipt-no{font-size:10px;color:#888;text-align:center}
       </style></head><body>
       <div class="center">
-        <div class="clinic">${clinicName}</div>
-        <div class="clinic-en">${clinicNameEn}</div>
-        <div style="font-size:10px;color:#666">${addr}</div>
+        <div class="clinic">${escapeHtml(clinicName)}</div>
+        <div class="clinic-en">${escapeHtml(clinicNameEn)}</div>
+        <div style="font-size:10px;color:#666">${escapeHtml(addr)}</div>
       </div>
       <div class="divider"></div>
-      <div class="receipt-no">收據編號：${receiptNo}</div>
+      <div class="receipt-no">收據編號：${escapeHtml(receiptNo)}</div>
       <div class="divider"></div>
       <div class="row"><span class="label">日期：</span><span class="value">${r.date}</span></div>
-      <div class="row"><span class="label">病人：</span><span class="value">${r.name}</span></div>
-      <div class="row"><span class="label">醫師：</span><span class="value">${r.doctor}</span></div>
-      <div class="row"><span class="label">店舖：</span><span class="value">${r.store}</span></div>
+      <div class="row"><span class="label">病人：</span><span class="value">${escapeHtml(r.name)}</span></div>
+      <div class="row"><span class="label">醫師：</span><span class="value">${escapeHtml(r.doctor)}</span></div>
+      <div class="row"><span class="label">店舖：</span><span class="value">${escapeHtml(r.store)}</span></div>
       <div class="divider"></div>
-      <div class="row"><span class="label">項目：</span><span class="value">${r.item || '診症服務'}</span></div>
-      ${r.note ? `<div class="row"><span class="label">備註：</span><span class="value">${r.note}</span></div>` : ''}
+      <div class="row"><span class="label">項目：</span><span class="value">${escapeHtml(r.item || '診症服務')}</span></div>
+      ${r.note ? `<div class="row"><span class="label">備註：</span><span class="value">${escapeHtml(r.note)}</span></div>` : ''}
       <div class="divider"></div>
       <div class="total">合計：$${Number(r.amount).toLocaleString()}</div>
-      <div class="row"><span class="label">付款方式：</span><span class="value">${r.payment}</span></div>
+      <div class="row"><span class="label">付款方式：</span><span class="value">${escapeHtml(r.payment)}</span></div>
       <div class="divider"></div>
       <div class="footer">
         多謝惠顧！祝身體健康！<br/>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const load = k => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; } };
@@ -91,10 +92,10 @@ export default function ClinicMap({ showToast, user }) {
     const clinic = getClinicName();
     const rows = storeRooms.map(r => {
       const rb = todayBookings.filter(b => b.roomId === r.id);
-      const slotStr = rb.length ? rb.map(b => `${b.slot} ${b.doctor} - ${b.purpose}`).join('<br/>') : '—';
-      return `<tr><td style="border:1px solid #ccc;padding:6px">${r.name}</td><td style="border:1px solid #ccc;padding:6px">${r.type}</td><td style="border:1px solid #ccc;padding:6px">${r.status}</td><td style="border:1px solid #ccc;padding:6px">${slotStr}</td></tr>`;
+      const slotStr = rb.length ? rb.map(b => `${b.slot} ${escapeHtml(b.doctor)} - ${escapeHtml(b.purpose)}`).join('<br/>') : '—';
+      return `<tr><td style="border:1px solid #ccc;padding:6px">${escapeHtml(r.name)}</td><td style="border:1px solid #ccc;padding:6px">${escapeHtml(r.type)}</td><td style="border:1px solid #ccc;padding:6px">${escapeHtml(r.status)}</td><td style="border:1px solid #ccc;padding:6px">${slotStr}</td></tr>`;
     }).join('');
-    const html = `<html><head><title>${clinic} 房間排表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th{background:#f0f0f0;border:1px solid #ccc;padding:6px;text-align:left}</style></head><body><h2>${clinic} - ${selStore} 房間排表</h2><p>日期：${todayStr}</p><table><tr><th>房間</th><th>類型</th><th>狀態</th><th>今日排程</th></tr>${rows}</table><script>window.print()</script></body></html>`;
+    const html = `<html><head><title>${escapeHtml(clinic)} 房間排表</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th{background:#f0f0f0;border:1px solid #ccc;padding:6px;text-align:left}</style></head><body><h2>${escapeHtml(clinic)} - ${escapeHtml(selStore)} 房間排表</h2><p>日期：${todayStr}</p><table><tr><th>房間</th><th>類型</th><th>狀態</th><th>今日排程</th></tr>${rows}</table><script>window.print()</script></body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
@@ -105,10 +106,10 @@ export default function ClinicMap({ showToast, user }) {
     const storeBlocks = STORES.map(st => {
       const sr = rooms.filter(r => r.store === st);
       if (!sr.length) return '';
-      const rows = sr.map(r => `<tr><td style="border:1px solid #ccc;padding:4px">${r.name}</td><td style="border:1px solid #ccc;padding:4px">${r.type}</td><td style="border:1px solid #ccc;padding:4px">${r.capacity}人</td><td style="border:1px solid #ccc;padding:4px">${r.equipment || '—'}</td><td style="border:1px solid #ccc;padding:4px">${r.status}</td></tr>`).join('');
-      return `<h3>${st}</h3><table style="border-collapse:collapse;width:100%;margin-bottom:16px"><tr><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">房間</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">類型</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">容量</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">設備</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">狀態</th></tr>${rows}</table>`;
+      const rows = sr.map(r => `<tr><td style="border:1px solid #ccc;padding:4px">${escapeHtml(r.name)}</td><td style="border:1px solid #ccc;padding:4px">${escapeHtml(r.type)}</td><td style="border:1px solid #ccc;padding:4px">${r.capacity}人</td><td style="border:1px solid #ccc;padding:4px">${escapeHtml(r.equipment || '—')}</td><td style="border:1px solid #ccc;padding:4px">${escapeHtml(r.status)}</td></tr>`).join('');
+      return `<h3>${escapeHtml(st)}</h3><table style="border-collapse:collapse;width:100%;margin-bottom:16px"><tr><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">房間</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">類型</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">容量</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">設備</th><th style="background:#f0f0f0;border:1px solid #ccc;padding:4px">狀態</th></tr>${rows}</table>`;
     }).join('');
-    const html = `<html><head><title>${clinic} 診所目錄</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px}</style></head><body><h2>${clinic} 診所空間目錄</h2>${storeBlocks}<script>window.print()</script></body></html>`;
+    const html = `<html><head><title>${escapeHtml(clinic)} 診所目錄</title><style>body{font-family:'Microsoft YaHei',sans-serif;padding:20px}</style></head><body><h2>${escapeHtml(clinic)} 診所空間目錄</h2>${storeBlocks}<script>window.print()</script></body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();

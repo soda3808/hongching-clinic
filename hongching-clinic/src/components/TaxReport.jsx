@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM, getMonth } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_tax_adjustments';
@@ -124,10 +125,10 @@ export default function TaxReport({ data, showToast, user }) {
     const w = window.open('', '_blank');
     if (!w) { showToast('請允許彈出視窗'); return; }
     const svcRows = Object.entries(revenueBreakdown.byService).sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => `<tr><td style="padding:4px 12px">${k}</td><td style="padding:4px 12px;text-align:right">${fmtM(v)}</td></tr>`).join('');
+      .map(([k, v]) => `<tr><td style="padding:4px 12px">${escapeHtml(k)}</td><td style="padding:4px 12px;text-align:right">${fmtM(v)}</td></tr>`).join('');
     const dedRows = DEDUCTION_CATS.map(dc =>
-      `<tr><td style="padding:4px 12px">${dc.label}</td><td style="padding:4px 12px;text-align:right">${fmtM(deductions[dc.key])}</td></tr>`).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>稅務計算表 - ${clinic}</title>
+      `<tr><td style="padding:4px 12px">${escapeHtml(dc.label)}</td><td style="padding:4px 12px;text-align:right">${fmtM(deductions[dc.key])}</td></tr>`).join('');
+    w.document.write(`<!DOCTYPE html><html><head><title>稅務計算表 - ${escapeHtml(clinic)}</title>
       <style>body{font-family:'Microsoft YaHei',sans-serif;padding:30px 40px;max-width:800px;margin:0 auto;color:#333;font-size:13px}
       h1{color:${ACCENT};font-size:20px;text-align:center;margin-bottom:4px}
       h2{color:${ACCENT};font-size:15px;margin:18px 0 8px;border-bottom:2px solid ${ACCENT};padding-bottom:4px}
@@ -136,7 +137,7 @@ export default function TaxReport({ data, showToast, user }) {
       .total-row td{font-weight:700;border-top:2px solid #333;padding-top:6px}
       .highlight{background:#f0fdfa;font-weight:700;font-size:15px}
       @media print{body{padding:20px}}</style></head><body>
-      <h1>${clinic}</h1>
+      <h1>${escapeHtml(clinic)}</h1>
       <div class="sub">利得稅計算表 &mdash; 課稅年度 ${taxYear}</div>
       <h2>一、應評稅收入</h2>
       <table>${svcRows}<tr class="total-row"><td style="padding:4px 12px">收入合計</td><td style="padding:4px 12px;text-align:right">${fmtM(revenueBreakdown.total)}</td></tr></table>
@@ -151,7 +152,7 @@ export default function TaxReport({ data, showToast, user }) {
         <tr><td style="padding:4px 12px">超出部分 (16.5%)</td><td style="padding:4px 12px;text-align:right">${fmtM(assessableProfit > 2000000 ? (assessableProfit - 2000000) * 0.165 : 0)}</td></tr>
         <tr class="total-row highlight"><td style="padding:8px 12px">應繳稅款</td><td style="padding:8px 12px;text-align:right">${fmtM(taxPayable)}</td></tr>
       </table>
-      <div style="margin-top:30px;font-size:11px;color:#999;text-align:center">此表僅供參考，最終稅務責任請諮詢註冊會計師 &mdash; ${clinic} 管理系統自動生成</div>
+      <div style="margin-top:30px;font-size:11px;color:#999;text-align:center">此表僅供參考，最終稅務責任請諮詢註冊會計師 &mdash; ${escapeHtml(clinic)} 管理系統自動生成</div>
       </body></html>`);
     w.document.close();
     setTimeout(() => w.print(), 300);

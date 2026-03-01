@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { saveExpense } from '../api';
 import { uid, fmtM, fmt, EMPLOYEES, DOCTORS, getMonth } from '../data';
 import { getClinicName, getClinicNameEn } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 export default function Payslip({ data, setData, showToast, allData }) {
   const [empId, setEmpId] = useState('hui');
@@ -52,14 +53,14 @@ export default function Payslip({ data, setData, showToast, allData }) {
       .sig{display:flex;justify-content:space-between;margin-top:60px;padding:0 40px}
       .sig-box{text-align:center;width:35%}.sig-box div{border-bottom:1px solid #999;height:30px;margin-bottom:6px}
     </style></head><body>
-    <div class="header"><div><b style="font-size:17px">${getClinicName()}</b><br><small>${getClinicNameEn().toUpperCase()}</small></div><div style="text-align:right"><b style="font-size:20px">PAYSLIP 糧單</b></div></div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:14px"><div><b>員工:</b> ${emp.name}<br><b>職位:</b> ${emp.pos}</div><div style="text-align:right"><b>月份:</b> ${form.period}<br><b>發薪日:</b> ${new Date().toISOString().split('T')[0]}</div></div>
+    <div class="header"><div><b style="font-size:17px">${escapeHtml(getClinicName())}</b><br><small>${escapeHtml(getClinicNameEn().toUpperCase())}</small></div><div style="text-align:right"><b style="font-size:20px">PAYSLIP 糧單</b></div></div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:14px"><div><b>員工:</b> ${escapeHtml(emp.name)}<br><b>職位:</b> ${escapeHtml(emp.pos)}</div><div style="text-align:right"><b>月份:</b> ${escapeHtml(form.period)}<br><b>發薪日:</b> ${new Date().toISOString().split('T')[0]}</div></div>
     <table><thead><tr><th>項目</th><th style="text-align:right">金額</th></tr></thead><tbody>
     <tr><td>基本薪金</td><td style="text-align:right">${fmtM(base)}</td></tr>
     ${comm.total ? `<tr><td>佣金 (營業額 ${fmtM(form.revenue)})</td><td style="text-align:right">${fmtM(comm.total)}</td></tr>` : ''}
     ${form.bonus ? `<tr><td>獎金</td><td style="text-align:right">${fmtM(form.bonus)}</td></tr>` : ''}
     ${form.allow ? `<tr><td>津貼</td><td style="text-align:right">${fmtM(form.allow)}</td></tr>` : ''}
-    <tr><td style="color:#888">MPF僱員 (${mpf.status})</td><td style="text-align:right;color:#dc2626">-${fmtM(mpf.ee)}</td></tr>
+    <tr><td style="color:#888">MPF僱員 (${escapeHtml(mpf.status)})</td><td style="text-align:right;color:#dc2626">-${fmtM(mpf.ee)}</td></tr>
     ${form.deduct ? `<tr><td style="color:#888">扣款</td><td style="text-align:right;color:#dc2626">-${fmtM(form.deduct)}</td></tr>` : ''}
     <tr class="total"><td style="text-align:right">淨發薪額 NET PAY</td><td style="text-align:right;font-size:18px;color:#0e7490">${fmtM(net)}</td></tr>
     </tbody></table>

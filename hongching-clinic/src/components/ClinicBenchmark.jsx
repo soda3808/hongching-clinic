@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM } from '../data';
+import escapeHtml from '../utils/escapeHtml';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -177,11 +178,11 @@ export default function ClinicBenchmark({ data, showToast, user }) {
       const g = grade(val, m);
       const display = val != null ? (m.unit === '$' ? fmtM(val) : `${Math.round(val * 10) / 10}${m.unit}`) : 'N/A';
       const benchDisplay = m.unit === '$' ? fmtM(m.bench) : `${m.bench}${m.unit}`;
-      return `<tr><td>${m.cat}</td><td>${m.label}</td><td style="text-align:right">${display}</td><td style="text-align:right">${benchDisplay}</td><td style="text-align:center;color:${g.color};font-weight:700">${g.letter}</td></tr>`;
+      return `<tr><td>${escapeHtml(m.cat)}</td><td>${escapeHtml(m.label)}</td><td style="text-align:right">${escapeHtml(display)}</td><td style="text-align:right">${escapeHtml(benchDisplay)}</td><td style="text-align:center;color:${g.color};font-weight:700">${g.letter}</td></tr>`;
     }).join('');
-    w.document.write(`<!DOCTYPE html><html><head><title>${clinicName} 基準報告</title>
+    w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(clinicName)} 基準報告</title>
       <style>body{font-family:sans-serif;padding:24px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:8px 12px;font-size:13px}th{background:#f0fdfa;color:${ACCENT};text-align:left}.header{color:${ACCENT};margin-bottom:4px}@media print{body{padding:0}}</style>
-      </head><body><h2 class="header">${clinicName} - 診所基準分析報告</h2>
+      </head><body><h2 class="header">${escapeHtml(clinicName)} - 診所基準分析報告</h2>
       <p style="color:#666;font-size:13px">報告月份: ${thisMonth} | 整體評分: ${healthScore}/100</p>
       <table><thead><tr><th>類別</th><th>指標</th><th style="text-align:right">實際值</th><th style="text-align:right">行業基準</th><th style="text-align:center">等級</th></tr></thead><tbody>${rows}</tbody></table>
       <p style="margin-top:24px;font-size:11px;color:#999">列印時間: ${new Date().toLocaleString('zh-HK')}</p>

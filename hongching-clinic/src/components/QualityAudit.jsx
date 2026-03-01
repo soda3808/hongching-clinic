@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const LS_KEY = 'hcmc_quality_audits';
 const ACCENT = '#0e7490';
@@ -106,16 +107,16 @@ export default function QualityAudit({ showToast, user }) {
       const items = c.items.map(it => { const v = a.results?.[c.cat + '|' + it] || ''; return `<tr><td style="padding-left:24px">${it}</td><td style="text-align:center;color:${v === 'pass' ? '#16a34a' : v === 'fail' ? '#dc2626' : '#999'};font-weight:700">${v === 'pass' ? '通過' : v === 'fail' ? '不通過' : 'N/A'}</td></tr>`; }).join('');
       return `<tr style="background:#f0fdfa"><td style="font-weight:700">${c.cat}</td><td style="text-align:center;font-weight:700;color:${s.scoreColor(cs || 0)}">${sc}</td></tr>${items}`;
     }).join('');
-    const actRows = (a.actions || []).map(ac => `<tr><td>${ac.text}</td><td style="text-align:center">${ac.due || '-'}</td><td style="text-align:center;color:${ac.done ? '#16a34a' : '#d97706'}">${ac.done ? '已完成' : '待處理'}</td></tr>`).join('');
+    const actRows = (a.actions || []).map(ac => `<tr><td>${escapeHtml(ac.text)}</td><td style="text-align:center">${ac.due || '-'}</td><td style="text-align:center;color:${ac.done ? '#16a34a' : '#d97706'}">${ac.done ? '已完成' : '待處理'}</td></tr>`).join('');
     const w = window.open('', '_blank'); if (!w) return;
     w.document.write(`<!DOCTYPE html><html><head><title>質量審核報告</title><style>body{font-family:'PingFang TC',sans-serif;padding:20px;max-width:700px;margin:0 auto;font-size:13px}h1{font-size:18px;text-align:center;color:${ACCENT}}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{padding:6px 10px;border-bottom:1px solid #eee;text-align:left}th{background:#f8f8f8;font-weight:700}.info{display:flex;justify-content:space-between;margin-bottom:14px;font-size:12px;color:#555}.score{text-align:center;font-size:36px;font-weight:800;margin:10px 0}@media print{body{margin:0;padding:10mm}}</style></head><body>
-    <h1>${getClinicName()} — 質量審核報告</h1>
-    <div class="info"><span>審核日期：${a.date}</span><span>審核員：${a.auditor}</span><span>列印：${new Date().toLocaleString('zh-HK')}</span></div>
+    <h1>${escapeHtml(getClinicName())} — 質量審核報告</h1>
+    <div class="info"><span>審核日期：${a.date}</span><span>審核員：${escapeHtml(a.auditor)}</span><span>列印：${new Date().toLocaleString('zh-HK')}</span></div>
     <div class="score" style="color:${s.scoreColor(a.score)}">${a.score}%</div>
     <div style="text-align:center;margin-bottom:16px;font-weight:700;color:${a.passed ? '#16a34a' : '#dc2626'}">${a.passed ? '通過' : '不通過'}（合格線：${PASS_THRESHOLD}%）</div>
     <table><thead><tr><th>項目</th><th style="text-align:center">結果</th></tr></thead><tbody>${catRows}</tbody></table>
     ${actRows ? `<h2 style="font-size:14px;color:${ACCENT};border-bottom:2px solid ${ACCENT};padding-bottom:4px">糾正措施</h2><table><thead><tr><th>措施</th><th style="text-align:center">限期</th><th style="text-align:center">狀態</th></tr></thead><tbody>${actRows}</tbody></table>` : ''}
-    ${a.notes ? `<p style="font-size:12px;color:#555"><b>備註：</b>${a.notes}</p>` : ''}
+    ${a.notes ? `<p style="font-size:12px;color:#555"><b>備註：</b>${escapeHtml(a.notes)}</p>` : ''}
     </body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);
   };

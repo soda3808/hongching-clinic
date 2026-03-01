@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM, getMonth, getDoctors, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_satisfaction_actions';
@@ -121,11 +122,11 @@ export default function PatientSatisfactionReport({ data, showToast, user }) {
   // ── Print ──
   const handlePrint = () => {
     const clinic = getClinicName();
-    const catRows = catScores.map(c => `<tr><td>${c.label}</td><td style="text-align:right;font-weight:700;color:${scoreColor(c.avg)}">${c.avg}/5</td><td style="text-align:right">${c.count}份</td></tr>`).join('');
-    const docRows = byDoctor.map(d => `<tr><td>${d.doctor}</td><td style="text-align:right;font-weight:700">${d.avg}/5</td><td style="text-align:right">${d.count}份</td></tr>`).join('');
-    const storeRows = byStore.map(s => `<tr><td>${s.store}</td><td style="text-align:right;font-weight:700">${s.avg}/5</td><td style="text-align:right">${s.count}份</td></tr>`).join('');
+    const catRows = catScores.map(c => `<tr><td>${escapeHtml(c.label)}</td><td style="text-align:right;font-weight:700;color:${scoreColor(c.avg)}">${c.avg}/5</td><td style="text-align:right">${c.count}份</td></tr>`).join('');
+    const docRows = byDoctor.map(d => `<tr><td>${escapeHtml(d.doctor)}</td><td style="text-align:right;font-weight:700">${d.avg}/5</td><td style="text-align:right">${d.count}份</td></tr>`).join('');
+    const storeRows = byStore.map(s => `<tr><td>${escapeHtml(s.store)}</td><td style="text-align:right;font-weight:700">${s.avg}/5</td><td style="text-align:right">${s.count}份</td></tr>`).join('');
     const html = `<html><head><title>滿意度分析報告</title><style>body{font-family:sans-serif;padding:24px;color:#1e293b}h1{color:${ACCENT};font-size:18px}h2{font-size:14px;margin-top:20px;color:${ACCENT}}table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #e2e8f0;padding:6px 10px;font-size:12px}th{background:#f1f5f9;font-weight:700}.big{font-size:36px;font-weight:800;color:${ACCENT};text-align:center;margin:16px 0}</style></head><body>` +
-      `<h1>${clinic} - 病人滿意度分析報告</h1><p style="font-size:12px;color:#64748b">列印日期：${new Date().toLocaleDateString('zh-TW')}</p>` +
+      `<h1>${escapeHtml(clinic)} - 病人滿意度分析報告</h1><p style="font-size:12px;color:#64748b">列印日期：${new Date().toLocaleDateString('zh-TW')}</p>` +
       `<div class="big">${overall?.score || 0}/5</div><p style="text-align:center;font-size:12px;color:#64748b">共 ${overall?.count || 0} 份問卷 | NPS: ${nps.score}</p>` +
       `<h2>分項評分</h2><table><thead><tr><th>項目</th><th style="text-align:right">平均分</th><th style="text-align:right">份數</th></tr></thead><tbody>${catRows}</tbody></table>` +
       `<h2>醫師評分</h2><table><thead><tr><th>醫師</th><th style="text-align:right">平均分</th><th style="text-align:right">份數</th></tr></thead><tbody>${docRows}</tbody></table>` +

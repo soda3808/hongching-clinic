@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import escapeHtml from '../utils/escapeHtml';
 
 const STATUS_FLOW = ['候診中', '診症中', '診症完畢', '服務完成', '已消除'];
 const STATUS_COLORS = { '候診中': '#d97706', '診症中': '#2563eb', '診症完畢': '#7c3aed', '服務完成': '#16a34a', '已消除': '#dc2626' };
@@ -89,9 +90,9 @@ export default function ConsultationList({ data, setData, showToast, user }) {
   const fmtRow = (c) => [c.id?.slice(-5) || '-', c.patientName, c.phone || '-', c.doctor, c.time || '-', c.currentStatus, c.store || '-'];
 
   const handlePrint = () => {
-    const rows = list.filter(c => c.date === today()).map(c => '<tr>' + fmtRow(c).map(v => `<td>${v}</td>`).join('') + '</tr>').join('');
+    const rows = list.filter(c => c.date === today()).map(c => '<tr>' + fmtRow(c).map(v => `<td>${escapeHtml(v)}</td>`).join('') + '</tr>').join('');
     const w = window.open('', '_blank'); if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>診症列表</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;font-size:13px}th{background:#0e7490;color:#fff}h2{color:#0e7490}@media print{body{padding:10px}}</style></head><body><h2>${getClinicName()} — 今日診症列表 (${today()})</h2><p style="font-size:12px;color:#666">列印時間：${new Date().toLocaleString('zh-HK')}</p><table><thead><tr><th>排號</th><th>姓名</th><th>電話</th><th>醫師</th><th>時間</th><th>狀態</th><th>診所</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center">暫無紀錄</td></tr>'}</tbody></table></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>診症列表</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 10px;font-size:13px}th{background:#0e7490;color:#fff}h2{color:#0e7490}@media print{body{padding:10px}}</style></head><body><h2>${escapeHtml(getClinicName())} — 今日診症列表 (${today()})</h2><p style="font-size:12px;color:#666">列印時間：${new Date().toLocaleString('zh-HK')}</p><table><thead><tr><th>排號</th><th>姓名</th><th>電話</th><th>醫師</th><th>時間</th><th>狀態</th><th>診所</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center">暫無紀錄</td></tr>'}</tbody></table></body></html>`);
     w.document.close(); setTimeout(() => w.print(), 300);
   };
 
