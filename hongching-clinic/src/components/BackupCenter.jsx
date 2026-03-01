@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
+import { bulkImport, saveAllLocal } from '../api';
 
 const A = '#0e7490', BG = '#f0fdfa', BDR = '#cffafe', DANGER = '#dc2626';
 const card = { background: '#fff', borderRadius: 10, padding: 16, marginBottom: 14, border: '1px solid #e5e7eb' };
@@ -14,23 +15,31 @@ function fmtDate(d) { return d ? new Date(d).toLocaleString('zh-HK') : '-'; }
 function now() { return new Date().toISOString(); }
 function dl(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; a.click(); URL.revokeObjectURL(u); }
 
-export default function BackupCenter({ data, showToast, user }) {
+export default function BackupCenter({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('dashboard');
   const [restoreFile, setRestoreFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [restoreTypes, setRestoreTypes] = useState({});
+  const [restoring, setRestoring] = useState(false);
   const [autoSettings, setAutoSettings] = useState(() => {
     try { return JSON.parse(localStorage.getItem('hcmc_backup_settings')) || { enabled: false, frequency: 'daily' }; } catch { return { enabled: false, frequency: 'daily' }; }
   });
 
   const history = useMemo(() => {
     try { return JSON.parse(localStorage.getItem('hcmc_backup_history')) || []; } catch { return []; }
-  }, [tab]); // re-read on tab switch
+  }, [tab]);
 
   const DATA_TYPES = [
     { key: 'patients', label: '病人記錄' }, { key: 'bookings', label: '預約記錄' },
     { key: 'consultations', label: '診症記錄' }, { key: 'revenue', label: '收入記錄' },
     { key: 'expenses', label: '支出記錄' }, { key: 'inventory', label: '庫存項目' },
+    { key: 'arap', label: '應收應付' }, { key: 'payslips', label: '薪資單' },
+    { key: 'packages', label: '套餐' }, { key: 'enrollments', label: '登記' },
+    { key: 'conversations', label: 'CRM對話' }, { key: 'queue', label: '候診' },
+    { key: 'sickleaves', label: '病假' }, { key: 'leaves', label: '請假' },
+    { key: 'products', label: '產品' }, { key: 'productSales', label: '產品銷售' },
+    { key: 'inquiries', label: '查詢' }, { key: 'surveys', label: '問卷' },
+    { key: 'communications', label: '通訊' }, { key: 'waitlist', label: '候補' },
   ];
 
   const dataSummary = useMemo(() => DATA_TYPES.map(t => {
@@ -40,9 +49,10 @@ export default function BackupCenter({ data, showToast, user }) {
   }), [data]);
 
   const totalSize = useMemo(() => dataSummary.reduce((s, d) => s + d.size, 0), [dataSummary]);
+  const totalRecords = useMemo(() => dataSummary.reduce((s, d) => s + d.count, 0), [dataSummary]);
   const lastBackup = history.length ? history[0].date : null;
 
-  // ── Collect localStorage hcmc_* keys ──
+  // ── Collect localStorage hcmc_* keys (standalone collections) ──
   const collectLocalStorage = () => {
     const result = {};
     for (let i = 0; i < localStorage.length; i++) {
@@ -55,13 +65,13 @@ export default function BackupCenter({ data, showToast, user }) {
   // ── Create Backup ──
   const createBackup = () => {
     const ts = new Date(); const stamp = ts.toISOString().replace(/[-:T]/g, '').substring(0, 15).replace(/^(\d{8})(\d{6})/, '$1_$2');
-    const backup = { version: '1.0', clinic: getClinicName(), created: ts.toISOString(), createdBy: user?.name || user?.userId || '系統',
+    const backup = { version: '2.0', clinic: getClinicName(), created: ts.toISOString(), createdBy: user?.name || user?.userId || '系統',
       data: {}, localStorage: collectLocalStorage() };
     DATA_TYPES.forEach(t => { backup.data[t.key] = data[t.key] || []; });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     dl(blob, `backup_${stamp}.json`);
     const entry = { id: Date.now().toString(36), date: now(), type: '手動', size: blob.size,
-      count: DATA_TYPES.reduce((s, t) => s + (data[t.key] || []).length, 0), user: user?.name || user?.userId || '系統' };
+      count: totalRecords, user: user?.name || user?.userId || '系統' };
     const updated = [entry, ...history].slice(0, 50);
     localStorage.setItem('hcmc_backup_history', JSON.stringify(updated));
     showToast('備份已下載');
@@ -80,27 +90,42 @@ export default function BackupCenter({ data, showToast, user }) {
         DATA_TYPES.forEach(t => { const arr = parsed.data[t.key]; p[t.key] = arr ? arr.length : 0; });
         p._raw = parsed;
         setPreview(p);
-        const sel = {}; DATA_TYPES.forEach(t => { sel[t.key] = true; }); setRestoreTypes(sel);
+        const sel = {}; DATA_TYPES.forEach(t => { if ((parsed.data[t.key] || []).length > 0) sel[t.key] = true; }); setRestoreTypes(sel);
       } catch { showToast('無效的備份文件'); setPreview(null); }
     };
     reader.readAsText(file);
   };
 
-  const confirmRestore = () => {
+  const confirmRestore = async () => {
     if (!preview?._raw) return;
     if (!confirm('確認恢復所選數據？現有數據將被覆蓋。')) return;
-    const raw = preview._raw;
-    // We cannot call setData here since it's not passed, so we restore via localStorage hcmc_* keys
-    // and reload the relevant data keys
-    DATA_TYPES.forEach(t => {
-      if (restoreTypes[t.key] && raw.data[t.key]) {
-        try { localStorage.setItem(`hcmc_${t.key}`, JSON.stringify(raw.data[t.key])); } catch { /* skip */ }
+    setRestoring(true);
+    try {
+      const raw = preview._raw;
+      // Build new data object by merging selected types into current data
+      const newData = { ...data };
+      DATA_TYPES.forEach(t => {
+        if (restoreTypes[t.key] && raw.data[t.key]) {
+          newData[t.key] = raw.data[t.key];
+        }
+      });
+      // Update React state + localStorage hc_data blob
+      if (setData) {
+        setData(newData);
+        saveAllLocal(newData);
       }
-    });
-    if (raw.localStorage) {
-      Object.entries(raw.localStorage).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch { /* skip */ } });
+      // Push restored data to Supabase
+      try { await bulkImport(newData); } catch (e) { console.error('Supabase restore sync:', e); }
+      // Restore standalone localStorage keys (hcmc_*) if present
+      if (raw.localStorage) {
+        Object.entries(raw.localStorage).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch {} });
+      }
+      showToast('數據已恢復成功');
+    } catch (err) {
+      console.error('Restore error:', err);
+      showToast('恢復失敗：' + err.message, 'error');
     }
-    showToast('數據已恢復，請重新載入頁面以套用變更');
+    setRestoring(false);
     setPreview(null); setRestoreFile(null);
   };
 
@@ -116,7 +141,7 @@ export default function BackupCenter({ data, showToast, user }) {
     const updated = history.filter(h => h.id !== id);
     localStorage.setItem('hcmc_backup_history', JSON.stringify(updated));
     showToast('備份紀錄已刪除');
-    setTab('history'); // force re-read
+    setTab('history');
   };
 
   // ── Export CSV ──
@@ -132,8 +157,13 @@ export default function BackupCenter({ data, showToast, user }) {
   const clearData = (key, label) => {
     if (!confirm(`確認清除所有「${label}」？此操作不可逆！`)) return;
     if (!confirm(`再次確認：將刪除所有 ${label} 資料！`)) return;
-    try { localStorage.removeItem(`hcmc_${key}`); } catch { /* skip */ }
-    showToast(`${label} 已清除，請重新載入頁面`);
+    // Clear from hc_data blob
+    if (setData) {
+      const newData = { ...data, [key]: [] };
+      setData(newData);
+      saveAllLocal(newData);
+    }
+    showToast(`${label} 已清除`);
   };
 
   const tabs = [
@@ -171,22 +201,27 @@ export default function BackupCenter({ data, showToast, user }) {
       {tab === 'dashboard' && (<>
         <div style={card}>
           <div style={hdr}>手動備份</div>
-          <p style={{ fontSize: 13, color: '#666', margin: '0 0 10px' }}>建立完整 JSON 備份檔案，包含所有數據及本地設定。</p>
+          <p style={{ fontSize: 13, color: '#666', margin: '0 0 10px' }}>建立完整 JSON 備份檔案，包含所有 {DATA_TYPES.length} 類數據及本地設定。</p>
           <button style={btn()} onClick={createBackup}>立即備份並下載</button>
         </div>
         <div style={card}>
-          <div style={hdr}>數據摘要</div>
+          <div style={hdr}>數據摘要（{DATA_TYPES.length} 類 / {totalRecords} 筆）</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead><tr style={{ borderBottom: `2px solid ${BDR}` }}><th style={{ textAlign: 'left', padding: 6 }}>數據類型</th><th style={{ textAlign: 'right', padding: 6 }}>記錄數</th><th style={{ textAlign: 'right', padding: 6 }}>估計大小</th></tr></thead>
-            <tbody>{dataSummary.map(d => (
+            <tbody>{dataSummary.filter(d => d.count > 0).map(d => (
               <tr key={d.key} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td style={{ padding: 6 }}>{d.label}</td>
                 <td style={{ padding: 6, textAlign: 'right', fontWeight: 600 }}>{d.count}</td>
                 <td style={{ padding: 6, textAlign: 'right', color: '#888' }}>{fmtSize(d.size)}</td>
               </tr>
             ))}</tbody>
-            <tfoot><tr style={{ borderTop: `2px solid ${BDR}`, fontWeight: 700 }}><td style={{ padding: 6 }}>合計</td><td style={{ padding: 6, textAlign: 'right' }}>{dataSummary.reduce((s, d) => s + d.count, 0)}</td><td style={{ padding: 6, textAlign: 'right' }}>{fmtSize(totalSize)}</td></tr></tfoot>
+            <tfoot><tr style={{ borderTop: `2px solid ${BDR}`, fontWeight: 700 }}><td style={{ padding: 6 }}>合計</td><td style={{ padding: 6, textAlign: 'right' }}>{totalRecords}</td><td style={{ padding: 6, textAlign: 'right' }}>{fmtSize(totalSize)}</td></tr></tfoot>
           </table>
+          {dataSummary.filter(d => d.count === 0).length > 0 && (
+            <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>
+              空集合：{dataSummary.filter(d => d.count === 0).map(d => d.label).join('、')}
+            </div>
+          )}
         </div>
       </>)}
 
@@ -224,16 +259,25 @@ export default function BackupCenter({ data, showToast, user }) {
           {preview && (
             <div style={{ background: BG, border: `1px solid ${BDR}`, borderRadius: 8, padding: 14, marginTop: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>備份預覽 — {restoreFile?.name}</div>
-              <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>建立時間：{fmtDate(preview._raw.created)} | 診所：{preview._raw.clinic || '-'}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>只恢復選擇的數據：</div>
-              {DATA_TYPES.map(t => (
-                <label key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, marginBottom: 4, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={restoreTypes[t.key] || false} onChange={e => setRestoreTypes(p => ({ ...p, [t.key]: e.target.checked }))} />
-                  {t.label}：<strong>{preview[t.key] || 0}</strong> 筆
-                </label>
-              ))}
-              <button style={{ ...btn(), marginTop: 10 }} onClick={confirmRestore}>確認恢復</button>
-              <button style={{ ...btnO, marginLeft: 8, marginTop: 10 }} onClick={() => { setPreview(null); setRestoreFile(null); }}>取消</button>
+              <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>版本：{preview._raw.version || '1.0'} | 建立時間：{fmtDate(preview._raw.created)} | 診所：{preview._raw.clinic || '-'}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>選擇要恢復的數據：</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 4 }}>
+                {DATA_TYPES.filter(t => (preview[t.key] || 0) > 0).map(t => (
+                  <label key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={restoreTypes[t.key] || false} onChange={e => setRestoreTypes(p => ({ ...p, [t.key]: e.target.checked }))} />
+                    {t.label}：<strong>{preview[t.key]}</strong> 筆
+                  </label>
+                ))}
+              </div>
+              {preview._raw.localStorage && (
+                <div style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
+                  備份包含 {Object.keys(preview._raw.localStorage).length} 項本地設定（將一併恢復）
+                </div>
+              )}
+              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                <button style={btn()} onClick={confirmRestore} disabled={restoring}>{restoring ? '恢復中...' : '確認恢復'}</button>
+                <button style={btnO} onClick={() => { setPreview(null); setRestoreFile(null); }}>取消</button>
+              </div>
             </div>
           )}
         </div>
@@ -244,12 +288,15 @@ export default function BackupCenter({ data, showToast, user }) {
         <div style={card}>
           <div style={hdr}>匯出 CSV</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 8 }}>
-            {DATA_TYPES.map(t => (
+            {DATA_TYPES.filter(t => (data[t.key] || []).length > 0).map(t => (
               <button key={t.key} style={btnO} onClick={() => exportCSV(t.key, t.label)}>
                 {t.label} ({(data[t.key] || []).length})
               </button>
             ))}
           </div>
+          {DATA_TYPES.every(t => !(data[t.key] || []).length) && (
+            <p style={{ color: '#999', fontSize: 13 }}>暫無數據可匯出</p>
+          )}
         </div>
       )}
 
@@ -277,14 +324,17 @@ export default function BackupCenter({ data, showToast, user }) {
       {tab === 'danger' && (
         <div style={{ ...card, border: `1px solid ${DANGER}33` }}>
           <div style={{ ...hdr, color: DANGER }}>危險操作區</div>
-          <p style={{ fontSize: 13, color: DANGER, marginBottom: 12 }}>以下操作不可逆，請謹慎使用。清除後需重新載入頁面。</p>
+          <p style={{ fontSize: 13, color: DANGER, marginBottom: 12 }}>以下操作不可逆，請謹慎使用。</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 8 }}>
-            {DATA_TYPES.map(t => (
+            {DATA_TYPES.filter(t => (data[t.key] || []).length > 0).map(t => (
               <button key={t.key} style={smBtn(DANGER)} onClick={() => clearData(t.key, t.label)}>
                 清除{t.label} ({(data[t.key] || []).length})
               </button>
             ))}
           </div>
+          {DATA_TYPES.every(t => !(data[t.key] || []).length) && (
+            <p style={{ color: '#999', fontSize: 13 }}>暫無數據可清除</p>
+          )}
         </div>
       )}
     </div>

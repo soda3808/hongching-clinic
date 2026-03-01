@@ -1149,7 +1149,7 @@ function MainApp() {
             {page === 'discount' && <DiscountSettings data={filteredData} showToast={showToast} user={user} />}
             {page === 'msgtpl' && <MessageTemplates showToast={showToast} user={user} />}
             {page === 'syscheck' && <SystemCheck data={filteredData} showToast={showToast} user={user} />}
-            {page === 'backup' && <BackupCenter data={filteredData} showToast={showToast} user={user} />}
+            {page === 'backup' && <BackupCenter data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'feedback' && <PatientFeedback data={filteredData} showToast={showToast} user={user} />}
             {page === 'attendance' && <StaffAttendance data={filteredData} showToast={showToast} user={user} />}
             {page === 'prodorders' && <ProductOrders data={filteredData} showToast={showToast} user={user} />}
