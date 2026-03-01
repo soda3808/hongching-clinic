@@ -425,6 +425,85 @@ export default function Dashboard({ data, onNavigate }) {
         </div>
       </div>
 
+      {/* ── Exception Alerts ── */}
+      {(() => {
+        const alerts = [];
+        const today = new Date().toISOString().substring(0, 10);
+        // Revenue below daily target
+        const todayRev = filtered.rev.filter(r => r.date === today).reduce((s, r) => s + Number(r.amount), 0);
+        const dailyTarget = revGoal / 30;
+        const hour = new Date().getHours();
+        if (hour >= 14 && todayRev < dailyTarget * 0.3) alerts.push({ type: 'danger', icon: '📉', msg: `今日營業額 ${fmtM(todayRev)} 遠低於日均目標 ${fmtM(dailyTarget)}` });
+        // High no-show rate
+        const todayBookings = (data.bookings || []).filter(b => b.date === today);
+        const noShows = todayBookings.filter(b => b.status === 'no-show').length;
+        if (todayBookings.length >= 3 && noShows / todayBookings.length > 0.15) alerts.push({ type: 'warning', icon: '🚫', msg: `今日未到率 ${(noShows / todayBookings.length * 100).toFixed(0)}% (${noShows}/${todayBookings.length})` });
+        // Overdue follow-ups
+        const overdueFollowUps = (data.consultations || []).filter(c => c.followUpDate && c.followUpDate < today && c.followUpDate > new Date(Date.now() - 30 * 86400000).toISOString().substring(0, 10));
+        if (overdueFollowUps.length >= 3) alerts.push({ type: 'warning', icon: '📋', msg: `${overdueFollowUps.length} 位病人覆診已逾期，需跟進` });
+        // Low margin alert
+        if (thisRev > 0 && thisExp > 0) {
+          const curMargin = ((thisRev - thisExp) / thisRev * 100);
+          if (curMargin < 20) alerts.push({ type: 'danger', icon: '⚠️', msg: `本月利潤率僅 ${curMargin.toFixed(1)}%，低於健康水平 (20%)` });
+        }
+        // Inventory alert
+        const lowStockCount = (data.inventory || []).filter(i => Number(i.stock) < Number(i.minStock || 10)).length;
+        if (lowStockCount > 5) alerts.push({ type: 'warning', icon: '💊', msg: `${lowStockCount} 項藥材庫存不足，請盡快補貨` });
+        // Pending bookings
+        const pendingBookings = (data.bookings || []).filter(b => b.status === 'pending').length;
+        if (pendingBookings >= 5) alerts.push({ type: 'info', icon: '🔔', msg: `${pendingBookings} 個預約待確認` });
+
+        if (!alerts.length) return null;
+        return (
+          <div style={{ marginBottom: 16 }}>
+            {alerts.map((a, i) => (
+              <div key={i} className={`alert-banner alert-banner-${a.type}`}>
+                <span>{a.icon}</span> <span>{a.msg}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* ── Follow-up Recall ── */}
+      {(() => {
+        const today = new Date().toISOString().substring(0, 10);
+        const weekLater = new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10);
+        const upcomingFollowUps = (data.consultations || [])
+          .filter(c => c.followUpDate && c.followUpDate >= today && c.followUpDate <= weekLater)
+          .sort((a, b) => (a.followUpDate || '').localeCompare(b.followUpDate || ''))
+          .slice(0, 8);
+        const overdueCount = (data.consultations || []).filter(c => c.followUpDate && c.followUpDate < today && c.followUpDate > new Date(Date.now() - 30 * 86400000).toISOString().substring(0, 10)).length;
+
+        if (!upcomingFollowUps.length && !overdueCount) return null;
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-header">
+              <h3>🔔 覆診提醒 (本週)</h3>
+              {overdueCount > 0 && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>⚠️ {overdueCount} 個逾期</span>}
+            </div>
+            <div style={{ display: 'grid', gap: 6 }}>
+              {upcomingFollowUps.map((c, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 12px', background: c.followUpDate === today ? '#fef3c7' : '#f9fafb',
+                  borderRadius: 8, fontSize: 12,
+                }}>
+                  <span style={{ fontWeight: 600 }}>{c.patientName}</span>
+                  <span style={{ color: '#6b7280' }}>{c.tcmDiagnosis || c.assessment || ''}</span>
+                  <span style={{
+                    fontWeight: 700,
+                    color: c.followUpDate === today ? '#d97706' : '#374151',
+                  }}>
+                    {c.followUpDate === today ? '今日' : c.followUpDate}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Quick Action Buttons */}
       {onNavigate && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>

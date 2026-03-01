@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getDoctors } from '../data';
 import { followupDoneOps } from '../api';
+import EmptyState from './EmptyState';
 
 const ACCENT = '#0e7490';
 const today = () => new Date().toISOString().substring(0, 10);
@@ -186,7 +187,7 @@ export default function FollowUpManager({ data, showToast, user }) {
           </div>
 
           {/* List */}
-          {filtered.length === 0 && <div style={{ textAlign: 'center', padding: 40, color: '#999', fontSize: 14 }}>暫無覆診紀錄</div>}
+          {filtered.length === 0 && <EmptyState icon="🔔" title="暫無覆診紀錄" description="診症時設定覆診日期，系統會自動追蹤並提醒" compact />}
           {filtered.map(f => {
             const isOverdue = f.diff < 0 && !f.isDone;
             const isToday = f.diff === 0 && !f.isDone;

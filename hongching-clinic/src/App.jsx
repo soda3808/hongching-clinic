@@ -8,6 +8,7 @@ import { exportCSV, exportJSON, importJSON } from './utils/export';
 import { PERMISSIONS, PAGE_PERMISSIONS, ROLE_LABELS, ROLE_TAGS } from './config';
 import { login, logout, getCurrentUser, hasPermission, filterByPermission, getStores, touchActivity, requestPasswordReset, resetPassword } from './auth';
 import { logAction } from './utils/audit';
+import ErrorBoundary from './components/ErrorBoundary';
 import { getClinicName, getClinicLogo, applyTenantTheme } from './tenant';
 
 // Lazy-loaded page components
@@ -897,9 +898,9 @@ const LazyFallback = <div style={{ padding: 40, textAlign: 'center' }}>載入中
 
 export default function App() {
   const path = window.location.pathname;
-  if (path === '/booking') return <Suspense fallback={LazyFallback}><PublicBooking /></Suspense>;
-  if (path === '/checkin') return <Suspense fallback={LazyFallback}><PublicCheckin /></Suspense>;
-  if (path === '/inquiry') return <Suspense fallback={LazyFallback}><PublicInquiry /></Suspense>;
+  if (path === '/booking') return <ErrorBoundary><Suspense fallback={LazyFallback}><PublicBooking /></Suspense></ErrorBoundary>;
+  if (path === '/checkin') return <ErrorBoundary><Suspense fallback={LazyFallback}><PublicCheckin /></Suspense></ErrorBoundary>;
+  if (path === '/inquiry') return <ErrorBoundary><Suspense fallback={LazyFallback}><PublicInquiry /></Suspense></ErrorBoundary>;
 
   return <MainApp />;
 }
@@ -1191,6 +1192,7 @@ function MainApp() {
           </div>
         </div>
         <div className="content">
+          <ErrorBoundary>
           <Suspense fallback={LazyFallback}>
             {page === 'dash' && <Dashboard data={filteredData} onNavigate={setPage} />}
             {page === 'rev' && <Revenue data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} />}
@@ -1359,6 +1361,7 @@ function MainApp() {
             {page === 'pp' && <PrivacyPolicy onBack={() => setPage('dash')} />}
             {page === 'billingsub' && <BillingSettings />}
           </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
 

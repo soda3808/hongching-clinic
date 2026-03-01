@@ -3,6 +3,7 @@ import { saveBooking, updateBookingStatus, openWhatsApp, saveQueue, saveWaitlist
 import { uid, getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
+import EmptyState from './EmptyState';
 
 const TYPES = ['初診','覆診','針灸','推拿','天灸','其他'];
 const STATUS_TAGS = { pending:'tag-pending-orange', confirmed:'tag-fps', completed:'tag-paid', cancelled:'tag-other', 'no-show':'tag-overdue' };
@@ -618,7 +619,7 @@ export default function BookingPage({ data, setData, showToast }) {
                       </td>
                     </tr>
                   ))}
-                  {filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無預約</td></tr>}
+                  {filtered.length === 0 && <tr><td colSpan={9} style={{ padding: 0 }}><EmptyState icon="📅" title="暫無預約紀錄" description="今日沒有預約，可以點擊新增預約按鈕來建立" compact /></td></tr>}
                 </tbody>
               </table>
             </div>
@@ -678,7 +679,7 @@ export default function BookingPage({ data, setData, showToast }) {
             <button className="btn btn-teal btn-sm" onClick={() => setShowWaitlistForm({ date: tomorrow, time: '10:00', doctor: DOCTORS[0], store: getDefaultStore() })}>+ 新增候補</button>
           </div>
           {activeWaitlist.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>暫無候補預約</div>
+            <EmptyState icon="⏳" title="暫無候補預約" description="候補名單為空，可點擊「新增候補」按鈕加入" compact />
           ) : (
             <div className="table-wrap">
               <table>

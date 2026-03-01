@@ -24,7 +24,104 @@ function makeEmptyForm() {
     prescriptionType: 'decoction', granuleDosesPerDay: 2, specialNotes: '',
     treatments: [], acupuncturePoints: '',
     followUpDate: '', followUpNotes: '', fee: 0,
+    outcomeRating: 0,
   };
+}
+
+function PatientSummary({ patientId, consultations, patients, allData }) {
+  const [collapsed, setCollapsed] = useState(false);
+  if (!patientId) return null;
+
+  const patient = patients.find(p => p.id === patientId);
+  if (!patient) return null;
+
+  const pastConsults = consultations
+    .filter(c => c.patientId === patientId)
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    .slice(0, 5);
+
+  const allergies = patient.allergies || patient.allergy || '';
+  const medications = patient.medications || '';
+  const lastRx = pastConsults[0]?.prescription?.filter(r => r.herb)?.map(r => r.herb) || [];
+  const visitCount = consultations.filter(c => c.patientId === patientId).length;
+  const lastVisitDate = pastConsults[0]?.date || '無紀錄';
+
+  // Calculate days since last visit
+  const daysSince = pastConsults[0]?.date
+    ? Math.floor((Date.now() - new Date(pastConsults[0].date).getTime()) / 86400000)
+    : null;
+
+  return (
+    <div className="patient-summary">
+      <div className="patient-summary-header">
+        <h4>📋 {patient.name} — 病歷摘要</h4>
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#6b7280' }}
+        >
+          {collapsed ? '展開 ▼' : '收起 ▲'}
+        </button>
+      </div>
+      {!collapsed && (
+        <>
+          {allergies && (
+            <div className="summary-alert">
+              🚨 過敏：{allergies}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', marginTop: 8 }}>
+            <div className="summary-item">
+              <span className="summary-item-label">就診次數</span>
+              <span>{visitCount} 次</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-item-label">上次就診</span>
+              <span>{lastVisitDate}{daysSince !== null ? ` (${daysSince}天前)` : ''}</span>
+            </div>
+            {medications && (
+              <div className="summary-item" style={{ gridColumn: '1 / -1' }}>
+                <span className="summary-item-label">用藥記錄</span>
+                <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{medications}</span>
+              </div>
+            )}
+          </div>
+          {pastConsults.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 4 }}>近期診症</div>
+              {pastConsults.slice(0, 3).map((c, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '4px 8px', background: i % 2 === 0 ? '#fff' : 'transparent',
+                  borderRadius: 4, fontSize: 11, color: '#4b5563',
+                }}>
+                  <span style={{ minWidth: 72 }}>{c.date}</span>
+                  <span style={{ fontWeight: 600, flex: 1 }}>{c.tcmDiagnosis || c.assessment || '未記錄'}</span>
+                  <span style={{ color: '#9ca3af', minWidth: 48 }}>{c.doctor || ''}</span>
+                  <span style={{ fontSize: 10, color: c.outcomeRating ? '#f59e0b' : '#d1d5db' }}>
+                    {'★'.repeat(c.outcomeRating || 0)}{'☆'.repeat(5 - (c.outcomeRating || 0))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {lastRx.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 4 }}>上次處方</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {lastRx.slice(0, 10).map((h, i) => (
+                  <span key={i} style={{
+                    padding: '2px 8px', background: '#ecfdf5', border: '1px solid #bbf7d0',
+                    borderRadius: 12, fontSize: 10, color: '#166534', fontWeight: 600,
+                  }}>{h}</span>
+                ))}
+                {lastRx.length > 10 && <span style={{ fontSize: 10, color: '#9ca3af' }}>+{lastRx.length - 10}</span>}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function EMRPage({ data, setData, showToast, allData, user, onNavigate }) {
@@ -875,6 +972,14 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 </div>
               )}
 
+              {/* Patient Medical Summary */}
+              <PatientSummary
+                patientId={form.patientId}
+                consultations={consultations}
+                patients={patients}
+                allData={allData}
+              />
+
               {/* SOAP Notes */}
               {/* AI Consultation Assistant */}
               <ConsultAI form={form} setForm={setForm} showToast={showToast} />
@@ -1156,6 +1261,27 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               <div className="grid-2" style={{ marginBottom: 16 }}>
                 <div><label>覆診日期</label><input type="date" value={form.followUpDate} onChange={e => setForm(f => ({ ...f, followUpDate: e.target.value }))} /></div>
                 <div><label>覆診備註</label><input value={form.followUpNotes} onChange={e => setForm(f => ({ ...f, followUpNotes: e.target.value }))} placeholder="覆診注意事項" /></div>
+              </div>
+
+              {/* Treatment Outcome Rating */}
+              <div style={{ marginTop: 12 }}>
+                <label>上次治療效果評分</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div className="outcome-stars">
+                    {[1,2,3,4,5].map(star => (
+                      <span
+                        key={star}
+                        className={`outcome-star ${(form.outcomeRating || 0) >= star ? 'active' : 'inactive'}`}
+                        onClick={() => setForm(f => ({ ...f, outcomeRating: f.outcomeRating === star ? 0 : star }))}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 11, color: '#6b7280' }}>
+                    {form.outcomeRating === 1 ? '無效' : form.outcomeRating === 2 ? '略有改善' : form.outcomeRating === 3 ? '一般' : form.outcomeRating === 4 ? '明顯改善' : form.outcomeRating === 5 ? '痊癒' : '未評分'}
+                  </span>
+                </div>
               </div>
 
               {/* Doctor Signature */}

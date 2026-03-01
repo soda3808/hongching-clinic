@@ -5,6 +5,7 @@ import { getPatientPoints, getLoyaltyTier, loadPointsHistory, addPointsEntry, LO
 import { getCurrentUser } from '../auth';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
+import EmptyState from './EmptyState';
 
 const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'' };
 const REFERRAL_SOURCES = ['親友推薦', '網上搜尋', '社交媒體', '路過', '醫師轉介', '舊病人回歸', '廣告', '其他'];
@@ -475,7 +476,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   <td className="money">{fmtM(p.totalSpent || 0)}</td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={10} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無病人紀錄</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={10} style={{ padding: 0 }}><EmptyState icon="👥" title="暫無病人紀錄" description="請使用上方表單新增病人資料" compact /></td></tr>}
             </tbody>
           </table>
         </div>
@@ -989,7 +990,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             )}
             <div style={{ maxHeight: 400, overflowY: 'auto' }}>
               {consultations.length === 0 && visitHistory.length === 0 && bookingHistory.length === 0 && commHistory.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24, fontSize: 13 }}>暫無紀錄</div>
+                <EmptyState icon="📋" title="暫無紀錄" description="此病人尚無診症、到訪或預約紀錄" compact />
               )}
               {/* Merge and sort by date */}
               {[
