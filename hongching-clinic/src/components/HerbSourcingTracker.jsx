@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
+import { loadHerbSourcing, persistHerbSourcingAll, removeHerbSourcing } from '../api';
 
 const LS_KEY = 'hcmc_herb_sourcing';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const today = () => new Date().toISOString().substring(0, 10);
 const load = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } };
-const save = arr => localStorage.setItem(LS_KEY, JSON.stringify(arr));
 
 const GRADES = ['特級', '甲級', '乙級', '丙級'];
 const GRADE_COLOR = { '特級': '#b45309', '甲級': '#16a34a', '乙級': '#2563eb', '丙級': '#6b7280' };
@@ -48,6 +48,13 @@ export default function HerbSourcingTracker({ data, showToast, user }) {
   const [detail, setDetail] = useState(null);
 
   const clinicName = getClinicName();
+
+  const save = arr => { localStorage.setItem(LS_KEY, JSON.stringify(arr)); persistHerbSourcingAll(arr); };
+
+  // Load from Supabase on mount (overrides localStorage if available)
+  useEffect(() => {
+    loadHerbSourcing().then(b => { if (b) setBatches(b); });
+  }, []);
 
   // Derived: days until expiry
   const withExpiry = useMemo(() => batches.map(b => {
@@ -117,6 +124,7 @@ export default function HerbSourcingTracker({ data, showToast, user }) {
   const deleteBatch = id => {
     const updated = batches.filter(b => b.id !== id);
     setBatches(updated); save(updated);
+    removeHerbSourcing(id);
     showToast('已刪除批次'); setDetail(null);
   };
 

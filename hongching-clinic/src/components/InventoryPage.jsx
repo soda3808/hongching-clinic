@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
-import { saveInventory, deleteInventory } from '../api';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { saveInventory, deleteInventory, loadSupplierList, persistSupplierList, removeSupplier, loadStockMovements, persistStockMovement, clearStockMovementsRemote } from '../api';
 import { uid, fmtM, TCM_HERBS } from '../data';
 import { exportCSV } from '../utils/export';
 import { parseInventoryXLS, getImportSummary } from '../utils/inventoryImport';
@@ -67,12 +67,19 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
 
   const inventory = data.inventory || [];
 
+  // Load from Supabase on mount (overrides localStorage if available)
+  useEffect(() => {
+    loadSupplierList().then(s => { if (s) setSupplierList(s); });
+    loadStockMovements().then(m => { if (m) setMovements(m); });
+  }, []);
+
   // ── Movement Logger (#111) ──
   const logMovement = (type, itemName, qty, unit, details = '') => {
     const entry = { id: uid(), date: new Date().toISOString(), type, itemName, qty, unit, details };
     const updated = [entry, ...movements].slice(0, 500); // keep last 500
     setMovements(updated);
     localStorage.setItem('hcmc_stock_movements', JSON.stringify(updated));
+    persistStockMovement(entry);
   };
 
   // ── Stats ──
@@ -384,9 +391,10 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
   };
 
   // ── Supplier Directory (#110) ──
-  const saveSupplierList = (list) => {
+  const saveSupplierListLocal = (list) => {
     setSupplierList(list);
     localStorage.setItem('hcmc_suppliers', JSON.stringify(list));
+    persistSupplierList(list);
   };
 
   const openAddSupplier = () => {
@@ -404,7 +412,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
   const handleSaveSupplier = () => {
     if (!supplierForm.name) return showToast('請填寫供應商名稱');
     if (editSupplierItem) {
-      saveSupplierList(supplierList.map(s => s.id === editSupplierItem.id ? { ...supplierForm, id: editSupplierItem.id } : s));
+      saveSupplierListLocal(supplierList.map(s => s.id === editSupplierItem.id ? { ...supplierForm, id: editSupplierItem.id } : s));
       showToast('已更新供應商');
     } else {
       saveSupplierList([...supplierList, { ...supplierForm, id: uid(), createdAt: new Date().toISOString().substring(0, 10) }]);
@@ -414,7 +422,8 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
   };
 
   const deleteSupplierById = (id) => {
-    saveSupplierList(supplierList.filter(s => s.id !== id));
+    saveSupplierListLocal(supplierList.filter(s => s.id !== id));
+    removeSupplier(id);
     showToast('已刪除供應商');
   };
 
@@ -985,7 +994,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                 }}>匯出CSV</button>
               )}
               {movements.length > 0 && (
-                <button className="btn btn-red btn-sm" onClick={() => { setMovements([]); localStorage.removeItem('hcmc_stock_movements'); showToast('已清除紀錄'); }}>清除</button>
+                <button className="btn btn-red btn-sm" onClick={() => { setMovements([]); localStorage.removeItem('hcmc_stock_movements'); clearStockMovementsRemote(); showToast('已清除紀錄'); }}>清除</button>
               )}
             </div>
           </div>

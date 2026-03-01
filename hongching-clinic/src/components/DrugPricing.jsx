@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getStoreNames, TCM_HERBS_DB } from '../data';
+import { loadDrugPricing, persistDrugPricing, loadPriceHistory, persistPriceHistory } from '../api';
 
 const LS_PRICING = 'hcmc_drug_pricing';
 const LS_HISTORY = 'hcmc_price_history';
@@ -48,8 +49,15 @@ export default function DrugPricing({ data, setData, showToast, user }) {
   const [safetyBulkVal, setSafetyBulkVal] = useState('');
 
   const inventory = data.inventory || [];
-  const savePricing = p => { setPricing(p); saveJSON(LS_PRICING, p); };
-  const logHistory = entries => { const u = [...entries, ...history].slice(0, 500); setHistory(u); saveJSON(LS_HISTORY, u); };
+
+  // Load from Supabase on mount (overrides localStorage if available)
+  useEffect(() => {
+    loadDrugPricing().then(p => { if (p) setPricing(p); });
+    loadPriceHistory().then(h => { if (h) setHistory(h); });
+  }, []);
+
+  const savePricing = p => { setPricing(p); saveJSON(LS_PRICING, p); persistDrugPricing(p); };
+  const logHistory = entries => { const u = [...entries, ...history].slice(0, 500); setHistory(u); saveJSON(LS_HISTORY, u); persistPriceHistory(entries); };
   const getPrice = (id, tier = '一般') => pricing[id]?.[tier] || pricing[id]?.['一般'] || null;
   const getCost = item => item.cost || item.costPerUnit || 0;
   const getMargin = (c, p) => c > 0 && p > 0 ? (((p - c) / c) * 100).toFixed(1) : '-';

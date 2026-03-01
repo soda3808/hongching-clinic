@@ -260,6 +260,71 @@ export function unsubscribe(subscription) {
   if (subscription && supabase) supabase.removeChannel(subscription);
 }
 
+// ══════════════════════════════════
+// Standalone Collections (Supabase + dedicated localStorage)
+// ══════════════════════════════════
+
+// ── Drug Pricing ──
+export async function loadDrugPricing() {
+  const rows = await sbSelect('drug_pricing');
+  if (rows?.length) {
+    const obj = {};
+    rows.forEach(r => { obj[r.id] = r.pricing || {}; });
+    return obj;
+  }
+  return null;
+}
+export async function persistDrugPricing(pricingObj) {
+  for (const [id, pricing] of Object.entries(pricingObj)) {
+    await sbUpsert('drug_pricing', { id, pricing });
+  }
+}
+
+// ── Price History ──
+export async function loadPriceHistory() {
+  const rows = await sbSelect('price_history');
+  return rows?.length ? rows : null;
+}
+export async function persistPriceHistory(entries) {
+  for (const e of entries) await sbUpsert('price_history', e);
+}
+
+// ── Suppliers ──
+export async function loadSupplierList() {
+  const rows = await sbSelect('suppliers');
+  return rows?.length ? rows : null;
+}
+export async function persistSupplier(record) { await sbUpsert('suppliers', record); }
+export async function removeSupplier(id) { await sbDelete('suppliers', id); }
+export async function persistSupplierList(list) {
+  for (const r of list) await sbUpsert('suppliers', r);
+}
+
+// ── Stock Movements ──
+export async function loadStockMovements() {
+  const rows = await sbSelect('stock_movements');
+  return rows?.length ? rows : null;
+}
+export async function persistStockMovement(record) { await sbUpsert('stock_movements', record); }
+export async function clearStockMovementsRemote() {
+  if (!supabase) return;
+  try {
+    const tenantId = getTenantId();
+    if (tenantId) await supabase.from('stock_movements').delete().eq('tenant_id', tenantId);
+  } catch (err) { console.error('Clear stock_movements:', err); }
+}
+
+// ── Herb Sourcing ──
+export async function loadHerbSourcing() {
+  const rows = await sbSelect('herb_sourcing');
+  return rows?.length ? rows : null;
+}
+export async function persistHerbSourcing(record) { await sbUpsert('herb_sourcing', record); }
+export async function removeHerbSourcing(id) { await sbDelete('herb_sourcing', id); }
+export async function persistHerbSourcingAll(records) {
+  for (const r of records) await sbUpsert('herb_sourcing', r);
+}
+
 // ── Local Storage Helpers ──
 function saveLocal(collection, record) {
   try {
