@@ -293,8 +293,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         <div className="card-header"><h3>新增病人</h3></div>
         <form onSubmit={handleAdd}>
           <div className="grid-3" style={{ marginBottom: 12 }}>
-            <div><label>姓名 *</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="病人姓名" /></div>
-            <div><label>電話 *</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="電話號碼" /></div>
+            <div><label>姓名 *</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="病人姓名" aria-required="true" aria-label="病人姓名" /></div>
+            <div><label>電話 *</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="電話號碼" aria-required="true" aria-label="病人電話" /></div>
             <div><label>性別</label><select value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}><option>男</option><option>女</option></select></div>
           </div>
           <div className="grid-3" style={{ marginBottom: 12 }}>
@@ -397,8 +397,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
       </div>
 
       {/* Search & Filter */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input style={{ flex: 1, minWidth: 200 }} placeholder="🔍 搜尋姓名或電話..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} role="search" aria-label="病人搜尋與篩選">
+        <input style={{ flex: 1, minWidth: 200 }} placeholder="🔍 搜尋姓名或電話..." value={search} onChange={e => setSearch(e.target.value)} aria-label="搜尋病人姓名或電話" />
         <select style={{ width: 'auto' }} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
           <option value="all">所有醫師</option>
           {DOCTORS.map(d => <option key={d}>{d}</option>)}
@@ -454,10 +454,10 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
       {/* Table */}
       <div className="card" style={{ padding: 0 }}>
         <div className="table-wrap">
-          <table>
+          <table aria-label="病人列表">
             <thead>
               <tr>
-                <th style={{ width: 30 }}><input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={e => setSelected(e.target.checked ? new Set(filtered.map(p => p.id)) : new Set())} /></th>
+                <th style={{ width: 30 }}><input type="checkbox" aria-label="全選病人" checked={filtered.length > 0 && selected.size === filtered.length} onChange={e => setSelected(e.target.checked ? new Set(filtered.map(p => p.id)) : new Set())} /></th>
                 <th>姓名</th><th>電話</th><th>性別</th><th>年齡</th><th>主診醫師</th>
                 <th>首次到診</th><th>最後到診</th><th>總次數</th><th>累計消費</th>
               </tr>

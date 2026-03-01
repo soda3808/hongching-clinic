@@ -182,6 +182,7 @@ const ClinicRevenueBreakdown = lazy(() => import('./components/ClinicRevenueBrea
 const HerbSourcingTracker = lazy(() => import('./components/HerbSourcingTracker'));
 const ClinicFloorPlan = lazy(() => import('./components/ClinicFloorPlan'));
 const PatientCommunity = lazy(() => import('./components/PatientCommunity'));
+const MonthEndClosing = lazy(() => import('./components/MonthEndClosing'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -347,6 +348,7 @@ const ALL_PAGES = [
   { id: 'herbsource', icon: '🌿', label: '藥材溯源', section: '營運', perm: 'viewBilling' },
   { id: 'floorplan', icon: '🗺️', label: '平面圖', section: '系統', perm: 'viewSettings' },
   { id: 'community', icon: '👥', label: '健康社區', section: '客戶', perm: 'viewPatients' },
+  { id: 'monthend', icon: '📅', label: '月結作業', section: '財務', perm: 'viewReports' },
 ];
 
 // Mobile bottom tab config
@@ -1032,16 +1034,20 @@ function MainApp() {
     // Show legal pages (Terms / Privacy) from login screen
     if (legalPage === 'terms') {
       return (
+        <ErrorBoundary>
         <Suspense fallback={LazyFallback}>
           <TermsOfService onBack={() => setLegalPage(null)} />
         </Suspense>
+        </ErrorBoundary>
       );
     }
     if (legalPage === 'privacy') {
       return (
+        <ErrorBoundary>
         <Suspense fallback={LazyFallback}>
           <PrivacyPolicy onBack={() => setLegalPage(null)} />
         </Suspense>
+        </ErrorBoundary>
       );
     }
 
@@ -1049,12 +1055,14 @@ function MainApp() {
     const isLandingRoute = path === '/' || path === '/landing';
     if (isLandingRoute && !showLoginPage) {
       return (
+        <ErrorBoundary>
         <Suspense fallback={LazyFallback}>
           <LandingPage
             onGetStarted={() => setShowLoginPage(true)}
             onLogin={() => setShowLoginPage(true)}
           />
         </Suspense>
+        </ErrorBoundary>
       );
     }
     return <LoginPage onLogin={(session) => { applyTenantTheme(); setShowLoginPage(false); setUser(session); }} onShowLegal={setLegalPage} />;
@@ -1359,6 +1367,7 @@ function MainApp() {
             {page === 'settings' && <SettingsPage data={data} setData={updateData} showToast={showToast} user={user} />}
             {page === 'tos' && <TermsOfService onBack={() => setPage('dash')} />}
             {page === 'pp' && <PrivacyPolicy onBack={() => setPage('dash')} />}
+            {page === 'monthend' && <MonthEndClosing data={filteredData} setData={updateData} showToast={showToast} user={user} onNavigate={setPage} />}
             {page === 'billingsub' && <BillingSettings />}
           </Suspense>
           </ErrorBoundary>

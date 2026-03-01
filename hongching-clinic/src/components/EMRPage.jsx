@@ -827,8 +827,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       </div>
 
       {/* Filters */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input style={{ flex: 1, minWidth: 160 }} placeholder="搜尋病人/診斷/證型/方劑..." value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} role="search" aria-label="診症紀錄搜尋與篩選">
+        <input style={{ flex: 1, minWidth: 160 }} placeholder="搜尋病人/診斷/證型/方劑..." value={search} onChange={e => setSearch(e.target.value)} aria-label="搜尋病人、診斷、證型或方劑" />
         <input style={{ width: 120 }} placeholder="篩選藥材..." value={filterHerb} onChange={e => setFilterHerb(e.target.value)} />
         <div className="preset-bar" style={{ marginBottom: 0 }}>
           {[['all', '全部'], ['today', '今日'], ['week', '本週'], ['custom', '自選']].map(([k, l]) => (
@@ -869,7 +869,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       {/* Table */}
       <div className="card" style={{ padding: 0 }}>
         <div className="table-wrap">
-          <table>
+          <table aria-label="診症紀錄列表">
             <thead>
               <tr>
                 <th>日期</th><th>病人</th><th>醫師</th><th>店舖</th>
@@ -930,13 +930,14 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 </div>
               </div>
             )}
-            <form onSubmit={handleSave}>
+            <form onSubmit={handleSave} role="form" aria-label="新增診症紀錄表單">
               {/* Patient selector */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>病人資料</h4></div>
               <div className="grid-3" style={{ marginBottom: 12 }}>
                 <div style={{ position: 'relative' }}>
                   <label>病人 *</label>
                   <input value={patientSearch} placeholder="搜尋姓名或電話..."
+                    aria-required="true" aria-label="搜尋病人姓名或電話"
                     onChange={e => { setPatientSearch(e.target.value); setShowPatientDD(true); setForm(f => ({ ...f, patientName: e.target.value, patientId: '' })); }}
                     onFocus={() => patientSearch && setShowPatientDD(true)}
                     onBlur={() => setTimeout(() => setShowPatientDD(false), 200)} />
@@ -952,7 +953,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   )}
                 </div>
                 <div><label>電話</label><input value={form.patientPhone} readOnly style={{ background: 'var(--gray-50)' }} /></div>
-                <div><label>日期 *</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} /></div>
+                <div><label>日期 *</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} aria-required="true" aria-label="診症日期" /></div>
               </div>
               <div className="grid-3" style={{ marginBottom: 16 }}>
                 <div><label>醫師</label><select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))}>{doctors.map(d => <option key={d}>{d}</option>)}</select></div>
@@ -1303,7 +1304,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               </div>
 
               {/* Submit */}
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }} aria-live="polite">
                 <button type="submit" className="btn btn-teal">儲存診症紀錄</button>
                 <button type="button" className="btn btn-outline" onClick={() => setShowAdd(false)}>取消</button>
               </div>

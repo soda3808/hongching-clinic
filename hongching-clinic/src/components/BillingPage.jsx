@@ -525,7 +525,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
   return (
     <>
       {/* Stats */}
-      <div className="stats-grid">
+      <div className="stats-grid" role="status" aria-live="polite" aria-label="收費統計摘要">
         <div className="stat-card teal"><div className="stat-label">今日帳單</div><div className="stat-value teal">{summary.total}</div></div>
         <div className="stat-card green"><div className="stat-label">已收費</div><div className="stat-value green">{fmtM(summary.paidAmount)}</div><div className="stat-sub">{summary.paid} 筆</div></div>
         <div className="stat-card gold"><div className="stat-label">未收費</div><div className="stat-value gold">{fmtM(summary.unpaidAmount)}</div><div className="stat-sub">{summary.unpaid} 筆</div></div>
@@ -588,7 +588,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
           <h3>配藥/收費列表</h3>
         </div>
         <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
-          <table>
+          <table aria-label="配藥及收費列表">
             <thead>
               <tr>
                 <th>號碼</th>
@@ -662,7 +662,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
               ))}
             </tbody>
             {list.length > 0 && (
-              <tfoot>
+              <tfoot role="status" aria-live="polite">
                 <tr style={{ background: 'var(--gray-50)', fontWeight: 700 }}>
                   <td colSpan={5} style={{ textAlign: 'right' }}>合計</td>
                   <td className="money">{fmtM(summary.totalFee)}</td>

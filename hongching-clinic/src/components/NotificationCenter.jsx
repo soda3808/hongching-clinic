@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { fmtM } from '../data';
 
 const ACCENT = '#0e7490';
@@ -59,7 +59,7 @@ function loadSessionJSON(key, fallback) {
 /* ══════════════════════════════════════════════════════════════════
    NotificationCenter
    ══════════════════════════════════════════════════════════════════ */
-export default function NotificationCenter({ data, showToast, user, onNavigate }) {
+export default memo(function NotificationCenter({ data, showToast, user, onNavigate }) {
   /* ── State ── */
   const [activeCategory, setActiveCategory] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -640,4 +640,4 @@ export default function NotificationCenter({ data, showToast, user, onNavigate }
       </div>
     </div>
   );
-}
+});

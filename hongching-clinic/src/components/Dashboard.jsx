@@ -282,7 +282,7 @@ export default function Dashboard({ data, onNavigate }) {
   }, [data]);
 
   return (
-    <>
+    <div role="main" aria-label="診所總覽儀表板">
       {/* AI Daily Briefing */}
       <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)', border: '1px solid var(--teal-200)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: briefing ? 8 : 0 }}>
@@ -383,7 +383,7 @@ export default function Dashboard({ data, onNavigate }) {
       </div>
 
       {/* KPI Cards — with trend indicators */}
-      <div className="stats-grid">
+      <div className="stats-grid" aria-live="polite" aria-label="本月關鍵指標">
         <div className="stat-card gold">
           <div className="stat-label">本月營業額</div>
           <div className="stat-value gold">{fmtM(thisRev)}</div>
@@ -685,7 +685,7 @@ export default function Dashboard({ data, onNavigate }) {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header"><h3>📊 損益表 P&L Statement</h3></div>
         <div style={{ overflowX: 'auto' }}>
-          <table className="pl-table">
+          <table className="pl-table" aria-label="損益表">
             <thead>
               <tr>
                 <th style={{ textAlign: 'left' }}>項目</th>
@@ -1216,6 +1216,6 @@ export default function Dashboard({ data, onNavigate }) {
           {recentActivity.length === 0 && <div style={{ color: 'var(--gray-400)', textAlign: 'center', padding: 16 }}>暫無活動紀錄</div>}
         </div>
       </div>
-    </>
+    </div>
   );
 }

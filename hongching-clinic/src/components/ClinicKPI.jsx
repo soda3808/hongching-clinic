@@ -261,7 +261,7 @@ export default function ClinicKPI({ data, showToast, user }) {
       {/* Overall Score */}
       <div style={{ ...cardS, textAlign: 'center' }}>
         <div style={{ fontSize: 13, color: '#64748b', marginBottom: 6 }}>Overall KPI Score</div>
-        <div style={{ display: 'inline-block', width: 120, height: 120, borderRadius: '50%', border: `8px solid ${trafficColor(overallScore)}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', background: trafficBg(overallScore) }}>
+        <div style={{ width: 120, height: 120, borderRadius: '50%', border: `8px solid ${trafficColor(overallScore)}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', background: trafficBg(overallScore) }}>
           <span style={{ fontSize: 40, fontWeight: 900, color: trafficColor(overallScore) }}>{overallScore}</span>
         </div>
         <div style={{ marginTop: 8, fontSize: 13, color: trafficColor(overallScore), fontWeight: 600 }}>

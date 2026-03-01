@@ -1,4 +1,6 @@
-export default function EmptyState({ icon, title, description, action, actionLabel, compact }) {
+import { memo } from 'react';
+
+const EmptyState = memo(function EmptyState({ icon, title, description, action, actionLabel, compact }) {
   return (
     <div className="empty-state" style={compact ? { padding: '24px 16px' } : undefined}>
       {icon && <div className="empty-state-icon">{icon}</div>}
@@ -9,9 +11,11 @@ export default function EmptyState({ icon, title, description, action, actionLab
       )}
     </div>
   );
-}
+});
 
-export function SkeletonLoader({ rows = 5, type = 'table' }) {
+export default EmptyState;
+
+export const SkeletonLoader = memo(function SkeletonLoader({ rows = 5, type = 'table' }) {
   if (type === 'stats') {
     return (
       <div className="stats-grid">
@@ -45,4 +49,4 @@ export function SkeletonLoader({ rows = 5, type = 'table' }) {
       </div>
     </div>
   );
-}
+});

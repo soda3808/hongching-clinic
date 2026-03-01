@@ -468,7 +468,7 @@ export default function BookingPage({ data, setData, showToast }) {
   return (
     <>
       {/* Stats */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }} role="status" aria-live="polite" aria-label="預約統計">
         <div className="stat-card teal"><div className="stat-label">今日預約</div><div className="stat-value teal">{stats.today}</div></div>
         <div className="stat-card green"><div className="stat-label">已完成</div><div className="stat-value green">{stats.completed}</div></div>
         <div className="stat-card gold"><div className="stat-label">待到</div><div className="stat-value gold">{stats.pending}</div></div>
@@ -522,7 +522,7 @@ export default function BookingPage({ data, setData, showToast }) {
             <button className="btn btn-outline btn-sm" onClick={() => setShowReminderPanel(false)}>✕</button>
           </div>
           <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
-            <table>
+            <table aria-label="預約提醒列表">
               <thead>
                 <tr><th>日期</th><th>時間</th><th>病人</th><th>電話</th><th>醫師</th><th>店舖</th><th>提醒狀態</th><th>操作</th></tr>
               </thead>
@@ -583,7 +583,7 @@ export default function BookingPage({ data, setData, showToast }) {
           </div>
           <div className="card" style={{ padding: 0 }}>
             <div className="table-wrap">
-              <table>
+              <table aria-label="預約列表">
                 <thead><tr><th>日期</th><th>時間</th><th>病人</th><th>電話</th><th>醫師</th><th>店舖</th><th>類型</th><th>狀態</th><th>操作</th></tr></thead>
                 <tbody>
                   {filtered.map(b => (
@@ -769,12 +769,12 @@ export default function BookingPage({ data, setData, showToast }) {
             <h3>新增預約</h3>
             <form onSubmit={handleAdd}>
               <div className="grid-2" style={{ marginBottom: 12 }}>
-                <div><label>病人姓名 *</label><input value={form.patientName} onChange={e => setForm({...form, patientName: e.target.value})} placeholder="病人姓名" /></div>
+                <div><label>病人姓名 *</label><input value={form.patientName} onChange={e => setForm({...form, patientName: e.target.value})} placeholder="病人姓名" aria-required="true" aria-label="病人姓名" /></div>
                 <div><label>電話</label><input value={form.patientPhone} onChange={e => setForm({...form, patientPhone: e.target.value})} placeholder="電話" /></div>
               </div>
               <div className="grid-3" style={{ marginBottom: 12 }}>
-                <div><label>日期 *</label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} /></div>
-                <div><label>時間 *</label><select value={form.time} onChange={e => setForm({...form, time: e.target.value})}>{HOURS.map(t => <option key={t}>{t}</option>)}</select></div>
+                <div><label>日期 *</label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} aria-required="true" aria-label="預約日期" /></div>
+                <div><label>時間 *</label><select value={form.time} onChange={e => setForm({...form, time: e.target.value})} aria-required="true" aria-label="預約時間">{HOURS.map(t => <option key={t}>{t}</option>)}</select></div>
                 <div><label>時長</label><select value={form.duration} onChange={e => setForm({...form, duration: +e.target.value})}><option value={30}>30 分鐘</option><option value={45}>45 分鐘</option><option value={60}>60 分鐘</option></select></div>
               </div>
               <div className="grid-3" style={{ marginBottom: 12 }}>
