@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import { checkinsOps } from '../api';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -10,7 +11,7 @@ const SERVICE_TYPES = ['內科', '針灸', '推拿', '覆診', '初診', '拔罐
 function today() { return new Date().toISOString().substring(0, 10); }
 function nowTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
 function loadCheckins() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
-function saveCheckins(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+function saveCheckins(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); checkinsOps.persistAll(arr); }
 
 export default function PatientCheckIn({ data, showToast, user }) {
   const patients = data?.patients || [];
@@ -28,6 +29,9 @@ export default function PatientCheckIn({ data, showToast, user }) {
   const [walkinForm, setWalkinForm] = useState({ name: '', phone: '', service: SERVICE_TYPES[0], doctor: doctors[0] || '' });
   const [successInfo, setSuccessInfo] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Load from Supabase on mount
+  useEffect(() => { checkinsOps.load().then(d => { if (d) setCheckins(d); }); }, []);
 
   // Auto-refresh queue every 30s
   useEffect(() => {

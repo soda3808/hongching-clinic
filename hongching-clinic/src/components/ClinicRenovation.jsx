@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
+import { renovationProjectsOps, maintenanceScheduleOps } from '../api';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -20,8 +21,13 @@ export default function ClinicRenovation({ data, showToast, user }) {
   const [mForm, setMForm] = useState({ ...blankMaint });
   const [mEditId, setMEditId] = useState(null);
   const [filterStatus, setFilterStatus] = useState('');
-  const save = (arr) => { setProjects(arr); localStorage.setItem('hcmc_renovation_projects', JSON.stringify(arr)); };
-  const saveMaint = (arr) => { setSchedule(arr); localStorage.setItem('hcmc_maintenance_schedule', JSON.stringify(arr)); };
+  const save = (arr) => { setProjects(arr); localStorage.setItem('hcmc_renovation_projects', JSON.stringify(arr)); renovationProjectsOps.persistAll(arr); };
+  const saveMaint = (arr) => { setSchedule(arr); localStorage.setItem('hcmc_maintenance_schedule', JSON.stringify(arr)); maintenanceScheduleOps.persistAll(arr); };
+
+  useEffect(() => {
+    renovationProjectsOps.load().then(d => { if (d) setProjects(d); });
+    maintenanceScheduleOps.load().then(d => { if (d) setSchedule(d); });
+  }, []);
 
   const filtered = useMemo(() => {
     let l = [...projects];

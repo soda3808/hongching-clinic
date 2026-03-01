@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM, EXPENSE_CATEGORIES } from '../data';
+import { clinicBudgetOps } from '../api';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -11,7 +12,7 @@ const STATUS_LABELS = { draft: '草稿', pending: '待審批', approved: '已核
 const STATUS_COLORS = { draft: '#888', pending: '#d97706', approved: '#16a34a' };
 
 function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
-function save(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+function save(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); clinicBudgetOps.persistAll(arr); }
 
 function emptyAlloc() {
   const a = {};
@@ -24,6 +25,8 @@ export default function ClinicBudget({ data, showToast, user }) {
   const curYear = new Date().getFullYear();
   const [plans, setPlans] = useState(load);
   const [selYear, setSelYear] = useState(curYear);
+
+  useEffect(() => { clinicBudgetOps.load().then(d => { if (d) setPlans(d); }); }, []);
   const [tab, setTab] = useState('plan'); // plan | compare | yoy
   const [editing, setEditing] = useState(false);
   const [editId, setEditId] = useState(null);

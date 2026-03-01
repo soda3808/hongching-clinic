@@ -1,13 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import { stocktakingOps } from '../api';
 
 const LS_KEY = 'hcmc_stocktaking';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const today = () => new Date().toISOString().substring(0, 10);
 const fmtM = n => `$${Math.round(n).toLocaleString('en-HK')}`;
 const loadRecords = () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } };
-const saveRecords = arr => localStorage.setItem(LS_KEY, JSON.stringify(arr));
+const saveRecords = arr => { localStorage.setItem(LS_KEY, JSON.stringify(arr)); stocktakingOps.persistAll(arr); };
 
 const S = {
   page: { padding: 16, fontFamily: "'Microsoft YaHei',sans-serif", maxWidth: 1100, margin: '0 auto' },
@@ -41,6 +42,8 @@ export default function Stocktaking({ data, setData, showToast, user }) {
   const [hideZero, setHideZero] = useState(false);
   const [autoAdjust, setAutoAdjust] = useState(false);
   const [detailRecord, setDetailRecord] = useState(null);
+
+  useEffect(() => { stocktakingOps.load().then(d => { if (d) setRecords(d); }); }, []);
 
   const inventory = useMemo(() => (data.inventory || []).filter(i => !store || i.store === store), [data.inventory, store]);
 

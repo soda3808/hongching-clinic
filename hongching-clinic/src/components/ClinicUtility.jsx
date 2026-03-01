@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { fmtM } from '../data';
+import { utilityBillsOps } from '../api';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
@@ -11,7 +12,7 @@ const STATUS_MAP = { unpaid: '未付', paid: '已付' };
 const STATUS_COLOR = { unpaid: '#d97706', paid: '#16a34a' };
 
 function load() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } }
-function save(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); }
+function save(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)); utilityBillsOps.persistAll(arr); }
 function daysUntil(dateStr) { if (!dateStr) return Infinity; return Math.ceil((new Date(dateStr) - new Date()) / 86400000); }
 
 export default function ClinicUtility({ data, showToast, user }) {
@@ -23,6 +24,8 @@ export default function ClinicUtility({ data, showToast, user }) {
   const [bills, setBills] = useState(load);
   const [tab, setTab] = useState('list'); // list | chart | yearly
   const [selYear, setSelYear] = useState(curYear);
+
+  useEffect(() => { utilityBillsOps.load().then(d => { if (d) setBills(d); }); }, []);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ type: TYPES[0], month: curYM, amount: '', dueDate: '', paidDate: '', status: 'unpaid', accountNumber: '', notes: '' });

@@ -1,13 +1,18 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { uid, fmtM } from '../data';
 import { getClinicName } from '../tenant';
+import { expiryRecordsOps, disposalLogOps } from '../api';
 
 const ACCENT = '#0e7490';
 const LS_EXP = 'hcmc_expiry_records';
 const LS_DISP = 'hcmc_disposal_log';
 const today = () => new Date().toISOString().substring(0, 10);
 const load = (k) => { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch { return []; } };
-const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const save = (k, v) => {
+  localStorage.setItem(k, JSON.stringify(v));
+  if (k === LS_EXP) expiryRecordsOps.persistAll(v);
+  if (k === LS_DISP) disposalLogOps.persistAll(v);
+};
 const daysBetween = (a, b) => Math.round((new Date(a) - new Date(b)) / 86400000);
 const alertLevel = (d) => d <= 0 ? { label: '已過期', color: '#dc2626', bg: '#fef2f2' }
   : d <= 30 ? { label: '30天內', color: '#dc2626', bg: '#fef2f2' }
@@ -50,6 +55,11 @@ export default function InventoryExpiry({ data, showToast, user }) {
 
   const inventory = data.inventory || [];
   const clinicName = getClinicName();
+
+  useEffect(() => {
+    expiryRecordsOps.load().then(d => { if (d) setRecords(d); });
+    disposalLogOps.load().then(d => { if (d) setDisposals(d); });
+  }, []);
   const nowStr = today();
   const saveRec = arr => { setRecords(arr); save(LS_EXP, arr); };
   const saveDisp = arr => { setDisposals(arr); save(LS_DISP, arr); };

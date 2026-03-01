@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getDoctors, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
+import { auditTrailOps } from '../api';
 
 const AUDIT_KEY = 'hcmc_audit_log';
 const OP_TYPES = ['全部', '新增', '修改', '刪除', '查看', '匯出', '列印'];
@@ -12,9 +13,11 @@ const ENTITY_MAP = { patients: '病人資料', patient: '病人資料', bookings
 // ── Exported helper: other components call this to record audit entries ──
 export function recordAudit(action, entity, entityId, before, after, operator) {
   const logs = getAuditLogs();
-  logs.unshift({ ts: new Date().toISOString(), userId: operator?.userId || 'system', userName: operator?.name || operator || 'System', action, target: entity, detail: { changes: diffObj(before, after), entityId }, entityId });
+  const entry = { id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5), ts: new Date().toISOString(), userId: operator?.userId || 'system', userName: operator?.name || operator || 'System', action, target: entity, detail: { changes: diffObj(before, after), entityId }, entityId };
+  logs.unshift(entry);
   if (logs.length > 500) logs.length = 500;
   try { localStorage.setItem(AUDIT_KEY, JSON.stringify(logs)); } catch {}
+  auditTrailOps.persist(entry);
 }
 
 function getAuditLogs() {
@@ -51,7 +54,8 @@ export default function AuditTrail({ data, showToast, user }) {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 30;
 
-  const logs = useMemo(() => getAuditLogs(), []);
+  const [logs, setLogs] = useState(getAuditLogs);
+  useEffect(() => { auditTrailOps.load().then(d => { if (d) setLogs(d); }); }, []);
 
   // ── Normalize logs ──
   const normalized = useMemo(() => logs.map(l => {

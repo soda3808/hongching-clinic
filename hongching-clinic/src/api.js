@@ -325,6 +325,50 @@ export async function persistHerbSourcingAll(records) {
   for (const r of records) await sbUpsert('herb_sourcing', r);
 }
 
+// ── Factory: array-based standalone collections ──
+// Each record stored as { id, data: {...}, tenant_id }
+function mkOps(table) {
+  return {
+    load: async () => { const r = await sbSelect(table); return r?.length ? r : null; },
+    persist: async (rec) => { await sbUpsert(table, rec); },
+    remove: async (id) => { await sbDelete(table, id); },
+    persistAll: async (recs) => { for (const r of recs) await sbUpsert(table, r); },
+    clear: async () => {
+      if (!supabase) return;
+      try { const t = getTenantId(); if (t) await supabase.from(table).delete().eq('tenant_id', t); } catch (e) { console.error(`Clear ${table}:`, e); }
+    },
+  };
+}
+
+// ── Factory: single-config collections (object, not array) ──
+function mkConfigOps(table) {
+  return {
+    load: async () => { const r = await sbSelect(table); return r?.[0]?.data || null; },
+    persist: async (data) => { await sbUpsert(table, { id: 'config', data }); },
+  };
+}
+
+// Batch 2: Operations / KPI
+export const stocktakingOps = mkOps('stocktaking');
+export const clinicBudgetOps = mkOps('clinic_budget');
+export const auditTrailOps = mkOps('audit_trail');
+export const kpiTargetsOps = mkConfigOps('kpi_targets');
+
+// Batch 3: Finance / Compliance
+export const utilityBillsOps = mkOps('utility_bills');
+export const expiryRecordsOps = mkOps('expiry_records');
+export const disposalLogOps = mkOps('disposal_log');
+export const checkinsOps = mkOps('checkins');
+export const suppliersMgmtOps = mkOps('suppliers_mgmt');
+
+// Batch 4: Scheduling / Marketing
+export const roomBookingsOps = mkOps('room_bookings');
+export const benchmarkTargetsOps = mkConfigOps('benchmark_targets');
+export const renovationProjectsOps = mkOps('renovation_projects');
+export const maintenanceScheduleOps = mkOps('maintenance_schedule');
+export const bdaySettingsOps = mkConfigOps('bday_settings');
+export const bdayLogOps = mkOps('bday_log');
+
 // ── Local Storage Helpers ──
 function saveLocal(collection, record) {
   try {

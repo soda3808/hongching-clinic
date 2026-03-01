@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { suppliersMgmtOps } from '../api';
 
 const ACCENT = '#0e7490';
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -7,7 +8,7 @@ const TERMS = ['COD', '月結30天', '月結60天'];
 const LS_KEY = 'hcmc_suppliers_mgmt';
 
 const load = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { return []; } };
-const save = (d) => localStorage.setItem(LS_KEY, JSON.stringify(d));
+const save = (d) => { localStorage.setItem(LS_KEY, JSON.stringify(d)); suppliersMgmtOps.persistAll(d); };
 
 const Stars = ({ value, onChange }) => (
   <span style={{ cursor: onChange ? 'pointer' : 'default', fontSize: 18 }}>
@@ -23,6 +24,7 @@ const empty = () => ({ id: '', name: '', contact: '', phone: '', email: '', addr
 
 export default function SupplierManagement({ data, showToast, user }) {
   const [suppliers, setSuppliers] = useState(load);
+  useEffect(() => { suppliersMgmtOps.load().then(d => { if (d) setSuppliers(d); }); }, []);
   const [editing, setEditing] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [search, setSearch] = useState('');

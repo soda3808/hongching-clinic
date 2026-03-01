@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { getDoctors } from '../data';
+import { roomBookingsOps } from '../api';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
@@ -20,7 +21,7 @@ SLOTS.push('19:00');
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
 function loadBookings() { try { return JSON.parse(localStorage.getItem('hcmc_room_booking') || '[]'); } catch { return []; } }
-function saveBookings(arr) { localStorage.setItem('hcmc_room_booking', JSON.stringify(arr)); }
+function saveBookings(arr) { localStorage.setItem('hcmc_room_booking', JSON.stringify(arr)); roomBookingsOps.persistAll(arr); }
 
 function getWeekDates(base) {
   const d = new Date(base); const day = d.getDay() || 7;
@@ -32,6 +33,7 @@ export default function ClinicRoomBooking({ data, showToast, user }) {
   const DOCTORS = getDoctors();
   const today = new Date().toISOString().substring(0, 10);
   const [bookings, setBookings] = useState(loadBookings);
+  useEffect(() => { roomBookingsOps.load().then(d => { if (d) setBookings(d); }); }, []);
   const [tab, setTab] = useState('day'); // day | week | dashboard
   const [selDate, setSelDate] = useState(today);
   const [modal, setModal] = useState(null); // null | {roomId, time, date} or booking obj for edit

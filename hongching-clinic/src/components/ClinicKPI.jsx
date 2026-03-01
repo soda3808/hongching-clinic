@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { fmtM, getMonth } from '../data';
 import { getClinicName } from '../tenant';
+import { kpiTargetsOps } from '../api';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_kpi_targets';
@@ -30,7 +31,7 @@ const KPI_DEFS = [
 function loadTargets() {
   try { return { ...DEFAULT_TARGETS, ...JSON.parse(localStorage.getItem(LS_KEY)) }; } catch { return { ...DEFAULT_TARGETS }; }
 }
-function saveTargets(t) { localStorage.setItem(LS_KEY, JSON.stringify(t)); }
+function saveTargets(t) { localStorage.setItem(LS_KEY, JSON.stringify(t)); kpiTargetsOps.persist(t); }
 
 function trafficColor(pct) {
   if (pct >= 90) return '#16a34a';
@@ -53,6 +54,8 @@ export default function ClinicKPI({ data, showToast, user }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({});
   const thisMonth = useMemo(() => new Date().toISOString().substring(0, 7), []);
+
+  useEffect(() => { kpiTargetsOps.load().then(d => { if (d) setTargets(prev => ({ ...prev, ...d })); }); }, []);
 
   // ── Calculate actuals from data ──
   const actuals = useMemo(() => {

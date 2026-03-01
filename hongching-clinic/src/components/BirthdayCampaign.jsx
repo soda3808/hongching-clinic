@@ -1,11 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
+import { bdaySettingsOps, bdayLogOps } from '../api';
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const ACCENT = '#0e7490';
 const SK = 'hcmc_bday_settings', LK = 'hcmc_bday_log';
 const load = (k, fb) => { try { const d = JSON.parse(localStorage.getItem(k)); return d || fb; } catch { return fb; } };
-const persist = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+const persist = (k, v) => {
+  localStorage.setItem(k, JSON.stringify(v));
+  if (k === SK) bdaySettingsOps.persist(v);
+  if (k === LK) bdayLogOps.persistAll(v);
+};
 const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const today = new Date();
 const todayStr = fmt(today);
@@ -66,6 +71,11 @@ export default function BirthdayCampaign({ data, showToast, user }) {
   const [tab, setTab] = useState(0);
   const [settings, setSettings] = useState(() => load(SK, DEF_SETTINGS));
   const [log, setLog] = useState(() => { const d = load(LK, []); return Array.isArray(d) ? d : []; });
+
+  useEffect(() => {
+    bdaySettingsOps.load().then(d => { if (d) setSettings(prev => ({ ...prev, ...d })); });
+    bdayLogOps.load().then(d => { if (d) setLog(d); });
+  }, []);
 
   const patients = data.patients || [];
 
