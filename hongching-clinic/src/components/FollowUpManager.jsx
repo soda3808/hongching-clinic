@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getDoctors } from '../data';
+import { followupDoneOps } from '../api';
 
 const ACCENT = '#0e7490';
 const today = () => new Date().toISOString().substring(0, 10);
@@ -74,10 +75,15 @@ export default function FollowUpManager({ data, showToast, user }) {
     return list.sort((a, b) => (a.followUpDate || '').localeCompare(b.followUpDate || ''));
   }, [tab, pending, todayList, overdue, followUps, filterDoc, search]);
 
+  useEffect(() => {
+    followupDoneOps.load().then(d => { if (d) setCompleted(d); });
+  }, []);
+
   const markDone = (id) => {
     const next = [...completed, id];
     setCompleted(next);
     localStorage.setItem('hcmc_followup_done', JSON.stringify(next));
+    followupDoneOps.persistAll(next);
     showToast('已標記為完成');
     setActionItem(null);
   };

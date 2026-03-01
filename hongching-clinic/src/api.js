@@ -369,6 +369,24 @@ export const maintenanceScheduleOps = mkOps('maintenance_schedule');
 export const bdaySettingsOps = mkConfigOps('bday_settings');
 export const bdayLogOps = mkOps('bday_log');
 
+// Batch 5: Finance / Compliance / Operations
+export const dailyClosingsOps = mkOps('daily_closings');
+export const settlementLocksOps = mkOps('settlement_locks');
+export const dispensingLogOps = mkOps('dispensing_log');
+export const recurringExpensesOps = mkOps('recurring_expenses');
+export const budgetsOps = mkConfigOps('budgets');
+export const monthCloseOps = mkConfigOps('month_close');
+export const leaveBalanceOps = mkConfigOps('leave_balance');
+export const docTargetsOps = mkConfigOps('doc_targets');
+
+// Batch 6: Emergency / Follow-up / Reminders
+export const emergencyContactsOps = mkOps('emergency_contacts');
+export const emergencyEquipmentOps = mkOps('emergency_equipment');
+export const drillLogOps = mkOps('drill_log');
+export const followupDoneOps = mkOps('followup_done');
+export const reminderRulesOps = mkOps('reminder_rules');
+export const reminderLogOps = mkOps('reminder_log');
+
 // ── Local Storage Helpers ──
 function saveLocal(collection, record) {
   try {

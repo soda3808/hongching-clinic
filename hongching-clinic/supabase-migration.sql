@@ -181,6 +181,108 @@ CREATE TABLE IF NOT EXISTS bday_log (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── Batch 5: Finance / Operations ──
+
+CREATE TABLE IF NOT EXISTS daily_closings (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS settlement_locks (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS dispensing_log (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS recurring_expenses (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS budgets (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS month_close (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS leave_balance (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS doc_targets (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── Batch 6: Emergency / Follow-up / Reminders ──
+
+CREATE TABLE IF NOT EXISTS emergency_contacts (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS emergency_equipment (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS drill_log (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS followup_done (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reminder_rules (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reminder_log (
+  id TEXT PRIMARY KEY,
+  data JSONB DEFAULT '{}',
+  tenant_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ── Enable RLS on all new tables ──
 DO $$
 DECLARE
@@ -192,7 +294,11 @@ BEGIN
       'stocktaking','kpi_targets','clinic_budget','audit_trail',
       'utility_bills','expiry_records','disposal_log','checkins','suppliers_mgmt',
       'room_bookings','benchmark_targets','renovation_projects','maintenance_schedule',
-      'bday_settings','bday_log'
+      'bday_settings','bday_log',
+      'daily_closings','settlement_locks','dispensing_log','recurring_expenses',
+      'budgets','month_close','leave_balance','doc_targets',
+      'emergency_contacts','emergency_equipment','drill_log',
+      'followup_done','reminder_rules','reminder_log'
     ])
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', tbl);
@@ -215,7 +321,11 @@ BEGIN
       'stocktaking','kpi_targets','clinic_budget','audit_trail',
       'utility_bills','expiry_records','disposal_log','checkins','suppliers_mgmt',
       'room_bookings','benchmark_targets','renovation_projects','maintenance_schedule',
-      'bday_settings','bday_log'
+      'bday_settings','bday_log',
+      'daily_closings','settlement_locks','dispensing_log','recurring_expenses',
+      'budgets','month_close','leave_balance','doc_targets',
+      'emergency_contacts','emergency_equipment','drill_log',
+      'followup_done','reminder_rules','reminder_log'
     ])
   LOOP
     EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%I_tenant ON %I (tenant_id)', tbl, tbl);

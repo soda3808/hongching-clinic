@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { saveExpense, deleteRecord } from '../api';
+import { useState, useMemo, useEffect } from 'react';
+import { saveExpense, deleteRecord, recurringExpensesOps, budgetsOps } from '../api';
 import { uid, fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, ALL_CATEGORIES, getStoreNames, getDefaultStore } from '../data';
 import ConfirmModal from './ConfirmModal';
 
@@ -24,6 +24,11 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
     try { return JSON.parse(localStorage.getItem('hcmc_budgets') || '{}'); } catch { return {}; }
   });
   const [showBudget, setShowBudget] = useState(false);
+
+  useEffect(() => {
+    recurringExpensesOps.load().then(d => { if (d) setRecurringTemplates(d); });
+    budgetsOps.load().then(d => { if (d) setBudgets(prev => ({ ...prev, ...d })); });
+  }, []);
 
   const months = useMemo(() => {
     const m = new Set();
@@ -134,6 +139,7 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
     const updated = [...recurringTemplates.filter(t => t.merchant !== tmpl.merchant), tmpl];
     setRecurringTemplates(updated);
     localStorage.setItem('hcmc_recurring_expenses', JSON.stringify(updated));
+    recurringExpensesOps.persistAll(updated);
     showToast(`已儲存常用開支「${tmpl.merchant}」`);
   };
 
@@ -175,6 +181,7 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
     const updated = recurringTemplates.filter(t => t.id !== id);
     setRecurringTemplates(updated);
     localStorage.setItem('hcmc_recurring_expenses', JSON.stringify(updated));
+    recurringExpensesOps.persistAll(updated);
     showToast('已刪除常用開支');
   };
 
@@ -240,6 +247,7 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
     const updated = { ...budgets, [cat]: amount };
     setBudgets(updated);
     localStorage.setItem('hcmc_budgets', JSON.stringify(updated));
+    budgetsOps.persist(updated);
   };
 
   const handleAdd = async () => {

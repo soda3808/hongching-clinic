@@ -1,6 +1,7 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, DOCTORS, linearRegression } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStoreNames } from '../tenant';
+import { monthCloseOps } from '../api';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 // Lazy-loaded sub-reports for code splitting
@@ -858,6 +859,10 @@ function MonthlyClose({ data, selectedMonth }) {
     try { return JSON.parse(localStorage.getItem('hcmc_month_close') || '{}'); } catch { return {}; }
   });
 
+  useEffect(() => {
+    monthCloseOps.load().then(d => { if (d) setChecks(prev => ({ ...prev, ...d })); });
+  }, []);
+
   const key = selectedMonth;
   const monthChecks = checks[key] || {};
 
@@ -865,6 +870,7 @@ function MonthlyClose({ data, selectedMonth }) {
     const updated = { ...checks, [key]: { ...monthChecks, [id]: monthChecks[id] ? null : new Date().toISOString() } };
     setChecks(updated);
     localStorage.setItem('hcmc_month_close', JSON.stringify(updated));
+    monthCloseOps.persist(updated);
   };
 
   const revenue = (data.revenue || []).filter(r => getMonth(r.date) === selectedMonth);

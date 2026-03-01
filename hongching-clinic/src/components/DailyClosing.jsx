@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { fmtM, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import { dailyClosingsOps, settlementLocksOps } from '../api';
 
 const PAYMENT_METHODS = ['現金', 'FPS', '信用卡', 'PayMe', '八達通', '長者醫療券', '其他'];
 
 function loadLocks() { try { return JSON.parse(localStorage.getItem('hcmc_settlement_locks') || '[]'); } catch { return []; } }
-function saveLocks(arr) { localStorage.setItem('hcmc_settlement_locks', JSON.stringify(arr)); }
+function saveLocks(arr) { localStorage.setItem('hcmc_settlement_locks', JSON.stringify(arr)); settlementLocksOps.persistAll(arr); }
 
 export default function DailyClosing({ data, showToast, user }) {
   const today = new Date().toISOString().substring(0, 10);
@@ -19,6 +20,11 @@ export default function DailyClosing({ data, showToast, user }) {
   });
   const [locks, setLocks] = useState(loadLocks);
   const [tab, setTab] = useState('current'); // current | history
+
+  useEffect(() => {
+    dailyClosingsOps.load().then(d => { if (d) setClosings(d); });
+    settlementLocksOps.load().then(d => { if (d) setLocks(d); });
+  }, []);
 
   const dayRevenue = useMemo(() => {
     let rev = (data.revenue || []).filter(r => r.date === selectedDate);
@@ -88,6 +94,7 @@ export default function DailyClosing({ data, showToast, user }) {
     const updated = [record, ...closings];
     setClosings(updated);
     localStorage.setItem('hcmc_daily_closings', JSON.stringify(updated));
+    dailyClosingsOps.persistAll(updated);
     showToast('日結已保存');
     setActualAmounts({});
     setNotes('');

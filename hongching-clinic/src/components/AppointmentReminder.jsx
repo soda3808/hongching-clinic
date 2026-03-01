@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { uid } from '../data';
+import { reminderRulesOps, reminderLogOps } from '../api';
 
 const ACCENT = '#0e7490';
 const TIMING_OPTS = ['1天前', '2天前', '3天前', '當天早上', '1小時前'];
@@ -16,9 +17,9 @@ const DEFAULT_TEMPLATES = [
 ];
 
 function loadRules() { try { const d = JSON.parse(localStorage.getItem('hcmc_reminder_rules')); return Array.isArray(d) ? d : []; } catch { return []; } }
-function saveRules(arr) { localStorage.setItem('hcmc_reminder_rules', JSON.stringify(arr)); }
+function saveRules(arr) { localStorage.setItem('hcmc_reminder_rules', JSON.stringify(arr)); reminderRulesOps.persistAll(arr); }
 function loadLog() { try { const d = JSON.parse(localStorage.getItem('hcmc_reminder_log')); return Array.isArray(d) ? d : []; } catch { return []; } }
-function saveLog(arr) { localStorage.setItem('hcmc_reminder_log', JSON.stringify(arr)); }
+function saveLog(arr) { localStorage.setItem('hcmc_reminder_log', JSON.stringify(arr)); reminderLogOps.persistAll(arr); }
 function renderPreview(content) { let s = content; VARIABLES.forEach(v => { s = s.replaceAll(v, SAMPLE[v]); }); return s; }
 
 const S = {
@@ -59,6 +60,10 @@ export default function AppointmentReminder({ data, showToast, user }) {
   const [tab, setTab] = useState(0);
   const [rules, setRules] = useState(loadRules);
   const [log, setLog] = useState(loadLog);
+  useEffect(() => {
+    reminderRulesOps.load().then(d => { if (d) setRules(d); });
+    reminderLogOps.load().then(d => { if (d) setLog(d); });
+  }, []);
   const [templates, setTemplates] = useState(DEFAULT_TEMPLATES);
   const [editRule, setEditRule] = useState(null);
   const [editTpl, setEditTpl] = useState(null);

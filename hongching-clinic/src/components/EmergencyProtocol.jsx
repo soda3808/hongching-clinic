@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getClinicName } from '../tenant';
 import { uid, getEmployees } from '../data';
+import { emergencyContactsOps, emergencyEquipmentOps, drillLogOps } from '../api';
 
 const A = '#0e7490', BG = '#f0fdfa', BDR = '#cffafe', DANGER = '#dc2626', WARN = '#f59e0b';
 const card = { background: '#fff', borderRadius: 10, padding: 16, marginBottom: 14, border: '1px solid #e5e7eb' };
@@ -86,9 +87,15 @@ export default function EmergencyProtocol({ showToast, user }) {
     { id: 'certs', label: '員工認證' }, { id: 'print', label: '快速參考' },
   ];
 
-  const saveContacts = (c) => { setContacts(c); localStorage.setItem('hcmc_emergency_contacts', JSON.stringify(c)); };
-  const saveEquipment = (e) => { setEquipment(e); localStorage.setItem('hcmc_emergency_equipment', JSON.stringify(e)); };
-  const saveDrills = (d) => { setDrills(d); localStorage.setItem('hcmc_drill_log', JSON.stringify(d)); };
+  const saveContacts = (c) => { setContacts(c); localStorage.setItem('hcmc_emergency_contacts', JSON.stringify(c)); emergencyContactsOps.persistAll(c); };
+  const saveEquipment = (e) => { setEquipment(e); localStorage.setItem('hcmc_emergency_equipment', JSON.stringify(e)); emergencyEquipmentOps.persistAll(e); };
+  const saveDrills = (d) => { setDrills(d); localStorage.setItem('hcmc_drill_log', JSON.stringify(d)); drillLogOps.persistAll(d); };
+
+  useEffect(() => {
+    emergencyContactsOps.load().then(d => { if (d) setContacts(d); });
+    emergencyEquipmentOps.load().then(d => { if (d) setEquipment(d); });
+    drillLogOps.load().then(d => { if (d) setDrills(d); });
+  }, []);
 
   const addDrill = () => {
     if (!drillForm.date || !drillForm.type) return showToast('請填寫日期及類型');

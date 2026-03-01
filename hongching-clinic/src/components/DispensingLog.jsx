@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
+import { dispensingLogOps } from '../api';
 
 const STATUS_MAP = {
   pending: { label: '待配藥', color: '#f59e0b', bg: '#fffbeb' },
@@ -11,10 +12,11 @@ const STATUS_MAP = {
 };
 
 function loadLog() { try { return JSON.parse(localStorage.getItem('hcmc_dispensing_log') || '[]'); } catch { return []; } }
-function saveLog(arr) { localStorage.setItem('hcmc_dispensing_log', JSON.stringify(arr)); }
+function saveLog(arr) { localStorage.setItem('hcmc_dispensing_log', JSON.stringify(arr)); dispensingLogOps.persistAll(arr); }
 
 export default function DispensingLog({ data, showToast, user }) {
   const [log, setLog] = useState(loadLog);
+  useEffect(() => { dispensingLogOps.load().then(d => { if (d) setLog(d); }); }, []);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState(new Date().toISOString().substring(0, 10));

@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
-import { saveLeave, deleteLeave } from '../api';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { saveLeave, deleteLeave, leaveBalanceOps } from '../api';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
@@ -19,7 +19,7 @@ const MONTH_LABELS = ['', '一月', '二月', '三月', '四月', '五月', '六
 function getLeaveBalance() {
   try { return JSON.parse(localStorage.getItem('hcmc_leave_balance')) || {}; } catch { return {}; }
 }
-function saveLeaveBalance(b) { localStorage.setItem('hcmc_leave_balance', JSON.stringify(b)); }
+function saveLeaveBalance(b) { localStorage.setItem('hcmc_leave_balance', JSON.stringify(b)); leaveBalanceOps.persist(b); }
 
 export default function LeavePage({ data, setData, showToast, allData, user }) {
   const [tab, setTab] = useState('list');
@@ -35,6 +35,16 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
   const leaves = data.leaves || [];
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const thisMonth = new Date().toISOString().substring(0, 7);
+  const [leaveBalVer, setLeaveBalVer] = useState(0);
+
+  useEffect(() => {
+    leaveBalanceOps.load().then(d => {
+      if (d) {
+        localStorage.setItem('hcmc_leave_balance', JSON.stringify(d));
+        setLeaveBalVer(v => v + 1);
+      }
+    });
+  }, []);
 
   const myLeaves = useMemo(() => {
     if (isAdmin) return leaves;
@@ -62,7 +72,7 @@ export default function LeavePage({ data, setData, showToast, allData, user }) {
       sick: (userBal.sick || DEFAULT_BALANCE.sick) - used.sick,
       personal: (userBal.personal || DEFAULT_BALANCE.personal) - used.personal,
     };
-  }, [leaves, user]);
+  }, [leaves, user, leaveBalVer]);
 
   const stats = useMemo(() => ({
     pending: myLeaves.filter(l => l.status === 'pending').length,

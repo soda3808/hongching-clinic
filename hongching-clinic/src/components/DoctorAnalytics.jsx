@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { fmtM, fmt, getMonth, monthLabel } from '../data';
 import { getTenantDoctors } from '../tenant';
+import { docTargetsOps } from '../api';
 
 const COLOR_PALETTE = ['#0e7490', '#8B6914', '#7C3AED', '#dc2626', '#16a34a', '#0284c7', '#d97706', '#991b1b'];
 function getDoctorColors() {
@@ -38,9 +39,14 @@ export default function DoctorAnalytics({ data, user }) {
   const [editingTargets, setEditingTargets] = useState(false);
   const [tempTargets, setTempTargets] = useState({ ...targets });
 
+  useEffect(() => {
+    docTargetsOps.load().then(d => { if (d) { setTargets(d); setTempTargets(d); } });
+  }, []);
+
   const saveTargets = () => {
     setTargets({ ...tempTargets });
     localStorage.setItem('hcmc_doc_targets', JSON.stringify(tempTargets));
+    docTargetsOps.persist(tempTargets);
     setEditingTargets(false);
   };
   const months = useMemo(() => {
