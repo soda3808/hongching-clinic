@@ -420,6 +420,19 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             a.download = `patients_selected_${new Date().toISOString().substring(0,10)}.csv`; a.click();
             showToast(`已匯出 ${selPatients.length} 位病人`);
           }}>匯出所選</button>
+          <button className="btn btn-outline btn-sm" onClick={() => {
+            const selPatients = filtered.filter(p => selected.has(p.id));
+            const withPhone = selPatients.filter(p => p.phone || p.name);
+            if (!withPhone.length) return showToast('所選病人沒有資料');
+            const vcards = withPhone.map(p => {
+              const nameParts = (p.name || '').split('');
+              return `BEGIN:VCARD\r\nVERSION:3.0\r\nFN:${p.name || ''}\r\nN:${nameParts.length > 1 ? nameParts[0] + ';' + nameParts.slice(1).join('') : p.name + ';;;'}\r\n${p.phone ? 'TEL;TYPE=CELL:+852' + p.phone.replace(/\D/g, '') + '\r\n' : ''}${p.email ? 'EMAIL:' + p.email + '\r\n' : ''}${p.address ? 'ADR;TYPE=HOME:;;' + p.address + ';;;;\r\n' : ''}NOTE:${getClinicName()} 病人${p.doctor ? ' | 主診：' + p.doctor : ''}${p.dob ? ' | DOB：' + p.dob : ''}\r\nEND:VCARD`;
+            }).join('\r\n');
+            const blob = new Blob([vcards], { type: 'text/vcard;charset=utf-8' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `patients_contacts_${new Date().toISOString().substring(0,10)}.vcf`; a.click();
+            showToast(`已匯出 ${withPhone.length} 位病人通訊錄（.vcf）`);
+          }}>📱 匯出通訊錄</button>
           <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())}>取消選擇</button>
         </div>
       )}
@@ -457,36 +470,97 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
       </div>
 
       {/* Batch WhatsApp Modal (#95) */}
-      {showBatchWA && (
+      {showBatchWA && (() => {
+        const targets = filtered.filter(p => selected.has(p.id) && p.phone);
+        return (
         <div className="modal-overlay" onClick={() => setShowBatchWA(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
-            <h3>批量 WhatsApp ({filtered.filter(p => selected.has(p.id) && p.phone).length} 位)</h3>
-            <div style={{ marginBottom: 12 }}>
-              <label>訊息內容</label>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
+            <h3>批量 WhatsApp ({targets.length} 位)</h3>
+
+            {/* Message Templates */}
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 600 }}>快速模板</label>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                {[
+                  ['覆診提醒', `親愛的{姓名}，提醒您已到覆診時間，歡迎致電${getClinicName()}預約。祝健康！`],
+                  ['節日問候', `{姓名}您好！${getClinicName()}祝您身體健康、萬事如意！如需預約可隨時聯繫我們。`],
+                  ['新服務', `{姓名}您好！${getClinicName()}推出全新服務，歡迎致電或WhatsApp查詢詳情。`],
+                  ['健康貼士', `{姓名}您好！近日天氣轉涼，注意保暖防感冒。如有不適歡迎預約到診。${getClinicName()}`],
+                ].map(([name, tpl]) => (
+                  <button key={name} className="btn btn-outline btn-sm" style={{ fontSize: 10 }}
+                    onClick={() => setBatchMsg(tpl)}>{name}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ fontSize: 12, fontWeight: 600 }}>訊息內容 <span style={{ color: '#999', fontWeight: 400 }}>（可用 {'{姓名}'} 自動替換）</span></label>
               <textarea rows={4} value={batchMsg} onChange={e => setBatchMsg(e.target.value)} />
             </div>
-            <div style={{ marginBottom: 12, fontSize: 11, color: 'var(--gray-400)' }}>
-              將逐一開啟 WhatsApp 對話窗口，每位病人一個
+
+            {/* Preview */}
+            {targets[0] && (
+              <div style={{ marginBottom: 10, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 10, fontSize: 12 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4, color: '#166534' }}>預覽（{targets[0].name}）</div>
+                <div style={{ color: '#333' }}>{batchMsg.replace(/\{姓名\}/g, targets[0].name)}</div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                <span style={{ fontWeight: 600 }}>發送方式：</span>
+              </label>
+              <div style={{ fontSize: 11, color: '#666', marginTop: 4, lineHeight: 1.5 }}>
+                透過 WhatsApp Business API 發送（每則間隔 2 秒避免被封鎖）。<br />
+                如未設定 API，會改用瀏覽器開啟 wa.me 連結。
+              </div>
             </div>
+
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-teal" onClick={() => {
-                const targets = filtered.filter(p => selected.has(p.id) && p.phone);
-                targets.forEach((p, i) => {
-                  setTimeout(() => {
-                    const phone = p.phone.replace(/[^0-9]/g, '');
-                    const fullPhone = phone.startsWith('852') ? phone : `852${phone}`;
-                    window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(batchMsg)}`, '_blank');
-                  }, i * 800);
-                });
-                showToast(`正在開啟 ${targets.length} 個 WhatsApp 對話`);
+              <button className="btn btn-teal" onClick={async () => {
+                const token = sessionStorage.getItem('hcmc_jwt');
+                let apiSent = 0, linkSent = 0, failed = 0;
+                showToast(`開始發送 ${targets.length} 則訊息...`);
                 setShowBatchWA(false);
+
+                for (let i = 0; i < targets.length; i++) {
+                  const p = targets[i];
+                  const personalMsg = batchMsg.replace(/\{姓名\}/g, p.name || '');
+                  const phone = p.phone.replace(/[^0-9]/g, '');
+
+                  // Try API first
+                  try {
+                    const res = await fetch('/api/messaging?action=whatsapp', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                      body: JSON.stringify({ phone, message: personalMsg, store: p.store || '' }),
+                    });
+                    const result = await res.json();
+                    if (result.success) { apiSent++; }
+                    else if (result.demo) {
+                      // API not configured, fallback to wa.me link
+                      const fullPhone = phone.startsWith('852') ? phone : `852${phone}`;
+                      window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(personalMsg)}`, '_blank');
+                      linkSent++;
+                    } else { failed++; }
+                  } catch { failed++; }
+
+                  // Rate limit: 2 second delay between sends
+                  if (i < targets.length - 1) await new Promise(r => setTimeout(r, 2000));
+                }
+
+                const parts = [];
+                if (apiSent) parts.push(`API 發送 ${apiSent} 則`);
+                if (linkSent) parts.push(`連結開啟 ${linkSent} 則`);
+                if (failed) parts.push(`失敗 ${failed} 則`);
+                showToast(parts.join('、') || '發送完成');
                 setSelected(new Set());
-              }}>發送 ({filtered.filter(p => selected.has(p.id) && p.phone).length})</button>
+              }}>發送 ({targets.length})</button>
               <button className="btn btn-outline" onClick={() => setShowBatchWA(false)}>取消</button>
             </div>
           </div>
-        </div>
-      )}
+        </div>);
+      })()}
 
       {/* Detail Modal */}
       {detail && (() => {

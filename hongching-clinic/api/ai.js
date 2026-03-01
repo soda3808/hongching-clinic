@@ -129,6 +129,77 @@ async function handleChatbot(req, res) {
   } catch { return res.status(500).json({ success: false, error: '伺服器錯誤' }); }
 }
 
+// ── Handler: Consultation Transcript Analysis ──
+async function handleConsultAnalyze(req, res) {
+  const auth = requireAuth(req);
+  if (!auth.authenticated) return errorResponse(res, 401, auth.error);
+  const rl = await rateLimit(`consult:${auth.user.userId}`, 10, 60000);
+  if (!rl.allowed) return errorResponse(res, 429, '請求過於頻繁');
+
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ success: false, error: 'ANTHROPIC_API_KEY not configured' });
+
+  const { transcript, patientName, patientAge, patientGender, history } = req.body || {};
+  if (!transcript) return res.status(400).json({ success: false, error: 'Missing transcript' });
+
+  const systemPrompt = `你是一位經驗豐富的香港註冊中醫師AI助手。根據醫師與病人的對話記錄，進行全面的中醫分析。
+
+你的任務：
+1. 整理對話成 SOAP 格式病歷
+2. 進行中醫辨證分析（寒熱虛實、臟腑辨證）
+3. 建議處方（常用安全方劑，合理劑量）
+4. 提供食療湯水建議（具體材料同做法）
+5. 列出注意事項（飲食禁忌、生活調攝）
+6. 建議覆診時間
+
+回覆必須是 JSON 格式：
+{
+  "subjective": "主訴摘要（用病人原話整理）",
+  "objective": "客觀所見（從對話中提取望聞問切資料）",
+  "assessment": "評估分析（辨證論治思路）",
+  "plan": "治療計劃摘要",
+  "tcmDiagnosis": "中醫診斷（病名）",
+  "tcmPattern": "證型",
+  "tongue": "舌象描述（如對話有提及）",
+  "pulse": "脈象描述（如對話有提及）",
+  "formulaName": "方劑名稱",
+  "herbs": [{"herb": "藥材名", "dosage": "10g"}],
+  "acupoints": "建議穴位（逗號分隔）",
+  "dietary": "食療湯水建議（具體材料、份量、做法）\\n例如：\\n1. 北芪黨參燉雞湯：北芪15g、黨參15g、紅棗6粒、雞半隻，燉2小時\\n2. ...",
+  "precautions": "注意事項（飲食禁忌、生活調攝）\\n例如：\\n- 忌食生冷寒涼\\n- 注意保暖\\n- ...",
+  "followUp": "建議覆診時間及原因"
+}
+
+重要規則：
+- 用繁體中文（廣東話用詞）回覆
+- 只建議常用安全的中藥方劑
+- 劑量要合理（成人標準劑量）
+- 如果對話資料不足，相關欄位填寫"資料不足，需進一步問診"
+- 食療建議要具體實用，適合香港人日常煲湯
+- 注意事項要根據辨證結果給出針對性建議`;
+
+  const userMessage = `對話記錄：\n${transcript}\n\n${patientName ? `病人姓名：${patientName}` : ''}${patientAge ? `\n年齡：${patientAge}` : ''}${patientGender ? `\n性別：${patientGender}` : ''}${history ? `\n既往史：${history}` : ''}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 2048, system: systemPrompt, messages: [{ role: 'user', content: userMessage }] }),
+    });
+    if (!response.ok) return res.status(response.status).json({ success: false, error: `API error: ${response.status}` });
+    const result = await response.json();
+    const text = result.content?.[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return res.status(200).json({ success: true, ...parsed });
+      } catch {}
+    }
+    return res.status(200).json({ success: true, assessment: text });
+  } catch { return res.status(500).json({ success: false, error: '伺服器錯誤' }); }
+}
+
 // ── Main Router ──
 export default async function handler(req, res) {
   setCORS(req, res);
@@ -140,6 +211,7 @@ export default async function handler(req, res) {
     case 'chat': return handleChat(req, res);
     case 'prescription': return handlePrescription(req, res);
     case 'chatbot': return handleChatbot(req, res);
+    case 'consult-analyze': return handleConsultAnalyze(req, res);
     default: return errorResponse(res, 400, `Unknown AI action: ${action}`);
   }
 }

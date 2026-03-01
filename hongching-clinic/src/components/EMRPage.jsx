@@ -9,6 +9,7 @@ import { searchDiagnoses, searchZheng, searchProcedures } from '../data/hkctt';
 import VoiceButton from './VoiceButton';
 import MedicineLabel from './MedicineLabel';
 import SignaturePad, { SignaturePreview } from './SignaturePad';
+import ConsultAI from './ConsultAI';
 
 const EMPTY_RX = { herb: '', dosage: '' };
 function makeEmptyForm() {
@@ -742,6 +743,9 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               )}
 
               {/* SOAP Notes */}
+              {/* AI Consultation Assistant */}
+              <ConsultAI form={form} setForm={setForm} showToast={showToast} />
+
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
                 <h4 style={{ margin: 0, fontSize: 13 }}>SOAP 病歷</h4>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
