@@ -926,6 +926,12 @@ function MainApp() {
     try { return JSON.parse(sessionStorage.getItem('hcmc_read_notifs') || '[]'); } catch { return []; }
   });
 
+  // Toast notification - must be defined before hooks that use it
+  const showToast = useCallback((msg, type = 'info') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), type === 'error' ? 4000 : 2500);
+  }, []);
+
   // Session management: idle timeout with warning + token refresh
   const handleLogoutSession = useCallback(() => { logout(); setUser(null); }, []);
   const { showIdleWarning, dismissWarning } = useSessionManager({
@@ -996,11 +1002,6 @@ function MainApp() {
   const unreadCount = notifications.filter((_, i) => !readNotifs.includes(i)).length;
 
   const handleLogout = useCallback(() => { logAction(user, 'logout', 'auth', '用戶登出'); logout(); setUser(null); }, [user]);
-
-  const showToast = useCallback((msg, type = 'info') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), type === 'error' ? 4000 : 2500);
-  }, []);
 
   const reload = useCallback(async () => {
     setLoading(true);
