@@ -7,6 +7,20 @@ export const config = { maxDuration: 60 };
 import { setCORS, handleOptions, requireAuth, requireRole, rateLimit, getClientIP, validatePhone, sanitizeString, errorResponse } from './_middleware.js';
 import { sendEmail, appointmentReminderEmail } from './_email.js';
 
+// ── Telegram Webhook Deduplication (prevents retry duplicates) ──
+const processedUpdates = new Set();
+const DEDUP_MAX = 200;
+function isDuplicate(updateId) {
+  if (!updateId) return false;
+  if (processedUpdates.has(updateId)) return true;
+  processedUpdates.add(updateId);
+  if (processedUpdates.size > DEDUP_MAX) {
+    const first = processedUpdates.values().next().value;
+    processedUpdates.delete(first);
+  }
+  return false;
+}
+
 // ── Conversation Memory (in-memory, resets on cold start) ──
 const chatHistory = new Map();
 function addToHistory(chatId, role, text) {
@@ -27,7 +41,7 @@ function getHistory(chatId, maxChars = 8000) {
   return result.trim();
 }
 
-// ── Staff / Employee Config ──
+// ── Staff / Employee Config (defaults + Supabase persistence) ──
 const defaultStaffConfig = {
   '許醫師': { type: 'doctor', note: '按診金分成' },
   '曾醫師': { type: 'doctor', note: '按診金分成' },
@@ -35,6 +49,47 @@ const defaultStaffConfig = {
   'Kelly': { type: 'staff', note: '月薪制' },
 };
 const staffConfig = new Map(Object.entries(defaultStaffConfig));
+let staffConfigLoaded = false;
+
+// Load staff rates from Supabase (overwrites defaults with saved values)
+async function loadStaffConfig() {
+  if (staffConfigLoaded) return;
+  try {
+    const sbU = process.env.SUPABASE_URL;
+    const sbK = process.env.SUPABASE_ANON_KEY;
+    if (!sbU || !sbK) return;
+    const r = await fetch(`${sbU}/rest/v1/drive_knowledge?id=eq.staff_config&select=raw_text`, {
+      headers: { 'apikey': sbK, 'Authorization': `Bearer ${sbK}` },
+    });
+    if (r.ok) {
+      const rows = await r.json();
+      if (rows.length && rows[0].raw_text) {
+        const saved = JSON.parse(rows[0].raw_text);
+        for (const [name, cfg] of Object.entries(saved)) {
+          staffConfig.set(name, cfg);
+        }
+        console.log('[StaffConfig] Loaded from Supabase:', Object.keys(saved).length, 'entries');
+      }
+    }
+  } catch (e) { console.error('[StaffConfig] Load error:', e.message); }
+  staffConfigLoaded = true;
+}
+
+// Save staff rates to Supabase
+async function saveStaffConfig() {
+  try {
+    const sbU = process.env.SUPABASE_URL;
+    const sbK = process.env.SUPABASE_ANON_KEY;
+    if (!sbU || !sbK) return;
+    const data = Object.fromEntries(staffConfig.entries());
+    await fetch(`${sbU}/rest/v1/drive_knowledge`, {
+      method: 'POST',
+      headers: { 'apikey': sbK, 'Authorization': `Bearer ${sbK}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ id: 'staff_config', name: 'Staff Config', category: 'config', raw_text: JSON.stringify(data), status: 'active', indexed_at: new Date().toISOString() }),
+    });
+    console.log('[StaffConfig] Saved to Supabase');
+  } catch (e) { console.error('[StaffConfig] Save error:', e.message); }
+}
 
 function getStaffConfigText() {
   let lines = [];
@@ -758,6 +813,16 @@ async function handleTgExpense(req, res) {
     const update = req.body;
     if (!update) return res.status(200).json({ ok: true });
 
+    // Load staff config from Supabase on first request after cold start
+    await loadStaffConfig();
+
+    // Dedup: prevent Telegram webhook retries from causing duplicate actions
+    const updateId = update.update_id || update.callback_query?.id;
+    if (isDuplicate(updateId)) {
+      console.log(`[TG] Duplicate update_id ${updateId}, skipping`);
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Callback: undo / legacy confirm ──
     if (update.callback_query) {
       const cbq = update.callback_query;
@@ -851,10 +916,25 @@ async function handleTgExpense(req, res) {
           return res.status(200).json({ ok: true });
         }
         await tgExpReply(chatId, `🎙️ 聽到：「${transcript}」\n\n🤖 AI 處理中...`);
-        // Now pass transcript to NLP
+        addToHistory(chatId, '用戶', `[語音] ${transcript}`);
+
+        // Smart routing: check if voice is a question/command or expense
+        const voiceIsQuestion = /[？?]|幫我|計算|幾多|點樣|邊個|查|搵|睇下|報告|糧單|payslip|分析|比較|統計|總結|整糧|計糧|出糧|人工|薪金|工時|時數/.test(transcript);
+        const voiceIsCorrection = /唔岩|唔啱|錯|正確|應該係|點解/.test(transcript);
+
+        if (voiceIsQuestion || voiceIsCorrection) {
+          // Route to smart query for questions/calculations
+          const answered = await tgSmartQuery(chatId, transcript, getHistory(chatId));
+          if (answered) return res.status(200).json({ ok: true });
+        }
+
+        // Try expense NLP parsing
         const results = await tgExpNLP(transcript);
         if (!results || !Array.isArray(results) || results.length === 0 || results[0].error) {
-          await tgExpReply(chatId, `🤔 聽到「${transcript}」但搵唔到金額。\n\n請講清楚啲，例如：「今日買左300蚊藥材」`);
+          // NLP failed — try smart query as fallback
+          const answered = await tgSmartQuery(chatId, transcript, getHistory(chatId));
+          if (answered) return res.status(200).json({ ok: true });
+          await tgExpReply(chatId, `🤔 聽到「${transcript}」但唔太明白意思。\n\n記帳請講：「今日買左300蚊藥材」\n查詢請講：「呢個月開支幾多？」`);
           return res.status(200).json({ ok: true });
         }
         let saved = 0;
@@ -865,6 +945,9 @@ async function handleTgExpense(req, res) {
           }
         }
         if (saved === 0) {
+          // No amounts — try smart query
+          const answered = await tgSmartQuery(chatId, transcript, getHistory(chatId));
+          if (answered) return res.status(200).json({ ok: true });
           await tgExpReply(chatId, `🤔 聽到「${transcript}」但搵唔到金額。`);
         }
       } catch (voiceErr) {
@@ -1025,9 +1108,35 @@ JSON array 回覆（無markdown無解釋）：
         const pdfTxt = pdfData.content?.[0]?.text || '';
         console.log('[PDF] Claude response:', pdfTxt.slice(0, 300));
         const pdfMatch = pdfTxt.match(/\[[\s\S]*\]/);
-        if (!pdfMatch) { await tgExpReply(chatId, '🤔 掃描唔到 PDF 內容。請確保文件清晰可讀。'); return res.status(200).json({ ok: true }); }
+        if (!pdfMatch) {
+          // Not a financial PDF — try to extract text and route to smart query
+          console.log('[PDF] No financial data found, routing to smart query...');
+          if (pdfTxt && pdfTxt.length > 20) {
+            await tgExpReply(chatId, '📄 唔似財務文件，AI 正在分析 PDF 內容...');
+            addToHistory(chatId, '用戶', `[PDF] ${pdfTxt.slice(0, 500)}`);
+            const queryText = caption
+              ? `${caption}\n\nPDF 文件內容：\n${pdfTxt.slice(0, 3000)}`
+              : `用戶發送了一個 PDF 文件，內容如下：\n${pdfTxt.slice(0, 3000)}`;
+            const answered = await tgSmartQuery(chatId, queryText, getHistory(chatId));
+            if (answered) return res.status(200).json({ ok: true });
+          }
+          await tgExpReply(chatId, '🤔 掃描唔到 PDF 內容。請確保文件清晰可讀。');
+          return res.status(200).json({ ok: true });
+        }
         const entries = JSON.parse(pdfMatch[0]).filter(e => !e.error && e.amount > 0);
-        if (!entries.length) { await tgExpReply(chatId, '🤔 PDF 入面搵唔到交易記錄。\n\n請確保係收據、發票或帳單。'); return res.status(200).json({ ok: true }); }
+        if (!entries.length) {
+          // Has JSON but no amounts — might be a non-financial document
+          console.log('[PDF] No financial entries, routing to smart query...');
+          if (pdfTxt && pdfTxt.length > 20) {
+            await tgExpReply(chatId, '📄 PDF 冇交易記錄，AI 正在分析內容...');
+            addToHistory(chatId, '用戶', `[PDF] ${pdfTxt.slice(0, 500)}`);
+            const queryText = `用戶發送了一個 PDF，內容摘要：\n${pdfTxt.slice(0, 3000)}`;
+            const answered = await tgSmartQuery(chatId, queryText, getHistory(chatId));
+            if (answered) return res.status(200).json({ ok: true });
+          }
+          await tgExpReply(chatId, '🤔 PDF 入面搵唔到交易記錄。\n\n請確保係收據、發票或帳單。');
+          return res.status(200).json({ ok: true });
+        }
         let saved = 0; let totalAmt = 0;
         for (const ocr of entries) {
           await autoSaveAndReply(chatId, ocr, ocr.store_hint || storeFromCaption, pdfDriveLink);
@@ -2069,13 +2178,15 @@ JSON array 回覆（無markdown無解釋）：
           const salary = Number(fixedMatch[2]);
           const existing = staffConfig.get(name) || {};
           staffConfig.set(name, { ...existing, type: existing.type || 'staff', fixedSalary: salary, note: `月薪制，HK$${salary.toLocaleString()}/月` });
-          await tgExpReply(chatId, `✅ 已設定 <b>${name}</b> 月薪為 HK$${salary.toLocaleString()}`);
+          await saveStaffConfig();
+          await tgExpReply(chatId, `✅ 已設定 <b>${name}</b> 月薪為 HK$${salary.toLocaleString()}（已永久儲存）`);
         } else if (hourlyMatch) {
           const name = hourlyMatch[1].trim();
           const rate = Number(hourlyMatch[2]);
           const existing = staffConfig.get(name) || {};
           staffConfig.set(name, { ...existing, type: 'parttime', rate, note: `兼職，HK$${rate}/小時，6小時以上扣1小時飯鐘` });
-          await tgExpReply(chatId, `✅ 已設定 <b>${name}</b> 時薪為 HK$${rate}/小時`);
+          await saveStaffConfig();
+          await tgExpReply(chatId, `✅ 已設定 <b>${name}</b> 時薪為 HK$${rate}/小時（已永久儲存）`);
         } else {
           await tgExpReply(chatId, '❌ 格式錯誤。\n\n設定時薪：<code>/rate 名字 60</code>\n設定月薪：<code>/rate 名字 fixed 45000</code>\n查看全部：<code>/rates</code>');
         }
