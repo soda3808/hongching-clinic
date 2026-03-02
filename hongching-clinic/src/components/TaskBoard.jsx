@@ -708,6 +708,33 @@ export default function TaskBoard({ showToast, data, user, setPage }) {
       changed = true;
     }
 
+    // ── Auto-complete payment tasks by matching expenses ──
+    const thisMonth = today().substring(0, 7);
+    const monthExpenses = (data?.expenses || []).filter(e => (e.date || '').startsWith(thisMonth));
+    const monthRevenue = (data?.revenue || []).filter(e => (e.date || '').startsWith(thisMonth));
+    const allFinancial = [...monthExpenses, ...monthRevenue];
+    const paySchedule = settings.paymentSchedule || [];
+
+    tasks = tasks.map(t => {
+      if (t.status !== 'pending' && t.status !== 'overdue') return t;
+      if (!t.autoKey || !t.autoKey.startsWith('payment_')) return t;
+      // Find matching schedule item
+      const schedId = t.autoKey.split('_')[1] + '_' + t.autoKey.split('_')[2]; // e.g. "rent_pk"
+      const schedItem = paySchedule.find(s => t.autoKey.includes(s.id));
+      if (!schedItem) return t;
+      // Match: any expense this month with similar merchant/desc containing the schedule label or staff name
+      const matchKeywords = [schedItem.label, schedItem.staff, schedItem.store].filter(Boolean).map(k => k.toLowerCase());
+      const hasMatch = allFinancial.some(exp => {
+        const searchText = [exp.merchant, exp.desc, exp.name, exp.item, exp.note].filter(Boolean).join(' ').toLowerCase();
+        return matchKeywords.some(k => k && searchText.includes(k));
+      });
+      if (hasMatch) {
+        changed = true;
+        return { ...t, status: 'completed', completedAt: new Date().toISOString(), completedBy: 'TG AI 自動配對' };
+      }
+      return t;
+    });
+
     if (changed) {
       const newStore = { tasks, settings };
       setStore(newStore);

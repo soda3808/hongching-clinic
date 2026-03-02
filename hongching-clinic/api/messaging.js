@@ -320,10 +320,12 @@ async function autoSaveAndReply(chatId, ocr, storeOverride) {
   const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
   const id = `tg_${uid}`;
 
+  const receiptInfo = [ocr.doc_type || 'receipt', ocr.raw_text || ''].filter(Boolean).join(' | ');
+
   if (isRev) {
-    await sbInsertExp('revenue', { id, date: ocr.date, name: ocr.vendor, item: ocr.item || ocr.category || '診金', amount: ocr.amount, payment: ocr.payment || '其他', store, doctor: '', note: 'TG AI自動', created_at: new Date().toISOString() });
+    await sbInsertExp('revenue', { id, date: ocr.date, name: ocr.vendor, item: ocr.item || ocr.category || '診金', amount: ocr.amount, payment: ocr.payment || '其他', store, doctor: '', note: `TG AI自動 | ${receiptInfo}`, created_at: new Date().toISOString() });
   } else {
-    await sbInsertExp('expenses', { id, date: ocr.date, merchant: ocr.vendor, amount: ocr.amount, category: ocr.category || '其他', store, payment: ocr.payment || '其他', desc: `TG AI: ${ocr.item || ocr.vendor}`, receipt: '', created_at: new Date().toISOString() });
+    await sbInsertExp('expenses', { id, date: ocr.date, merchant: ocr.vendor, amount: ocr.amount, category: ocr.category || '其他', store, payment: ocr.payment || '其他', desc: `TG AI: ${ocr.item || ocr.vendor}`, receipt: receiptInfo, created_at: new Date().toISOString() });
   }
 
   const emoji = isRev ? '💰' : '🧾';
