@@ -4,6 +4,43 @@
 import { setCORS, handleOptions, requireAuth, requireRole, rateLimit, getClientIP, validatePhone, sanitizeString, errorResponse } from './_middleware.js';
 import { sendEmail, appointmentReminderEmail } from './_email.js';
 
+// ── Conversation Memory (in-memory, resets on cold start) ──
+const chatHistory = new Map();
+function addToHistory(chatId, role, text) {
+  if (!chatHistory.has(chatId)) chatHistory.set(chatId, []);
+  const h = chatHistory.get(chatId);
+  h.push({ role, text: (text || '').slice(0, 500), ts: Date.now() });
+  if (h.length > 10) h.shift();
+}
+function getHistory(chatId) {
+  return (chatHistory.get(chatId) || []).map(m => `[${m.role}] ${m.text}`).join('\n');
+}
+
+// ── Staff / Employee Config ──
+const defaultStaffConfig = {
+  '許醫師': { type: 'doctor', note: '按診金分成' },
+  '曾醫師': { type: 'doctor', note: '按診金分成' },
+  'Zoe趙穎欣': { type: 'parttime', rate: 60, note: '兼職，$60/小時，6小時以上扣1小時飯鐘' },
+  'Kelly': { type: 'staff', note: '月薪制' },
+};
+const staffConfig = new Map(Object.entries(defaultStaffConfig));
+
+function getStaffConfigText() {
+  let lines = [];
+  for (const [name, cfg] of staffConfig.entries()) {
+    if (cfg.type === 'parttime' && cfg.rate) {
+      lines.push(`${name}：兼職，時薪 HK$${cfg.rate}/小時${cfg.note ? '，' + cfg.note : ''}`);
+    } else if (cfg.type === 'doctor') {
+      lines.push(`${name}：醫師，${cfg.note || '按診金分成'}`);
+    } else if (cfg.fixedSalary) {
+      lines.push(`${name}：月薪 HK$${cfg.fixedSalary.toLocaleString()}${cfg.note ? '，' + cfg.note : ''}`);
+    } else {
+      lines.push(`${name}：${cfg.note || cfg.type || '職員'}`);
+    }
+  }
+  return lines.join('\n') || '暫無員工設定';
+}
+
 // ── Google Drive Upload Helper ──
 async function getGoogleAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -475,7 +512,7 @@ JSON array 回覆（無markdown無解釋）：
 }
 
 // ── Smart Query: answer questions using business data ──
-async function tgSmartQuery(chatId, text) {
+async function tgSmartQuery(chatId, text, conversationHistory) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return false;
 
@@ -502,14 +539,6 @@ async function tgSmartQuery(chatId, text) {
   const expByStaff = {};
   exp.filter(e => e.category === '人工').forEach(e => { expByStaff[e.merchant || '未知'] = (expByStaff[e.merchant || '未知'] || 0) + (Number(e.amount) || 0); });
 
-  // Known staff payroll config
-  const payrollConfig = [
-    { name: '許醫師', salary: 0, type: '醫師', note: '按診金分成' },
-    { name: '曾醫師', salary: 0, type: '醫師', note: '按診金分成' },
-    { name: 'Zoe 趙穎欣', salary: 0, type: '職員', note: '月薪制' },
-    { name: 'Kelly', salary: 0, type: '職員', note: '月薪制' },
-  ];
-
   const dataContext = `
 本月數據 (${now.getFullYear()}年${now.getMonth() + 1}月，截至${today}):
 - 總收入：HK$ ${totalRev.toLocaleString()}（${rev.length}筆）
@@ -524,7 +553,8 @@ async function tgSmartQuery(chatId, text) {
 
 人工支出：${Object.entries(expByStaff).sort((a,b) => b[1]-a[1]).map(([s,a]) => `${s} HK$${a.toLocaleString()}`).join('、') || '暫無'}
 
-員工名單：許醫師、曾醫師、Zoe趙穎欣、Kelly
+員工資料：
+${getStaffConfigText()}
 
 最近5筆支出：${exp.slice(0,5).map(e => `${e.date} HK$${Number(e.amount).toLocaleString()} ${e.merchant}(${e.category})`).join(' | ') || '暫無'}
 最近5筆收入：${rev.slice(0,5).map(r => `${r.date} HK$${Number(r.amount).toLocaleString()} ${r.name}(${r.item})`).join(' | ') || '暫無'}`;
@@ -533,14 +563,22 @@ async function tgSmartQuery(chatId, text) {
   const kbContext = await getRelevantKnowledge(text).catch(() => '');
   const kbSection = kbContext ? `\n\n知識庫資料（來自 Google Drive 文件）：${kbContext}` : '';
 
+  // Conversation history section
+  const historySection = conversationHistory ? `\n\n對話記錄（最近訊息）：\n${conversationHistory}` : '';
+
+  // Use Sonnet for math/calculation queries, Haiku for simple lookups
+  const needsCalc = /計算|幾多|總共|時數|時薪|人工|糧單|小時|分鐘|加埋|減|乘|除|工時|薪金|薪酬|出糧|工資|底薪|分成/.test(text);
+  const model = needsCalc ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+  const maxTokens = needsCalc ? 3000 : 2000;
+
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
-      messages: [{ role: 'user', content: `你是香港中醫診所「康晴中醫」的AI管理助手。用戶用廣東話/中文問你問題，你要根據以下數據和知識庫回答。
+      model, max_tokens: maxTokens,
+      messages: [{ role: 'user', content: `你是香港中醫診所「康晴中醫」的AI管理助手。用戶用廣東話/中文問你問題，你要根據以下數據、知識庫和對話記錄回答。
 
-${dataContext}${kbSection}
+${dataContext}${kbSection}${historySection}
 
 用戶問題：「${text}」
 
@@ -554,6 +592,10 @@ ${dataContext}${kbSection}
 7. 用 HTML 格式（<b>粗體</b>），適當用 emoji
 8. 簡潔明瞭，唔好太長
 9. 如果用戶明顯係想記帳（有金額），回覆 JSON：{"is_expense": true} 讓系統處理
+10. 如果涉及計算（金額、時數、人工等），請逐步計算並列出過程，確保數學正確
+11. 時間計算規則：10:00-13:00 = 3小時正，15:01-20:30 = 5小時29分鐘。工作超過6小時要扣1小時飯鐘（如適用）
+12. 參考對話記錄中之前提及的資料來回答，保持上下文連貫
+13. 員工資料已列出，計算人工時用對應的時薪或月薪
 
 只回覆文字答案，唔好加 markdown。` }],
     }),
@@ -565,6 +607,9 @@ ${dataContext}${kbSection}
 
   // Check if AI thinks this is actually an expense
   if (answer.includes('"is_expense": true') || answer.includes('"is_expense":true')) return false;
+
+  // Save AI response to conversation history
+  addToHistory(chatId, 'AI', answer);
 
   await tgExpReply(chatId, `🤖 ${answer}`);
   return true;
@@ -722,6 +767,9 @@ async function handleTgExpense(req, res) {
     const chatId = msg.chat.id;
     const text = (msg.text || '').trim();
     const caption = (msg.caption || '').trim();
+
+    // Save user message to conversation history
+    if (text) addToHistory(chatId, '用戶', text);
 
     // Store override: short caption (< 10 chars, no spaces) = store name
     const storeFromCaption = (caption && caption.length < 10 && !caption.includes(' ')) ? caption : '';
@@ -1858,7 +1906,9 @@ JSON array 回覆（無markdown無解釋）：
         `<b>💰 財務管理</b>\n` +
         `/cash — 現金流分析\n` +
         `/arap — 應收/應付帳款\n` +
-        `/payslip — 員工薪金摘要\n\n` +
+        `/payslip — 員工薪金摘要\n` +
+        `/rates — 員工時薪/月薪設定\n` +
+        `/rate 名字 60 — 設時薪\n\n` +
         `<b>📚 知識庫</b>\n` +
         `/scan — 掃描 Google Drive 知識庫\n` +
         `/kb — 知識庫狀態\n\n` +
@@ -1918,6 +1968,48 @@ JSON array 回覆（無markdown無解釋）：
       return res.status(200).json({ ok: true });
     }
 
+    // ── /rate — Set staff hourly rate or fixed salary ──
+    if (text.startsWith('/rate ') || text === '/rates') {
+      if (text === '/rates') {
+        // Show all configured rates
+        let rpt = '<b>👥 員工薪酬設定</b>\n━━━━━━━━━━━━━━━━━━\n\n';
+        for (const [name, cfg] of staffConfig.entries()) {
+          if (cfg.type === 'parttime' && cfg.rate) {
+            rpt += `• <b>${name}</b>：兼職，HK$${cfg.rate}/小時${cfg.note ? '\n  📝 ' + cfg.note : ''}\n`;
+          } else if (cfg.type === 'doctor') {
+            rpt += `• <b>${name}</b>：醫師，${cfg.note || '按診金分成'}\n`;
+          } else if (cfg.fixedSalary) {
+            rpt += `• <b>${name}</b>：月薪 HK$${cfg.fixedSalary.toLocaleString()}${cfg.note ? '\n  📝 ' + cfg.note : ''}\n`;
+          } else {
+            rpt += `• <b>${name}</b>：${cfg.note || cfg.type || '職員'}\n`;
+          }
+        }
+        rpt += '\n💡 設定時薪：<code>/rate 名字 60</code>\n💡 設定月薪：<code>/rate 名字 fixed 45000</code>';
+        await tgExpReply(chatId, rpt);
+      } else {
+        // Parse: /rate Name 60 OR /rate Name fixed 45000
+        const args = text.slice(6).trim();
+        const fixedMatch = args.match(/^(.+?)\s+fixed\s+(\d+)$/i);
+        const hourlyMatch = args.match(/^(.+?)\s+(\d+)$/);
+        if (fixedMatch) {
+          const name = fixedMatch[1].trim();
+          const salary = Number(fixedMatch[2]);
+          const existing = staffConfig.get(name) || {};
+          staffConfig.set(name, { ...existing, type: existing.type || 'staff', fixedSalary: salary, note: `月薪制，HK$${salary.toLocaleString()}/月` });
+          await tgExpReply(chatId, `✅ 已設定 <b>${name}</b> 月薪為 HK$${salary.toLocaleString()}`);
+        } else if (hourlyMatch) {
+          const name = hourlyMatch[1].trim();
+          const rate = Number(hourlyMatch[2]);
+          const existing = staffConfig.get(name) || {};
+          staffConfig.set(name, { ...existing, type: 'parttime', rate, note: `兼職，HK$${rate}/小時，6小時以上扣1小時飯鐘` });
+          await tgExpReply(chatId, `✅ 已設定 <b>${name}</b> 時薪為 HK$${rate}/小時`);
+        } else {
+          await tgExpReply(chatId, '❌ 格式錯誤。\n\n設定時薪：<code>/rate 名字 60</code>\n設定月薪：<code>/rate 名字 fixed 45000</code>\n查看全部：<code>/rates</code>');
+        }
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     // ── Natural Language → Smart routing: expense OR question ──
     if (text && !text.startsWith('/')) {
       // Quick heuristic: if text looks like a question (no numbers, has question words), try smart query first
@@ -1927,7 +2019,7 @@ JSON array 回覆（無markdown無解釋）：
       if (!hasAmount && isQuestion) {
         await tgExpReply(chatId, '🤖 AI 正在查詢資料...');
         try {
-          const answered = await tgSmartQuery(chatId, text);
+          const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
           if (answered) return res.status(200).json({ ok: true });
         } catch (qErr) { console.error('[SmartQuery] error:', qErr); }
       }
@@ -1939,7 +2031,7 @@ JSON array 回覆（無markdown無解釋）：
         if (!results || !results.length || results[0].error) {
           // NLP failed — try smart query as fallback
           try {
-            const answered = await tgSmartQuery(chatId, text);
+            const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
             if (answered) return res.status(200).json({ ok: true });
           } catch {}
           await tgExpReply(chatId, '🤔 唔太明白你嘅意思，可以試下咁講：\n\n• 「今日買左100蚊中藥」\n• 「利是400蚊，飲茶200蚊」\n• 「收到張三診金500蚊」\n• 或直接 send 收據相片\n• 或問問題：「呢個月開支幾多？」\n\n/help 查看所有指令');
@@ -1955,7 +2047,7 @@ JSON array 回覆（無markdown無解釋）：
         if (saved === 0) {
           // No amounts found — try smart query
           try {
-            const answered = await tgSmartQuery(chatId, text);
+            const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
             if (answered) return res.status(200).json({ ok: true });
           } catch {}
           await tgExpReply(chatId, '🤔 識別到你嘅訊息但搵唔到金額，可以再講清楚啲嗎？');
