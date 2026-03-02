@@ -186,6 +186,7 @@ const MonthEndClosing = lazy(() => import('./components/MonthEndClosing'));
 const AttendancePage = lazy(() => import('./components/AttendancePage'));
 const PayrollPage = lazy(() => import('./components/PayrollPage'));
 const DataImport = lazy(() => import('./components/DataImport'));
+const TaskBoard = lazy(() => import('./components/TaskBoard'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -354,6 +355,7 @@ const ALL_PAGES = [
   { id: 'monthend', icon: '📅', label: '月結作業', section: '財務', perm: 'viewReports' },
   { id: 'payroll', icon: '💰', label: '計糧', section: '財務', perm: 'viewPayroll' },
   { id: 'dataimport', icon: '📥', label: '資料匯入', section: '系統', perm: 'viewSettings' },
+  { id: 'taskboard', icon: '📋', label: '每日任務', section: '總覽', perm: 'viewDashboard' },
 ];
 
 // Mobile bottom tab config
@@ -1377,6 +1379,7 @@ function MainApp() {
             {page === 'billingsub' && <BillingSettings />}
             {page === 'payroll' && <PayrollPage showToast={showToast} data={data} user={user} />}
             {page === 'dataimport' && <DataImport showToast={showToast} data={data} setData={setData} user={user} />}
+            {page === 'taskboard' && <TaskBoard showToast={showToast} data={data} user={user} setPage={setPage} />}
           </Suspense>
           </ErrorBoundary>
         </div>

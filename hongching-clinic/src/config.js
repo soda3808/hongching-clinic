@@ -7,6 +7,7 @@
 // To generate a hash: node -e "require('bcryptjs').hash('newpass',10).then(h=>console.log(h))"
 export const DEFAULT_USERS = [
   { id: 'admin1', username: 'admin', passwordHash: '', name: '管理員', role: 'admin', stores: ['all'], email: '', active: true },
+  { id: 'owner1', username: 'steven', passwordHash: '$2b$10$UKNXoXiqPnc3NZuE2oqIkueMZuY3YY.1PMfZIe1l.d8rNyhj6H.5u', name: 'Steven', role: 'admin', stores: ['all'], email: '', active: true },
 ];
 
 // Fallback stores — in multi-tenant mode, stores come from tenant config in the database.
