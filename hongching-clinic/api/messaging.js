@@ -1,6 +1,9 @@
 // Consolidated Messaging API — handles whatsapp, telegram, reminders, email-reminder
 // POST /api/messaging?action=whatsapp|telegram|reminders|email-reminder
 
+// Vercel serverless function config — extend timeout for AI operations
+export const config = { maxDuration: 60 };
+
 import { setCORS, handleOptions, requireAuth, requireRole, rateLimit, getClientIP, validatePhone, sanitizeString, errorResponse } from './_middleware.js';
 import { sendEmail, appointmentReminderEmail } from './_email.js';
 
@@ -12,8 +15,16 @@ function addToHistory(chatId, role, text) {
   h.push({ role, text: (text || '').slice(0, 2000), ts: Date.now() });
   if (h.length > 20) h.shift();
 }
-function getHistory(chatId) {
-  return (chatHistory.get(chatId) || []).map(m => `[${m.role}] ${m.text}`).join('\n');
+function getHistory(chatId, maxChars = 8000) {
+  const msgs = chatHistory.get(chatId) || [];
+  let result = '';
+  // Build history from most recent backwards, cap at maxChars
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const line = `[${msgs[i].role}] ${msgs[i].text}\n`;
+    if (result.length + line.length > maxChars) break;
+    result = line + result;
+  }
+  return result.trim();
 }
 
 // ── Staff / Employee Config ──
