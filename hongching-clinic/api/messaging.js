@@ -4,6 +4,57 @@
 import { setCORS, handleOptions, requireAuth, requireRole, rateLimit, getClientIP, validatePhone, sanitizeString, errorResponse } from './_middleware.js';
 import { sendEmail, appointmentReminderEmail } from './_email.js';
 
+// ── Google Drive Upload Helper ──
+async function getGoogleAccessToken() {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const key = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  if (!email || !key) return null;
+
+  // Create JWT
+  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).replace(/=/g, '');
+  const now = Math.floor(Date.now() / 1000);
+  const claim = btoa(JSON.stringify({
+    iss: email, scope: 'https://www.googleapis.com/auth/drive.file',
+    aud: 'https://oauth2.googleapis.com/token', exp: now + 3600, iat: now,
+  })).replace(/=/g, '');
+
+  // Sign JWT with RSA
+  const pemBody = key.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\s/g, '');
+  const binaryKey = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
+  const cryptoKey = await crypto.subtle.importKey('pkcs8', binaryKey, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+  const signInput = new TextEncoder().encode(`${header}.${claim}`);
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, signInput);
+  const signature = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  const jwt = `${header}.${claim}.${signature}`;
+  const r = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  });
+  if (!r.ok) { console.error('[GDrive] Token error:', await r.text()); return null; }
+  const data = await r.json();
+  return data.access_token;
+}
+
+async function uploadToGoogleDrive(buffer, filename, mimeType, folderId) {
+  const token = await getGoogleAccessToken();
+  if (!token) { console.log('[GDrive] No token, skipping upload'); return null; }
+
+  const metadata = JSON.stringify({ name: filename, parents: folderId ? [folderId] : [] });
+  const boundary = '===GDRIVE_BOUNDARY===';
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${buffer.toString('base64')}\r\n--${boundary}--`;
+
+  const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  if (!r.ok) { console.error('[GDrive] Upload error:', await r.text()); return null; }
+  const file = await r.json();
+  console.log(`[GDrive] Uploaded: ${filename} -> ${file.id}`);
+  return file;
+}
+
 // ── Handler: WhatsApp ──
 async function handleWhatsApp(req, res) {
   const auth = requireAuth(req);
@@ -263,7 +314,7 @@ async function checkDuplicate(table, date, amount, vendor) {
 }
 
 // Auto-save OCR result with smart validation + duplicate prevention
-async function autoSaveAndReply(chatId, ocr, storeOverride) {
+async function autoSaveAndReply(chatId, ocr, storeOverride, driveLink) {
   const store = storeOverride || ocr.store_hint || process.env.TG_DEFAULT_STORE || '';
   const isRev = ocr.type === 'revenue';
   const table = isRev ? 'revenue' : 'expenses';
@@ -320,7 +371,7 @@ async function autoSaveAndReply(chatId, ocr, storeOverride) {
   const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
   const id = `tg_${uid}`;
 
-  const receiptInfo = [ocr.doc_type || 'receipt', ocr.raw_text || ''].filter(Boolean).join(' | ');
+  const receiptInfo = [ocr.doc_type || 'receipt', driveLink || '', ocr.raw_text || ''].filter(Boolean).join(' | ');
 
   if (isRev) {
     await sbInsertExp('revenue', { id, date: ocr.date, name: ocr.vendor, item: ocr.item || ocr.category || '診金', amount: ocr.amount, payment: ocr.payment || '其他', store, doctor: '', note: `TG AI自動 | ${receiptInfo}`, created_at: new Date().toISOString() });
@@ -335,7 +386,7 @@ async function autoSaveAndReply(chatId, ocr, storeOverride) {
     `${emoji} <b>已自動記錄${typeLabel}${docLabel}</b>\n` +
     `💵 <b>HK$ ${(ocr.amount || 0).toLocaleString()}</b> — ${ocr.vendor}\n` +
     `📅 ${ocr.date} | 📁 ${isRev ? (ocr.item || ocr.category) : ocr.category} | 🏥 ${store || '未指定'}\n` +
-    `💳 ${ocr.payment || '其他'} | 📊 ${Math.round((ocr.confidence || 0) * 100)}%${dateWarning}`,
+    `💳 ${ocr.payment || '其他'} | 📊 ${Math.round((ocr.confidence || 0) * 100)}%${driveLink ? '\n📎 <a href="' + driveLink + '">Google Drive 備份</a>' : ''}${dateWarning}`,
     { reply_markup: { inline_keyboard: [[{ text: '↩️ 撤銷此記錄', callback_data: `undo:${table}:${id}` }]] } }
   );
 }
@@ -468,12 +519,25 @@ async function handleTgExpense(req, res) {
         const photo = msg.photo[msg.photo.length - 1];
         const { buffer, mime } = await tgExpDownloadPhoto(photo.file_id);
         if (!buffer || buffer.length < 100) { await tgExpReply(chatId, '❌ 圖片下載失敗，請重新發送'); return res.status(200).json({ ok: true }); }
+
+        // Upload to Google Drive for audit trail (non-blocking)
+        let driveLink = '';
+        const driveFolder = process.env.GOOGLE_DRIVE_FOLDER_ID;
+        if (driveFolder && buffer) {
+          try {
+            const ext = (mime || 'image/jpeg').split('/')[1] || 'jpg';
+            const filename = `receipt_${new Date().toISOString().slice(0,10)}_${Date.now()}.${ext}`;
+            const driveFile = await uploadToGoogleDrive(buffer, filename, mime || 'image/jpeg', driveFolder);
+            if (driveFile?.webViewLink) driveLink = driveFile.webViewLink;
+          } catch (gErr) { console.error('[GDrive] Photo upload error:', gErr.message); }
+        }
+
         const ocr = await tgExpOCR(buffer, mime, caption);
         if (!ocr || ocr.amount <= 0 || ocr.vendor === '未知') {
           await tgExpReply(chatId, '🤔 掃描唔到內容。請確保：\n1. 圖片清晰、唔好太模糊\n2. 收據/發票完整可見\n3. 金額清楚顯示\n\n你可以試下直接打字：<code>金額, 商戶, 分類</code>');
           return res.status(200).json({ ok: true });
         }
-        await autoSaveAndReply(chatId, ocr, storeFromCaption);
+        await autoSaveAndReply(chatId, ocr, storeFromCaption, driveLink);
       } catch (photoErr) {
         console.error('Photo OCR error:', photoErr);
         await tgExpReply(chatId, `❌ 圖片處理失敗：${photoErr.message}\n\n請試下：\n• 重新影過\n• 確保圖片唔好太大（<10MB）\n• 或直接打字記帳`);
@@ -487,12 +551,25 @@ async function handleTgExpense(req, res) {
       try {
         const { buffer, mime } = await tgExpDownloadPhoto(msg.document.file_id);
         if (!buffer || buffer.length < 100) { await tgExpReply(chatId, '❌ 圖片下載失敗，請重新發送'); return res.status(200).json({ ok: true }); }
+
+        // Upload to Google Drive for audit trail
+        let driveLink = '';
+        const driveFolder = process.env.GOOGLE_DRIVE_FOLDER_ID;
+        if (driveFolder && buffer) {
+          try {
+            const origName = msg.document.file_name || 'receipt';
+            const filename = `${origName.replace(/\.[^.]+$/, '')}_${Date.now()}.${(mime || 'image/jpeg').split('/')[1] || 'jpg'}`;
+            const driveFile = await uploadToGoogleDrive(buffer, filename, mime || 'image/jpeg', driveFolder);
+            if (driveFile?.webViewLink) driveLink = driveFile.webViewLink;
+          } catch (gErr) { console.error('[GDrive] Doc image upload error:', gErr.message); }
+        }
+
         const ocr = await tgExpOCR(buffer, mime, caption);
         if (!ocr || ocr.amount <= 0 || ocr.vendor === '未知') {
           await tgExpReply(chatId, '🤔 掃描唔到內容。請確保圖片清晰、收據完整可見。\n或直接打字：<code>金額, 商戶, 分類</code>');
           return res.status(200).json({ ok: true });
         }
-        await autoSaveAndReply(chatId, ocr, storeFromCaption);
+        await autoSaveAndReply(chatId, ocr, storeFromCaption, driveLink);
       } catch (docErr) {
         console.error('Doc image OCR error:', docErr);
         await tgExpReply(chatId, `❌ 圖片處理失敗：${docErr.message}`);
@@ -507,6 +584,19 @@ async function handleTgExpense(req, res) {
         const { buffer, mime } = await tgExpDownloadPhoto(msg.document.file_id);
         if (!buffer || buffer.length < 100) { await tgExpReply(chatId, '❌ PDF 下載失敗，請重新發送'); return res.status(200).json({ ok: true }); }
         if (buffer.length > 10 * 1024 * 1024) { await tgExpReply(chatId, '❌ PDF 太大（最大 10MB），請壓縮後再發送'); return res.status(200).json({ ok: true }); }
+
+        // Upload PDF to Google Drive for audit trail
+        let pdfDriveLink = '';
+        const driveFolder = process.env.GOOGLE_DRIVE_FOLDER_ID;
+        if (driveFolder && buffer) {
+          try {
+            const origName = msg.document.file_name || 'document.pdf';
+            const filename = `${origName.replace(/\.pdf$/i, '')}_${Date.now()}.pdf`;
+            const driveFile = await uploadToGoogleDrive(buffer, filename, 'application/pdf', driveFolder);
+            if (driveFile?.webViewLink) pdfDriveLink = driveFile.webViewLink;
+          } catch (gErr) { console.error('[GDrive] PDF upload error:', gErr.message); }
+        }
+
         const b64 = buffer.toString('base64');
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
@@ -549,11 +639,12 @@ JSON array 回覆（無markdown無解釋）：
         if (!entries.length) { await tgExpReply(chatId, '🤔 PDF 入面搵唔到交易記錄。\n\n請確保係收據、發票或帳單。'); return res.status(200).json({ ok: true }); }
         let saved = 0; let totalAmt = 0;
         for (const ocr of entries) {
-          await autoSaveAndReply(chatId, ocr, ocr.store_hint || storeFromCaption);
+          await autoSaveAndReply(chatId, ocr, ocr.store_hint || storeFromCaption, pdfDriveLink);
           saved++; totalAmt += ocr.amount || 0;
         }
         if (saved > 1) {
-          await tgExpReply(chatId, `✅ <b>PDF 掃描完成</b>\n\n📝 共 ${saved} 筆記錄\n💵 總額 HK$ ${totalAmt.toLocaleString()}\n\n每筆都有撤銷按鈕。`);
+          const driveNote = pdfDriveLink ? `\n📎 <a href="${pdfDriveLink}">Google Drive PDF 備份</a>` : '';
+          await tgExpReply(chatId, `✅ <b>PDF 掃描完成</b>\n\n📝 共 ${saved} 筆記錄\n💵 總額 HK$ ${totalAmt.toLocaleString()}\n\n每筆都有撤銷按鈕。${driveNote}`);
         }
       } catch (pdfErr) {
         console.error('PDF scan error:', pdfErr);
