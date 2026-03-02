@@ -9,8 +9,8 @@ const chatHistory = new Map();
 function addToHistory(chatId, role, text) {
   if (!chatHistory.has(chatId)) chatHistory.set(chatId, []);
   const h = chatHistory.get(chatId);
-  h.push({ role, text: (text || '').slice(0, 500), ts: Date.now() });
-  if (h.length > 10) h.shift();
+  h.push({ role, text: (text || '').slice(0, 2000), ts: Date.now() });
+  if (h.length > 20) h.shift();
 }
 function getHistory(chatId) {
   return (chatHistory.get(chatId) || []).map(m => `[${m.role}] ${m.text}`).join('\n');
@@ -599,10 +599,11 @@ ${getStaffConfigText()}
   // Conversation history section
   const historySection = conversationHistory ? `\n\n對話記錄（最近訊息）：\n${conversationHistory}` : '';
 
-  // Use Sonnet for math/calculation queries, Haiku for simple lookups
-  const needsCalc = /計算|幾多|總共|時數|時薪|人工|糧單|小時|分鐘|加埋|減|乘|除|工時|薪金|薪酬|出糧|工資|底薪|分成/.test(text);
-  const model = needsCalc ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
-  const maxTokens = needsCalc ? 3000 : 2000;
+  // Use Sonnet for math/calculation/payslip queries, Haiku for simple lookups
+  const needsCalc = /計算|幾多|總共|時數|時薪|人工|糧單|小時|分鐘|加埋|減|乘|除|工時|薪金|薪酬|出糧|工資|底薪|分成|payslip|PAYSLIP|整糧|計糧|岩唔岩|啱唔啱|正確|錯/.test(text);
+  const needsPayslip = /糧單|payslip|PAYSLIP|整糧|計糧|出糧/.test(text);
+  const model = (needsCalc || needsPayslip) ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001';
+  const maxTokens = needsPayslip ? 4000 : (needsCalc ? 3000 : 2000);
 
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -624,11 +625,13 @@ ${dataContext}${kbSection}${historySection}
 6. 如果你唔確定或數據唔夠，坦白講
 7. 用 HTML 格式（<b>粗體</b>），適當用 emoji
 8. 簡潔明瞭，唔好太長
-9. 如果用戶明顯係想記帳（有金額），回覆 JSON：{"is_expense": true} 讓系統處理
-10. 如果涉及計算（金額、時數、人工等），請逐步計算並列出過程，確保數學正確
+9. ⚠️ 絕對唔好自動入帳或記帳！計算結果只係顯示畀用戶睇，唔好回覆 is_expense JSON。如果用戶想記帳，叫佢直接打：金額, 商戶, 分類
+10. 如果涉及計算（金額、時數、人工等），請逐步列出每一筆計算過程，確保數學正確。逐日列出，唔好跳過任何一條記錄
 11. 時間計算規則：10:00-13:00 = 3小時正，15:01-20:30 = 5小時29分鐘。工作超過6小時要扣1小時飯鐘（如適用）
-12. 參考對話記錄中之前提及的資料來回答，保持上下文連貫
+12. ⚠️ 最重要：參考對話記錄中之前提及的所有資料來回答。如果之前有完整的工時表或計算結果，必須用返全部數據，唔好漏掉任何一條
 13. 員工資料已列出，計算人工時用對應的時薪或月薪
+14. 如果用戶問你整 PAYSLIP，用之前對話中的完整計算數據，列出正式糧單格式（員工姓名、工作期間、逐日工時、總工時、時薪、應發薪金）
+15. 如果用戶話你計錯，重新檢查對話記錄中的原始數據，逐條重新計算
 
 只回覆文字答案，唔好加 markdown。` }],
     }),
@@ -637,9 +640,6 @@ ${dataContext}${kbSection}${historySection}
   const data = await r.json();
   const answer = data.content?.[0]?.text || '';
   if (!answer) return false;
-
-  // Check if AI thinks this is actually an expense
-  if (answer.includes('"is_expense": true') || answer.includes('"is_expense":true')) return false;
 
   // Save AI response to conversation history
   addToHistory(chatId, 'AI', answer);
@@ -2072,13 +2072,17 @@ JSON array 回覆（無markdown無解釋）：
       return res.status(200).json({ ok: true });
     }
 
-    // ── Natural Language → Smart routing: expense OR question ──
+    // ── Natural Language → Smart routing: question/calculation FIRST, expense SECOND ──
     if (text && !text.startsWith('/')) {
-      // Quick heuristic: if text looks like a question (no numbers, has question words), try smart query first
-      const hasAmount = /\d{2,}/.test(text);
-      const isQuestion = /[？?]|幫我|計算|幾多|點樣|邊個|查|搵|睇下|報告|糧單|payslip|分析|比較|統計|總結/.test(text);
+      const isQuestion = /[？?]|幫我|計算|幾多|點樣|邊個|查|搵|睇下|報告|糧單|payslip|PAYSLIP|分析|比較|統計|總結|整糧|計糧|出糧/.test(text);
+      const isCorrection = /唔岩|唔啱|錯|正確|應該係|點解|冇計|漏咗|少咗|多咗/.test(text);
+      const isConversational = /唔該|多謝|好的|OK|ok|明白|收到|吓|咩|乜|點|邊/.test(text) && text.length < 20;
+      const isPayroll = /人工|薪金|薪酬|工資|工時|時數|時薪|底薪|分成|飯鐘|排班|返工/.test(text);
+      // Clearly an expense entry: starts with amount or has "蚊/元/HKD" with number, and no question/correction words
+      const looksLikeExpense = /^\d|[,，]\s*\d|\d+[蚊元]|HK\$?\s*\d|\d+\s*[,，]/.test(text) && !isQuestion && !isCorrection && !isPayroll;
 
-      if (!hasAmount && isQuestion) {
+      // Route 1: Questions, corrections, payroll queries, conversational follow-ups → Smart Query
+      if (isQuestion || isCorrection || isPayroll || isConversational) {
         await tgExpReply(chatId, '🤖 AI 正在查詢資料...');
         try {
           const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
@@ -2086,40 +2090,43 @@ JSON array 回覆（無markdown無解釋）：
         } catch (qErr) { console.error('[SmartQuery] error:', qErr); }
       }
 
-      // Try expense NLP parsing
-      await tgExpReply(chatId, '🤖 AI 理解緊你講乜...');
-      try {
-        const results = await tgExpNLP(text);
-        if (!results || !results.length || results[0].error) {
-          // NLP failed — try smart query as fallback
-          try {
-            const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
-            if (answered) return res.status(200).json({ ok: true });
-          } catch {}
-          await tgExpReply(chatId, '🤔 唔太明白你嘅意思，可以試下咁講：\n\n• 「今日買左100蚊中藥」\n• 「利是400蚊，飲茶200蚊」\n• 「收到張三診金500蚊」\n• 或直接 send 收據相片\n• 或問問題：「呢個月開支幾多？」\n\n/help 查看所有指令');
+      // Route 2: Clear expense entries → NLP parsing
+      if (looksLikeExpense || (!isQuestion && !isCorrection && !isPayroll && !isConversational)) {
+        await tgExpReply(chatId, '🤖 AI 理解緊你講乜...');
+        try {
+          const results = await tgExpNLP(text);
+          if (!results || !results.length || results[0].error) {
+            // NLP failed — try smart query as fallback
+            try {
+              const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
+              if (answered) return res.status(200).json({ ok: true });
+            } catch {}
+            await tgExpReply(chatId, '🤔 唔太明白你嘅意思，可以試下咁講：\n\n• 「今日買左100蚊中藥」\n• 「利是400蚊，飲茶200蚊」\n• 「收到張三診金500蚊」\n• 或直接 send 收據相片\n• 或問問題：「呢個月開支幾多？」\n\n/help 查看所有指令');
+            return res.status(200).json({ ok: true });
+          }
+          let saved = 0;
+          for (const ocr of results) {
+            if (ocr.amount > 0 && !ocr.error) {
+              await autoSaveAndReply(chatId, ocr, ocr.store_hint || '');
+              saved++;
+            }
+          }
+          if (saved === 0) {
+            // No amounts found — try smart query
+            try {
+              const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
+              if (answered) return res.status(200).json({ ok: true });
+            } catch {}
+            await tgExpReply(chatId, '🤔 識別到你嘅訊息但搵唔到金額，可以再講清楚啲嗎？');
+          }
+          return res.status(200).json({ ok: true });
+        } catch (nlpErr) {
+          console.error('NLP error:', nlpErr);
+          await tgExpReply(chatId, '❌ AI 處理出錯，你可以用格式：<code>金額, 商戶, 分類, 分店</code>\n或直接 send 收據相片');
           return res.status(200).json({ ok: true });
         }
-        let saved = 0;
-        for (const ocr of results) {
-          if (ocr.amount > 0 && !ocr.error) {
-            await autoSaveAndReply(chatId, ocr, ocr.store_hint || '');
-            saved++;
-          }
-        }
-        if (saved === 0) {
-          // No amounts found — try smart query
-          try {
-            const answered = await tgSmartQuery(chatId, text, getHistory(chatId));
-            if (answered) return res.status(200).json({ ok: true });
-          } catch {}
-          await tgExpReply(chatId, '🤔 識別到你嘅訊息但搵唔到金額，可以再講清楚啲嗎？');
-        }
-        return res.status(200).json({ ok: true });
-      } catch (nlpErr) {
-        console.error('NLP error:', nlpErr);
-        await tgExpReply(chatId, '❌ AI 處理出錯，你可以用格式：<code>金額, 商戶, 分類, 分店</code>\n或直接 send 收據相片');
-        return res.status(200).json({ ok: true });
       }
+      return res.status(200).json({ ok: true });
     }
 
     await tgExpReply(chatId, '📸 Send 收據/發票相片，AI 自動搞掂！\n或 /help 查看所有指令');
