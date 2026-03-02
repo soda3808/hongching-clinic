@@ -163,16 +163,22 @@ async function tgExpOCR(imageBuffer, mime, caption = '') {
       messages: [{ role: 'user', content: [
         { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
         { type: 'text', text: `你是中醫診所「康晴中醫」的會計AI。仔細分析這張圖片中的所有文字、數字和內容。${extra}
+今日日期：${new Date().toISOString().slice(0,10)}
 
 首先仔細閱讀圖片上所有可見的文字，然後判斷：
-1. 這是收據、發票、帳單、或者其他財務文件嗎？
-2. 「expense」(診所付出：買藥材、交租、水電、物資等) 還是「revenue」(收到款項：診金、藥費、針灸費等)？
+1. 文件類型：receipt/收據（已付款證明）、invoice/發票（請求付款，可能未付）、quotation/報價單（未成交）、statement/月結單、other/其他？
+2. 「expense」(診所付出) 還是「revenue」(診所收到)？
 3. 提取金額、商戶名、日期等資訊
+4. 如果文件日期不是本月，doc_warning 填寫提醒
 
-如果圖片不清晰或不是財務相關文件，amount 設為 0。
+⚠️ 重要規則：
+- INVOICE/發票 ≠ 已付款！如果只見「Invoice」「發票」字樣但無「Paid」「已付」「Payment Receipt」字樣，設 doc_type 為 "invoice"
+- QUOTATION/報價單 不應記賬，amount 設為 0
+- 如果文件日期是上月或更早，設 doc_warning 提醒用戶
+- 如果圖片不清晰或不是財務相關文件，amount 設為 0
 
 只回覆JSON（無markdown無解釋）：
-{"type":"expense"或"revenue","amount":數字,"vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1,"raw_text":"你在圖片中看到的主要文字摘要（50字內）"}
+{"type":"expense"或"revenue","doc_type":"receipt/invoice/quotation/statement/other","amount":數字,"vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1,"doc_warning":"如日期非本月或文件類型非receipt則填寫提醒否則空","raw_text":"你在圖片中看到的主要文字摘要（50字內）"}
 
 開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他
 收入分類：診金,藥費,針灸,推拿,其他治療` },
@@ -246,13 +252,73 @@ JSON array 回覆（無markdown無解釋）：
 async function sbInsertExp(table, body) { const r = await fetch(sbUrl(table), { method: 'POST', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase POST ${table}: ${r.status}`); return r.json(); }
 async function sbSelectExp(table, f) { const r = await fetch(sbUrl(table, f), { method: 'GET', headers: sbHeaders() }); if (!r.ok) throw new Error(`Supabase GET ${table}: ${r.status}`); return r.json(); }
 
-// Auto-save OCR result and send confirmation with undo button
+// ── Duplicate detection: check if same date+amount+vendor already exists ──
+async function checkDuplicate(table, date, amount, vendor) {
+  try {
+    const vendorField = table === 'revenue' ? 'name' : 'merchant';
+    const filter = `date=eq.${date}&amount=eq.${amount}&${vendorField}=eq.${encodeURIComponent(vendor)}&select=id,created_at`;
+    const existing = await sbSelectExp(table, filter);
+    return existing.length > 0 ? existing[0] : null;
+  } catch { return null; }
+}
+
+// Auto-save OCR result with smart validation + duplicate prevention
 async function autoSaveAndReply(chatId, ocr, storeOverride) {
-  const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-  const id = `tg_${uid}`;
   const store = storeOverride || ocr.store_hint || process.env.TG_DEFAULT_STORE || '';
   const isRev = ocr.type === 'revenue';
   const table = isRev ? 'revenue' : 'expenses';
+  const today = new Date().toISOString().slice(0, 10);
+  const thisMonth = today.slice(0, 7);
+  const docMonth = (ocr.date || today).slice(0, 7);
+
+  // ── Guard 1: Skip quotations/zero amounts ──
+  if (ocr.amount <= 0 || ocr.doc_type === 'quotation') {
+    const reason = ocr.doc_type === 'quotation' ? '報價單不需記賬' : '未能識別金額';
+    await tgExpReply(chatId, `ℹ️ <b>${reason}</b>\n${ocr.raw_text || '無法辨識內容'}`);
+    return;
+  }
+
+  // ── Guard 2: Invoice warning (not a payment receipt) ──
+  if (ocr.doc_type === 'invoice') {
+    const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    await tgExpReply(chatId,
+      `⚠️ <b>呢張係發票 (Invoice)，唔係付款收據</b>\n` +
+      `💵 HK$ ${(ocr.amount || 0).toLocaleString()} — ${ocr.vendor}\n` +
+      `📅 ${ocr.date} | 📁 ${ocr.category}\n\n` +
+      `發票只代表「要求付款」，可能未實際付款。\n確認已經付咗先撳「確認入賬」`,
+      { reply_markup: { inline_keyboard: [
+        [{ text: '✅ 確認入賬（已付款）', callback_data: `forcesave:${table}:${ocr.amount}:${encodeURIComponent(ocr.vendor)}:${ocr.date}:${encodeURIComponent(ocr.category)}:${store}:${encodeURIComponent(ocr.payment || '其他')}:${encodeURIComponent(ocr.item || '')}` }],
+        [{ text: '❌ 唔入賬', callback_data: `no:${uid}` }]
+      ] } }
+    );
+    return;
+  }
+
+  // ── Guard 3: Duplicate detection ──
+  const dup = await checkDuplicate(table, ocr.date, ocr.amount, ocr.vendor);
+  if (dup) {
+    await tgExpReply(chatId,
+      `⚠️ <b>疑似重覆記錄</b>\n` +
+      `💵 HK$ ${ocr.amount.toLocaleString()} — ${ocr.vendor}\n` +
+      `📅 ${ocr.date}\n\n` +
+      `系統已有相同日期、金額、商戶嘅記錄。\n如果係唔同交易請撳「仍然入賬」`,
+      { reply_markup: { inline_keyboard: [
+        [{ text: '✅ 仍然入賬（唔係重覆）', callback_data: `forcesave:${table}:${ocr.amount}:${encodeURIComponent(ocr.vendor)}:${ocr.date}:${encodeURIComponent(ocr.category || '其他')}:${store}:${encodeURIComponent(ocr.payment || '其他')}:${encodeURIComponent(ocr.item || '')}` }],
+        [{ text: '❌ 略過（係重覆）', callback_data: `no:dup` }]
+      ] } }
+    );
+    return;
+  }
+
+  // ── Guard 4: Old date warning (not current month) ──
+  let dateWarning = '';
+  if (docMonth !== thisMonth) {
+    dateWarning = `\n⚠️ 注意：此單據日期為 <b>${ocr.date}</b>（非本月）`;
+  }
+
+  // ── All checks passed — save ──
+  const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+  const id = `tg_${uid}`;
 
   if (isRev) {
     await sbInsertExp('revenue', { id, date: ocr.date, name: ocr.vendor, item: ocr.item || ocr.category || '診金', amount: ocr.amount, payment: ocr.payment || '其他', store, doctor: '', note: 'TG AI自動', created_at: new Date().toISOString() });
@@ -262,11 +328,12 @@ async function autoSaveAndReply(chatId, ocr, storeOverride) {
 
   const emoji = isRev ? '💰' : '🧾';
   const typeLabel = isRev ? '收入' : '開支';
+  const docLabel = ocr.doc_type ? ` (${ocr.doc_type})` : '';
   await tgExpReply(chatId,
-    `${emoji} <b>已自動記錄${typeLabel}</b>\n` +
+    `${emoji} <b>已自動記錄${typeLabel}${docLabel}</b>\n` +
     `💵 <b>HK$ ${(ocr.amount || 0).toLocaleString()}</b> — ${ocr.vendor}\n` +
     `📅 ${ocr.date} | 📁 ${isRev ? (ocr.item || ocr.category) : ocr.category} | 🏥 ${store || '未指定'}\n` +
-    `💳 ${ocr.payment || '其他'} | 📊 ${Math.round((ocr.confidence || 0) * 100)}%`,
+    `💳 ${ocr.payment || '其他'} | 📊 ${Math.round((ocr.confidence || 0) * 100)}%${dateWarning}`,
     { reply_markup: { inline_keyboard: [[{ text: '↩️ 撤銷此記錄', callback_data: `undo:${table}:${id}` }]] } }
   );
 }
@@ -294,6 +361,26 @@ async function handleTgExpense(req, res) {
           await fetch(sbUrl(table, `id=eq.${recId}`), { method: 'DELETE', headers: sbHeaders() });
           await tgExpReply(chatId, '↩️ 已撤銷此記錄');
         } catch { await tgExpReply(chatId, '❌ 撤銷失敗，請在系統中手動刪除'); }
+      } else if (data.startsWith('forcesave:')) {
+        // User confirmed save after invoice/duplicate warning
+        try {
+          const parts = data.slice(10).split(':');
+          const [table, amt, vendorEnc, date, catEnc, store, payEnc, itemEnc] = parts;
+          const vendor = decodeURIComponent(vendorEnc || '');
+          const category = decodeURIComponent(catEnc || '其他');
+          const payment = decodeURIComponent(payEnc || '其他');
+          const item = decodeURIComponent(itemEnc || '');
+          const id = `tg_${Date.now().toString(36)}${Math.random().toString(36).substr(2, 5)}`;
+          if (table === 'revenue') {
+            await sbInsertExp('revenue', { id, date, name: vendor, item: item || category || '診金', amount: Number(amt), payment, store: store || '', doctor: '', note: 'TG AI（手動確認）', created_at: new Date().toISOString() });
+          } else {
+            await sbInsertExp('expenses', { id, date, merchant: vendor, amount: Number(amt), category, store: store || '', payment, desc: `TG AI（手動確認）: ${item || vendor}`, receipt: '', created_at: new Date().toISOString() });
+          }
+          await tgExpReply(chatId, `✅ <b>已確認入賬</b>\n💵 HK$ ${Number(amt).toLocaleString()} — ${vendor}\n📅 ${date}`);
+        } catch (e) {
+          console.error('[TG] forcesave error:', e);
+          await tgExpReply(chatId, '❌ 入賬失敗，請手動在系統中記錄');
+        }
       } else if (data.startsWith('ok:')) {
         // Legacy v1 confirm — decode old format and save
         const [amt, vendor, dateRaw, category] = data.slice(3).split('|');

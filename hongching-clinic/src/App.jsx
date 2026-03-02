@@ -183,6 +183,9 @@ const HerbSourcingTracker = lazy(() => import('./components/HerbSourcingTracker'
 const ClinicFloorPlan = lazy(() => import('./components/ClinicFloorPlan'));
 const PatientCommunity = lazy(() => import('./components/PatientCommunity'));
 const MonthEndClosing = lazy(() => import('./components/MonthEndClosing'));
+const AttendancePage = lazy(() => import('./components/AttendancePage'));
+const PayrollPage = lazy(() => import('./components/PayrollPage'));
+const DataImport = lazy(() => import('./components/DataImport'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -228,7 +231,7 @@ const ALL_PAGES = [
   { id: 'pay', icon: '📋', label: '糧單', section: '人事', perm: 'viewPayroll' },
   { id: 'schedule', icon: '🕐', label: '醫師排班', section: '人事', perm: 'viewDoctorAnalytics' },
   { id: 'leave', icon: '🏖️', label: '假期管理', section: '人事', perm: 'viewLeave' },
-  { id: 'attendance', icon: '⏰', label: '打卡考勤', section: '人事', perm: 'viewLeave' },
+  { id: 'attendance', icon: '⏰', label: '考勤打卡', section: '人事', perm: 'viewLeave' },
   { id: 'recruit', icon: '👔', label: '招聘管理', section: '人事', perm: 'viewSettings' },
   { id: 'doc', icon: '👨‍⚕️', label: '醫師業績', section: '分析', perm: 'viewDoctorAnalytics' },
   { id: 'report', icon: '📈', label: '報表中心', section: '分析', perm: 'viewReports' },
@@ -349,6 +352,8 @@ const ALL_PAGES = [
   { id: 'floorplan', icon: '🗺️', label: '平面圖', section: '系統', perm: 'viewSettings' },
   { id: 'community', icon: '👥', label: '健康社區', section: '客戶', perm: 'viewPatients' },
   { id: 'monthend', icon: '📅', label: '月結作業', section: '財務', perm: 'viewReports' },
+  { id: 'payroll', icon: '💰', label: '計糧', section: '財務', perm: 'viewPayroll' },
+  { id: 'dataimport', icon: '📥', label: '資料匯入', section: '系統', perm: 'viewSettings' },
 ];
 
 // Mobile bottom tab config
@@ -1235,7 +1240,7 @@ function MainApp() {
             {page === 'syscheck' && <SystemCheck data={filteredData} showToast={showToast} user={user} />}
             {page === 'backup' && <BackupCenter data={filteredData} setData={updateData} showToast={showToast} user={user} />}
             {page === 'feedback' && <PatientFeedback data={filteredData} showToast={showToast} user={user} />}
-            {page === 'attendance' && <StaffAttendance data={filteredData} showToast={showToast} user={user} />}
+            {page === 'attendance' && <AttendancePage showToast={showToast} data={data} user={user} />}
             {page === 'prodorders' && <ProductOrders data={filteredData} showToast={showToast} user={user} />}
             {page === 'audit' && <AuditTrail data={filteredData} showToast={showToast} user={user} />}
             {page === 'stocktake' && <Stocktaking data={filteredData} setData={updateData} showToast={showToast} user={user} />}
@@ -1370,6 +1375,8 @@ function MainApp() {
             {page === 'pp' && <PrivacyPolicy onBack={() => setPage('dash')} />}
             {page === 'monthend' && <MonthEndClosing data={filteredData} setData={updateData} showToast={showToast} user={user} onNavigate={setPage} />}
             {page === 'billingsub' && <BillingSettings />}
+            {page === 'payroll' && <PayrollPage showToast={showToast} data={data} user={user} />}
+            {page === 'dataimport' && <DataImport showToast={showToast} data={data} setData={setData} user={user} />}
           </Suspense>
           </ErrorBoundary>
         </div>
