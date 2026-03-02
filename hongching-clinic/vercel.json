@@ -23,6 +23,10 @@
     {
       "path": "/api/cron?action=tg-monthly",
       "schedule": "0 1 1 * *"
+    },
+    {
+      "path": "/api/cron?action=drive-sync",
+      "schedule": "0 4 * * *"
     }
   ],
   "headers": [

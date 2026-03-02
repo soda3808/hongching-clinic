@@ -350,6 +350,26 @@ async function handleTgMonthly(req, res) {
   } catch (err) { console.error('tg-monthly error:', err); return res.status(500).json({ error: err.message }); }
 }
 
+// ── Handler: Drive Knowledge Base Sync ──
+async function handleDriveSync(req, res) {
+  if (!tgBotToken() || !tgChatId()) return res.status(200).json({ message: 'TG not configured' });
+  try {
+    // Trigger /scan via TG webhook simulation to reuse indexing logic in messaging.js
+    const appUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : (process.env.APP_URL || '');
+    if (!appUrl) return res.status(200).json({ message: 'APP_URL not configured' });
+    const r = await fetch(`${appUrl}/api/messaging?action=tg-expense`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: { chat: { id: Number(tgChatId()) }, text: '/scan' } }),
+    });
+    const result = await r.json();
+    return res.status(200).json({ message: 'Drive sync triggered', result });
+  } catch (err) {
+    console.error('[cron drive-sync] Error:', err);
+    return res.status(200).json({ error: err.message });
+  }
+}
+
 // ── Main Router ──
 export default async function handler(req, res) {
   const cronSecret = process.env.CRON_SECRET;
@@ -368,6 +388,7 @@ export default async function handler(req, res) {
     case 'tg-daily': return handleTgDaily(req, res);
     case 'tg-weekly': return handleTgWeekly(req, res);
     case 'tg-monthly': return handleTgMonthly(req, res);
+    case 'drive-sync': return handleDriveSync(req, res);
     default: return res.status(400).json({ error: `Unknown cron action: ${action}` });
   }
 }

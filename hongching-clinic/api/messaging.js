@@ -14,7 +14,7 @@ async function getGoogleAccessToken() {
   const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).replace(/=/g, '');
   const now = Math.floor(Date.now() / 1000);
   const claim = btoa(JSON.stringify({
-    iss: email, scope: 'https://www.googleapis.com/auth/drive.file',
+    iss: email, scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
     aud: 'https://oauth2.googleapis.com/token', exp: now + 3600, iat: now,
   })).replace(/=/g, '');
 
@@ -53,6 +53,180 @@ async function uploadToGoogleDrive(buffer, filename, mimeType, folderId) {
   const file = await r.json();
   console.log(`[GDrive] Uploaded: ${filename} -> ${file.id}`);
   return file;
+}
+
+// ── Google Drive Knowledge Base ──
+async function listDriveFolder(folderId, pageToken = '') {
+  const token = await getGoogleAccessToken();
+  if (!token) return { files: [], nextPageToken: null };
+  const q = encodeURIComponent(`'${folderId}' in parents and trashed = false`);
+  const fields = encodeURIComponent('nextPageToken,files(id,name,mimeType,size,modifiedTime)');
+  let url = `https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=100&orderBy=modifiedTime desc`;
+  if (pageToken) url += `&pageToken=${pageToken}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) { console.error('[GDrive KB] List error:', await r.text()); return { files: [], nextPageToken: null }; }
+  const data = await r.json();
+  return { files: data.files || [], nextPageToken: data.nextPageToken || null };
+}
+
+async function downloadDriveFile(fileId, mimeType) {
+  const token = await getGoogleAccessToken();
+  if (!token) return null;
+  let url, exportMime;
+  if (mimeType === 'application/vnd.google-apps.document') {
+    exportMime = 'text/plain';
+    url = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(exportMime)}`;
+  } else if (mimeType === 'application/vnd.google-apps.spreadsheet') {
+    exportMime = 'text/csv';
+    url = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(exportMime)}`;
+  } else {
+    url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+  }
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) { console.error(`[GDrive KB] Download error ${fileId}:`, await r.text()); return null; }
+  if (exportMime) { const text = await r.text(); return { type: 'text', content: text, mime: exportMime }; }
+  const buf = await r.arrayBuffer();
+  return { type: 'binary', content: Buffer.from(buf), mime: mimeType || 'application/octet-stream' };
+}
+
+async function extractAndSummarize(file, downloaded) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+  let messages;
+  if (downloaded.type === 'text') {
+    const text = downloaded.content.slice(0, 15000);
+    messages = [{ role: 'user', content: `你是香港中醫診所「康晴中醫」的管理AI。請仔細分析以下文件內容，提取所有重要的業務知識。
+
+文件名稱：${file.name}
+文件類型：${downloaded.mime}
+
+文件內容：
+${text}
+
+請回覆 JSON（無 markdown）：
+{"category":"contract/pricelist/leave/hr/policy/financial/other","summary":"結構化摘要（繁體中文）。包含所有關鍵數字、條款、價格、日期、人名等。用分點列出重要資訊。最多800字。","key_entities":["涉及的人名/公司名"],"key_numbers":{"描述":"數值"},"effective_period":"有效期間（如適用）","raw_text_excerpt":"文件前200字原文"}` }];
+  } else {
+    const b64 = downloaded.content.toString('base64');
+    const mediaType = downloaded.mime || 'application/pdf';
+    const contentBlock = mediaType.startsWith('image/')
+      ? { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } }
+      : { type: 'document', source: { type: 'base64', media_type: mediaType, data: b64 } };
+    messages = [{ role: 'user', content: [
+      contentBlock,
+      { type: 'text', text: `你是香港中醫診所「康晴中醫」的管理AI。請仔細分析這份文件的所有內容，提取所有重要的業務知識。
+
+文件名稱：${file.name}
+
+請回覆 JSON（無 markdown）：
+{"category":"contract/pricelist/leave/hr/policy/financial/other","summary":"結構化摘要（繁體中文）。包含所有關鍵數字、條款、價格、日期、人名等。用分點列出重要資訊。最多800字。","key_entities":["涉及的人名/公司名"],"key_numbers":{"描述":"數值"},"effective_period":"有效期間（如適用）","raw_text_excerpt":"文件前200字原文"}` },
+    ] }];
+  }
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, messages }),
+  });
+  if (!r.ok) { console.error('[KB Extract] Claude error:', await r.text()); return null; }
+  const data = await r.json();
+  const txt = data.content?.[0]?.text || '';
+  const match = txt.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); } catch { return null; }
+}
+
+async function sbUpsertExp(table, body) {
+  const headers = { ...sbHeaders(), Prefer: 'resolution=merge-duplicates,return=representation' };
+  const r = await fetch(sbUrl(table), { method: 'POST', headers, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`Supabase UPSERT ${table}: ${r.status}`);
+  return r.json();
+}
+
+async function indexDriveKB(chatId = null) {
+  const folderIds = (process.env.GOOGLE_DRIVE_KB_FOLDER_IDS || process.env.GOOGLE_DRIVE_FOLDER_ID || '').split(',').filter(Boolean);
+  if (!folderIds.length) {
+    if (chatId) await tgExpReply(chatId, '❌ 未設定知識庫文件夾 ID');
+    return { indexed: 0, skipped: 0, errors: 0 };
+  }
+  let indexed = 0, skipped = 0, errors = 0;
+  const supportedMimes = ['application/pdf', 'application/vnd.google-apps.document', 'application/vnd.google-apps.spreadsheet', 'image/jpeg', 'image/png', 'image/webp'];
+
+  for (const folderId of folderIds) {
+    let pageToken = '';
+    do {
+      const { files, nextPageToken } = await listDriveFolder(folderId, pageToken);
+      pageToken = nextPageToken || '';
+      for (const file of files) {
+        if (!supportedMimes.includes(file.mimeType)) { skipped++; continue; }
+        if (file.size && Number(file.size) > 10 * 1024 * 1024) { skipped++; continue; }
+        try {
+          const existing = await sbSelectExp('drive_knowledge', `id=eq.${file.id}&select=id,drive_modified_at`).catch(() => []);
+          if (existing.length && existing[0].drive_modified_at === file.modifiedTime) { skipped++; continue; }
+          const downloaded = await downloadDriveFile(file.id, file.mimeType);
+          if (!downloaded) { errors++; continue; }
+          const result = await extractAndSummarize(file, downloaded);
+          if (!result) { errors++; continue; }
+          const summary = [
+            result.summary || '',
+            result.key_entities?.length ? `\n涉及人員/機構：${result.key_entities.join('、')}` : '',
+            result.key_numbers ? `\n關鍵數字：${Object.entries(result.key_numbers).map(([k, v]) => `${k}=${v}`).join('、')}` : '',
+            result.effective_period ? `\n有效期：${result.effective_period}` : '',
+          ].join('');
+          const tokenCount = Math.ceil(summary.length / 1.5);
+          await sbUpsertExp('drive_knowledge', {
+            id: file.id, name: file.name, mime_type: file.mimeType, folder_id: folderId,
+            category: result.category || 'other', summary, raw_text: (result.raw_text_excerpt || '').slice(0, 5000),
+            drive_modified_at: file.modifiedTime, indexed_at: new Date().toISOString(),
+            status: 'active', token_count: tokenCount, created_at: new Date().toISOString(),
+          });
+          indexed++;
+          if (chatId && indexed % 3 === 0) await tgExpReply(chatId, `📚 已索引 ${indexed} 個文件...`);
+        } catch (err) {
+          console.error(`[KB] Error indexing ${file.name}:`, err);
+          errors++;
+        }
+      }
+    } while (pageToken);
+  }
+  return { indexed, skipped, errors };
+}
+
+async function getRelevantKnowledge(queryText, maxTokens = 3000) {
+  let allDocs;
+  try { allDocs = await sbSelectExp('drive_knowledge', 'status=eq.active&select=id,name,category,summary,token_count'); } catch { return ''; }
+  if (!allDocs.length) return '';
+  const qt = queryText.toLowerCase();
+  const scored = allDocs.map(doc => {
+    let score = 0;
+    const docName = (doc.name || '').toLowerCase();
+    const docSummary = (doc.summary || '').toLowerCase();
+    if (qt.includes(docName.replace(/\.[^.]+$/, ''))) score += 10;
+    const kwMap = { contract: ['合約','分成','佣金','薪金','salary','條款','底薪'], pricelist: ['價目','價錢','收費','price','診金','費用'], leave: ['請假','假期','年假','病假','放假'], hr: ['人事','員工','staff','入職','職員'] };
+    for (const [cat, kws] of Object.entries(kwMap)) {
+      if (doc.category === cat) { for (const kw of kws) { if (qt.includes(kw)) score += 3; } }
+    }
+    for (const kw of ['醫師','糧單','價','合約','假','分成','佣金','底薪','人工','租','Kelly','Zoe','趙']) {
+      if (qt.includes(kw.toLowerCase()) && docSummary.includes(kw.toLowerCase())) score += 2;
+    }
+    const staffNames = ['許','曾','Zoe','Kelly','趙'];
+    for (const name of staffNames) {
+      if (qt.includes(name.toLowerCase()) && (docName.toLowerCase().includes(name.toLowerCase()) || docSummary.includes(name.toLowerCase()))) score += 5;
+    }
+    return { ...doc, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  let context = '', tokens = 0;
+  for (const doc of scored) {
+    if (doc.score <= 0) break;
+    const entry = `\n--- ${doc.name} (${doc.category}) ---\n${doc.summary}\n`;
+    const entryTokens = doc.token_count || Math.ceil(entry.length / 1.5);
+    if (tokens + entryTokens > maxTokens) break;
+    context += entry;
+    tokens += entryTokens;
+  }
+  if (!context && allDocs.length > 0) {
+    context = '\n可用知識庫文件：' + allDocs.map(d => `${d.name}(${d.category})`).join('、');
+  }
+  return context;
 }
 
 // ── Handler: WhatsApp ──
@@ -355,26 +529,31 @@ async function tgSmartQuery(chatId, text) {
 最近5筆支出：${exp.slice(0,5).map(e => `${e.date} HK$${Number(e.amount).toLocaleString()} ${e.merchant}(${e.category})`).join(' | ') || '暫無'}
 最近5筆收入：${rev.slice(0,5).map(r => `${r.date} HK$${Number(r.amount).toLocaleString()} ${r.name}(${r.item})`).join(' | ') || '暫無'}`;
 
+  // Fetch relevant knowledge base context from Google Drive documents
+  const kbContext = await getRelevantKnowledge(text).catch(() => '');
+  const kbSection = kbContext ? `\n\n知識庫資料（來自 Google Drive 文件）：${kbContext}` : '';
+
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
-      messages: [{ role: 'user', content: `你是香港中醫診所「康晴中醫」的AI管理助手。用戶用廣東話/中文問你問題，你要根據以下數據回答。
+      model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+      messages: [{ role: 'user', content: `你是香港中醫診所「康晴中醫」的AI管理助手。用戶用廣東話/中文問你問題，你要根據以下數據和知識庫回答。
 
-${dataContext}
+${dataContext}${kbSection}
 
 用戶問題：「${text}」
 
 回答規則：
 1. 用繁體中文 + 廣東話回答
 2. 如果問數據相關問題，直接用上面的數據回答，列出具體金額
-3. 如果問到糧單/薪金計算，說明需要在系統 PayrollPage 頁面計算（/payslip 指令可睇摘要），列出你知道的相關數據
-4. 如果問到做某個操作（例如入帳、改記錄），說明正確的操作方法
-5. 如果你唔確定或數據唔夠，坦白講
-6. 用 HTML 格式（<b>粗體</b>），適當用 emoji
-7. 簡潔明瞭，唔好太長
-8. 如果用戶明顯係想記帳（有金額），回覆 JSON：{"is_expense": true} 讓系統處理
+3. 如果問到糧單/薪金計算，結合知識庫中的合約條款（分成比例、底薪等）和實際收入數據來計算回答
+4. 如果知識庫有相關資料（合約、價目表、請假記錄等），直接引用回答
+5. 如果問到做某個操作（例如入帳、改記錄），說明正確的操作方法
+6. 如果你唔確定或數據唔夠，坦白講
+7. 用 HTML 格式（<b>粗體</b>），適當用 emoji
+8. 簡潔明瞭，唔好太長
+9. 如果用戶明顯係想記帳（有金額），回覆 JSON：{"is_expense": true} 讓系統處理
 
 只回覆文字答案，唔好加 markdown。` }],
     }),
@@ -1680,6 +1859,9 @@ JSON array 回覆（無markdown無解釋）：
         `/cash — 現金流分析\n` +
         `/arap — 應收/應付帳款\n` +
         `/payslip — 員工薪金摘要\n\n` +
+        `<b>📚 知識庫</b>\n` +
+        `/scan — 掃描 Google Drive 知識庫\n` +
+        `/kb — 知識庫狀態\n\n` +
         `<b>🏥 診所營運</b>\n` +
         `/bk — 今日預約\n` +
         `/pt — 今日病人\n` +
@@ -1690,6 +1872,49 @@ JSON array 回覆（無markdown無解釋）：
         `<b>🤖 自動報告</b>\n` +
         `每日 11pm · 每週一 · 每月1號`
       );
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /scan — Trigger Drive knowledge base indexing ──
+    if (text === '/scan' || text === '/kb scan') {
+      await tgExpReply(chatId, '📚 開始掃描 Google Drive 知識庫...');
+      try {
+        const result = await indexDriveKB(chatId);
+        await tgExpReply(chatId,
+          `✅ <b>知識庫掃描完成</b>\n\n📝 已索引：${result.indexed} 個文件\n⏭️ 已跳過（未更新）：${result.skipped} 個\n❌ 錯誤：${result.errors} 個\n\n用 /kb 查看知識庫狀態`
+        );
+      } catch (err) {
+        console.error('[KB Scan] Error:', err);
+        await tgExpReply(chatId, `❌ 掃描失敗：${err.message}`);
+      }
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── /kb — Knowledge base status ──
+    if (text === '/kb' || text === '/knowledge') {
+      try {
+        const docs = await sbSelectExp('drive_knowledge', 'status=eq.active&order=indexed_at.desc');
+        if (!docs.length) {
+          await tgExpReply(chatId, '📚 知識庫暫無文件。\n\n用 /scan 掃描 Google Drive 文件夾。');
+          return res.status(200).json({ ok: true });
+        }
+        const byCat = {};
+        docs.forEach(d => { byCat[d.category || 'other'] = (byCat[d.category || 'other'] || 0) + 1; });
+        const catLabels = { contract: '📄 合約', pricelist: '💰 價目表', leave: '🏖️ 請假', hr: '👥 人事', policy: '📋 政策', financial: '💵 財務', other: '📁 其他' };
+        let rpt = `<b>📚 知識庫狀態</b>\n━━━━━━━━━━━━━━━━━━\n\n📝 文件總數：${docs.length}\n\n<b>分類</b>\n`;
+        Object.entries(byCat).sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
+          rpt += `  ${catLabels[cat] || cat}：${count} 個\n`;
+        });
+        rpt += `\n<b>最近索引</b>\n`;
+        docs.slice(0, 5).forEach(d => {
+          const dt = d.indexed_at ? new Date(d.indexed_at).toISOString().slice(0, 16).replace('T', ' ') : '';
+          rpt += `  📄 ${d.name}\n     ${catLabels[d.category] || d.category} · ${dt}\n`;
+        });
+        rpt += `\n🔄 /scan 重新掃描`;
+        await tgExpReply(chatId, rpt);
+      } catch (err) {
+        await tgExpReply(chatId, `❌ 查詢知識庫失敗：${err.message}`);
+      }
       return res.status(200).json({ ok: true });
     }
 
