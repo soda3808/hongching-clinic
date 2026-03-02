@@ -300,6 +300,97 @@ JSON array 回覆（無markdown無解釋）：
   try { return JSON.parse(match[0]); } catch { return null; }
 }
 
+// ── Smart Query: answer questions using business data ──
+async function tgSmartQuery(chatId, text) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return false;
+
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const { ms, me } = monthRange(now.getFullYear(), now.getMonth() + 1);
+
+  // Fetch current month data for context
+  const [rev, exp] = await Promise.all([
+    sbSelectExp('revenue', `date=gte.${ms}&date=lt.${me}&order=date.desc`).catch(() => []),
+    sbSelectExp('expenses', `date=gte.${ms}&date=lt.${me}&order=date.desc`).catch(() => []),
+  ]);
+
+  const totalRev = rev.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const totalExp = exp.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+  // Build concise data summary for AI
+  const expByCat = {};
+  exp.forEach(e => { expByCat[e.category || '其他'] = (expByCat[e.category || '其他'] || 0) + (Number(e.amount) || 0); });
+  const revByItem = {};
+  rev.forEach(r => { revByItem[r.item || '其他'] = (revByItem[r.item || '其他'] || 0) + (Number(r.amount) || 0); });
+  const revByDoctor = {};
+  rev.forEach(r => { if (r.doctor) revByDoctor[r.doctor] = (revByDoctor[r.doctor] || 0) + (Number(r.amount) || 0); });
+  const expByStaff = {};
+  exp.filter(e => e.category === '人工').forEach(e => { expByStaff[e.merchant || '未知'] = (expByStaff[e.merchant || '未知'] || 0) + (Number(e.amount) || 0); });
+
+  // Known staff payroll config
+  const payrollConfig = [
+    { name: '許醫師', salary: 0, type: '醫師', note: '按診金分成' },
+    { name: '曾醫師', salary: 0, type: '醫師', note: '按診金分成' },
+    { name: 'Zoe 趙穎欣', salary: 0, type: '職員', note: '月薪制' },
+    { name: 'Kelly', salary: 0, type: '職員', note: '月薪制' },
+  ];
+
+  const dataContext = `
+本月數據 (${now.getFullYear()}年${now.getMonth() + 1}月，截至${today}):
+- 總收入：HK$ ${totalRev.toLocaleString()}（${rev.length}筆）
+- 總支出：HK$ ${totalExp.toLocaleString()}（${exp.length}筆）
+- 淨利潤：HK$ ${(totalRev - totalExp).toLocaleString()}
+
+支出分類明細：${Object.entries(expByCat).sort((a,b) => b[1]-a[1]).map(([c,a]) => `${c} HK$${a.toLocaleString()}`).join('、') || '暫無'}
+
+收入分類明細：${Object.entries(revByItem).sort((a,b) => b[1]-a[1]).map(([c,a]) => `${c} HK$${a.toLocaleString()}`).join('、') || '暫無'}
+
+醫師收入：${Object.entries(revByDoctor).sort((a,b) => b[1]-a[1]).map(([d,a]) => `${d} HK$${a.toLocaleString()}`).join('、') || '暫無數據'}
+
+人工支出：${Object.entries(expByStaff).sort((a,b) => b[1]-a[1]).map(([s,a]) => `${s} HK$${a.toLocaleString()}`).join('、') || '暫無'}
+
+員工名單：許醫師、曾醫師、Zoe趙穎欣、Kelly
+
+最近5筆支出：${exp.slice(0,5).map(e => `${e.date} HK$${Number(e.amount).toLocaleString()} ${e.merchant}(${e.category})`).join(' | ') || '暫無'}
+最近5筆收入：${rev.slice(0,5).map(r => `${r.date} HK$${Number(r.amount).toLocaleString()} ${r.name}(${r.item})`).join(' | ') || '暫無'}`;
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001', max_tokens: 1500,
+      messages: [{ role: 'user', content: `你是香港中醫診所「康晴中醫」的AI管理助手。用戶用廣東話/中文問你問題，你要根據以下數據回答。
+
+${dataContext}
+
+用戶問題：「${text}」
+
+回答規則：
+1. 用繁體中文 + 廣東話回答
+2. 如果問數據相關問題，直接用上面的數據回答，列出具體金額
+3. 如果問到糧單/薪金計算，說明需要在系統 PayrollPage 頁面計算（/payslip 指令可睇摘要），列出你知道的相關數據
+4. 如果問到做某個操作（例如入帳、改記錄），說明正確的操作方法
+5. 如果你唔確定或數據唔夠，坦白講
+6. 用 HTML 格式（<b>粗體</b>），適當用 emoji
+7. 簡潔明瞭，唔好太長
+8. 如果用戶明顯係想記帳（有金額），回覆 JSON：{"is_expense": true} 讓系統處理
+
+只回覆文字答案，唔好加 markdown。` }],
+    }),
+  });
+  if (!r.ok) return false;
+  const data = await r.json();
+  const answer = data.content?.[0]?.text || '';
+  if (!answer) return false;
+
+  // Check if AI thinks this is actually an expense
+  if (answer.includes('"is_expense": true') || answer.includes('"is_expense":true')) return false;
+
+  await tgExpReply(chatId, `🤖 ${answer}`);
+  return true;
+}
+
 async function sbInsertExp(table, body) { const r = await fetch(sbUrl(table), { method: 'POST', headers: sbHeaders(), body: JSON.stringify(body) }); if (!r.ok) throw new Error(`Supabase POST ${table}: ${r.status}`); return r.json(); }
 async function sbSelectExp(table, f) { const r = await fetch(sbUrl(table, f), { method: 'GET', headers: sbHeaders() }); if (!r.ok) throw new Error(`Supabase GET ${table}: ${r.status}`); return r.json(); }
 
@@ -606,7 +697,7 @@ async function handleTgExpense(req, res) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-6', max_tokens: 2000,
+            model: 'claude-sonnet-4-6', max_tokens: 8000,
             messages: [{ role: 'user', content: [
               { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: b64 } },
               { type: 'text', text: `你是中醫診所「康晴中醫」的會計AI。仔細分析這份 PDF 文件中的所有內容。${extra}
@@ -1602,13 +1693,31 @@ JSON array 回覆（無markdown無解釋）：
       return res.status(200).json({ ok: true });
     }
 
-    // ── Natural Language → AI parse & auto-save (supports multi-transaction) ──
+    // ── Natural Language → Smart routing: expense OR question ──
     if (text && !text.startsWith('/')) {
+      // Quick heuristic: if text looks like a question (no numbers, has question words), try smart query first
+      const hasAmount = /\d{2,}/.test(text);
+      const isQuestion = /[？?]|幫我|計算|幾多|點樣|邊個|查|搵|睇下|報告|糧單|payslip|分析|比較|統計|總結/.test(text);
+
+      if (!hasAmount && isQuestion) {
+        await tgExpReply(chatId, '🤖 AI 正在查詢資料...');
+        try {
+          const answered = await tgSmartQuery(chatId, text);
+          if (answered) return res.status(200).json({ ok: true });
+        } catch (qErr) { console.error('[SmartQuery] error:', qErr); }
+      }
+
+      // Try expense NLP parsing
       await tgExpReply(chatId, '🤖 AI 理解緊你講乜...');
       try {
         const results = await tgExpNLP(text);
         if (!results || !results.length || results[0].error) {
-          await tgExpReply(chatId, '🤔 唔太明白你嘅意思，可以試下咁講：\n\n• 「今日買左100蚊中藥」\n• 「利是400蚊，飲茶200蚊」\n• 「收到張三診金500蚊」\n• 或直接 send 收據相片\n\n/help 查看所有指令');
+          // NLP failed — try smart query as fallback
+          try {
+            const answered = await tgSmartQuery(chatId, text);
+            if (answered) return res.status(200).json({ ok: true });
+          } catch {}
+          await tgExpReply(chatId, '🤔 唔太明白你嘅意思，可以試下咁講：\n\n• 「今日買左100蚊中藥」\n• 「利是400蚊，飲茶200蚊」\n• 「收到張三診金500蚊」\n• 或直接 send 收據相片\n• 或問問題：「呢個月開支幾多？」\n\n/help 查看所有指令');
           return res.status(200).json({ ok: true });
         }
         let saved = 0;
@@ -1619,6 +1728,11 @@ JSON array 回覆（無markdown無解釋）：
           }
         }
         if (saved === 0) {
+          // No amounts found — try smart query
+          try {
+            const answered = await tgSmartQuery(chatId, text);
+            if (answered) return res.status(200).json({ ok: true });
+          } catch {}
           await tgExpReply(chatId, '🤔 識別到你嘅訊息但搵唔到金額，可以再講清楚啲嗎？');
         }
         return res.status(200).json({ ok: true });
