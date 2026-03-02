@@ -461,6 +461,39 @@ async function tgExpOCR(imageBuffer, mime, caption = '') {
   try { return { ...fb, ...JSON.parse(match[0]) }; } catch (e) { console.error('[OCR] JSON parse error:', e, txt); return fb; }
 }
 
+// ── Image Text Extraction — reads ALL text from non-receipt images (schedules, tables, etc.) ──
+async function extractImageText(imageBuffer, mime) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return '';
+  const b64 = imageBuffer.toString('base64');
+  const mediaType = mime.startsWith('image/') ? mime : 'image/jpeg';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 2000,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+          { type: 'text', text: `請仔細閱讀圖片中的所有文字和數字，完整地提取出來。
+
+如果圖片是表格（例如工作時間記錄、排班表、出勤表），請用以下格式整理：
+- 每一行資料用一行文字表示
+- 保留所有日期、時間、數字、人名
+- 保持原始資料的結構和順序
+
+如果是其他類型的文字內容，直接逐字提取。
+
+只回覆提取到的文字內容，不要加任何解釋或說明。如果圖片中沒有可讀文字，回覆「無文字內容」。` },
+        ] }],
+      }),
+    });
+    if (!r.ok) return '';
+    const data = await r.json();
+    return data.content?.[0]?.text || '';
+  } catch (e) { console.error('[ExtractText] error:', e.message); return ''; }
+}
+
 // ── Natural Language Parser — understands free-form Cantonese/Chinese accounting ──
 async function tgExpNLP(text) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -852,7 +885,22 @@ async function handleTgExpense(req, res) {
 
         const ocr = await tgExpOCR(buffer, mime, caption);
         if (!ocr || ocr.amount <= 0 || ocr.vendor === '未知') {
-          await tgExpReply(chatId, '🤔 掃描唔到內容。請確保：\n1. 圖片清晰、唔好太模糊\n2. 收據/發票完整可見\n3. 金額清楚顯示\n\n你可以試下直接打字：<code>金額, 商戶, 分類</code>');
+          // Not a receipt — try to extract text and route to smart query
+          console.log('[Photo] Not a receipt, attempting text extraction for smart query...');
+          await tgExpReply(chatId, '📄 唔似收據，AI 正在分析圖片內容...');
+          try {
+            const imgText = await extractImageText(buffer, mime || 'image/jpeg');
+            if (imgText && imgText.length > 5 && !imgText.includes('無文字內容')) {
+              const queryText = caption
+                ? `${caption}\n\n以下是圖片中提取到的內容：\n${imgText}`
+                : `用戶發送了一張圖片，請根據以下圖片內容回答或處理：\n${imgText}`;
+              addToHistory(chatId, '用戶', `[圖片] ${imgText.slice(0, 300)}`);
+              const answered = await tgSmartQuery(chatId, queryText, getHistory(chatId));
+              if (answered) return res.status(200).json({ ok: true });
+            }
+          } catch (extractErr) { console.error('[Photo] Text extraction fallback error:', extractErr.message); }
+          // If text extraction also failed, show original error
+          await tgExpReply(chatId, '🤔 掃描唔到內容。請確保：\n1. 圖片清晰、唔好太模糊\n2. 收據/發票完整可見\n3. 金額清楚顯示\n\n💡 你也可以直接打字輸入資料，或用<code>金額, 商戶, 分類</code>格式記帳');
           return res.status(200).json({ ok: true });
         }
         await autoSaveAndReply(chatId, ocr, storeFromCaption, driveLink);
@@ -884,7 +932,21 @@ async function handleTgExpense(req, res) {
 
         const ocr = await tgExpOCR(buffer, mime, caption);
         if (!ocr || ocr.amount <= 0 || ocr.vendor === '未知') {
-          await tgExpReply(chatId, '🤔 掃描唔到內容。請確保圖片清晰、收據完整可見。\n或直接打字：<code>金額, 商戶, 分類</code>');
+          // Not a receipt — try to extract text and route to smart query
+          console.log('[DocImage] Not a receipt, attempting text extraction for smart query...');
+          await tgExpReply(chatId, '📄 唔似收據，AI 正在分析圖片內容...');
+          try {
+            const imgText = await extractImageText(buffer, mime || 'image/jpeg');
+            if (imgText && imgText.length > 5 && !imgText.includes('無文字內容')) {
+              const queryText = caption
+                ? `${caption}\n\n以下是圖片中提取到的內容：\n${imgText}`
+                : `用戶發送了一張圖片，請根據以下圖片內容回答或處理：\n${imgText}`;
+              addToHistory(chatId, '用戶', `[圖片] ${imgText.slice(0, 300)}`);
+              const answered = await tgSmartQuery(chatId, queryText, getHistory(chatId));
+              if (answered) return res.status(200).json({ ok: true });
+            }
+          } catch (extractErr) { console.error('[DocImage] Text extraction fallback error:', extractErr.message); }
+          await tgExpReply(chatId, '🤔 掃描唔到內容。請確保圖片清晰、收據完整可見。\n💡 你也可以直接打字輸入資料，或用<code>金額, 商戶, 分類</code>格式記帳');
           return res.status(200).json({ ok: true });
         }
         await autoSaveAndReply(chatId, ocr, storeFromCaption, driveLink);
