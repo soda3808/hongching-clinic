@@ -1001,7 +1001,12 @@ function MainApp() {
   }, [user]);
 
   const perms = user ? (PERMISSIONS[user.role] || {}) : {};
-  const visiblePages = ALL_PAGES.filter(p => perms[p.perm]);
+  const visiblePages = ALL_PAGES.filter(p => {
+    if (perms[p.perm]) return true;
+    // Doctors can view their own payslip
+    if (p.id === 'pay' && perms.viewOwnPayslip) return true;
+    return false;
+  });
   const stores = getStores().filter(s => s.active);
 
   const filteredData = useMemo(() => filterByPermission(data, activeStore), [data, activeStore, user]);

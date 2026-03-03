@@ -2,11 +2,22 @@ import { useState, useMemo, useCallback } from 'react';
 import { saveExpense } from '../api';
 import { uid, fmtM, fmt, getMonth, getEmployees, saveEmployees } from '../data';
 import { getClinicName, getClinicNameEn } from '../tenant';
+import { getCurrentUser, hasPermission } from '../auth';
 import escapeHtml from '../utils/escapeHtml';
 
 export default function Payslip({ data, setData, showToast, allData }) {
+  const currentUser = getCurrentUser();
+  const isAdmin = hasPermission('viewPayroll'); // admin/superadmin
+  const isDoctorSelfView = !isAdmin && hasPermission('viewOwnPayslip');
+
   const [employees, setEmployeesState] = useState(() => getEmployees());
-  const [empId, setEmpId] = useState(employees[0]?.id || 'hui');
+
+  // Doctor can only see their own payslip
+  const visibleEmployees = isDoctorSelfView
+    ? employees.filter(e => e.name === currentUser?.name)
+    : employees;
+
+  const [empId, setEmpId] = useState(visibleEmployees[0]?.id || 'hui');
   const [form, setForm] = useState({
     period: (() => { const d = new Date(); return `${d.getFullYear()}年${d.getMonth() + 1}月`; })(),
     periodStart: '', periodEnd: '',
@@ -17,7 +28,7 @@ export default function Payslip({ data, setData, showToast, allData }) {
   const [showEditor, setShowEditor] = useState(false);
   const [editEmp, setEditEmp] = useState(null);
 
-  const emp = employees.find(e => e.id === empId) || employees[0];
+  const emp = visibleEmployees.find(e => e.id === empId) || visibleEmployees[0];
 
   const loadEmp = (id) => {
     setEmpId(id);
@@ -203,24 +214,26 @@ export default function Payslip({ data, setData, showToast, allData }) {
 
   return (
     <>
-      {/* Employee Presets */}
-      <div className="card">
-        <div className="card-header"><h3>👤 選擇員工</h3></div>
-        <div className="preset-bar">
-          {employees.map(e => (
-            <div key={e.id} className={`preset-chip ${empId === e.id ? 'active' : ''}`} onClick={() => loadEmp(e.id)}>
-              {e.name} <span style={{ opacity: .6, marginLeft: 4, fontSize: 10 }}>{e.pos}</span>
-            </div>
-          ))}
+      {/* Employee Presets — hidden for doctor self-view with single employee */}
+      {(!isDoctorSelfView || visibleEmployees.length > 1) && (
+        <div className="card">
+          <div className="card-header"><h3>👤 選擇員工</h3></div>
+          <div className="preset-bar">
+            {visibleEmployees.map(e => (
+              <div key={e.id} className={`preset-chip ${empId === e.id ? 'active' : ''}`} onClick={() => loadEmp(e.id)}>
+                {e.name} <span style={{ opacity: .6, marginLeft: 4, fontSize: 10 }}>{e.pos}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid-2">
         {/* Employee Info */}
         <div className="card">
           <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>1️⃣ 員工資料</h3>
-            <button className="btn btn-sm" onClick={() => openEditor(emp)} style={{ fontSize: 11, padding: '4px 10px' }}>✏️ 編輯</button>
+            <h3>{isDoctorSelfView ? '📋 我的薪金資料' : '1️⃣ 員工資料'}</h3>
+            {isAdmin && <button className="btn btn-sm" onClick={() => openEditor(emp)} style={{ fontSize: 11, padding: '4px 10px' }}>✏️ 編輯</button>}
           </div>
           <div className="grid-2" style={{ gap: 10 }}>
             <div><label>員工姓名</label><input value={emp?.name || ''} readOnly /></div>
@@ -310,7 +323,7 @@ export default function Payslip({ data, setData, showToast, allData }) {
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button className="btn btn-teal" onClick={handlePrint}>🖨️ 列印糧單</button>
-        <button className="btn btn-green" onClick={handleAddToExp}>📤 計入開支</button>
+        {isAdmin && <button className="btn btn-green" onClick={handleAddToExp}>📤 計入開支</button>}
       </div>
 
       {/* Preview */}

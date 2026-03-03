@@ -8,6 +8,7 @@
 export const DEFAULT_USERS = [
   { id: 'admin1', username: 'admin', passwordHash: '', name: '管理員', role: 'admin', stores: ['all'], email: '', active: true },
   { id: 'owner1', username: 'steven', passwordHash: '$2b$10$UKNXoXiqPnc3NZuE2oqIkueMZuY3YY.1PMfZIe1l.d8rNyhj6H.5u', name: 'Steven', role: 'admin', stores: ['all'], email: '', active: true },
+  { id: 'doc_hui', username: 'drHui', passwordHash: '$2b$10$RZkMeOmVVo3ViE0oPPFCzuf7VJ8FemIobkqDn5Dgb1HCi5H8lcJmy', name: '許植輝', role: 'doctor', stores: ['宋皇臺店', '太子店'], email: '', active: true },
 ];
 
 // Fallback stores — in multi-tenant mode, stores come from tenant config in the database.
@@ -45,7 +46,7 @@ export const PERMISSIONS = {
   },
   doctor: {
     viewAllStores: false, viewDashboard: false, editRevenue: true, editExpenses: false, editARAP: false,
-    viewPayroll: false, editPayroll: false, viewDoctorAnalytics: true, viewReports: false,
+    viewPayroll: false, editPayroll: false, viewOwnPayslip: true, viewDoctorAnalytics: true, viewReports: false,
     viewSettings: false, manageUsers: false, viewReceiptScanner: false, viewPatients: true, viewBookings: true,
     viewEMR: true, editEMR: true, viewPackages: false, editPackages: false,
     viewQueue: true, editQueue: false, viewBilling: false, editBilling: false,
