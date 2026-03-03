@@ -925,6 +925,7 @@ function MainApp() {
   const [showExport, setShowExport] = useState(false);
   const [activeStore, setActiveStore] = useState('all');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showMore, setShowMore] = useState(false); // sidebar "更多功能" toggle
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [theme, setTheme] = useState(() => localStorage.getItem('hcmc_theme') || 'light');
   const [showLoginPage, setShowLoginPage] = useState(false);
@@ -1091,10 +1092,56 @@ function MainApp() {
   }
 
   const currentPage = visiblePages.find(p => p.id === page) || visiblePages[0];
+
+  // Core pages that show in main sidebar — everything else goes into "更多"
+  const CORE_IDS = new Set([
+    // 總覽
+    'dash',
+    // 診症流程
+    'patient', 'booking', 'queue', 'emr', 'voucher',
+    // 配藥/收費
+    'billing', 'inventory',
+    // 財務
+    'rev', 'exp', 'closing',
+    // 人事
+    'pay', 'schedule',
+    // 分析
+    'doc', 'report',
+  ]);
+
+  const corePages = visiblePages.filter(p => CORE_IDS.has(p.id));
+  const extraPages = visiblePages.filter(p => !CORE_IDS.has(p.id));
+
+  // Build main sections from core pages only
+  const SECTION_ORDER = ['總覽', '診症', '營運', '財務', '人事', '分析'];
+  const SECTION_REMAP = {
+    'dash': '總覽',
+    'patient': '診症', 'booking': '診症', 'queue': '診症', 'emr': '診症', 'voucher': '診症',
+    'billing': '營運', 'inventory': '營運',
+    'rev': '財務', 'exp': '財務', 'closing': '財務',
+    'pay': '人事', 'schedule': '人事',
+    'doc': '分析', 'report': '分析',
+  };
+
   let sections = {};
-  visiblePages.forEach(p => {
-    if (!sections[p.section]) sections[p.section] = [];
-    sections[p.section].push(p);
+  corePages.forEach(p => {
+    const sec = SECTION_REMAP[p.id] || p.section;
+    if (!sections[sec]) sections[sec] = [];
+    sections[sec].push(p);
+  });
+
+  // Sort sections by defined order
+  const orderedSections = {};
+  SECTION_ORDER.forEach(s => { if (sections[s]) orderedSections[s] = sections[s]; });
+  // Add any remaining
+  Object.keys(sections).forEach(s => { if (!orderedSections[s]) orderedSections[s] = sections[s]; });
+  sections = orderedSections;
+
+  // Group extra pages by their original sections
+  let extraSections = {};
+  extraPages.forEach(p => {
+    if (!extraSections[p.section]) extraSections[p.section] = [];
+    extraSections[p.section].push(p);
   });
 
   // Mobile tabs filtered by permissions
@@ -1120,6 +1167,28 @@ function MainApp() {
               ))}
             </div>
           ))}
+          {/* Collapsible "更多功能" for non-core pages */}
+          {extraPages.length > 0 && (
+            <div role="group" aria-label="更多功能">
+              <div className="nav-section" style={{ borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 8, paddingTop: 12, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                onClick={() => setShowMore(v => !v)}>
+                <span>更多功能</span>
+                <span style={{ fontSize: 10, opacity: .6 }}>{showMore ? '▼' : '▶'} {extraPages.length}</span>
+              </div>
+              {showMore && Object.entries(extraSections).map(([section, items]) => (
+                <div key={section}>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', padding: '6px 16px 2px', textTransform: 'uppercase', letterSpacing: 1 }}>{section}</div>
+                  {items.map(p => (
+                    <div key={p.id} className={`nav-item ${page === p.id ? 'active' : ''}`} onClick={() => setPage(p.id)}
+                      role="button" tabIndex={0} aria-current={page === p.id ? 'page' : undefined}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPage(p.id); } }}>
+                      <span style={{ fontSize: 14 }} aria-hidden="true">{p.icon}</span><span style={{ fontSize: 12 }}>{p.label}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
           {perms.viewSettings && (
             <>
               <div className="nav-section" style={{ borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 8, paddingTop: 12 }}></div>
