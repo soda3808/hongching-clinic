@@ -53,6 +53,22 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
   const [patientSuggestions, setPatientSuggestions] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  // Pick up quick-queue patient from PatientPage
+  useEffect(() => {
+    const stored = sessionStorage.getItem('hcmc_quick_queue_patient');
+    if (!stored) return;
+    try {
+      const p = JSON.parse(stored);
+      sessionStorage.removeItem('hcmc_quick_queue_patient');
+      setPatientSearch(p.name || '');
+      setSelectedPatient({ name: p.name, phone: p.phone });
+      if (p.doctor) setFormDoctor(p.doctor);
+      if (p.store) setFormStore(p.store);
+      setShowModal(true);
+    } catch {}
+  }, []);
+
   const [consentItem, setConsentItem] = useState(null);
   const [consentStep, setConsentStep] = useState('patient'); // 'patient' | 'doctor'
   const [patientSig, setPatientSig] = useState('');
@@ -191,13 +207,18 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
 
   // Status transitions with full timestamp tracking
   const updateStatus = async (item, newStatus) => {
-    const updated = { ...item, status: newStatus };
-    if (newStatus === 'in-consultation' && !updated.arrivedAt) updated.arrivedAt = getTimeNow();
-    if (newStatus === 'dispensing') updated.dispensingAt = getTimeNow();
-    if (newStatus === 'billing') updated.billingAt = getTimeNow();
-    if (newStatus === 'completed') updated.completedAt = getTimeNow();
-    await saveQueue(updated);
-    setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q) });
+    try {
+      const updated = { ...item, status: newStatus };
+      if (newStatus === 'in-consultation' && !updated.arrivedAt) updated.arrivedAt = getTimeNow();
+      if (newStatus === 'dispensing') updated.dispensingAt = getTimeNow();
+      if (newStatus === 'billing') updated.billingAt = getTimeNow();
+      if (newStatus === 'completed') updated.completedAt = getTimeNow();
+      await saveQueue(updated);
+      setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q) });
+    } catch (err) {
+      console.error('updateStatus error:', err);
+      showToast('更新狀態失敗，請重試');
+    }
     showToast(`${item.queueNo} ${STATUS_LABELS[newStatus]}`);
   };
 
@@ -252,22 +273,27 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
 
   // Start consultation — navigate to EMR with pre-filled data
   const startConsultation = async (item) => {
-    // Update queue status to in-consultation
-    const updated = { ...item, status: 'in-consultation', arrivedAt: getTimeNow() };
-    await saveQueue(updated);
-    setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q) });
-    // Store pending consultation data for EMR to pick up
-    sessionStorage.setItem('hcmc_pending_consult', JSON.stringify({
-      queueId: item.id,
-      patientName: item.patientName,
-      patientPhone: item.patientPhone,
-      doctor: item.doctor,
-      store: item.store,
-      services: item.services,
-      date: item.date,
-    }));
-    showToast(`${item.queueNo} 開始診症`);
-    if (onNavigate) onNavigate('emr');
+    try {
+      // Update queue status to in-consultation
+      const updated = { ...item, status: 'in-consultation', arrivedAt: item.arrivedAt || getTimeNow() };
+      await saveQueue(updated);
+      setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q) });
+      // Store pending consultation data for EMR to pick up
+      sessionStorage.setItem('hcmc_pending_consult', JSON.stringify({
+        queueId: item.id,
+        patientName: item.patientName,
+        patientPhone: item.patientPhone,
+        doctor: item.doctor,
+        store: item.store,
+        services: item.services,
+        date: item.date,
+      }));
+      showToast(`${item.queueNo || item.patientName} 開始診症`);
+      if (onNavigate) onNavigate('emr');
+    } catch (err) {
+      console.error('startConsultation error:', err);
+      showToast('開始診症失敗，請重試');
+    }
   };
 
   // ── WhatsApp Queue Notification (#112) ──

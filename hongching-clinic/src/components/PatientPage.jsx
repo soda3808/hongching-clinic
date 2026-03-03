@@ -8,11 +8,16 @@ import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
 import EmptyState from './EmptyState';
 import escapeHtml from '../utils/escapeHtml';
 
-const EMPTY = { name:'', phone:'', gender:'男', dob:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'' };
+const EMPTY = { name:'', phone:'', gender:'男', dob:'', dobYear:'', dobMonth:'', dobDay:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'' };
 const REFERRAL_SOURCES = ['親友推薦', '網上搜尋', '社交媒體', '路過', '醫師轉介', '舊病人回歸', '廣告', '其他'];
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: 120 }, (_, i) => currentYear - i);
+const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 
 export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [form, setForm] = useState({ ...EMPTY });
+  const [justCreated, setJustCreated] = useState(null); // newly created patient for quick actions
   const [search, setSearch] = useState('');
   const [filterDoc, setFilterDoc] = useState('all');
   const [filterStore, setFilterStore] = useState('all');
@@ -136,7 +141,19 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
     await savePatient(record);
     setData({ ...data, patients: [...patients, record] });
     setForm({ ...EMPTY });
+    setJustCreated(record);
     showToast('已新增病人');
+    // Auto-clear after 15s
+    setTimeout(() => setJustCreated(prev => prev?.id === record.id ? null : prev), 15000);
+  };
+
+  const quickQueue = (patient) => {
+    // Store patient info for QueuePage quick registration
+    sessionStorage.setItem('hcmc_quick_queue_patient', JSON.stringify({
+      name: patient.name, phone: patient.phone, doctor: patient.doctor, store: patient.store,
+    }));
+    setJustCreated(null);
+    if (onNavigate) onNavigate('queue');
   };
 
   // ── Communication Log ──
@@ -298,7 +315,19 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             <div><label>性別</label><select value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}><option>男</option><option>女</option></select></div>
           </div>
           <div className="grid-3" style={{ marginBottom: 12 }}>
-            <div><label>出生日期</label><input type="date" value={form.dob} onChange={e => setForm({...form, dob: e.target.value})} /></div>
+            <div><label>出生日期</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <select value={form.dobYear} onChange={e => { const y = e.target.value; setForm(f => ({ ...f, dobYear: y, dob: y && f.dobMonth && f.dobDay ? `${y}-${String(f.dobMonth).padStart(2,'0')}-${String(f.dobDay).padStart(2,'0')}` : '' })); }} style={{ flex: 1.2 }}>
+                  <option value="">年</option>{YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <select value={form.dobMonth} onChange={e => { const m = e.target.value; setForm(f => ({ ...f, dobMonth: m, dob: f.dobYear && m && f.dobDay ? `${f.dobYear}-${String(m).padStart(2,'0')}-${String(f.dobDay).padStart(2,'0')}` : '' })); }} style={{ flex: 1 }}>
+                  <option value="">月</option>{MONTHS.map(m => <option key={m} value={m}>{m}月</option>)}
+                </select>
+                <select value={form.dobDay} onChange={e => { const d = e.target.value; setForm(f => ({ ...f, dobDay: d, dob: f.dobYear && f.dobMonth && d ? `${f.dobYear}-${String(f.dobMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}` : '' })); }} style={{ flex: 1 }}>
+                  <option value="">日</option>{DAYS.map(d => <option key={d} value={d}>{d}日</option>)}
+                </select>
+              </div>
+            </div>
             <div><label>地址</label><input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="地址" /></div>
             <div><label>過敏史</label><input value={form.allergies} onChange={e => setForm({...form, allergies: e.target.value})} placeholder="如無請填「無」" /></div>
           </div>
@@ -320,6 +349,18 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             </label>
           </div>
         </form>
+
+        {/* Quick action banner after creating patient */}
+        {justCreated && (
+          <div style={{ marginTop: 12, padding: '12px 16px', background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 13 }}>✅ 已新增 <b>{justCreated.name}</b></div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn btn-teal btn-sm" onClick={() => quickQueue(justCreated)}>📋 即時掛號</button>
+              {onNavigate && <button className="btn btn-green btn-sm" onClick={() => { sessionStorage.setItem('hcmc_pending_consult', JSON.stringify({ patientName: justCreated.name, patientPhone: justCreated.phone, doctor: justCreated.doctor, store: justCreated.store, date: new Date().toISOString().substring(0, 10) })); setJustCreated(null); onNavigate('emr'); }}>🩺 直接開診</button>}
+              <button className="btn btn-outline btn-sm" onClick={() => setJustCreated(null)}>✕</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CSV Import Modal */}
