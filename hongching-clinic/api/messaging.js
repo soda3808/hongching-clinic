@@ -43,7 +43,9 @@ function getHistory(chatId, maxChars = 8000) {
 
 // ── Staff / Employee Config (defaults + Supabase persistence) ──
 const defaultStaffConfig = {
-  '許醫師': { type: 'doctor', note: '按診金分成' },
+  '許植輝醫師': { type: 'doctor', baseSalary: 33000, startDate: '2026-02-01', regNo: '007476',
+    commission: [ { min: 0, max: 100000, rate: 0.02 }, { min: 100000, max: 150000, rate: 0.05 }, { min: 150000, max: 250000, rate: 0.15 }, { min: 250000, max: 400000, rate: 0.30 } ],
+    note: '底薪$33,000+階梯佣金，合約2026-02-01起，試用期1個月，工作6日/週，宋皇臺+太子店' },
   '曾醫師': { type: 'doctor', note: '按診金分成' },
   'Zoe趙穎欣': { type: 'parttime', rate: 60, note: '兼職，$60/小時，6小時以上扣1小時飯鐘' },
   'Kelly': { type: 'staff', note: '月薪制' },
@@ -96,6 +98,9 @@ function getStaffConfigText() {
   for (const [name, cfg] of staffConfig.entries()) {
     if (cfg.type === 'parttime' && cfg.rate) {
       lines.push(`${name}：兼職，時薪 HK$${cfg.rate}/小時${cfg.note ? '，' + cfg.note : ''}`);
+    } else if (cfg.type === 'doctor' && cfg.baseSalary && cfg.commission) {
+      const tiers = cfg.commission.map(t => `$${(t.min/1000)}k-$${(t.max/1000)}k=${t.rate*100}%`).join(', ');
+      lines.push(`${name}：醫師，底薪 HK$${cfg.baseSalary.toLocaleString()} + 階梯佣金 [${tiers}]`);
     } else if (cfg.type === 'doctor') {
       lines.push(`${name}：醫師，${cfg.note || '按診金分成'}`);
     } else if (cfg.fixedSalary) {
