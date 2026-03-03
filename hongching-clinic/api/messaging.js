@@ -504,9 +504,10 @@ async function tgExpOCR(imageBuffer, mime, caption = '') {
 - QUOTATION/報價單 不應記賬，amount 設為 0
 - 如果文件日期是上月或更早，設 doc_warning 提醒用戶
 - 如果圖片不清晰或不是財務相關文件，amount 設為 0
+- 幣種偵測：留意金額前面的符號或文字（¥/元/人民幣=CNY，$/HK$=HKD，US$=USD，€=EUR）。淘寶、拼多多、天貓、京東等中國平台一律為 CNY
 
 只回覆JSON（無markdown無解釋）：
-{"type":"expense"或"revenue","doc_type":"receipt/invoice/quotation/statement/other","amount":數字,"vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1,"doc_warning":"如日期非本月或文件類型非receipt則填寫提醒否則空","raw_text":"你在圖片中看到的主要文字摘要（50字內）"}
+{"type":"expense"或"revenue","doc_type":"receipt/invoice/quotation/statement/other","amount":數字(原始幣種金額),"currency":"HKD/CNY/USD/EUR(偵測到的幣種，默認HKD)","vendor":"對方名","date":"YYYY-MM-DD","category":"分類","item":"簡述","payment":"現金/FPS/信用卡/轉帳/支票/其他","store_hint":"如能從地址判斷分店則填寫否則空","confidence":0到1,"doc_warning":"如日期非本月或文件類型非receipt則填寫提醒否則空","raw_text":"你在圖片中看到的主要文字摘要（50字內）"}
 
 開支分類：租金,管理費,保險,牌照/註冊,人工,MPF,藥材/耗材,電費,水費,電話/網絡,醫療器材,日常雜費,文具/印刷,交通,飲食招待,清潔,裝修工程,廣告/宣傳,其他
 收入分類：診金,藥費,針灸,推拿,其他治療` },
@@ -589,6 +590,7 @@ async function tgExpNLP(text) {
 - 「電費」「水費」「煤氣」「上網」「Wi-Fi」= expense（對應分類）
 - 金額：提取阿拉伯數字，「蚊」=HK$，「$」=HK$，「千」=000，「萬」=0000，「百」=00
 - 例：「三千蚊」=3000，「五百」=500，「一萬二」=12000，「2千5」=2500
+- 幣種：默認 HKD。如提到「人民幣」「¥」「元」「淘寶」「拼多多」「天貓」「京東」= CNY。如提到「美金」「USD」= USD
 - 日期：「今日」=${today}，「尋日/昨日/琴日」=前一日，「前日」=前兩日，「上個禮拜/上星期」=7日前，無提及=今日
 - 付款方式：「現金」「cash」=現金，「FPS」「轉數快」=FPS，「信用卡」「碌卡」=信用卡，「轉帳」「過數」=轉帳，「支票」=支票
 - 分店：「旺角」「太子」「尖沙咀」「銅鑼灣」「觀塘」等如有提及就填，無就留空
@@ -597,7 +599,7 @@ async function tgExpNLP(text) {
 收入分類：診金,藥費,針灸,推拿,其他治療
 
 JSON array 回覆（無markdown無解釋）：
-[{"type":"expense"或"revenue","amount":數字,"vendor":"對方/描述","date":"YYYY-MM-DD","category":"分類","item":"簡短描述","payment":"現金","store_hint":"","confidence":0到1}]
+[{"type":"expense"或"revenue","amount":數字(原始幣種金額),"currency":"HKD/CNY/USD(默認HKD)","vendor":"對方/描述","date":"YYYY-MM-DD","category":"分類","item":"簡短描述","payment":"現金","store_hint":"","confidence":0到1}]
 
 如果完全無法識別任何金額或交易，回傳：[{"error":"無法識別"}]` }],
     }),
@@ -743,6 +745,20 @@ async function autoSaveAndReply(chatId, ocr, storeOverride, driveLink) {
     return;
   }
 
+  // ── Currency conversion (CNY → HKD, USD → HKD, etc.) ──
+  let fxNote = '';
+  if (ocr.currency && ocr.currency !== 'HKD') {
+    const fxRates = { CNY: 1.08, USD: 7.80, EUR: 8.50, GBP: 9.90, JPY: 0.052, TWD: 0.24 };
+    const rate = fxRates[ocr.currency];
+    if (rate) {
+      const originalAmt = ocr.amount;
+      ocr.amount = Math.round(originalAmt * rate * 100) / 100;
+      fxNote = `\n💱 原價 ${ocr.currency} ${originalAmt.toLocaleString()} × ${rate} = HK$ ${ocr.amount.toLocaleString()}`;
+      ocr.item = `${ocr.item || ocr.vendor} (${ocr.currency}${originalAmt})`;
+      console.log(`[FX] ${ocr.currency} ${originalAmt} → HKD ${ocr.amount} (rate: ${rate})`);
+    }
+  }
+
   // ── Guard 2: Invoice warning (not a payment receipt) ──
   if (ocr.doc_type === 'invoice') {
     const uid = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
@@ -800,7 +816,7 @@ async function autoSaveAndReply(chatId, ocr, storeOverride, driveLink) {
     `${emoji} <b>已自動記錄${typeLabel}${docLabel}</b>\n` +
     `💵 <b>HK$ ${(ocr.amount || 0).toLocaleString()}</b> — ${ocr.vendor}\n` +
     `📅 ${ocr.date} | 📁 ${isRev ? (ocr.item || ocr.category) : ocr.category} | 🏥 ${store || '未指定'}\n` +
-    `💳 ${ocr.payment || '其他'} | 📊 ${Math.round((ocr.confidence || 0) * 100)}%${driveLink ? '\n📎 <a href="' + driveLink + '">Google Drive 備份</a>' : ''}${dateWarning}`,
+    `💳 ${ocr.payment || '其他'} | 📊 ${Math.round((ocr.confidence || 0) * 100)}%${fxNote}${driveLink ? '\n📎 <a href="' + driveLink + '">Google Drive 備份</a>' : ''}${dateWarning}`,
     { reply_markup: { inline_keyboard: [[{ text: '↩️ 撤銷此記錄', callback_data: `undo:${table}:${id}` }]] } }
   );
 }
