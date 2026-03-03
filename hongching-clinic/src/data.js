@@ -88,9 +88,10 @@ export const EXPENSE_CATEGORIES = {
 
 export const ALL_CATEGORIES = Object.values(EXPENSE_CATEGORIES).flat();
 
-// Default employees (sample data — actual employee data loaded from tenant config / DB)
+// Default employees — real staff data
 export const DEFAULT_EMPLOYEES = [
-  { id: 'doc1', name: '醫師A', pos: '註冊中醫師', type: 'monthly', rate: 0, start: '',
+  { id: 'hui', name: '許植輝', nameEn: 'Hui Chik Fai', pos: '主診醫師', regNo: '007476', type: 'monthly', rate: 33000, start: '2026-02-01',
+    stores: ['宋皇臺店', '太子店'], note: '底薪$33,000+階梯佣金，合約2026-02-01起，試用期1個月，工作6日/週',
     comm: { tiers: [
       { min: 0, max: 100000, r: 0.02 },
       { min: 100000, max: 150000, r: 0.05 },
@@ -98,9 +99,9 @@ export const DEFAULT_EMPLOYEES = [
       { min: 250000, max: 400000, r: 0.30 },
     ]}
   },
-  { id: 'doc2', name: '醫師B', pos: '兼職中醫師', type: 'daily', rate: 0, start: '', comm: null },
-  { id: 'asst1', name: '助理A', pos: '診所助理', type: 'monthly', rate: 0, start: '', comm: null },
-  { id: 'admin1', name: '管理人', pos: '負責人/中醫師', type: 'monthly', rate: 0, start: '', comm: null },
+  { id: 'tsang', name: '曾醫師', pos: '兼職中醫師', type: 'commission', rate: 0, start: '', stores: ['宋皇臺店'], note: '按診金分成', comm: null },
+  { id: 'zoe', name: 'Zoe趙穎欣', pos: '診所助理', type: 'hourly', rate: 60, start: '', stores: ['宋皇臺店', '太子店'], note: '兼職，$60/小時，6小時以上扣1小時飯鐘', comm: null },
+  { id: 'kelly', name: 'Kelly', pos: '診所助理', type: 'monthly', rate: 0, start: '', stores: ['宋皇臺店'], note: '月薪制', comm: null },
 ];
 
 // Dynamic getters — use tenant config when available, fallback to defaults
