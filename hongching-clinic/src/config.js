@@ -7,7 +7,7 @@
 // To generate a hash: node -e "require('bcryptjs').hash('newpass',10).then(h=>console.log(h))"
 export const DEFAULT_USERS = [
   { id: 'admin1', username: 'admin', passwordHash: '', name: '管理員', role: 'admin', stores: ['all'], email: '', active: true },
-  { id: 'owner1', username: 'steven', passwordHash: '$2b$10$UKNXoXiqPnc3NZuE2oqIkueMZuY3YY.1PMfZIe1l.d8rNyhj6H.5u', name: 'Steven', role: 'admin', stores: ['all'], email: '', active: true },
+  { id: 'owner1', username: 'steven', passwordHash: '$2b$10$9pZLvD/jlf/PjOKqSGjPKeXJmhBCmej9Y5sW.l61tdXjQpFHo.R0K', name: 'Steven', role: 'admin', stores: ['all'], email: '', active: true },
   { id: 'doc_hui', username: 'drHui', passwordHash: '$2b$10$RZkMeOmVVo3ViE0oPPFCzuf7VJ8FemIobkqDn5Dgb1HCi5H8lcJmy', name: '許植輝', role: 'doctor', stores: ['宋皇臺店', '太子店'], email: '', active: true },
 ];
 
