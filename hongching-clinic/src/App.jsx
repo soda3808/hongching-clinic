@@ -1104,7 +1104,7 @@ function MainApp() {
     // 營運
     'billing', 'inventory', 'medscan',
     // 財務
-    'rev', 'exp', 'closing',
+    'rev', 'exp', 'closing', 'pnl',
     // 人事
     'pay', 'schedule',
     // 分析
@@ -1121,7 +1121,7 @@ function MainApp() {
     'patient': '診症', 'booking': '診症', 'queue': '診症', 'emr': '診症', 'voucher': '診症',
     'formulas': '中藥', 'herbwiki': '中藥', 'dispensing': '中藥', 'rxprint': '中藥', 'drugcheck': '中藥',
     'billing': '營運', 'inventory': '營運', 'medscan': '營運',
-    'rev': '財務', 'exp': '財務', 'closing': '財務',
+    'rev': '財務', 'exp': '財務', 'closing': '財務', 'pnl': '財務',
     'pay': '人事', 'schedule': '人事',
     'doc': '分析', 'report': '分析',
   };
