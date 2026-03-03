@@ -1099,8 +1099,10 @@ function MainApp() {
     'dash',
     // 診症流程
     'patient', 'booking', 'queue', 'emr', 'voucher',
-    // 配藥/收費
-    'billing', 'inventory',
+    // 中藥
+    'formulas', 'herbwiki', 'dispensing', 'rxprint', 'drugcheck',
+    // 營運
+    'billing', 'inventory', 'medscan',
     // 財務
     'rev', 'exp', 'closing',
     // 人事
@@ -1113,11 +1115,12 @@ function MainApp() {
   const extraPages = visiblePages.filter(p => !CORE_IDS.has(p.id));
 
   // Build main sections from core pages only
-  const SECTION_ORDER = ['總覽', '診症', '營運', '財務', '人事', '分析'];
+  const SECTION_ORDER = ['總覽', '診症', '中藥', '營運', '財務', '人事', '分析'];
   const SECTION_REMAP = {
     'dash': '總覽',
     'patient': '診症', 'booking': '診症', 'queue': '診症', 'emr': '診症', 'voucher': '診症',
-    'billing': '營運', 'inventory': '營運',
+    'formulas': '中藥', 'herbwiki': '中藥', 'dispensing': '中藥', 'rxprint': '中藥', 'drugcheck': '中藥',
+    'billing': '營運', 'inventory': '營運', 'medscan': '營運',
     'rev': '財務', 'exp': '財務', 'closing': '財務',
     'pay': '人事', 'schedule': '人事',
     'doc': '分析', 'report': '分析',

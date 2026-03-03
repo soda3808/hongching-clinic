@@ -6,6 +6,25 @@ import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantStores, g
 import { exportCSV } from '../utils/export';
 import escapeHtml from '../utils/escapeHtml';
 
+// Drug pricing helper — calculate medicine fee from prescription
+function calcMedicineFee(prescription, days, pricingData) {
+  if (!prescription?.length || !pricingData) return 0;
+  let total = 0;
+  (prescription || []).forEach(r => {
+    if (!r.herb) return;
+    const price = pricingData[r.herb];
+    if (!price) return;
+    const doseG = parseFloat(r.dosage) || 0;
+    const pricePerG = typeof price === 'object' ? (price['一般'] || price.default || 0) : Number(price) || 0;
+    total += doseG * (days || 1) * pricePerG;
+  });
+  return Math.round(total * 100) / 100;
+}
+
+function loadDrugPricingLocal() {
+  try { return JSON.parse(localStorage.getItem('hcmc_drug_pricing') || '{}'); } catch { return {}; }
+}
+
 const DISPENSING_LABELS = {
   'not-needed': '不需配藥',
   pending: '配藥中',
@@ -52,6 +71,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
   const [refundItem, setRefundItem] = useState(null);
   const [refundAmt, setRefundAmt] = useState('');
   const [refundReason, setRefundReason] = useState('');
+  const [drugPricing] = useState(loadDrugPricingLocal);
 
   const queue = data.queue || [];
 
@@ -614,7 +634,18 @@ export default function BillingPage({ data, setData, showToast, allData, user })
                   <td>{r.doctor}</td>
                   <td>{r.store}</td>
                   <td style={{ fontSize: 11 }}>{r.services}</td>
-                  <td className="money">{fmtM(r.serviceFee)}</td>
+                  <td className="money">
+                    {fmtM(r.serviceFee)}
+                    {r.prescription?.length > 0 && (() => {
+                      const medFee = calcMedicineFee(r.prescription, r.formulaDays, drugPricing);
+                      const consultFee = Number(r.serviceFee || 0) - medFee;
+                      return medFee > 0 ? (
+                        <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 2 }}>
+                          診 {fmtM(consultFee > 0 ? consultFee : r.serviceFee)} + 藥 {fmtM(medFee)}
+                        </div>
+                      ) : null;
+                    })()}
+                  </td>
                   <td><span className={`tag ${r.status === 'completed' ? 'tag-paid' : 'tag-pending'}`}>{STATUS_LABELS[r.status]}</span></td>
                   <td>
                     <span className={`tag ${DISPENSING_TAGS[r.dispensingStatus] || ''}`}>

@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { saveConsultation, deleteConsultation, openWhatsApp, saveQueue, saveEnrollment } from '../api';
-import { uid, fmtM, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule, getDoctors, getStoreNames, getDefaultStore } from '../data';
+import { uid, fmtM, TCM_HERBS, TCM_FORMULAS, TCM_TREATMENTS, ACUPOINTS, TCM_HERBS_DB, TCM_FORMULAS_DB, ACUPOINTS_DB, MERIDIANS, GRANULE_PRODUCTS, searchGranules, convertToGranule, getDoctors, getStoreNames, getDefaultStore, FORMULA_CATEGORIES, searchFormulas } from '../data';
 import { getClinicName, getClinicNameEn, getTenantStoreNames, getTenantStores } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
 import { useFocusTrap, nullRef } from './ConfirmModal';
@@ -163,6 +163,11 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   const [draftData, setDraftData] = useState(null);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [versionHistoryData, setVersionHistoryData] = useState([]);
+  const [showFormulaModal, setShowFormulaModal] = useState(false);
+  const [formulaSearch, setFormulaSearch] = useState('');
+  const [formulaCatFilter, setFormulaCatFilter] = useState('全部');
+  const [showSafetyConfirm, setShowSafetyConfirm] = useState(false);
+  const [pendingSaveEvent, setPendingSaveEvent] = useState(null);
 
   const addRef = useRef(null);
   const detailRef = useRef(null);
@@ -502,14 +507,88 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   const getHerbMatches = (idx) => {
     const q = (herbSearch[idx] || '').toLowerCase();
     if (!q) return [];
-    return TCM_HERBS_DB.filter(h => h.n.includes(q) || h.py.includes(q)).slice(0, 8);
+    return TCM_HERBS_DB.filter(h => h.n.includes(q) || h.py.includes(q) || (h.cat && h.cat.includes(q))).slice(0, 10);
   };
+
+  // ── Frequent herbs (from past prescriptions) ──
+  const frequentHerbs = useMemo(() => {
+    const counts = {};
+    (data.consultations || []).forEach(c => {
+      if (c.doctor && user?.name && c.doctor !== user.name) return;
+      (c.prescription || []).forEach(r => { if (r.herb) counts[r.herb] = (counts[r.herb] || 0) + 1; });
+    });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([herb, count]) => ({ herb, count }));
+  }, [data.consultations, user?.name]);
+
+  // ── Formula modal search ──
+  const filteredFormulas = useMemo(() => {
+    let list = TCM_FORMULAS_DB;
+    if (formulaCatFilter !== '全部') list = list.filter(f => f.cat === formulaCatFilter);
+    if (formulaSearch) {
+      const q = formulaSearch.toLowerCase();
+      list = list.filter(f => f.name.includes(q) || (f.ind && f.ind.includes(q)) || f.herbs.some(h => h.h.includes(q)));
+    }
+    return list;
+  }, [formulaSearch, formulaCatFilter]);
+
+  // ── Quick add herb from frequent list ──
+  const quickAddHerb = (herbName) => {
+    const existing = form.prescription.findIndex(r => r.herb === herbName);
+    if (existing >= 0) return showToast(`已有 ${herbName}`);
+    const hInfo = TCM_HERBS_DB.find(h => h.n === herbName);
+    const emptyIdx = form.prescription.findIndex(r => !r.herb);
+    if (emptyIdx >= 0) {
+      updateRx(emptyIdx, 'herb', herbName);
+      if (hInfo) updateRx(emptyIdx, 'dosage', `${hInfo.dMax}g`);
+    } else {
+      setForm(f => ({ ...f, prescription: [...f.prescription, { herb: herbName, dosage: hInfo ? `${hInfo.dMax}g` : '' }] }));
+    }
+    showToast(`+ ${herbName}`);
+  };
+
+  // ── Pre-save safety check ──
+  const preSaveWarnings = useMemo(() => {
+    const warns = [];
+    const rx = form.prescription.filter(r => r.herb);
+    if (!rx.length) return warns;
+    // Check interactions
+    const interactions = checkInteractions(rx);
+    interactions.filter(w => w.level === 'danger').forEach(w => warns.push(w));
+    // Check patient-specific: pregnancy
+    const patient = (data.patients || []).find(p => p.name === form.patientName || p.id === form.patientId);
+    if (patient?.pregnant || patient?.pregnancy) {
+      rx.forEach(r => {
+        const info = getHerbSafetyInfo(r.herb);
+        if (info.pregnancyRisk >= 2) warns.push({ level: 'danger', message: `孕婦禁忌：${r.herb} (${['','慎用','不宜','禁用'][info.pregnancyRisk]})` });
+      });
+    }
+    // G6PD
+    if (patient?.g6pd) {
+      rx.forEach(r => {
+        const info = getHerbSafetyInfo(r.herb);
+        if (info.g6pdRisk >= 1) warns.push({ level: 'danger', message: `G6PD 禁忌：${r.herb}` });
+      });
+    }
+    // Dosage over-limit
+    rx.forEach(r => {
+      if (!r.dosage) return;
+      const d = checkDosage(r.herb, parseFloat(r.dosage));
+      if (d && d.level === 'danger') warns.push({ level: 'warning', message: `${r.herb} 劑量超標 (${r.dosage}，建議上限 ${d.max}g)` });
+    });
+    return warns;
+  }, [form.prescription, form.patientName, form.patientId, data.patients]);
 
   // ── Save ──
   const handleSave = async (e) => {
     e.preventDefault();
     if (!form.patientName) return showToast('請選擇病人');
     if (!form.date) return showToast('請填寫日期');
+    // Safety check before save
+    if (preSaveWarnings.length > 0 && !showSafetyConfirm) {
+      setPendingSaveEvent(true);
+      setShowSafetyConfirm(true);
+      return;
+    }
     const record = {
       ...form, id: uid(),
       prescription: form.prescription.filter(r => r.herb),
@@ -527,9 +606,38 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
     clearDraft(form.patientId);
     clearDraft('new');
     setShowAdd(false);
+    setShowSafetyConfirm(false);
+    setPendingSaveEvent(null);
     setForm({ ...makeEmptyForm(), date: new Date().toISOString().substring(0, 10) });
     setPatientSearch('');
     showToast('已儲存診症紀錄');
+  };
+
+  // Force save after safety confirmation
+  const confirmSaveOverride = async () => {
+    setShowSafetyConfirm(false);
+    const record = {
+      ...form, id: uid(),
+      prescription: form.prescription.filter(r => r.herb),
+      fee: Number(form.fee) || 0,
+      doctorSignature: doctorSig || '',
+      icd10Code: form.icd10Code || '',
+      cmDiagnosisCode: form.cmDiagnosisCode || '',
+      cmZhengCode: form.cmZhengCode || '',
+      safetyOverride: true,
+      safetyWarnings: preSaveWarnings.map(w => w.message),
+      createdAt: new Date().toISOString().substring(0, 10),
+      versionHistory: [{ savedAt: new Date().toISOString(), savedBy: user?.name || '', snapshot: { ...form, prescription: form.prescription.filter(r => r.herb) } }],
+    };
+    await saveConsultation(record);
+    setData(d => ({ ...d, consultations: [...(d.consultations || []), record] }));
+    clearDraft(form.patientId);
+    clearDraft('new');
+    setShowAdd(false);
+    setPendingSaveEvent(null);
+    setForm({ ...makeEmptyForm(), date: new Date().toISOString().substring(0, 10) });
+    setPatientSearch('');
+    showToast('已儲存（已確認安全警告）');
   };
 
   // ── Delete ──
@@ -1118,14 +1226,17 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               {/* Prescription Builder */}
               <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
                 <h4 style={{ margin: 0, fontSize: 13 }}>處方</h4>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-sm" style={{ fontSize: 12, background: '#0e7490', color: '#fff', fontWeight: 700, letterSpacing: 1 }} onClick={() => setShowFormulaModal(true)}>
+                    📖 經方速查
+                  </button>
                   <select style={{ width: 'auto', fontSize: 12, padding: '4px 8px' }} value="" onChange={e => {
                     const v = e.target.value;
                     if (!v) return;
                     if (v.startsWith('custom:')) { const cf = customFormulas.find(f => f.id === v.slice(7)); if (cf) loadCustomFormula(cf); }
                     else loadFormula(v);
                   }}>
-                    <option value="">從方劑庫載入 ({TCM_FORMULAS_DB.length + customFormulas.length} 方)...</option>
+                    <option value="">快速載入...</option>
                     {customFormulas.length > 0 && (
                       <optgroup label={`我的處方 (${customFormulas.length})`}>
                         {customFormulas.map(f => (
@@ -1133,22 +1244,31 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                         ))}
                       </optgroup>
                     )}
-                    {FORMULA_CATEGORIES.map(cat => (
-                      <optgroup key={cat} label={cat}>
-                        {TCM_FORMULAS_DB.filter(f => f.cat === cat).map(f => (
-                          <option key={f.name} value={f.name}>{f.name}（{f.src}）- {f.ind?.substring(0, 20)}</option>
-                        ))}
-                      </optgroup>
-                    ))}
                   </select>
                   <button type="button" className="btn btn-sm" style={{ fontSize: 11, background: '#7c3aed', color: '#fff' }} onClick={saveCustomFormula} title="儲存當前處方為自訂模板">
-                    儲存處方
+                    💾 儲存
                   </button>
                   <button type="button" className="btn btn-outline btn-sm" onClick={handleAiSuggest} disabled={aiLoading} style={{ fontSize: 11 }}>
-                    {aiLoading ? '分析中...' : '🤖 AI 處方建議'}
+                    {aiLoading ? '分析中...' : '🤖 AI'}
                   </button>
                 </div>
               </div>
+              {/* Frequent Herbs Chip Bar */}
+              {frequentHerbs.length > 0 && (
+                <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: 'var(--gray-400)', marginRight: 4 }}>常用藥：</span>
+                  {frequentHerbs.slice(0, 15).map(({ herb, count }) => (
+                    <button key={herb} type="button" style={{
+                      padding: '2px 8px', fontSize: 11, borderRadius: 12, border: '1px solid var(--gray-200)',
+                      background: form.prescription.some(r => r.herb === herb) ? 'var(--teal-50)' : '#fff',
+                      color: form.prescription.some(r => r.herb === herb) ? 'var(--teal-700)' : 'var(--gray-600)',
+                      cursor: 'pointer', fontWeight: form.prescription.some(r => r.herb === herb) ? 600 : 400,
+                    }} onClick={() => quickAddHerb(herb)} title={`使用 ${count} 次`}>
+                      {herb}
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* AI Suggestion Panel */}
               {aiSuggestion && (
                 <div style={{ background: 'var(--teal-50)', border: '1px solid var(--teal-200)', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12 }}>
@@ -1199,15 +1319,22 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                           {activeHerbIdx === i && getHerbMatches(i).length > 0 && (
                             <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
                               {getHerbMatches(i).map(h => (
-                                <div key={h.n} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                <div key={h.n} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f3f4f6' }}
                                   onMouseDown={() => { updateRx(i, 'herb', h.n); if (!form.prescription[i].dosage) updateRx(i, 'dosage', `${h.dMax}g`); setHerbSearch(s => ({ ...s, [i]: '' })); setActiveHerbIdx(null); }}>
-                                  <span>{h.n} <span style={{ color: '#999', fontSize: 11 }}>{h.py}</span></span>
-                                  <span style={{ fontSize: 10, display: 'flex', gap: 3 }}>
-                                    <span style={{ color: '#888' }}>{h.dMin}-{h.dMax}g</span>
-                                    {h.tox > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}>{['','小毒','有毒','大毒'][h.tox]}</span>}
-                                    {h.sch1 && <span style={{ background: '#dc2626', color: '#fff', padding: '0 3px', borderRadius: 2 }}>附表一</span>}
-                                    {h.preg > 0 && <span style={{ color: '#d97706' }}>孕{['','慎','忌','禁'][h.preg]}</span>}
-                                  </span>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 600 }}>{h.n} <span style={{ color: '#999', fontSize: 10, fontWeight: 400 }}>{h.py}</span></span>
+                                    <span style={{ fontSize: 10, display: 'flex', gap: 3 }}>
+                                      <span style={{ color: '#0e7490', fontWeight: 600 }}>{h.dMin}-{h.dMax}g</span>
+                                      {h.tox > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}>{['','小毒','有毒','大毒'][h.tox]}</span>}
+                                      {h.sch1 && <span style={{ background: '#dc2626', color: '#fff', padding: '0 3px', borderRadius: 2 }}>附表一</span>}
+                                      {h.preg > 0 && <span style={{ color: '#d97706' }}>孕{['','慎','忌','禁'][h.preg]}</span>}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
+                                    {h.prop && <span>{h.prop}</span>}
+                                    {h.taste && <span>・{h.taste}</span>}
+                                    {h.mer && <span> | {h.mer}</span>}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -1451,6 +1578,83 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
           onConfirm={(sig) => { setDoctorSig(sig); setShowSigPad(false); showToast('簽名已記錄'); }}
           onCancel={() => setShowSigPad(false)}
         />
+      )}
+
+      {/* ══ Formula Quick Search Modal ══ */}
+      {showFormulaModal && (
+        <div className="modal-overlay" onClick={() => setShowFormulaModal(false)} role="dialog" aria-modal="true" aria-label="經方速查">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, maxHeight: '85vh', overflowY: 'auto', padding: 0 }}>
+            <div style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '16px 20px 12px', borderBottom: '2px solid #0e7490' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h3 style={{ margin: 0, color: '#0e7490' }}>📖 經方速查 ({TCM_FORMULAS_DB.length} 方)</h3>
+                <button className="btn btn-outline btn-sm" onClick={() => setShowFormulaModal(false)} aria-label="關閉">✕</button>
+              </div>
+              <input type="text" placeholder="搜索方名、適應症、藥材名..." value={formulaSearch} onChange={e => setFormulaSearch(e.target.value)} style={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '10px 14px', borderRadius: 8 }} autoFocus />
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                <button type="button" className={`preset-chip ${formulaCatFilter === '全部' ? 'active' : ''}`} onClick={() => setFormulaCatFilter('全部')} style={{ fontSize: 11, padding: '3px 10px' }}>全部</button>
+                {FORMULA_CATEGORIES.map(cat => (
+                  <button key={cat} type="button" className={`preset-chip ${formulaCatFilter === cat ? 'active' : ''}`} onClick={() => setFormulaCatFilter(cat)} style={{ fontSize: 11, padding: '3px 10px' }}>{cat}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ padding: '12px 20px' }}>
+              {filteredFormulas.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>未找到符合的方劑</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {filteredFormulas.map(f => (
+                    <div key={f.name} style={{ border: '1px solid var(--gray-200)', borderRadius: 8, padding: 12, cursor: 'pointer', transition: 'all .15s' }}
+                      onClick={() => { loadFormula(f.name); setShowFormulaModal(false); }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#0e7490'; e.currentTarget.style.background = '#f0fdfa'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--gray-200)'; e.currentTarget.style.background = ''; }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: '#0e7490' }}>{f.name}</span>
+                        <span style={{ display: 'flex', gap: 6, fontSize: 11, color: '#888' }}>
+                          <span style={{ background: '#f0fdfa', padding: '1px 8px', borderRadius: 10, color: '#0e7490', fontWeight: 600 }}>{f.cat}</span>
+                          <span>{f.src}</span>
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#555', marginBottom: 4 }}>
+                        {f.herbs.map(h => `${h.h} ${h.d}`).join('、')}
+                      </div>
+                      {f.ind && <div style={{ fontSize: 11, color: '#888' }}>適應：{f.ind}</div>}
+                      {f.contra && <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>⚠️ {f.contra}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ Safety Confirmation Dialog ══ */}
+      {showSafetyConfirm && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="安全確認">
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <span style={{ fontSize: 48 }}>⚠️</span>
+              <h3 style={{ margin: '8px 0', color: '#dc2626' }}>處方安全警告</h3>
+              <p style={{ fontSize: 13, color: '#666' }}>以下問題需要您確認才能儲存：</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 20 }}>
+              {preSaveWarnings.map((w, i) => (
+                <div key={i} style={{
+                  padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                  background: w.level === 'danger' ? '#fef2f2' : '#fffbeb',
+                  color: w.level === 'danger' ? '#991b1b' : '#92400e',
+                  border: `1px solid ${w.level === 'danger' ? '#fecaca' : '#fed7aa'}`,
+                }}>
+                  {w.level === 'danger' ? '🚫' : '⚠️'} {w.message}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <button className="btn btn-outline" onClick={() => { setShowSafetyConfirm(false); setPendingSaveEvent(null); }} style={{ minWidth: 120 }}>返回修改</button>
+              <button className="btn" style={{ minWidth: 120, background: '#dc2626', color: '#fff' }} onClick={confirmSaveOverride}>確認儲存</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Version History Modal */}

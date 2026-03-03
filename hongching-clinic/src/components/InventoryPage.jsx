@@ -122,6 +122,15 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       l = l.filter(r => r.expiryDate && r.expiryDate > today && r.expiryDate <= in30);
     }
     l.sort((a, b) => {
+      // Always pin low stock / out-of-stock items to top
+      const aLow = Number(a.stock) < Number(a.minStock) ? 1 : 0;
+      const bLow = Number(b.stock) < Number(b.minStock) ? 1 : 0;
+      if (aLow !== bLow) return bLow - aLow; // low stock first
+      // Then expired items
+      const today = new Date().toISOString().substring(0, 10);
+      const aExp = a.expiryDate && a.expiryDate <= today ? 1 : 0;
+      const bExp = b.expiryDate && b.expiryDate <= today ? 1 : 0;
+      if (aExp !== bExp) return bExp - aExp; // expired first
       const cmp = a.name.localeCompare(b.name, 'zh-Hant');
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -490,13 +499,40 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
         </div>
       )}
 
-      {/* Stats */}
+      {/* Enhanced Dashboard */}
       <div className="stats-grid">
         <div className="stat-card teal"><div className="stat-label">總品項</div><div className="stat-value teal">{stats.total}</div></div>
-        <div className="stat-card red"><div className="stat-label">低庫存品項</div><div className="stat-value red">{stats.lowStock}</div></div>
+        <div className="stat-card red" style={{ cursor: 'pointer' }} onClick={() => setFilterStatus('low')}>
+          <div className="stat-label">低庫存 ⚠️</div><div className="stat-value red">{stats.lowStock}</div>
+          {stats.lowStock > 0 && <div style={{ fontSize: 10, color: '#dc2626', marginTop: 2 }}>點擊查看</div>}
+        </div>
         <div className="stat-card gold"><div className="stat-label">存貨總值</div><div className="stat-value gold">{fmtM(stats.totalValue)}</div></div>
-        <div className="stat-card green"><div className="stat-label">分類數</div><div className="stat-value green">{stats.categories}</div></div>
+        <div className="stat-card green" style={{ cursor: stats.expired.length + stats.expiring30.length > 0 ? 'pointer' : 'default' }} onClick={() => (stats.expired.length + stats.expiring30.length > 0) && setFilterStatus('expiring')}>
+          <div className="stat-label">到期提醒</div>
+          <div className="stat-value green" style={{ color: stats.expired.length > 0 ? '#dc2626' : stats.expiring30.length > 0 ? '#d97706' : '#10b981' }}>
+            {stats.expired.length + stats.expiring30.length}
+          </div>
+          {stats.expired.length > 0 && <div style={{ fontSize: 10, color: '#dc2626' }}>已過期 {stats.expired.length}</div>}
+        </div>
       </div>
+
+      {/* Low Stock Quick Alert */}
+      {stats.lowStock > 0 && filterStatus !== 'low' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 20 }}>🔴</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#991b1b' }}>
+              {stats.lowStock} 項藥材低於安全庫存
+            </div>
+            <div style={{ fontSize: 11, color: '#dc2626' }}>
+              {inventory.filter(r => Number(r.stock) < Number(r.minStock)).slice(0, 5).map(r => `${r.name}(${r.stock}${r.unit})`).join('、')}
+              {stats.lowStock > 5 ? '...' : ''}
+            </div>
+          </div>
+          <button className="btn btn-sm" style={{ background: '#dc2626', color: '#fff', fontSize: 12 }} onClick={() => setFilterStatus('low')}>查看</button>
+          <button className="btn btn-sm" style={{ background: '#d97706', color: '#fff', fontSize: 12 }} onClick={() => setShowPO(true)}>生成補貨單</button>
+        </div>
+      )}
 
       {/* Expiry Alerts (#91) */}
       {(stats.expired.length > 0 || stats.expiring7.length > 0 || stats.expiring30.length > 0) && (

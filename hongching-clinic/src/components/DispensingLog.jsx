@@ -3,6 +3,7 @@ import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
 import { dispensingLogOps } from '../api';
 import escapeHtml from '../utils/escapeHtml';
+import { getHerbSafetyInfo } from '../utils/drugInteractions';
 
 const STATUS_MAP = {
   pending: { label: '待配藥', color: '#f59e0b', bg: '#fffbeb' },
@@ -22,10 +23,23 @@ export default function DispensingLog({ data, showToast, user }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState(new Date().toISOString().substring(0, 10));
   const [detail, setDetail] = useState(null);
+  const [expandedRows, setExpandedRows] = useState(new Set());
 
   const consultations = data.consultations || [];
   const doctors = getDoctors();
   const clinicName = getClinicName();
+  const inventory = data.inventory || [];
+
+  // Stock lookup helper
+  const getStock = (herbName) => {
+    const item = inventory.find(i => i.name === herbName && i.active !== false);
+    if (!item) return null;
+    return { stock: item.stock || 0, minStock: item.minStock || 0, unit: item.unit || 'g' };
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedRows(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
 
   // Merge consultations with dispensing status
   const items = useMemo(() => {
@@ -154,14 +168,56 @@ export default function DispensingLog({ data, showToast, user }) {
             {items.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 30, color: '#999' }}>當日無配藥記錄</td></tr>}
             {items.filter(i => i.rxCount > 0).map((item, idx) => {
               const st = STATUS_MAP[item.dispenseStatus] || STATUS_MAP.pending;
+              const isExpanded = expandedRows.has(item.id);
+              const hasLowStock = item.rxList.some(r => { const s = getStock(r.herb); return s && s.stock < s.minStock; });
+              const hasNoStock = item.rxList.some(r => { const s = getStock(r.herb); return s && s.stock <= 0; });
               return (
-                <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                <tr key={item.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid #f3f4f6', verticalAlign: 'top' }}>
                   <td style={{ padding: '8px 6px', fontWeight: 700, color: '#0e7490' }}>{idx + 1}</td>
                   <td style={{ padding: '8px 6px' }}>{item.patientName}</td>
                   <td style={{ padding: '8px 6px' }}>{item.doctor}</td>
-                  <td style={{ padding: '8px 6px', maxWidth: 200 }}>
-                    <div style={{ fontWeight: 600 }}>{item.formulaName || '自訂處方'}</div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{item.rxList.slice(0, 4).map(r => r.herb).join('、')}{item.rxCount > 4 ? `...+${item.rxCount - 4}` : ''}</div>
+                  <td style={{ padding: '8px 6px', maxWidth: 300 }} colSpan={isExpanded ? 1 : 1}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => toggleExpand(item.id)}>
+                      <span style={{ fontSize: 10, color: '#888' }}>{isExpanded ? '▼' : '▶'}</span>
+                      <span style={{ fontWeight: 600 }}>{item.formulaName || '自訂處方'}</span>
+                      {hasNoStock && <span style={{ fontSize: 10, background: '#fef2f2', color: '#dc2626', padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>缺貨</span>}
+                      {!hasNoStock && hasLowStock && <span style={{ fontSize: 10, background: '#fffbeb', color: '#d97706', padding: '1px 6px', borderRadius: 8, fontWeight: 600 }}>低庫存</span>}
+                    </div>
+                    {!isExpanded && <div style={{ fontSize: 11, color: '#888', marginTop: 2, marginLeft: 16 }}>{item.rxList.slice(0, 4).map(r => r.herb).join('、')}{item.rxCount > 4 ? `...+${item.rxCount - 4}` : ''}</div>}
+                    {isExpanded && (
+                      <div style={{ marginTop: 6, marginLeft: 16, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc' }}>
+                              <th style={{ padding: '4px 8px', textAlign: 'left', fontSize: 11 }}>藥材</th>
+                              <th style={{ padding: '4px 8px', textAlign: 'center', fontSize: 11 }}>劑量</th>
+                              <th style={{ padding: '4px 8px', textAlign: 'center', fontSize: 11 }}>需用量</th>
+                              <th style={{ padding: '4px 8px', textAlign: 'center', fontSize: 11 }}>庫存</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {item.rxList.map((r, ri) => {
+                              const st2 = getStock(r.herb);
+                              const doseG = parseFloat(r.dosage) || 0;
+                              const needed = doseG * (item.formulaDays || 1);
+                              const isLow = st2 && st2.stock < needed;
+                              const isOut = st2 && st2.stock <= 0;
+                              return (
+                                <tr key={ri} style={{ borderBottom: '1px solid #f3f4f6', background: isOut ? '#fef2f2' : isLow ? '#fffbeb' : '' }}>
+                                  <td style={{ padding: '3px 8px', fontWeight: 500 }}>{r.herb}</td>
+                                  <td style={{ padding: '3px 8px', textAlign: 'center' }}>{r.dosage}</td>
+                                  <td style={{ padding: '3px 8px', textAlign: 'center', color: '#555' }}>{needed > 0 ? `${needed}g` : '-'}</td>
+                                  <td style={{ padding: '3px 8px', textAlign: 'center', fontWeight: 600, color: isOut ? '#dc2626' : isLow ? '#d97706' : '#10b981' }}>
+                                    {st2 ? `${st2.stock}${st2.unit}` : <span style={{ color: '#999', fontWeight: 400 }}>未登記</span>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        {item.specialNotes && <div style={{ padding: '4px 8px', fontSize: 11, background: '#fffbeb', color: '#92400e' }}>⚠️ {item.specialNotes}</div>}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '8px 6px', textAlign: 'center' }}>{item.rxCount}</td>
                   <td style={{ padding: '8px 6px', textAlign: 'center' }}>{item.formulaDays || '-'}</td>
