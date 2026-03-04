@@ -78,16 +78,21 @@ async function handleLogin(req, res) {
       }
       clearAttempts(cleanUser);
       try { const supabase = createClient(supabaseUrl, supabaseKey); await supabase.from('users').update({ last_login: new Date().toISOString() }).eq('id', dbUser.id); } catch {}
-      const payload = { userId: dbUser.id, username: cleanUser, name: dbUser.display_name, role: dbUser.role, stores: dbUser.stores || ['all'], tenantId: tenant.id };
+      // Safely convert IDs to strings (PostgreSQL BigInt / UUID safety)
+      const safeId = (v) => v != null ? String(v) : null;
+      const payload = { userId: safeId(dbUser.id), username: cleanUser, name: dbUser.display_name || '', role: dbUser.role || 'staff', stores: dbUser.stores || ['all'], tenantId: safeId(tenant.id) };
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
       let supabaseToken = null;
       if (SUPABASE_JWT_SECRET) {
-        supabaseToken = jwt.sign({ role: 'authenticated', tenant_id: tenant.id, sub: dbUser.id, aud: 'authenticated' }, SUPABASE_JWT_SECRET, { expiresIn: '24h' });
+        supabaseToken = jwt.sign({ role: 'authenticated', tenant_id: safeId(tenant.id), sub: safeId(dbUser.id), aud: 'authenticated' }, SUPABASE_JWT_SECRET, { expiresIn: '24h' });
       }
-      return res.status(200).json({
-        success: true, token, supabaseToken, user: payload,
-        tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name, nameEn: tenant.name_en, logoUrl: tenant.logo_url, stores: tenant.stores || [], doctors: tenant.doctors || [], services: tenant.services || [], settings: tenant.settings || {} },
-      });
+      const tenantData = {
+        id: safeId(tenant.id), slug: tenant.slug || '', name: tenant.name || '', nameEn: tenant.name_en || '',
+        logoUrl: tenant.logo_url || '', stores: Array.isArray(tenant.stores) ? tenant.stores : [],
+        doctors: Array.isArray(tenant.doctors) ? tenant.doctors : [], services: Array.isArray(tenant.services) ? tenant.services : [],
+        settings: (tenant.settings && typeof tenant.settings === 'object') ? tenant.settings : {},
+      };
+      return res.status(200).json({ success: true, token, supabaseToken, user: payload, tenant: tenantData });
     }
 
     // Fallback: env-based credentials
@@ -109,6 +114,9 @@ async function handleLogin(req, res) {
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
     return res.status(200).json({ success: true, token, user: payload });
   } catch (err) {
+    console.error('[Auth Login Error]', err?.message || err, err?.stack);
+    // If headers already sent (partial response), can't send error JSON
+    if (res.headersSent) { try { res.end(); } catch {} return; }
     return errorResponse(res, 500, 'Internal server error');
   }
 }
