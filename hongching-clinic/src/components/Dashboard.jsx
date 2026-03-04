@@ -426,6 +426,50 @@ export default function Dashboard({ data, onNavigate }) {
         </div>
       </div>
 
+      {/* ── Today's Real-Time Queue Status ── */}
+      {(() => {
+        const todayQDate = new Date().toISOString().substring(0, 10);
+        const todayQ = (data.queue || []).filter(q => q.date === todayQDate);
+        const qWaiting = todayQ.filter(q => q.status === 'waiting').length;
+        const qConsult = todayQ.filter(q => q.status === 'in-consultation').length;
+        const qDispensing = todayQ.filter(q => q.status === 'dispensing').length;
+        const qCompleted = todayQ.filter(q => q.status === 'completed').length;
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+            {[
+              { label: '等候中', count: qWaiting, bg: '#fef3c7', color: '#d97706', border: '#fcd34d' },
+              { label: '診症中', count: qConsult, bg: '#dbeafe', color: '#2563eb', border: '#93c5fd' },
+              { label: '配藥中', count: qDispensing, bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd' },
+              { label: '已完成', count: qCompleted, bg: '#dcfce7', color: '#16a34a', border: '#86efac' },
+            ].map(s => (
+              <div key={s.label} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.count}</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: s.color }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* ── Low Inventory Alert ── */}
+      {(() => {
+        const lowStockItems = (data.inventory || []).filter(i => Number(i.stock || 0) < Number(i.minStock || 10));
+        if (lowStockItems.length === 0) return null;
+        return (
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 18 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>
+                低庫存警報：{lowStockItems.length} 項藥材不足
+              </div>
+              <div style={{ fontSize: 11, color: '#991b1b', marginTop: 2 }}>
+                {lowStockItems.slice(0, 3).map(i => i.name).join('、')}{lowStockItems.length > 3 ? ' ...' : ''}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Exception Alerts ── */}
       {(() => {
         const alerts = [];

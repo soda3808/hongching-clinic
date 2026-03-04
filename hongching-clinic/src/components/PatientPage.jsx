@@ -34,6 +34,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   const [pointsHistory, setPointsHistory] = useState(() => loadPointsHistory());
   const [showPoints, setShowPoints] = useState(false);
   const [redeemAmount, setRedeemAmount] = useState('');
+  const [timelineFilter, setTimelineFilter] = useState('all');
   const [waModalTab, setWaModalTab] = useState('send'); // 'send' | 'schedule' | 'log'
   const [scheduleDate, setScheduleDate] = useState('');
   const [scheduleTime, setScheduleTime] = useState('');
@@ -804,7 +805,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         const pts = getPatientPoints(detail.name, data.revenue, pointsHistory);
         const loyaltyTier = getLoyaltyTier(pts.balance);
         return (
-        <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="病人詳情">
+        <div className="modal-overlay" onClick={() => { setDetail(null); setTimelineFilter('all'); }} role="dialog" aria-modal="true" aria-label="病人詳情">
           <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 750 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -881,7 +882,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   w.document.close();
                   setTimeout(() => w.print(), 300);
                 }}>🖨️ 列印檔案</button>
-                <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕</button>
+                <button className="btn btn-outline btn-sm" onClick={() => { setDetail(null); setTimelineFilter('all'); }} aria-label="關閉">✕</button>
               </div>
             </div>
             <div className="grid-3" style={{ marginBottom: 16, fontSize: 13 }}>
@@ -1003,8 +1004,60 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 </div>
               </div>
             )}
+            {/* ── Consultation History Table ── */}
+            {consultations.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#0e7490' }}>最近診症紀錄 ({consultations.length})</h4>
+                <div className="table-wrap" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                  <table style={{ fontSize: 11 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ padding: '5px 8px' }}>日期</th>
+                        <th style={{ padding: '5px 8px' }}>醫師</th>
+                        <th style={{ padding: '5px 8px' }}>診斷</th>
+                        <th style={{ padding: '5px 8px' }}>辨證</th>
+                        <th style={{ padding: '5px 8px' }}>處方</th>
+                        <th style={{ padding: '5px 8px' }}>治療</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {consultations.slice(0, 10).map((c, i) => (
+                        <tr key={i}>
+                          <td style={{ padding: '4px 8px', whiteSpace: 'nowrap' }}>{c.date}</td>
+                          <td style={{ padding: '4px 8px' }}>{c.doctor || '-'}</td>
+                          <td style={{ padding: '4px 8px', fontWeight: 600, color: '#0e7490' }}>{c.tcmDiagnosis || c.assessment || '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{c.tcmPattern || '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{c.formulaName ? `${c.formulaName}${c.formulaDays ? ` ${c.formulaDays}帖` : ''}` : '-'}</td>
+                          <td style={{ padding: '4px 8px' }}>{(c.treatments || []).join('、') || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {consultations.length > 10 && <div style={{ fontSize: 10, color: '#888', marginTop: 4, textAlign: 'right' }}>顯示最近 10 筆，共 {consultations.length} 筆</div>}
+              </div>
+            )}
+
             {/* ── Visit Timeline ── */}
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>就診時間線 ({consultations.length + visitHistory.length + bookingHistory.length + commHistory.length} 筆紀錄)</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h4 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>就診時間線 ({consultations.length + visitHistory.length + bookingHistory.length + commHistory.length} 筆紀錄)</h4>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[
+                  { key: 'all', label: '全部' },
+                  { key: 'emr', label: '診症' },
+                  { key: 'rev', label: '消費' },
+                  { key: 'booking', label: '預約' },
+                  { key: 'comm', label: '溝通' },
+                ].map(f => (
+                  <button key={f.key} onClick={() => setTimelineFilter(f.key)} style={{
+                    padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                    border: timelineFilter === f.key ? '1px solid #0e7490' : '1px solid #e5e7eb',
+                    background: timelineFilter === f.key ? '#ecfeff' : '#fff',
+                    color: timelineFilter === f.key ? '#0e7490' : '#888',
+                  }}>{f.label}</button>
+                ))}
+              </div>
+            </div>
             {/* Timeline Stats Summary */}
             {(consultations.length > 0 || commHistory.length > 0) && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 12 }}>
@@ -1040,7 +1093,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 ...visitHistory.filter(r => !consultations.find(c => c.date === r.date && c.patientName === r.name)).map(r => ({ type: 'rev', date: String(r.date).substring(0, 10), data: r })),
                 ...bookingHistory.filter(b => !consultations.find(c => c.date === b.date)).map(b => ({ type: 'booking', date: b.date, data: b })),
                 ...commHistory.map(c => ({ type: 'comm', date: c.date, data: c })),
-              ].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((item, i) => (
+              ].filter(item => timelineFilter === 'all' || item.type === timelineFilter)
+              .sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--gray-100)' }}>
                   {/* Timeline dot */}
                   <div style={{ minWidth: 44, textAlign: 'center' }}>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { saveQueue, saveRevenue, saveInventory } from '../api';
 import { uid, fmtM } from '../data';
 import { getDoctors } from '../data';
@@ -72,6 +72,8 @@ export default function BillingPage({ data, setData, showToast, allData, user })
   const [refundAmt, setRefundAmt] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [drugPricing] = useState(loadDrugPricingLocal);
+  const [payMethodItem, setPayMethodItem] = useState(null);
+  const [payMethod, setPayMethod] = useState('FPS');
 
   const queue = data.queue || [];
 
@@ -124,6 +126,17 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     const refundTotal = dayQueue.filter(r => r.totalRefunded > 0).reduce((s, r) => s + Number(r.totalRefunded || 0), 0);
     return { billedFromQueue, revenueTotal, discrepancy, payBreak, outstanding, outstandingTotal, refundTotal };
   }, [queue, data.revenue, filterDate]);
+
+  // ── Discrepancy Toast Warning ──
+  const discrepancyNotified = useRef('');
+  useEffect(() => {
+    const d = reconciliation.discrepancy;
+    const key = `${filterDate}_${d}`;
+    if (Math.abs(d) > 50 && discrepancyNotified.current !== key) {
+      discrepancyNotified.current = key;
+      showToast(`收入對賬差異 ${d > 0 ? '+' : ''}$${Math.abs(d).toLocaleString()}，請核實`);
+    }
+  }, [reconciliation.discrepancy, filterDate, showToast]);
 
   // Update dispensing status
   const updateDispensing = useCallback(async (item, newStatus) => {
@@ -247,9 +260,9 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     showToast(`已退款 ${fmtM(amt)}`);
   }, [refundItem, refundAmt, refundReason, data, queue, setData, showToast, user]);
 
-  // Mark as paid + auto-create revenue record
-  const markPaid = useCallback(async (item) => {
-    const updated = { ...item, paymentStatus: 'paid', status: 'completed', completedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) };
+  // Mark as paid + auto-create revenue record (with payment method)
+  const markPaid = useCallback(async (item, method = 'FPS') => {
+    const updated = { ...item, paymentStatus: 'paid', paymentMethod: method, status: 'completed', completedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) };
     await saveQueue(updated);
 
     // Auto-create revenue record
@@ -259,10 +272,11 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       name: item.patientName,
       item: item.services,
       amount: Number(item.serviceFee || 0),
-      payment: 'FPS',
+      payment: method,
       store: item.store,
       doctor: item.doctor,
       note: `掛號 ${item.queueNo}`,
+      queueId: item.id,
     };
     await saveRevenue(revRecord);
 
@@ -270,15 +284,17 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q), revenue: updatedRevenue });
     // Auto-deduct inventory
     await deductStock(item);
-    showToast(`${item.queueNo} 已收費 ${fmtM(item.serviceFee)}`);
+    setPayMethodItem(null);
+    showToast(`${item.queueNo} 已收費 ${fmtM(item.serviceFee)}（${method}）`);
   }, [data, queue, setData, showToast, deductStock]);
 
   // Quick dispense + charge
-  const quickProcess = useCallback(async (item) => {
+  const quickProcess = useCallback(async (item, method = 'FPS') => {
     const updated = {
       ...item,
       dispensingStatus: item.dispensingStatus === 'not-needed' ? 'not-needed' : 'collected',
       paymentStatus: 'paid',
+      paymentMethod: method,
       status: 'completed',
       completedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -290,10 +306,11 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       name: item.patientName,
       item: item.services,
       amount: Number(item.serviceFee || 0),
-      payment: 'FPS',
+      payment: method,
       store: item.store,
       doctor: item.doctor,
       note: `掛號 ${item.queueNo}`,
+      queueId: item.id,
     };
     await saveRevenue(revRecord);
 
@@ -301,7 +318,8 @@ export default function BillingPage({ data, setData, showToast, allData, user })
     setData({ ...data, queue: queue.map(q => q.id === item.id ? updated : q), revenue: updatedRevenue });
     // Auto-deduct inventory
     await deductStock(item);
-    showToast(`${item.queueNo} 快捷收費完成`);
+    setPayMethodItem(null);
+    showToast(`${item.queueNo} 快捷收費完成（${method}）`);
   }, [data, queue, setData, showToast, deductStock]);
 
   // Export to Excel (CSV)
@@ -675,13 +693,13 @@ export default function BillingPage({ data, setData, showToast, allData, user })
                         <button className="btn btn-green btn-sm" onClick={() => updateDispensing(r, 'collected')}>已取藥</button>
                       )}
                       {(r.paymentStatus === 'pending' || r.paymentStatus === 'partial') && (
-                        <button className="btn btn-teal btn-sm" onClick={() => markPaid(r)}>收費</button>
+                        <button className="btn btn-teal btn-sm" onClick={() => { setPayMethodItem(r); setPayMethod('FPS'); }}>收費</button>
                       )}
                       {(r.paymentStatus === 'pending' || r.paymentStatus === 'partial') && (
                         <button className="btn btn-gold btn-sm" onClick={() => { setPartialItem(r); setPartialAmt(''); setPartialMethod('FPS'); }}>部分</button>
                       )}
                       {r.paymentStatus === 'pending' && (
-                        <button className="btn btn-outline btn-sm" onClick={() => quickProcess(r)}>快捷</button>
+                        <button className="btn btn-outline btn-sm" onClick={() => { setPayMethodItem({ ...r, _quick: true }); setPayMethod('FPS'); }}>快捷</button>
                       )}
                       {r.paymentStatus === 'paid' && (
                         <button className="btn btn-red btn-sm" onClick={() => { setRefundItem(r); setRefundAmt(''); setRefundReason(''); }}>退款</button>
@@ -704,6 +722,41 @@ export default function BillingPage({ data, setData, showToast, allData, user })
           </table>
         </div>
       </div>
+
+      {/* Payment Method Selector */}
+      {payMethodItem && (
+        <div className="modal-overlay" onClick={() => setPayMethodItem(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
+            <h3 style={{ marginBottom: 12 }}>收費方式</h3>
+            <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--gray-600)' }}>
+              <strong>{payMethodItem.patientName}</strong> ({payMethodItem.queueNo})<br />
+              金額：<strong style={{ fontSize: 16, color: 'var(--teal-700)' }}>{fmtM(payMethodItem.serviceFee)}</strong>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+              {['FPS', '現金', 'PayMe', '信用卡'].map(m => (
+                <button key={m} className={`btn ${payMethod === m ? 'btn-teal' : 'btn-outline'}`}
+                  style={{ padding: '10px 0', fontSize: 14, fontWeight: payMethod === m ? 700 : 400 }}
+                  onClick={() => setPayMethod(m)}>
+                  {m === 'FPS' ? '📱 FPS' : m === '現金' ? '💵 現金' : m === 'PayMe' ? '💳 PayMe' : '💳 信用卡'}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setPayMethodItem(null)}>取消</button>
+              <button className="btn btn-teal" style={{ flex: 1, fontWeight: 700 }} onClick={() => {
+                if (payMethodItem._quick) {
+                  const { _quick, ...item } = payMethodItem;
+                  quickProcess(item, payMethod);
+                } else {
+                  markPaid(payMethodItem, payMethod);
+                }
+              }}>
+                確認收費
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Partial Payment Modal (#47) */}
       {partialItem && (
