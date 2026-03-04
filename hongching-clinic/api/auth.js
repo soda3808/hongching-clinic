@@ -236,7 +236,7 @@ export default async function handler(req, res) {
     case 'reset-request': return handleResetRequest(req, res);
     case 'reset': return handleReset(req, res);
     case 'debug-login': {
-      // Temporary debug: test login flow and report where it fails
+      // Temporary debug: full login flow simulation
       const { username, password } = req.body || {};
       if (!username || !password) return res.status(200).json({ step: 0, msg: 'no creds' });
       const cleanUser = sanitizeString(username, 50).toLowerCase();
@@ -245,7 +245,7 @@ export default async function handler(req, res) {
         steps.push('start');
         const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
         const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-        steps.push(`supabase: ${!!supabaseUrl && !!supabaseKey}`);
+        steps.push(`supabase_configured: ${!!supabaseUrl && !!supabaseKey}`);
         let dbUser = null, tenant = null;
         if (supabaseUrl && supabaseKey) {
           try {
@@ -255,25 +255,42 @@ export default async function handler(req, res) {
             if (users?.length) { dbUser = users[0]; tenant = dbUser.tenants; }
           } catch (e) { steps.push(`db_err: ${e.message}`); }
         }
-        steps.push(`dbUser: ${!!dbUser}, tenant: ${!!tenant}`);
+        steps.push(`path: ${dbUser && tenant ? 'supabase' : 'env_fallback'}`);
         if (dbUser && tenant) {
-          steps.push(`hash_exists: ${!!dbUser.password_hash}`);
           const valid = await bcrypt.compare(password, dbUser.password_hash);
-          steps.push(`pw_valid: ${valid}`);
-          if (valid) {
-            steps.push(`jwt_secret: ${!!JWT_SECRET} (len=${(JWT_SECRET||'').length})`);
-            const payload = { userId: String(dbUser.id), username: cleanUser, name: dbUser.display_name || '' };
-            const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
-            steps.push(`jwt_ok: ${token.substring(0, 20)}...`);
-            steps.push(`tenant_id: ${typeof tenant.id} = ${tenant.id}`);
-            steps.push(`tenant_name: ${tenant.name}`);
-          }
+          steps.push(`supabase_pw: ${valid}`);
         } else {
-          steps.push('fallback_creds');
+          // Full fallback simulation
           const credsJson = process.env.USER_CREDENTIALS;
-          steps.push(`creds_env: ${!!credsJson}`);
-          const meta = USER_META[cleanUser];
-          steps.push(`meta: ${JSON.stringify(meta || null)}`);
+          steps.push(`creds_env_exists: ${!!credsJson}`);
+          if (!credsJson) { steps.push('NO_CREDS_JSON'); return res.status(200).json({ steps }); }
+          try {
+            const credentials = JSON.parse(credsJson);
+            steps.push(`creds_parsed: ${credentials.length} entries`);
+            const cred = credentials.find(c => c.username === cleanUser);
+            steps.push(`cred_found: ${!!cred}, hash_exists: ${!!cred?.hash}`);
+            if (cred) {
+              const valid = await bcrypt.compare(password, cred.hash);
+              steps.push(`fallback_pw_valid: ${valid}`);
+              if (valid) {
+                const meta = USER_META[cleanUser];
+                steps.push(`user_meta: ${JSON.stringify(meta || null)}`);
+                steps.push(`jwt_secret_exists: ${!!JWT_SECRET}, len=${(JWT_SECRET||'').length}`);
+                if (meta && JWT_SECRET) {
+                  const payload = { userId: meta.id, username: cleanUser, name: meta.name, role: meta.role, stores: meta.stores };
+                  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+                  steps.push(`jwt_signed: ${token.substring(0, 20)}...`);
+                  steps.push('WOULD_RETURN_SUCCESS');
+                } else {
+                  steps.push('WOULD_RETURN_401_no_meta');
+                }
+              } else {
+                steps.push('WOULD_RETURN_401_bad_pw');
+              }
+            } else {
+              steps.push('WOULD_RETURN_401_no_cred');
+            }
+          } catch (e) { steps.push(`creds_parse_err: ${e.message}`); }
         }
         return res.status(200).json({ steps });
       } catch (e) {
