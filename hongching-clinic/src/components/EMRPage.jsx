@@ -1210,7 +1210,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 <div style={{ marginBottom: 4 }}>
                   <select style={{ width: 'auto', fontSize: 11, padding: '3px 6px' }} value={acupointMeridian} onChange={e => setAcupointMeridian(e.target.value)}>
                     <option value="all">常用穴位</option>
-                    {MERIDIANS.map(m => <option key={m} value={m}>{m}</option>)}
+                    {MERIDIANS.map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
                   </select>
                 </div>
                 <div className="preset-bar" style={{ maxHeight: 120, overflowY: 'auto' }}>
