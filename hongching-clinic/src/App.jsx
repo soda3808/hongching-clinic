@@ -187,6 +187,7 @@ const AttendancePage = lazy(() => import('./components/AttendancePage'));
 const PayrollPage = lazy(() => import('./components/PayrollPage'));
 const DataImport = lazy(() => import('./components/DataImport'));
 const TaskBoard = lazy(() => import('./components/TaskBoard'));
+const ECTCMRevenue = lazy(() => import('./components/ECTCMRevenue'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -356,6 +357,7 @@ const ALL_PAGES = [
   { id: 'payroll', icon: '💰', label: '計糧', section: '財務', perm: 'viewPayroll' },
   { id: 'dataimport', icon: '📥', label: '資料匯入', section: '系統', perm: 'viewSettings' },
   { id: 'taskboard', icon: '📋', label: '每日任務', section: '總覽', perm: 'viewDashboard' },
+  { id: 'ectcm', icon: '🏥', label: 'eCTCM營收', section: '分析', perm: 'viewPayroll' },
 ];
 
 // Mobile bottom tab config
@@ -1108,7 +1110,7 @@ function MainApp() {
     // 人事
     'pay', 'schedule',
     // 分析
-    'doc', 'report',
+    'doc', 'report', 'ectcm',
   ]);
 
   const corePages = visiblePages.filter(p => CORE_IDS.has(p.id));
@@ -1123,7 +1125,7 @@ function MainApp() {
     'billing': '營運', 'inventory': '營運', 'medscan': '營運',
     'rev': '財務', 'exp': '財務', 'closing': '財務', 'pnl': '財務',
     'pay': '人事', 'schedule': '人事',
-    'doc': '分析', 'report': '分析',
+    'doc': '分析', 'report': '分析', 'ectcm': '分析',
   };
 
   let sections = {};
@@ -1457,6 +1459,7 @@ function MainApp() {
             {page === 'payroll' && <PayrollPage showToast={showToast} data={data} user={user} />}
             {page === 'dataimport' && <DataImport showToast={showToast} data={data} setData={setData} user={user} />}
             {page === 'taskboard' && <TaskBoard showToast={showToast} data={data} user={user} setPage={setPage} />}
+            {page === 'ectcm' && <ECTCMRevenue data={filteredData} showToast={showToast} user={user} />}
           </Suspense>
           </ErrorBoundary>
         </div>

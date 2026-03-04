@@ -99,7 +99,13 @@ export const DEFAULT_EMPLOYEES = [
       { min: 250000, max: 400000, r: 0.30 },
     ]}
   },
-  { id: 'tsang', name: '曾醫師', pos: '兼職中醫師', type: 'commission', rate: 0, start: '', stores: ['宋皇臺店'], note: '按診金分成', comm: null },
+  { id: 'sheung', name: '常凱晴', nameEn: 'Sheung Hoi Ching', pos: '主診醫師', type: 'monthly', rate: 0, start: '2025-10-01',
+    stores: ['宋皇臺店', '太子店'], note: '創辦人/主診醫師，2025-10起',
+    comm: null, ectcmId: '5063'
+  },
+  { id: 'tsang', name: '曾其方', nameEn: 'Tsang Ki Fong', pos: '兼職中醫師', type: 'commission', rate: 0, start: '', stores: ['太子店'], note: '按診金分成',
+    comm: null, ectcmId: '6262'
+  },
   { id: 'zoe', name: 'Zoe趙穎欣', pos: '診所助理', type: 'hourly', rate: 60, start: '', stores: ['宋皇臺店', '太子店'], note: '兼職，$60/小時，6小時以上扣1小時飯鐘', comm: null },
   { id: 'kelly', name: 'Kelly', pos: '診所助理', type: 'monthly', rate: 0, start: '', stores: ['宋皇臺店'], note: '月薪制', comm: null },
 ];
