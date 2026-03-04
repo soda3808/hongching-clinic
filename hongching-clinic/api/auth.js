@@ -235,69 +235,6 @@ export default async function handler(req, res) {
     case 'verify': return handleVerify(req, res);
     case 'reset-request': return handleResetRequest(req, res);
     case 'reset': return handleReset(req, res);
-    case 'debug-login': {
-      // Temporary debug: full login flow simulation
-      const { username, password } = req.body || {};
-      if (!username || !password) return res.status(200).json({ step: 0, msg: 'no creds' });
-      const cleanUser = sanitizeString(username, 50).toLowerCase();
-      const steps = [];
-      try {
-        steps.push('start');
-        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-        const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-        steps.push(`supabase_configured: ${!!supabaseUrl && !!supabaseKey}`);
-        let dbUser = null, tenant = null;
-        if (supabaseUrl && supabaseKey) {
-          try {
-            const supabase = createClient(supabaseUrl, supabaseKey);
-            const { data: users, error } = await supabase.from('users').select('*, tenants(*)').eq('username', cleanUser).eq('active', true).limit(1);
-            steps.push(`db_query: found=${users?.length || 0}, err=${error?.message || 'none'}`);
-            if (users?.length) { dbUser = users[0]; tenant = dbUser.tenants; }
-          } catch (e) { steps.push(`db_err: ${e.message}`); }
-        }
-        steps.push(`path: ${dbUser && tenant ? 'supabase' : 'env_fallback'}`);
-        if (dbUser && tenant) {
-          const valid = await bcrypt.compare(password, dbUser.password_hash);
-          steps.push(`supabase_pw: ${valid}`);
-        } else {
-          // Full fallback simulation
-          const credsJson = process.env.USER_CREDENTIALS;
-          steps.push(`creds_env_exists: ${!!credsJson}`);
-          if (!credsJson) { steps.push('NO_CREDS_JSON'); return res.status(200).json({ steps }); }
-          try {
-            const credentials = JSON.parse(credsJson);
-            steps.push(`creds_parsed: ${credentials.length} entries`);
-            const cred = credentials.find(c => c.username === cleanUser);
-            steps.push(`cred_found: ${!!cred}, hash_exists: ${!!cred?.hash}`);
-            if (cred) {
-              const valid = await bcrypt.compare(password, cred.hash);
-              steps.push(`fallback_pw_valid: ${valid}`);
-              if (valid) {
-                const meta = USER_META[cleanUser];
-                steps.push(`user_meta: ${JSON.stringify(meta || null)}`);
-                steps.push(`jwt_secret_exists: ${!!JWT_SECRET}, len=${(JWT_SECRET||'').length}`);
-                if (meta && JWT_SECRET) {
-                  const payload = { userId: meta.id, username: cleanUser, name: meta.name, role: meta.role, stores: meta.stores };
-                  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
-                  steps.push(`jwt_signed: ${token.substring(0, 20)}...`);
-                  steps.push('WOULD_RETURN_SUCCESS');
-                } else {
-                  steps.push('WOULD_RETURN_401_no_meta');
-                }
-              } else {
-                steps.push('WOULD_RETURN_401_bad_pw');
-              }
-            } else {
-              steps.push('WOULD_RETURN_401_no_cred');
-            }
-          } catch (e) { steps.push(`creds_parse_err: ${e.message}`); }
-        }
-        return res.status(200).json({ steps });
-      } catch (e) {
-        steps.push(`CRASH: ${e.message}`);
-        return res.status(200).json({ steps, error: e.message, stack: e.stack?.substring(0, 300) });
-      }
-    }
     default: return errorResponse(res, 400, `Unknown auth action: ${action}`);
   }
 }
