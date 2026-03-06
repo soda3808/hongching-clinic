@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
-import { fmtM, getEmployees } from '../data';
+import { fmtM, getEmployees, uid } from '../data';
+import { saveRevenue } from '../api';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_ectcm_monthly';
@@ -8,6 +9,10 @@ const STORES = ['太子店', '宋皇臺店'];
 /* ── helpers ─────────────────────────────────── */
 function load() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch { return {}; } }
 function save(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)); }
+
+const SYNC_KEY = 'hcmc_ectcm_synced';
+function loadSynced() { try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || {}; } catch { return {}; } }
+function saveSynced(d) { localStorage.setItem(SYNC_KEY, JSON.stringify(d)); }
 
 function getDoctorEmployees() {
   return getEmployees().filter(e => e.pos?.includes('醫師'));
@@ -90,6 +95,55 @@ export default function ECTCMRevenue({ showToast }) {
   });
   const doctors = useMemo(() => getDoctorEmployees(), []);
   const months = useMemo(allMonths, []);
+  const [synced, setSynced] = useState(loadSynced);
+  const [syncing, setSyncing] = useState(false);
+
+  /* ── sync eCTCM month data → revenue records (for P&L) ─── */
+  const syncToRevenue = useCallback(async (month) => {
+    if (synced[month]) { showToast?.(`${monthLabel(month)} 已同步過，如需重新同步請先清除`); return; }
+    const monthData = data[month];
+    if (!monthData) { showToast?.('此月份無數據'); return; }
+    setSyncing(true);
+    let count = 0;
+    try {
+      for (const store of STORES) {
+        const storeData = monthData[store];
+        if (!storeData) continue;
+        for (const [docName, vals] of Object.entries(storeData)) {
+          const amt = vals.collected || vals.serviceTotal || 0;
+          if (!amt) continue;
+          await saveRevenue({
+            id: uid(),
+            date: `${month}-15`,
+            name: `eCTCM ${docName}`,
+            item: '診金+服務',
+            amount: amt,
+            payment: 'eCTCM',
+            store,
+            doctor: docName,
+            note: `eCTCM月結同步 ${monthLabel(month)}｜掛號${vals.visits || 0}次｜顧客${vals.patients || 0}人`,
+          });
+          count++;
+        }
+      }
+      const next = { ...synced, [month]: { at: new Date().toISOString(), count } };
+      saveSynced(next);
+      setSynced(next);
+      showToast?.(`✅ ${monthLabel(month)} 已同步 ${count} 筆營收到損益表`);
+    } catch (err) {
+      console.error('sync error', err);
+      showToast?.('同步失敗：' + err.message);
+    }
+    setSyncing(false);
+  }, [data, synced, showToast]);
+
+  const clearSync = useCallback((month) => {
+    const next = { ...synced };
+    delete next[month];
+    saveSynced(next);
+    setSynced(next);
+    showToast?.(`${monthLabel(month)} 同步標記已清除（已存入的營收記錄不會刪除）`);
+  }, [synced, showToast]);
 
   /* ── seed data on first load ─── */
   useMemo(() => {
@@ -187,6 +241,20 @@ export default function ECTCMRevenue({ showToast }) {
             <button style={S.btn('#16a34a')} onClick={() => { save(data); showToast?.(`${monthLabel(selMonth)} 數據已儲存`); }}>
               💾 儲存
             </button>
+            {synced[selMonth] ? (
+              <>
+                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+                  ✅ 已同步 ({synced[selMonth].count}筆)
+                </span>
+                <button style={{ ...S.btn('#94a3b8'), padding: '6px 12px', fontSize: 11 }} onClick={() => clearSync(selMonth)}>
+                  清除標記
+                </button>
+              </>
+            ) : (
+              <button style={S.btn('#7c3aed')} disabled={syncing} onClick={() => syncToRevenue(selMonth)}>
+                {syncing ? '⏳ 同步中...' : '📊 同步到損益表'}
+              </button>
+            )}
           </div>
 
           {STORES.map(store => (
@@ -326,6 +394,7 @@ export default function ECTCMRevenue({ showToast }) {
                   <th style={S.th}>公司總計</th>
                   <th style={S.th}>掛號次</th>
                   <th style={S.th}>顧客數</th>
+                  <th style={S.th}>P&L</th>
                   <th style={S.th}>環比</th>
                 </tr>
               </thead>
@@ -345,6 +414,9 @@ export default function ECTCMRevenue({ showToast }) {
                       <td style={{ ...S.td, fontWeight: 700, color: ACCENT }}>${total.toLocaleString()}</td>
                       <td style={S.td}>{getMonthTotal(m, 'visits')}</td>
                       <td style={S.td}>{getMonthTotal(m, 'patients')}</td>
+                      <td style={{ ...S.td, fontSize: 11 }}>
+                        {synced[m] ? <span style={{ color: '#16a34a' }}>✅</span> : total > 0 ? <button style={{ border: 'none', background: '#7c3aed', color: '#fff', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer' }} onClick={e => { e.stopPropagation(); syncToRevenue(m); }}>同步</button> : '-'}
+                      </td>
                       <td style={{ ...S.td, color: growth > 0 ? '#16a34a' : growth < 0 ? '#dc2626' : '#94a3b8', fontWeight: 600 }}>
                         {growth !== null ? `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%` : '-'}
                       </td>
@@ -354,6 +426,20 @@ export default function ECTCMRevenue({ showToast }) {
               </tbody>
             </table>
           </div>
+          {/* Batch sync all un-synced months */}
+          {(() => {
+            const unsynced = months.filter(m => !synced[m] && getMonthTotal(m, 'serviceTotal') > 0);
+            return unsynced.length > 0 && (
+              <div style={{ marginTop: 16, textAlign: 'center' }}>
+                <button style={S.btn('#7c3aed')} disabled={syncing} onClick={async () => {
+                  for (const m of unsynced) await syncToRevenue(m);
+                  showToast?.(`✅ 已批次同步 ${unsynced.length} 個月份到損益表`);
+                }}>
+                  {syncing ? '⏳ 批次同步中...' : `📊 一鍵同步全部 (${unsynced.length} 個月)`}
+                </button>
+              </div>
+            );
+          })()}
         </div>
       )}
 

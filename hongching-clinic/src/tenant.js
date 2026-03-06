@@ -11,18 +11,22 @@ const TENANT_KEY = 'hcmc_tenant';
 
 // Fallback defaults (used when tenant config not loaded from DB)
 const FALLBACK = {
-  name: '診所管理系統',
-  nameEn: 'Clinic Management System',
+  name: '康晴綜合醫療中心',
+  nameEn: 'Hong Ching International Medical Centre',
   stores: [
-    { name: '分店A', address: '' },
+    { name: '宋皇臺店', address: '九龍宋皇臺道38號地下' },
+    { name: '太子店', address: '旺角彌敦道760號東海大廈12樓25室' },
   ],
-  doctors: ['醫師A'],
+  doctors: ['常凱晴', '許植輝', '曾其方'],
   services: [
     { label: '診金', fee: 350, active: true },
+    { label: '覆診', fee: 300, active: true },
     { label: '針灸', fee: 450, active: true },
     { label: '推拿', fee: 350, active: true },
+    { label: '天灸', fee: 388, active: true },
+    { label: '拔罐', fee: 250, active: true },
   ],
-  settings: { businessHours: '10:00-20:00' },
+  settings: { businessHours: '10:00-20:00', phone: '', whatsapp: '' },
 };
 
 // ══════════════════════════════════

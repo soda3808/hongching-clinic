@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { saveBooking } from '../api';
 import { uid } from '../data';
-import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames, getTenantDoctors } from '../tenant';
-
-const PHONE = ''; // fill when available
-const WHATSAPP = '85291234567'; // placeholder
+import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames, getTenantDoctors, getTenantSettings } from '../tenant';
 
 const TIME_SLOTS = [
   { label: '上午 (10:00-13:00)', value: '10:00' },
@@ -18,6 +15,9 @@ export default function PublicBooking() {
   const doctors = getTenantDoctors();
   const clinicName = getClinicName();
   const clinicNameEn = getClinicNameEn();
+  const settings = getTenantSettings();
+  const PHONE = settings.phone || '';
+  const WHATSAPP = settings.whatsapp || '85291234567';
 
   const [form, setForm] = useState({ name: '', phone: '', store: storeNames[0] || '', date: '', timeSlot: '10:00', doctor: '', symptoms: '' });
   const [submitting, setSubmitting] = useState(false);
@@ -105,7 +105,7 @@ export default function PublicBooking() {
           {stores.map(s => (
             <div key={s.name} className="pb-store-row">
               <div>
-                <strong>{s.name}店</strong>
+                <strong>{s.name}</strong>
                 <div style={{ fontSize: 13, color: 'var(--gray-500)' }}>{s.address}</div>
               </div>
               {s.mapUrl && <a href={s.mapUrl} target="_blank" rel="noopener" className="pb-map-link">📍 地圖</a>}
@@ -148,7 +148,7 @@ export default function PublicBooking() {
             <div className="pb-field">
               <label>選擇分店</label>
               <select value={form.store} onChange={e => setForm({ ...form, store: e.target.value })}>
-                {stores.map(s => <option key={s.name} value={s.name}>{s.name}店{s.address ? ` — ${s.address}` : ''}</option>)}
+                {stores.map(s => <option key={s.name} value={s.name}>{s.name}{s.address ? ` — ${s.address}` : ''}</option>)}
               </select>
             </div>
             <div className="pb-field">
