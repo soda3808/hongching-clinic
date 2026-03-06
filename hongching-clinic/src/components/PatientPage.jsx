@@ -8,7 +8,7 @@ import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
 import EmptyState from './EmptyState';
 import escapeHtml from '../utils/escapeHtml';
 
-const EMPTY = { name:'', phone:'', gender:'男', dob:'', dobYear:'', dobMonth:'', dobDay:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'' };
+const EMPTY = { name:'', phone:'', gender:'男', dob:'', dobYear:'', dobMonth:'', dobDay:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'', consentFollowUp: true };
 const REFERRAL_SOURCES = ['親友推薦', '網上搜尋', '社交媒體', '路過', '醫師轉介', '舊病人回歸', '廣告', '其他'];
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 120 }, (_, i) => currentYear - i);
@@ -341,6 +341,12 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             <div><label>主診醫師</label><select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
             <div><label>轉介來源</label><select value={form.referralSource} onChange={e => setForm({...form, referralSource: e.target.value})}><option value="">未填</option>{REFERRAL_SOURCES.map(s => <option key={s}>{s}</option>)}</select></div>
             <div><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: '#334155' }}>
+              <input type="checkbox" checked={form.consentFollowUp} onChange={e => setForm({...form, consentFollowUp: e.target.checked})} style={{ marginTop: 3 }} />
+              <span>本人同意康晴綜合醫療中心透過 WhatsApp 或其他通訊方式，就本人之診療情況進行跟進聯絡及覆診提醒。</span>
+            </label>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="submit" className="btn btn-teal">新增病人</button>

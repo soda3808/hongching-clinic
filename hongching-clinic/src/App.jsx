@@ -188,6 +188,7 @@ const PayrollPage = lazy(() => import('./components/PayrollPage'));
 const DataImport = lazy(() => import('./components/DataImport'));
 const TaskBoard = lazy(() => import('./components/TaskBoard'));
 const ECTCMRevenue = lazy(() => import('./components/ECTCMRevenue'));
+const DailyCare = lazy(() => import('./components/DailyCare'));
 
 const ALL_PAGES = [
   { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
@@ -211,6 +212,7 @@ const ALL_PAGES = [
   { id: 'storedcard', icon: '💳', label: '充值卡', section: '病人', perm: 'viewPatients' },
   { id: 'package', icon: '🎫', label: '套餐/會員', section: '病人', perm: 'viewPackages' },
   { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
+  { id: 'dailycare', icon: '💝', label: '每日關懷', section: '客戶', perm: 'viewPatients' },
   { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
   { id: 'medscan', icon: '📦', label: '採購掃描', section: '營運', perm: 'editExpenses' },
   { id: 'purchase', icon: '📦', label: '進貨管理', section: '營運', perm: 'editExpenses' },
@@ -1460,6 +1462,7 @@ function MainApp() {
             {page === 'dataimport' && <DataImport showToast={showToast} data={data} setData={setData} user={user} />}
             {page === 'taskboard' && <TaskBoard showToast={showToast} data={data} user={user} setPage={setPage} />}
             {page === 'ectcm' && <ECTCMRevenue data={filteredData} showToast={showToast} user={user} />}
+            {page === 'dailycare' && <DailyCare data={filteredData} showToast={showToast} user={user} />}
           </Suspense>
           </ErrorBoundary>
         </div>

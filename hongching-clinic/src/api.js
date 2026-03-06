@@ -512,6 +512,7 @@ export const drillLogOps = mkOps('drill_log');
 export const followupDoneOps = mkOps('followup_done');
 export const reminderRulesOps = mkOps('reminder_rules');
 export const reminderLogOps = mkOps('reminder_log');
+export const dailyCareLogOps = mkOps('daily_care_log');
 
 // ── Local Storage Helpers ──
 function saveLocal(collection, record) {
