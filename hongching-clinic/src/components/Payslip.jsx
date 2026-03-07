@@ -71,7 +71,7 @@ export default function Payslip({ data, setData, showToast, allData }) {
     const h = form.hours;
     const mealBreak = h > 6 ? 1 : 0;
     const paidHours = Math.max(h - mealBreak, 0);
-    return { paidHours, mealBreak, total: paidHours * (emp.rate || 0) };
+    return { paidHours, mealBreak, total: Math.round(paidHours * (emp.rate || 0)) };
   })() : null;
 
   const totalRevenue = form.revenueByStore.reduce((s, r) => s + (r.amount || 0), 0) || form.revenue;
