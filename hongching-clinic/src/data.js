@@ -106,7 +106,7 @@ export const DEFAULT_EMPLOYEES = [
   { id: 'tsang', name: '曾其方', nameEn: 'Tsang Ki Fong', pos: '兼職中醫師', type: 'commission', rate: 0, start: '', stores: ['太子店'], note: '按診金分成',
     comm: null, ectcmId: '6262'
   },
-  { id: 'zoe', name: 'Zoe趙穎欣', pos: '診所助理', type: 'hourly', rate: 60, start: '', stores: ['宋皇臺店', '太子店'], note: '兼職，$60/小時，6小時以上扣1小時飯鐘', comm: null },
+  { id: 'zoe', name: 'Zoe趙穎欣', pos: '診所助理', type: 'hourly', rate: 60, start: '2026-02-01', stores: ['宋皇臺店', '太子店'], note: '兼職，$60/小時，6小時以上扣1小時飯鐘', comm: null },
   { id: 'kelly', name: 'Kelly', pos: '診所助理', type: 'monthly', rate: 0, start: '', stores: ['宋皇臺店'], note: '月薪制', comm: null },
 ];
 

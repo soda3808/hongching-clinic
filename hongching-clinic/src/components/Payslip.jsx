@@ -51,13 +51,17 @@ export default function Payslip({ data, setData, showToast, allData }) {
     return { total, bd };
   }, [emp]);
 
-  // MPF calculation — HK rules: employee exempt first 30 days, employer NO exemption
+  // MPF calculation — HK rules:
+  // - Both employer & employee EXEMPT if employed < 60 calendar days
+  // - Employee exempt first 30 days + first incomplete pay period (employer pays from day 1)
+  // - Employee exempt if gross < $7,100
   const calcMPF = useCallback((gross) => {
-    const empExempt = emp?.start ? ((new Date() - new Date(emp.start)) / 864e5) < 30 : false;
-    // Employer always pays from day 1
+    const daysEmployed = emp?.start ? ((new Date() - new Date(emp.start)) / 864e5) : null;
+    // Under 60 calendar days: BOTH exempt (not yet required to enrol)
+    if (daysEmployed !== null && daysEmployed < 60) return { ee: 0, er: 0, status: '受僱未滿60天，毋須供款' };
     const erMpf = Math.min(gross * 0.05, 1500);
-    // Employee exempt for first 30 days
-    if (empExempt) return { ee: 0, er: erMpf, status: '入職首30天僱員免供' };
+    // Employee exempt first 30 days (employer still pays)
+    if (daysEmployed !== null && daysEmployed < 30) return { ee: 0, er: erMpf, status: '入職首30天僱員免供' };
     if (gross < 7100) return { ee: 0, er: erMpf, status: '低於$7,100' };
     return { ee: Math.min(gross * 0.05, 1500), er: erMpf, status: '正常供款' };
   }, [emp]);
