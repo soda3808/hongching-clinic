@@ -930,6 +930,7 @@ function MainApp() {
   const [activeStore, setActiveStore] = useState('all');
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showMore, setShowMore] = useState(false); // sidebar "更多功能" toggle
+  const [openMenu, setOpenMenu] = useState(null); // eCTCM top nav dropdown
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [theme, setTheme] = useState(() => localStorage.getItem('hcmc_theme') || 'light');
   const [showLoginPage, setShowLoginPage] = useState(false);
@@ -1158,139 +1159,187 @@ function MainApp() {
 
   return (
     <>
-      {/* SIDEBAR (desktop) */}
-      <aside className="sidebar" role="navigation" aria-label="主選單">
-        <div className="sidebar-logo">
-          <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} className="sidebar-logo-img" />
+      {/* eCTCM Top Header Bar */}
+      <div className="hide-mobile" style={{ background: '#006666', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 12px', fontSize: 12, position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} style={{ height: 28, borderRadius: 4 }} />
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{getClinicName()}</span>
         </div>
-        <nav className="sidebar-nav" aria-label="頁面導覽">
-          {Object.entries(sections).map(([section, items]) => (
-            <div key={section} role="group" aria-label={section}>
-              <div className="nav-section" id={`nav-${section}`}>{section}</div>
-              {items.map(p => (
-                <div key={p.id} className={`nav-item ${page === p.id ? 'active' : ''}`} onClick={() => setPage(p.id)}
-                  role="button" tabIndex={0} aria-current={page === p.id ? 'page' : undefined}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPage(p.id); } }}>
-                  <span style={{ fontSize: 16 }} aria-hidden="true">{p.icon}</span><span>{p.label}</span>
-                </div>
-              ))}
-            </div>
-          ))}
-          {/* Collapsible "更多功能" for non-core pages */}
-          {extraPages.length > 0 && (
-            <div role="group" aria-label="更多功能">
-              <div className="nav-section" style={{ borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 8, paddingTop: 12, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                onClick={() => setShowMore(v => !v)}>
-                <span>更多功能</span>
-                <span style={{ fontSize: 10, opacity: .6 }}>{showMore ? '▼' : '▶'} {extraPages.length}</span>
-              </div>
-              {showMore && Object.entries(extraSections).map(([section, items]) => (
-                <div key={section}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.35)', padding: '6px 16px 2px', textTransform: 'uppercase', letterSpacing: 1 }}>{section}</div>
-                  {items.map(p => (
-                    <div key={p.id} className={`nav-item ${page === p.id ? 'active' : ''}`} onClick={() => setPage(p.id)}
-                      role="button" tabIndex={0} aria-current={page === p.id ? 'page' : undefined}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPage(p.id); } }}>
-                      <span style={{ fontSize: 14 }} aria-hidden="true">{p.icon}</span><span style={{ fontSize: 12 }}>{p.label}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {isOffline && <span style={{ background: '#cc6600', padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>離線模式</span>}
+          {perms.viewAllStores && (
+            <select style={{ background: '#005555', color: '#fff', border: '1px solid #008888', borderRadius: 3, padding: '2px 6px', fontSize: 12, fontWeight: 600 }} value={activeStore} onChange={e => setActiveStore(e.target.value)}>
+              <option value="all">全部分店</option>
+              {stores.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+            </select>
           )}
-          {perms.viewSettings && (
-            <>
-              <div className="nav-section" style={{ borderTop: '1px solid rgba(255,255,255,.1)', marginTop: 8, paddingTop: 12 }}></div>
-              <div className={`nav-item ${page === 'settings' ? 'active' : ''}`} onClick={() => setPage('settings')}
-                role="button" tabIndex={0} aria-current={page === 'settings' ? 'page' : undefined}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPage('settings'); } }}>
-                <span style={{ fontSize: 16 }} aria-hidden="true">⚙️</span><span>設定</span>
-              </div>
-            </>
-          )}
-        </nav>
-        <div className="sidebar-footer">
-          <div style={{ display: 'flex', gap: 8, width: '100%' }}>
-            <button className="btn-logout" style={{ flex: 1 }} onClick={handleLogout}>🔓 登出</button>
-            <button className="btn-logout" style={{ width: 36, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
-          </div>
-          <span>v6.8.0 • {new Date().getFullYear()}</span>
-        </div>
-      </aside>
-
-      {/* MAIN */}
-      <main className="main" role="main" aria-label="主要內容">
-        <div className="topbar" role="banner">
-          <h2>{page === 'settings' ? '⚙️ 設定' : `${currentPage?.icon || ''} ${currentPage?.label || ''}`}</h2>
-          <div className="topbar-actions">
-            {isOffline && <span className="offline-badge">離線模式</span>}
-            {/* Store Switcher (admin only) */}
-            {perms.viewAllStores && (
-              <select className="btn btn-outline btn-sm hide-mobile" style={{ fontWeight: 600 }} value={activeStore} onChange={e => setActiveStore(e.target.value)}>
-                <option value="all">🏢 全部分店</option>
-                {stores.map(s => <option key={s.id} value={s.name}>📍 {s.name}</option>)}
-              </select>
-            )}
-            <button className="btn btn-outline btn-sm" onClick={() => setShowSearch(true)} aria-label="搜尋">🔍</button>
-            <div style={{ position: 'relative' }}>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowNotif(!showNotif)} aria-label={`通知${unreadCount > 0 ? `，${unreadCount} 條未讀` : ''}`}>
-                🔔{unreadCount > 0 && <span className="notif-badge" aria-hidden="true">{unreadCount}</span>}
-              </button>
-              {showNotif && (
-                <div className="dropdown-menu notif-panel" style={{ right: 0, width: 360, maxHeight: 480, overflowY: 'auto' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid var(--gray-100)' }}>
-                    <strong style={{ fontSize: 13 }}>通知 ({notifications.length})</strong>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={markAllRead}>全部已讀</button>
-                    </div>
+          <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14 }} onClick={() => setShowSearch(true)} title="搜尋">🔍</button>
+          <div style={{ position: 'relative' }}>
+            <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14 }} onClick={() => setShowNotif(!showNotif)} title="通知">
+              🔔{unreadCount > 0 && <span style={{ position: 'absolute', top: -4, right: -6, background: '#dc2626', color: '#fff', borderRadius: '50%', fontSize: 9, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount}</span>}
+            </button>
+            {showNotif && (
+              <div className="dropdown-menu notif-panel" style={{ right: 0, width: 360, maxHeight: 480, overflowY: 'auto', position: 'absolute', top: '100%', zIndex: 200, background: '#fff', color: '#333', borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,.2)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderBottom: '1px solid #eee' }}>
+                  <strong style={{ fontSize: 13 }}>通知 ({notifications.length})</strong>
+                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={markAllRead}>全部已讀</button>
+                </div>
+                {notifications.length > 0 && (
+                  <div style={{ padding: '4px 12px', display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid #eee' }}>
+                    {(() => {
+                      const cats = [...new Set(notifications.map(n => n.category).filter(Boolean))];
+                      return cats.map(c => {
+                        const count = notifications.filter(n => n.category === c).length;
+                        return <span key={c} style={{ fontSize: 10, padding: '2px 6px', background: '#f0f0f0', borderRadius: 10, color: '#666' }}>{c} {count}</span>;
+                      });
+                    })()}
                   </div>
-                  {notifications.length > 0 && (
-                    <div style={{ padding: '4px 12px', display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--gray-100)' }}>
-                      {(() => {
-                        const cats = [...new Set(notifications.map(n => n.category).filter(Boolean))];
-                        return cats.map(c => {
-                          const count = notifications.filter(n => n.category === c).length;
-                          return <span key={c} style={{ fontSize: 10, padding: '2px 6px', background: 'var(--gray-100)', borderRadius: 10, color: 'var(--gray-600)' }}>{c} {count}</span>;
-                        });
-                      })()}
-                    </div>
-                  )}
-                  {notifications.map((n, i) => (
-                    <div key={i} className="dropdown-item" style={{
-                      opacity: readNotifs.includes(i) ? 0.5 : 1, fontSize: 12,
-                      borderLeft: n.priority === 'high' ? '3px solid #dc2626' : n.priority === 'medium' ? '3px solid #d97706' : '3px solid var(--gray-200)',
-                      display: 'flex', alignItems: 'center', gap: 8,
-                    }}>
-                      <span>{n.icon}</span>
-                      <div style={{ flex: 1 }}>
-                        <div>{n.title}</div>
-                        <div style={{ fontSize: 10, color: 'var(--gray-400)', display: 'flex', gap: 6, marginTop: 2 }}>
-                          {n.category && <span>{n.category}</span>}
-                          <span>{n.time}</span>
-                        </div>
+                )}
+                {notifications.map((n, i) => (
+                  <div key={i} style={{ padding: '8px 12px', opacity: readNotifs.includes(i) ? 0.5 : 1, fontSize: 12, borderLeft: n.priority === 'high' ? '3px solid #dc2626' : n.priority === 'medium' ? '3px solid #d97706' : '3px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }}>
+                    <span>{n.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div>{n.title}</div>
+                      <div style={{ fontSize: 10, color: '#999', display: 'flex', gap: 6, marginTop: 2 }}>
+                        {n.category && <span>{n.category}</span>}
+                        <span>{n.time}</span>
                       </div>
                     </div>
-                  ))}
-                  {notifications.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: 'var(--gray-400)', fontSize: 12 }}>暫無通知</div>}
-                </div>
-              )}
-            </div>
-            {perms.viewReports && (
-              <div className="hide-mobile" style={{ position: 'relative' }}>
-                <button className="btn btn-outline btn-sm" onClick={() => setShowExport(!showExport)}>📥 匯出</button>
-                {showExport && <ExportMenu data={filteredData} showToast={showToast} onClose={() => setShowExport(false)} />}
+                  </div>
+                ))}
+                {notifications.length === 0 && <div style={{ padding: 16, textAlign: 'center', color: '#999', fontSize: 12 }}>暫無通知</div>}
               </div>
             )}
-            <button className="btn btn-outline btn-sm" onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
-            <button className="btn btn-outline btn-sm hide-mobile" onClick={reload}>🔄</button>
-            <SyncIndicator />
-            <span className="hide-mobile" style={{ fontSize: 12, color: 'var(--gray-600)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              👤 {user.name} <span className={`tag ${ROLE_TAGS[user.role] || ''}`}>{ROLE_LABELS[user.role]}</span>
-            </span>
-            <button className="btn btn-outline btn-sm hide-mobile" onClick={handleLogout}>登出</button>
           </div>
+          {perms.viewReports && (
+            <div style={{ position: 'relative' }}>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 12 }} onClick={() => setShowExport(!showExport)}>📥 匯出</button>
+              {showExport && <ExportMenu data={filteredData} showToast={showToast} onClose={() => setShowExport(false)} />}
+            </div>
+          )}
+          <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14 }} onClick={toggleTheme} title={theme === 'dark' ? '淺色模式' : '深色模式'}>{theme === 'dark' ? '☀️' : '🌙'}</button>
+          <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 14 }} onClick={reload} title="重新整理">🔄</button>
+          <SyncIndicator />
+          <span style={{ fontSize: 12, color: '#cce6e6', display: 'flex', alignItems: 'center', gap: 4 }}>
+            👤 {user.name} <span className={`tag ${ROLE_TAGS[user.role] || ''}`} style={{ fontSize: 10 }}>{ROLE_LABELS[user.role]}</span>
+          </span>
+          <button style={{ background: '#004d4d', border: '1px solid #008888', color: '#fff', borderRadius: 3, padding: '2px 10px', cursor: 'pointer', fontSize: 12 }} onClick={handleLogout}>登出</button>
         </div>
-        <div className="content">
+      </div>
+
+      {/* eCTCM Main Nav Bar (desktop) */}
+      <div className="hide-mobile" style={{ background: '#005555', display: 'flex', gap: 0, padding: '0 4px', fontSize: 13, position: 'sticky', top: 36, zIndex: 99, flexWrap: 'wrap' }}>
+        {Object.entries(sections).map(([section, items]) => {
+          const isActive = items.some(p => p.id === page);
+          const isOpen = openMenu === section;
+          return (
+            <div key={section} style={{ position: 'relative' }}
+              onMouseEnter={() => setOpenMenu(section)}
+              onMouseLeave={() => setOpenMenu(null)}>
+              <div style={{
+                padding: '7px 14px', cursor: 'pointer', color: '#fff', fontWeight: isActive ? 700 : 400,
+                background: isActive ? '#004444' : isOpen ? '#004d4d' : 'transparent',
+                borderBottom: isActive ? '2px solid #ffcc00' : '2px solid transparent',
+                whiteSpace: 'nowrap', transition: 'background .15s',
+              }}>
+                {section} {items.length > 1 ? '▼' : ''}
+              </div>
+              {isOpen && items.length > 1 && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, background: '#fff', minWidth: 180,
+                  boxShadow: '0 4px 12px rgba(0,0,0,.18)', borderRadius: '0 0 4px 4px', zIndex: 200,
+                  border: '1px solid #ddd', borderTop: '2px solid #006666',
+                }}>
+                  {items.map(p => (
+                    <div key={p.id} onClick={() => { setPage(p.id); setOpenMenu(null); }}
+                      style={{
+                        padding: '8px 14px', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+                        background: page === p.id ? '#e6f5f5' : '#fff', color: page === p.id ? '#006666' : '#333',
+                        fontWeight: page === p.id ? 700 : 400, borderBottom: '1px solid #f0f0f0',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#f5fafa'}
+                      onMouseLeave={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#fff'}>
+                      <span style={{ fontSize: 14 }}>{p.icon}</span>
+                      <span>{p.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Single-item sections: click directly */}
+              {items.length === 1 && (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, cursor: 'pointer' }}
+                  onClick={() => { setPage(items[0].id); setOpenMenu(null); }} />
+              )}
+            </div>
+          );
+        })}
+        {/* Extra pages as "更多" dropdown */}
+        {extraPages.length > 0 && (
+          <div style={{ position: 'relative' }}
+            onMouseEnter={() => setOpenMenu('__extra')}
+            onMouseLeave={() => setOpenMenu(null)}>
+            <div style={{
+              padding: '7px 14px', cursor: 'pointer', color: '#fff',
+              fontWeight: extraPages.some(p => p.id === page) ? 700 : 400,
+              background: extraPages.some(p => p.id === page) ? '#004444' : openMenu === '__extra' ? '#004d4d' : 'transparent',
+              borderBottom: extraPages.some(p => p.id === page) ? '2px solid #ffcc00' : '2px solid transparent',
+              whiteSpace: 'nowrap',
+            }}>
+              更多 ▼
+            </div>
+            {openMenu === '__extra' && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, background: '#fff', minWidth: 220, maxHeight: 420, overflowY: 'auto',
+                boxShadow: '0 4px 12px rgba(0,0,0,.18)', borderRadius: '0 0 4px 4px', zIndex: 200,
+                border: '1px solid #ddd', borderTop: '2px solid #006666',
+              }}>
+                {Object.entries(extraSections).map(([section, items]) => (
+                  <div key={section}>
+                    <div style={{ fontSize: 10, color: '#999', padding: '6px 14px 2px', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>{section}</div>
+                    {items.map(p => (
+                      <div key={p.id} onClick={() => { setPage(p.id); setOpenMenu(null); }}
+                        style={{
+                          padding: '6px 14px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
+                          background: page === p.id ? '#e6f5f5' : '#fff', color: page === p.id ? '#006666' : '#333',
+                          fontWeight: page === p.id ? 700 : 400,
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#f5fafa'}
+                        onMouseLeave={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#fff'}>
+                        <span style={{ fontSize: 13 }}>{p.icon}</span>
+                        <span>{p.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Settings */}
+        {perms.viewSettings && (
+          <div style={{ position: 'relative' }}>
+            <div onClick={() => { setPage('settings'); setOpenMenu(null); }}
+              style={{
+                padding: '7px 14px', cursor: 'pointer', color: '#fff',
+                fontWeight: page === 'settings' ? 700 : 400,
+                background: page === 'settings' ? '#004444' : 'transparent',
+                borderBottom: page === 'settings' ? '2px solid #ffcc00' : '2px solid transparent',
+                whiteSpace: 'nowrap',
+              }}>
+              ⚙️ 設定
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* eCTCM Page Title Bar */}
+      <div className="hide-mobile" style={{ background: '#006666', color: '#fff', padding: '5px 12px', fontSize: 13, fontWeight: 600 }}>
+        {page === 'settings' ? '⚙️ 設定' : `${currentPage?.icon || ''} ${currentPage?.label || ''}`}
+      </div>
+
+      {/* MAIN (full width, no sidebar) */}
+      <main role="main" aria-label="主要內容" style={{ width: '100%', minHeight: 'calc(100vh - 100px)' }}>
+        <div style={{ padding: 0 }}>
           <ErrorBoundary>
           <Suspense fallback={LazyFallback}>
             {page === 'dash' && <Dashboard data={filteredData} onNavigate={setPage} />}
