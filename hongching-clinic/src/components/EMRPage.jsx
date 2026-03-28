@@ -11,6 +11,7 @@ import VoiceButton from './VoiceButton';
 import MedicineLabel from './MedicineLabel';
 import SignaturePad, { SignaturePreview } from './SignaturePad';
 import ConsultAI from './ConsultAI';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const EMPTY_RX = { herb: '', dosage: '' };
 function makeEmptyForm() {
@@ -919,46 +920,50 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   };
 
   return (
-    <>
+    <div style={S.page}>
+      {/* eCTCM Title Bar */}
+      <div style={S.titleBar}>診所顧客列表 &gt; 診症列表</div>
+
       {/* Stats */}
-      <div className="stats-grid">
-        <div className="stat-card teal"><div className="stat-label">今日診症</div><div className="stat-value teal">{stats.todayCount}</div></div>
-        <div className="stat-card green"><div className="stat-label">本月診症</div><div className="stat-value green">{stats.monthCount}</div></div>
-        <div className="stat-card gold"><div className="stat-label">診症病人數</div><div className="stat-value gold">{stats.uniquePatients}</div></div>
-        <div className="stat-card red"><div className="stat-label">本週覆診</div><div className="stat-value red">{stats.followUps}</div></div>
+      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
+        <div style={S.statCard}><div style={S.statValue}>{stats.todayCount}</div><div style={S.statLabel}>今日診症</div></div>
+        <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{stats.monthCount}</div><div style={S.statLabel}>本月診症</div></div>
+        <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{stats.uniquePatients}</div><div style={S.statLabel}>診症病人數</div></div>
+        <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnDanger }}>{stats.followUps}</div><div style={S.statLabel}>本週覆診</div></div>
       </div>
 
       {/* Top action bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h3 style={{ margin: 0 }}>診症紀錄</h3>
-        <button className="btn btn-teal" onClick={() => setShowAdd(true)}>+ 新增診症</button>
+      <div style={S.toolbar}>
+        <span style={{ fontWeight: 700, fontSize: 13 }}>診症紀錄</span>
+        <span style={{ flex: 1 }} />
+        <button style={S.actionBtnGreen} onClick={() => setShowAdd(true)}>+ 新增診症</button>
       </div>
 
       {/* Filters */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} role="search" aria-label="診症紀錄搜尋與篩選">
-        <input style={{ flex: 1, minWidth: 160 }} placeholder="搜尋病人/診斷/證型/方劑..." value={search} onChange={e => setSearch(e.target.value)} aria-label="搜尋病人、診斷、證型或方劑" />
-        <input style={{ width: 120 }} placeholder="篩選藥材..." value={filterHerb} onChange={e => setFilterHerb(e.target.value)} />
-        <div className="preset-bar" style={{ marginBottom: 0 }}>
-          {[['all', '全部'], ['today', '今日'], ['week', '本週'], ['custom', '自選']].map(([k, l]) => (
-            <button key={k} className={`preset-chip ${filterDate === k ? 'active' : ''}`} onClick={() => setFilterDate(k)}>{l}</button>
-          ))}
-        </div>
+      <div style={S.filterBar} role="search" aria-label="診症紀錄搜尋與篩選">
+        <span style={S.filterLabel}>搜尋:</span>
+        <input style={{ ...S.filterInput, flex: 1, minWidth: 160 }} placeholder="搜尋病人/診斷/證型/方劑..." value={search} onChange={e => setSearch(e.target.value)} aria-label="搜尋病人、診斷、證型或方劑" />
+        <input style={{ ...S.filterInput, width: 120 }} placeholder="篩選藥材..." value={filterHerb} onChange={e => setFilterHerb(e.target.value)} />
+        <span style={S.filterLabel}>日期:</span>
+        {[['all', '全部'], ['today', '今日'], ['week', '本週'], ['custom', '自選']].map(([k, l]) => (
+          <button key={k} style={{ ...S.actionBtn, background: filterDate === k ? ECTCM.headerBg : '#e0e0e0', color: filterDate === k ? '#fff' : '#333', border: 'none' }} onClick={() => setFilterDate(k)}>{l}</button>
+        ))}
         {filterDate === 'custom' && (
           <>
-            <input type="date" style={{ width: 'auto' }} value={customStart} onChange={e => setCustomStart(e.target.value)} />
+            <input type="date" style={S.filterInput} value={customStart} onChange={e => setCustomStart(e.target.value)} />
             <span style={{ fontSize: 12 }}>至</span>
-            <input type="date" style={{ width: 'auto' }} value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+            <input type="date" style={S.filterInput} value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
           </>
         )}
-        <select style={{ width: 'auto' }} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
+        <select style={S.filterSelect} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
           <option value="all">所有醫師</option>
           {doctors.map(d => <option key={d}>{d}</option>)}
         </select>
-        <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
+        <select style={S.filterSelect} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">所有店舖</option>
           {storeNames.map(s => <option key={s}>{s}</option>)}
         </select>
-        <button className="btn btn-outline btn-sm" onClick={() => {
+        <button style={S.actionBtn} onClick={() => {
           if (!filtered.length) return showToast('沒有診症紀錄可匯出');
           const headers = ['日期','病人','醫師','店舖','中醫診斷','ICD-10','證型','證型碼','處方','劑數','治療','覆診日期'];
           const rows = filtered.map(c => [
@@ -975,44 +980,45 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
       </div>
 
       {/* Table */}
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-wrap">
-          <table aria-label="診症紀錄列表">
-            <thead>
-              <tr>
-                <th>日期</th><th>病人</th><th>醫師</th><th>店舖</th>
-                <th>中醫診斷</th><th>治療</th><th>覆診日期</th><th>操作</th>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={S.table} aria-label="診症紀錄列表">
+          <thead>
+            <tr>
+              <th style={S.th}>日期</th><th style={S.th}>病人</th><th style={S.th}>醫師</th><th style={S.th}>店舖</th>
+              <th style={S.th}>中醫診斷</th><th style={S.th}>治療</th><th style={S.th}>覆診日期</th><th style={S.th}>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((c, idx) => (
+              <tr key={c.id} style={rowStyle(idx)}>
+                <td style={S.td}>{(c.date || '').substring(0, 10)}</td>
+                <td style={S.td}>
+                  <span style={{ ...S.link, fontWeight: 600 }} onClick={() => setDetail(c)}>
+                    {c.patientName}
+                  </span>
+                </td>
+                <td style={S.td}>{c.doctor}</td>
+                <td style={S.td}>{c.store}</td>
+                <td style={S.td}>{c.tcmDiagnosis || '-'}{c.icd10Code && <span style={{ fontSize: 10, color: ECTCM.textMuted, marginLeft: 4 }}>({c.icd10Code})</span>}</td>
+                <td style={S.td}>{(c.treatments || []).length > 0 ? c.treatments.join('、') : '-'}</td>
+                <td style={S.td}>{c.followUpDate || '-'}</td>
+                <td style={S.td}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <span style={S.link} onClick={() => setDetail(c)}>詳情</span>
+                    <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => setDeleteId(c.id)}>刪除</span>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {filtered.map(c => (
-                <tr key={c.id}>
-                  <td>{(c.date || '').substring(0, 10)}</td>
-                  <td>
-                    <span style={{ color: 'var(--teal-700)', cursor: 'pointer', fontWeight: 600 }} onClick={() => setDetail(c)}>
-                      {c.patientName}
-                    </span>
-                  </td>
-                  <td>{c.doctor}</td>
-                  <td>{c.store}</td>
-                  <td>{c.tcmDiagnosis || '-'}{c.icd10Code && <span style={{ fontSize: 10, color: 'var(--gray-400)', marginLeft: 4 }}>({c.icd10Code})</span>}</td>
-                  <td>{(c.treatments || []).length > 0 ? c.treatments.join('、') : '-'}</td>
-                  <td>{c.followUpDate || '-'}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button className="btn btn-outline btn-sm" onClick={() => setDetail(c)}>詳情</button>
-                      <button className="btn btn-red btn-sm" onClick={() => setDeleteId(c.id)}>刪除</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無診症紀錄</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={8} style={{ ...S.td, textAlign: 'center', color: ECTCM.textMuted, padding: 24 }}>暫無診症紀錄</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {/* Footer stats */}
+      <div style={S.footer}>共 {filtered.length} 筆紀錄</div>
 
       {/* ══════ New Consultation Modal ══════ */}
       {showAdd && (
@@ -1699,6 +1705,6 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

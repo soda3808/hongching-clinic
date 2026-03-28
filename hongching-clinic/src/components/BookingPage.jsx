@@ -5,6 +5,7 @@ import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import EmptyState from './EmptyState';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const TYPES = ['初診','覆診','針灸','推拿','天灸','其他'];
 const STATUS_TAGS = { pending:'tag-pending-orange', confirmed:'tag-fps', completed:'tag-paid', cancelled:'tag-other', 'no-show':'tag-overdue' };
@@ -466,7 +467,10 @@ export default function BookingPage({ data, setData, showToast }) {
   };
 
   return (
-    <>
+    <div style={S.page}>
+      {/* eCTCM Title Bar */}
+      <div style={S.titleBar}>診所顧客列表 &gt; 網上預約列表</div>
+
       {/* Stats */}
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }} role="status" aria-live="polite" aria-label="預約統計">
         <div className="stat-card teal"><div className="stat-label">今日預約</div><div className="stat-value teal">{stats.today}</div></div>
@@ -477,8 +481,8 @@ export default function BookingPage({ data, setData, showToast }) {
       </div>
 
       {/* Smart Scheduling Hints */}
-      <div className="card" style={{ padding: '10px 16px', display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, alignItems: 'center', background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
-        <span style={{ fontWeight: 700, color: 'var(--teal-700)' }}>📊 智能排程</span>
+      <div style={{ ...S.filterBar, gap: 16 }}>
+        <span style={S.filterLabel}>智能排程</span>
         <span>最繁忙時段：<strong>{smartHints.busiestHour}</strong></span>
         <span>建議預約：<strong>{smartHints.quietestHour}</strong></span>
         <span>最繁忙日：<strong>{smartHints.busiestDay}</strong></span>
@@ -486,70 +490,68 @@ export default function BookingPage({ data, setData, showToast }) {
       </div>
 
       {/* View Toggle + Add */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div className="tab-bar" style={{ marginBottom: 0 }}>
-          <button className={`tab-btn ${view === 'list' ? 'active' : ''}`} onClick={() => setView('list')}>📋 列表視圖</button>
-          <button className={`tab-btn ${view === 'calendar' ? 'active' : ''}`} onClick={() => setView('calendar')}>📅 日曆視圖</button>
-          <button className={`tab-btn ${view === 'waitlist' ? 'active' : ''}`} onClick={() => setView('waitlist')} style={{ position: 'relative' }}>
-            ⏳ 候補名單{totalWaitlistCount > 0 && <span style={{ marginLeft: 4, background: '#dc2626', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>{totalWaitlistCount}</span>}
-          </button>
+      <div style={S.tabBar}>
+        <div style={view === 'list' ? S.tabActive : S.tab} onClick={() => setView('list')}>列表視圖</div>
+        <div style={view === 'calendar' ? S.tabActive : S.tab} onClick={() => setView('calendar')}>日曆視圖</div>
+        <div style={view === 'waitlist' ? S.tabActive : S.tab} onClick={() => setView('waitlist')}>
+          候補名單{totalWaitlistCount > 0 && <span style={{ marginLeft: 4, background: '#dc2626', color: '#fff', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>{totalWaitlistCount}</span>}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {upcomingBookings.length > 0 && (
-            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 12 }} onClick={() => setShowReminderPanel(!showReminderPanel)}>
-              📱 提醒中心 ({upcomingBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
-            </button>
-          )}
-          {tomorrowBookings.length > 0 && batchIdx < 0 && (
-            <button className="btn btn-sm btn-outline" style={{ fontSize: 12 }} onClick={sendBatchReminders}>
-              批量提醒明日 ({tomorrowBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
-            </button>
-          )}
-          {batchIdx >= 0 && batchQueueRef.current.length > 0 && (
-            <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 12, animation: 'pulse 1.5s infinite' }} onClick={sendNextBatchReminder}>
-              下一位 ({batchQueueRef.current.length} 位餘下)
-            </button>
-          )}
-          <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 新增預約</button>
-        </div>
+      </div>
+      <div style={S.toolbar}>
+        {upcomingBookings.length > 0 && (
+          <span style={{ ...S.link, fontWeight: 600 }} onClick={() => setShowReminderPanel(!showReminderPanel)}>
+            提醒中心 ({upcomingBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
+          </span>
+        )}
+        {tomorrowBookings.length > 0 && batchIdx < 0 && (
+          <span style={S.link} onClick={sendBatchReminders}>
+            批量提醒明日 ({tomorrowBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length})
+          </span>
+        )}
+        {batchIdx >= 0 && batchQueueRef.current.length > 0 && (
+          <span style={{ ...S.link, color: '#25D366', fontWeight: 700 }} onClick={sendNextBatchReminder}>
+            下一位 ({batchQueueRef.current.length} 位餘下)
+          </span>
+        )}
+        <span style={{ marginLeft: 'auto' }}><button style={S.actionBtn} onClick={() => setShowModal(true)}>+ 新增預約</button></span>
       </div>
 
       {/* Reminder Panel */}
       {showReminderPanel && upcomingBookings.length > 0 && (
-        <div className="card" style={{ border: '1px solid #25D366', background: '#f0fdf4' }}>
-          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: 14, color: '#16a34a' }}>📱 預約提醒中心</h3>
-            <button className="btn btn-outline btn-sm" onClick={() => setShowReminderPanel(false)}>✕</button>
+        <div style={{ background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
+          <div style={{ ...S.filterBar, justifyContent: 'space-between' }}>
+            <span style={S.filterLabel}>預約提醒中心</span>
+            <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => setShowReminderPanel(false)}>關閉</span>
           </div>
           <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
-            <table aria-label="預約提醒列表">
+            <table style={S.table} aria-label="預約提醒列表">
               <thead>
-                <tr><th>日期</th><th>時間</th><th>病人</th><th>電話</th><th>醫師</th><th>店舖</th><th>提醒狀態</th><th>操作</th></tr>
+                <tr>{['日期','時間','病人','電話','醫師','店舖','提醒狀態','操作'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
               </thead>
               <tbody>
-                {upcomingBookings.map(b => {
+                {upcomingBookings.map((b, idx) => {
                   const sent = isReminderSent(b.id);
                   const daysUntil = Math.ceil((new Date(b.date) - new Date()) / 86400000);
                   return (
-                    <tr key={b.id} style={sent ? { opacity: 0.5 } : {}}>
-                      <td>{b.date}</td>
-                      <td>{b.time}</td>
-                      <td style={{ fontWeight: 600 }}>{b.patientName}</td>
-                      <td>{b.patientPhone || <span style={{ color: '#dc2626', fontSize: 11 }}>無電話</span>}</td>
-                      <td>{b.doctor}</td>
-                      <td>{b.store}</td>
-                      <td>
+                    <tr key={b.id} style={{ ...(sent ? { opacity: 0.5 } : {}), ...rowStyle(idx) }}>
+                      <td style={S.td}>{b.date}</td>
+                      <td style={S.td}>{b.time}</td>
+                      <td style={{ ...S.td, fontWeight: 600 }}>{b.patientName}</td>
+                      <td style={S.td}>{b.patientPhone || <span style={{ color: '#dc2626', fontSize: 11 }}>無電話</span>}</td>
+                      <td style={S.td}>{b.doctor}</td>
+                      <td style={S.td}>{b.store}</td>
+                      <td style={S.td}>
                         {sent ? (
-                          <span style={{ color: '#16a34a', fontSize: 11, fontWeight: 600 }}>✓ 已提醒</span>
+                          <span style={{ color: ECTCM.btnSuccess, fontSize: 11, fontWeight: 600 }}>已提醒</span>
                         ) : daysUntil <= 1 ? (
-                          <span style={{ color: '#dc2626', fontSize: 11, fontWeight: 600 }}>待提醒</span>
+                          <span style={{ color: ECTCM.btnDanger, fontSize: 11, fontWeight: 600 }}>待提醒</span>
                         ) : (
-                          <span style={{ color: '#d97706', fontSize: 11 }}>{daysUntil}天後</span>
+                          <span style={{ color: ECTCM.btnWarning, fontSize: 11 }}>{daysUntil}天後</span>
                         )}
                       </td>
-                      <td>
+                      <td style={S.td}>
                         {!sent && b.patientPhone && (
-                          <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => sendSingleReminder(b)}>發送</button>
+                          <span style={{ ...S.link, color: '#25D366', fontWeight: 600 }} onClick={() => sendSingleReminder(b)}>發送</span>
                         )}
                       </td>
                     </tr>
@@ -558,7 +560,7 @@ export default function BookingPage({ data, setData, showToast }) {
               </tbody>
             </table>
           </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--gray-500)' }}>
+          <div style={S.footer}>
             共 {upcomingBookings.length} 個預約 | 已提醒 {upcomingBookings.filter(b => isReminderSent(b.id)).length} | 待提醒 {upcomingBookings.filter(b => !isReminderSent(b.id) && b.patientPhone).length} | 無電話 {upcomingBookings.filter(b => !b.patientPhone).length}
           </div>
         </div>
@@ -567,55 +569,56 @@ export default function BookingPage({ data, setData, showToast }) {
       {/* List View */}
       {view === 'list' && (
         <>
-          <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div className="preset-bar" style={{ marginBottom: 0 }}>
-              {[['today','今日'],['tomorrow','明日'],['week','本週'],['custom','自選']].map(([k, l]) => (
-                <button key={k} className={`preset-chip ${filterDate === k ? 'active' : ''}`} onClick={() => setFilterDate(k)}>{l}</button>
-              ))}
-            </div>
-            {filterDate === 'custom' && <input type="date" style={{ width: 'auto' }} value={customDate} onChange={e => setCustomDate(e.target.value)} />}
-            <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
+          <div style={S.filterBar}>
+            <span style={S.filterLabel}>日期：</span>
+            {[['today','今日'],['tomorrow','明日'],['week','本週'],['custom','自選']].map(([k, l]) => (
+              <span key={k} style={{ ...S.link, fontWeight: filterDate === k ? 700 : 400, textDecoration: filterDate === k ? 'underline' : 'none' }} onClick={() => setFilterDate(k)}>{l}</span>
+            ))}
+            {filterDate === 'custom' && <input type="date" style={S.filterInput} value={customDate} onChange={e => setCustomDate(e.target.value)} />}
+            <span style={S.filterLabel}>店舖：</span>
+            <select style={S.filterSelect} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
               <option value="all">所有店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}
             </select>
-            <select style={{ width: 'auto' }} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
+            <span style={S.filterLabel}>醫師：</span>
+            <select style={S.filterSelect} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
               <option value="all">所有醫師</option>{DOCTORS.map(d => <option key={d}>{d}</option>)}
             </select>
           </div>
-          <div className="card" style={{ padding: 0 }}>
+          <div style={{ background: ECTCM.cardBg }}>
             <div className="table-wrap">
-              <table aria-label="預約列表">
-                <thead><tr><th>日期</th><th>時間</th><th>病人</th><th>電話</th><th>醫師</th><th>店舖</th><th>類型</th><th>狀態</th><th>操作</th></tr></thead>
+              <table style={S.table} aria-label="預約列表">
+                <thead><tr>{['日期','時間','病人','電話','醫師','店舖','類型','狀態','操作'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
                 <tbody>
                   {filtered.map(b => (
-                    <tr key={b.id} style={b.status === 'cancelled' ? { opacity: 0.4 } : {}}>
-                      <td>{b.date}</td>
-                      <td>{b.time}</td>
-                      <td style={{ fontWeight: 600 }}>
+                    <tr key={b.id} style={{ ...(b.status === 'cancelled' ? { opacity: 0.4 } : {}), ...rowStyle(filtered.indexOf(b)) }}>
+                      <td style={S.td}>{b.date}</td>
+                      <td style={S.td}>{b.time}</td>
+                      <td style={{ ...S.td, fontWeight: 600 }}>
                         {b.patientName}
-                        {b.seriesId && <span style={{ marginLeft: 4, fontSize: 8, padding: '1px 5px', borderRadius: 8, background: '#0e749018', color: '#0e7490', fontWeight: 700 }}>🔄</span>}
-                        {(() => { const risk = getNoShowRisk(b); return risk ? <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 5px', borderRadius: 8, background: risk.color + '18', color: risk.color, fontWeight: 700 }}>NS×{risk.count}</span> : null; })()}
+                        {b.seriesId && <span style={{ marginLeft: 4, fontSize: 8, padding: '1px 5px', borderRadius: 8, background: '#0e749018', color: '#0e7490', fontWeight: 700 }}>R</span>}
+                        {(() => { const risk = getNoShowRisk(b); return risk ? <span style={{ marginLeft: 4, fontSize: 9, padding: '1px 5px', borderRadius: 8, background: risk.color + '18', color: risk.color, fontWeight: 700 }}>NS x{risk.count}</span> : null; })()}
                       </td>
-                      <td>{b.patientPhone}</td>
-                      <td>{b.doctor}</td>
-                      <td>{b.store}</td>
-                      <td>{b.type}</td>
-                      <td><span className={`tag ${STATUS_TAGS[b.status] || ''}`}>{STATUS_LABELS[b.status] || b.status}</span></td>
-                      <td>
+                      <td style={S.td}>{b.patientPhone}</td>
+                      <td style={S.td}>{b.doctor}</td>
+                      <td style={S.td}>{b.store}</td>
+                      <td style={S.td}>{b.type}</td>
+                      <td style={S.td}><span className={`tag ${STATUS_TAGS[b.status] || ''}`}>{STATUS_LABELS[b.status] || b.status}</span></td>
+                      <td style={S.td}>
                         {b.status === 'pending' && (
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            <button className="btn btn-teal btn-sm" onClick={() => handleUpdateStatus(b.id, 'confirmed')}>確認</button>
-                            <button className="btn btn-outline btn-sm" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>✕</button>
-                          </div>
+                          <span style={{ display: 'inline-flex', gap: 8 }}>
+                            <span style={{ ...S.link, color: ECTCM.btnSuccess }} onClick={() => handleUpdateStatus(b.id, 'confirmed')}>確認</span>
+                            <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => handleUpdateStatus(b.id, 'cancelled')}>取消</span>
+                          </span>
                         )}
                         {b.status === 'confirmed' && (
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            {b.date === today && <button className="btn btn-teal btn-sm" onClick={() => sendToQueue(b)} title="到診掛號">🎫</button>}
-                            <button className="btn btn-green btn-sm" onClick={() => handleUpdateStatus(b.id, 'completed')}>✓</button>
-                            {b.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => sendBookingWA(b)}>WA</button>}
-                            <button className="btn btn-outline btn-sm" onClick={() => printAppointmentCard(b)} title="列印預約卡">🖨️</button>
-                            <button className="btn btn-outline btn-sm" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>✕</button>
-                            <button className="btn btn-red btn-sm" onClick={() => handleUpdateStatus(b.id, 'no-show')}>NS</button>
-                          </div>
+                          <span style={{ display: 'inline-flex', gap: 8 }}>
+                            {b.date === today && <span style={{ ...S.link, color: ECTCM.btnPrimary }} onClick={() => sendToQueue(b)} title="到診掛號">掛號</span>}
+                            <span style={{ ...S.link, color: ECTCM.btnSuccess }} onClick={() => handleUpdateStatus(b.id, 'completed')}>完成</span>
+                            {b.patientPhone && <span style={{ ...S.link, color: '#25D366' }} onClick={() => sendBookingWA(b)}>WA</span>}
+                            <span style={S.link} onClick={() => printAppointmentCard(b)} title="列印預約卡">列印</span>
+                            <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => handleUpdateStatus(b.id, 'cancelled')}>取消</span>
+                            <span style={{ ...S.link, color: ECTCM.btnWarning }} onClick={() => handleUpdateStatus(b.id, 'no-show')}>NS</span>
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -630,21 +633,21 @@ export default function BookingPage({ data, setData, showToast }) {
 
       {/* Calendar View */}
       {view === 'calendar' && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <button className="btn btn-outline btn-sm" onClick={() => shiftWeek(-1)}>← 上週</button>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <strong>{weekDates[0]} ~ {weekDates[6]}</strong>
-              <button className="btn btn-teal btn-sm" onClick={printWeeklySchedule}>🖨️ 列印</button>
-            </div>
-            <button className="btn btn-outline btn-sm" onClick={() => shiftWeek(1)}>下週 →</button>
+        <div style={{ background: ECTCM.cardBg }}>
+          <div style={{ ...S.filterBar, justifyContent: 'space-between' }}>
+            <span style={S.link} onClick={() => shiftWeek(-1)}>&larr; 上週</span>
+            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              <strong style={{ fontSize: 13 }}>{weekDates[0]} ~ {weekDates[6]}</strong>
+              <span style={S.link} onClick={printWeeklySchedule}>列印</span>
+            </span>
+            <span style={S.link} onClick={() => shiftWeek(1)}>下週 &rarr;</span>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(7, 1fr)', minWidth: 800 }}>
-              <div style={{ borderBottom: '2px solid var(--gray-200)', padding: 6, fontWeight: 700, fontSize: 11 }}></div>
+              <div style={{ ...S.th, background: ECTCM.thBg }}></div>
               {weekDates.map((d, i) => (
-                <div key={d} style={{ borderBottom: '2px solid var(--gray-200)', padding: 6, fontWeight: 700, fontSize: 11, textAlign: 'center', background: d === today ? 'var(--teal-50)' : '' }}>
-                  {WEEKDAY_LABELS[i]}<br/><span style={{ fontSize: 10, color: 'var(--gray-500)' }}>{d.substring(5)}</span>
+                <div key={d} style={{ ...S.th, textAlign: 'center', background: d === today ? '#00808e' : ECTCM.thBg }}>
+                  {WEEKDAY_LABELS[i]}<br/><span style={{ fontSize: 10, opacity: 0.8 }}>{d.substring(5)}</span>
                 </div>
               ))}
               {HOURS.map(time => (
@@ -674,45 +677,45 @@ export default function BookingPage({ data, setData, showToast }) {
 
       {/* Waitlist View */}
       {view === 'waitlist' && (
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ margin: 0, fontSize: 15, color: 'var(--teal-700)' }}>⏳ 候補名單</h3>
-            <button className="btn btn-teal btn-sm" onClick={() => setShowWaitlistForm({ date: tomorrow, time: '10:00', doctor: DOCTORS[0], store: getDefaultStore() })}>+ 新增候補</button>
+        <div style={{ background: ECTCM.cardBg }}>
+          <div style={{ ...S.filterBar, justifyContent: 'space-between' }}>
+            <span style={S.filterLabel}>候補名單</span>
+            <button style={S.actionBtn} onClick={() => setShowWaitlistForm({ date: tomorrow, time: '10:00', doctor: DOCTORS[0], store: getDefaultStore() })}>+ 新增候補</button>
           </div>
           {activeWaitlist.length === 0 ? (
             <EmptyState icon="⏳" title="暫無候補預約" description="候補名單為空，可點擊「新增候補」按鈕加入" compact />
           ) : (
             <div className="table-wrap">
-              <table>
-                <thead><tr><th>日期</th><th>時間</th><th>病人</th><th>電話</th><th>醫師</th><th>店舖</th><th>備註</th><th>加入時間</th><th>操作</th></tr></thead>
+              <table style={S.table}>
+                <thead><tr>{['日期','時間','病人','電話','醫師','店舖','備註','加入時間','操作'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {activeWaitlist.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map(w => {
+                  {activeWaitlist.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)).map((w, idx) => {
                     // Check if slot now has availability
                     const conflicts = checkConflict(w.date, w.time, w.doctor, 30);
                     const hasSlot = conflicts.length === 0;
                     return (
-                      <tr key={w.id} style={hasSlot ? { background: '#f0fdf4' } : {}}>
-                        <td>{w.date}</td>
-                        <td>{w.time}</td>
-                        <td style={{ fontWeight: 600 }}>{w.patientName}</td>
-                        <td>{w.patientPhone || '-'}</td>
-                        <td>{w.doctor}</td>
-                        <td>{w.store}</td>
-                        <td style={{ fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.notes || '-'}</td>
-                        <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{w.createdAt ? new Date(w.createdAt).toLocaleDateString('zh-HK') : '-'}</td>
-                        <td>
-                          <div style={{ display: 'flex', gap: 4 }}>
-                            {hasSlot && <button className="btn btn-teal btn-sm" onClick={() => handlePromoteWaitlist(w)} title="轉為正式預約">✓ 確認</button>}
+                      <tr key={w.id} style={hasSlot ? { background: '#f0fdf4' } : rowStyle(idx)}>
+                        <td style={S.td}>{w.date}</td>
+                        <td style={S.td}>{w.time}</td>
+                        <td style={{ ...S.td, fontWeight: 600 }}>{w.patientName}</td>
+                        <td style={S.td}>{w.patientPhone || '-'}</td>
+                        <td style={S.td}>{w.doctor}</td>
+                        <td style={S.td}>{w.store}</td>
+                        <td style={{ ...S.td, fontSize: 11, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>{w.notes || '-'}</td>
+                        <td style={{ ...S.td, fontSize: 11, color: ECTCM.textMuted }}>{w.createdAt ? new Date(w.createdAt).toLocaleDateString('zh-HK') : '-'}</td>
+                        <td style={S.td}>
+                          <span style={{ display: 'inline-flex', gap: 8 }}>
+                            {hasSlot && <span style={{ ...S.link, color: ECTCM.btnSuccess }} onClick={() => handlePromoteWaitlist(w)} title="轉為正式預約">確認</span>}
                             {w.patientPhone && (
-                              <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 11 }} onClick={() => {
+                              <span style={{ ...S.link, color: '#25D366' }} onClick={() => {
                                 const text = hasSlot
                                   ? `【${getClinicName()}】${w.patientName}你好！你嘅候補時段已有空位：\n${w.date} ${w.time} ${w.doctor}\n請盡快回覆確認！`
                                   : `【${getClinicName()}】${w.patientName}你好！你目前在候補名單中 (${w.date} ${w.time})，我哋會有空位時通知你。`;
                                 openWhatsApp(w.patientPhone, text);
-                              }}>WA</button>
+                              }}>WA</span>
                             )}
-                            <button className="btn btn-outline btn-sm" style={{ color: '#dc2626' }} onClick={() => handleRemoveWaitlist(w.id)}>✕</button>
-                          </div>
+                            <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => handleRemoveWaitlist(w.id)}>刪除</span>
+                          </span>
                         </td>
                       </tr>
                     );
@@ -723,9 +726,10 @@ export default function BookingPage({ data, setData, showToast }) {
           )}
           {/* Summary */}
           {activeWaitlist.length > 0 && (
-            <div style={{ marginTop: 10, fontSize: 11, color: 'var(--gray-500)', display: 'flex', gap: 16 }}>
+            <div style={S.footer}>
               <span>共 {activeWaitlist.length} 位候補</span>
-              <span style={{ color: '#16a34a', fontWeight: 600 }}>
+              {'  |  '}
+              <span style={{ color: ECTCM.btnSuccess, fontWeight: 600 }}>
                 {activeWaitlist.filter(w => checkConflict(w.date, w.time, w.doctor, 30).length === 0).length} 位有空位可確認
               </span>
             </div>
@@ -820,6 +824,6 @@ export default function BookingPage({ data, setData, showToast }) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
