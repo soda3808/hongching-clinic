@@ -5,6 +5,7 @@ import { getDoctors } from '../data';
 import { getTenantStoreNames, getClinicName, getClinicNameEn, getTenantStores, getTenantSettings } from '../tenant';
 import { exportCSV } from '../utils/export';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle, statusTag } from '../styles/ectcm';
 
 // Drug pricing helper — calculate medicine fee from prescription
 function calcMedicineFee(prescription, days, pricingData) {
@@ -561,25 +562,28 @@ export default function BillingPage({ data, setData, showToast, allData, user })
   };
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>配藥/收費 &gt; 配藥/收費列表</div>
+
       {/* Stats */}
-      <div className="stats-grid" role="status" aria-live="polite" aria-label="收費統計摘要">
-        <div className="stat-card teal"><div className="stat-label">今日帳單</div><div className="stat-value teal">{summary.total}</div></div>
-        <div className="stat-card green"><div className="stat-label">已收費</div><div className="stat-value green">{fmtM(summary.paidAmount)}</div><div className="stat-sub">{summary.paid} 筆</div></div>
-        <div className="stat-card gold"><div className="stat-label">未收費</div><div className="stat-value gold">{fmtM(summary.unpaidAmount)}</div><div className="stat-sub">{summary.unpaid} 筆</div></div>
-        <div className="stat-card red"><div className="stat-label">費用合計</div><div className="stat-value red">{fmtM(summary.totalFee)}</div></div>
+      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }} role="status" aria-live="polite" aria-label="收費統計摘要">
+        <div style={S.statCard}><div style={S.statValue}>{summary.total}</div><div style={S.statLabel}>今日帳單</div></div>
+        <div style={S.statCard}><div style={{...S.statValue, color: ECTCM.btnSuccess}}>{fmtM(summary.paidAmount)}</div><div style={S.statLabel}>已收費 ({summary.paid} 筆)</div></div>
+        <div style={S.statCard}><div style={{...S.statValue, color: ECTCM.btnWarning}}>{fmtM(summary.unpaidAmount)}</div><div style={S.statLabel}>未收費 ({summary.unpaid} 筆)</div></div>
+        <div style={S.statCard}><div style={{...S.statValue, color: ECTCM.btnDanger}}>{fmtM(summary.totalFee)}</div><div style={S.statLabel}>費用合計</div></div>
       </div>
 
       {/* Filter Bar */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input type="date" style={{ width: 'auto' }} value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-        <input style={{ flex: 1, minWidth: 160 }} placeholder="搜尋病人/號碼..." value={search} onChange={e => setSearch(e.target.value)} />
-        <select style={{ width: 'auto' }} value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)}>
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>日期</span>
+        <input type="date" style={{...S.filterInput, width: 'auto'}} value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+        <input style={{...S.filterInput, flex: 1, minWidth: 140}} placeholder="搜尋病人/號碼..." value={search} onChange={e => setSearch(e.target.value)} />
+        <select style={S.filterSelect} value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)}>
           <option value="all">全部醫師</option>
           {getDoctors().map(d => <option key={d}>{d}</option>)}
         </select>
-        <button className="btn btn-outline" onClick={handleExport}>匯出Excel</button>
-        <button className="btn btn-gold" onClick={() => printDailyClose()}>日結報告</button>
+        <button style={S.actionBtn} onClick={handleExport}>匯出Excel</button>
+        <button style={S.actionBtnOrange} onClick={() => printDailyClose()}>日結報告</button>
       </div>
 
       {/* Revenue Reconciliation (#83) */}
@@ -621,90 +625,86 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       </div>
 
       {/* Billing Table */}
-      <div className="card" style={{ padding: 0 }}>
-        <div className="card-header">
-          <h3>配藥/收費列表</h3>
-        </div>
-        <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
-          <table aria-label="配藥及收費列表">
+      <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+          <table style={S.table} aria-label="配藥及收費列表">
             <thead>
               <tr>
-                <th>號碼</th>
-                <th>病人</th>
-                <th>醫師</th>
-                <th>店舖</th>
-                <th>服務</th>
-                <th style={{ textAlign: 'right' }}>費用</th>
-                <th>狀態</th>
-                <th>配藥</th>
-                <th>收費</th>
-                <th>操作</th>
+                <th style={S.th}>號碼</th>
+                <th style={S.th}>病人</th>
+                <th style={S.th}>醫師</th>
+                <th style={S.th}>店舖</th>
+                <th style={S.th}>服務</th>
+                <th style={{...S.th, textAlign: 'right'}}>費用</th>
+                <th style={S.th}>狀態</th>
+                <th style={S.th}>配藥</th>
+                <th style={S.th}>收費</th>
+                <th style={S.th}>操作</th>
               </tr>
             </thead>
             <tbody>
               {!list.length && (
-                <tr><td colSpan={10} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>暫無帳單紀錄</td></tr>
+                <tr><td colSpan={10} style={{...S.td, textAlign: 'center', padding: 40, color: '#aaa' }}>暫無帳單紀錄</td></tr>
               )}
-              {list.map(r => (
-                <tr key={r.id} style={r.paymentStatus === 'paid' ? { opacity: 0.6 } : {}}>
-                  <td style={{ fontWeight: 800, color: 'var(--teal-700)' }}>{r.queueNo}</td>
-                  <td style={{ fontWeight: 600 }}>{r.patientName}</td>
-                  <td>{r.doctor}</td>
-                  <td>{r.store}</td>
-                  <td style={{ fontSize: 11 }}>{r.services}</td>
-                  <td className="money">
+              {list.map((r, idx) => (
+                <tr key={r.id} style={{...rowStyle(idx), ...(r.paymentStatus === 'paid' ? { opacity: 0.6 } : {})}}>
+                  <td style={{...S.td, fontWeight: 800, color: ECTCM.headerBg}}>{r.queueNo}</td>
+                  <td style={{...S.td, fontWeight: 600}}>{r.patientName}</td>
+                  <td style={S.td}>{r.doctor}</td>
+                  <td style={S.td}>{r.store}</td>
+                  <td style={{...S.td, fontSize: 11}}>{r.services}</td>
+                  <td style={{...S.td, textAlign: 'right', fontWeight: 600}}>
                     {fmtM(r.serviceFee)}
                     {r.prescription?.length > 0 && (() => {
                       const medFee = calcMedicineFee(r.prescription, r.formulaDays, drugPricing);
                       const consultFee = Number(r.serviceFee || 0) - medFee;
                       return medFee > 0 ? (
-                        <div style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 2 }}>
+                        <div style={{ fontSize: 10, color: ECTCM.textMuted, marginTop: 2 }}>
                           診 {fmtM(consultFee > 0 ? consultFee : r.serviceFee)} + 藥 {fmtM(medFee)}
                         </div>
                       ) : null;
                     })()}
                   </td>
-                  <td><span className={`tag ${r.status === 'completed' ? 'tag-paid' : 'tag-pending'}`}>{STATUS_LABELS[r.status]}</span></td>
-                  <td>
-                    <span className={`tag ${DISPENSING_TAGS[r.dispensingStatus] || ''}`}>
+                  <td style={S.td}><span style={statusTag(STATUS_LABELS[r.status], r.status === 'completed' ? 'green' : 'blue')}>{STATUS_LABELS[r.status]}</span></td>
+                  <td style={S.td}>
+                    <span style={statusTag(DISPENSING_LABELS[r.dispensingStatus], r.dispensingStatus === 'dispensed' ? 'green' : r.dispensingStatus === 'pending' ? 'orange' : 'blue')}>
                       {DISPENSING_LABELS[r.dispensingStatus]}
                     </span>
                   </td>
-                  <td>
-                    <span className={`tag ${r.paymentStatus === 'paid' ? 'tag-paid' : r.paymentStatus === 'partial' ? 'tag-pending-orange' : r.paymentStatus === 'refunded' ? 'tag-other' : 'tag-overdue'}`}>
+                  <td style={S.td}>
+                    <span style={statusTag(PAYMENT_LABELS[r.paymentStatus] || r.paymentStatus, r.paymentStatus === 'paid' ? 'green' : r.paymentStatus === 'partial' ? 'orange' : r.paymentStatus === 'refunded' ? 'red' : 'blue')}>
                       {PAYMENT_LABELS[r.paymentStatus] || r.paymentStatus}
                     </span>
                     {r.paidAmount > 0 && r.paymentStatus === 'partial' && (
-                      <div style={{ fontSize: 10, color: 'var(--gray-500)', marginTop: 2 }}>{fmtM(r.paidAmount)}/{fmtM(r.serviceFee)}</div>
+                      <div style={{ fontSize: 10, color: ECTCM.textLight, marginTop: 2 }}>{fmtM(r.paidAmount)}/{fmtM(r.serviceFee)}</div>
                     )}
                     {r.totalRefunded > 0 && (
                       <div style={{ fontSize: 10, color: '#dc2626', marginTop: 2 }}>退 {fmtM(r.totalRefunded)}</div>
                     )}
                   </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  <td style={S.td}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {r.dispensingStatus === 'not-needed' && r.paymentStatus === 'pending' && (
-                        <button className="btn btn-teal btn-sm" onClick={() => updateDispensing(r, 'pending')}>需配藥</button>
+                        <span style={S.link} onClick={() => updateDispensing(r, 'pending')}>需配藥</span>
                       )}
                       {r.dispensingStatus === 'pending' && (
-                        <button className="btn btn-gold btn-sm" onClick={() => updateDispensing(r, 'dispensed')}>已配藥</button>
+                        <span style={S.link} onClick={() => updateDispensing(r, 'dispensed')}>已配藥</span>
                       )}
                       {r.dispensingStatus === 'dispensed' && (
-                        <button className="btn btn-green btn-sm" onClick={() => updateDispensing(r, 'collected')}>已取藥</button>
+                        <span style={S.link} onClick={() => updateDispensing(r, 'collected')}>已取藥</span>
                       )}
                       {(r.paymentStatus === 'pending' || r.paymentStatus === 'partial') && (
-                        <button className="btn btn-teal btn-sm" onClick={() => { setPayMethodItem(r); setPayMethod('FPS'); }}>收費</button>
+                        <span style={S.link} onClick={() => { setPayMethodItem(r); setPayMethod('FPS'); }}>收費</span>
                       )}
                       {(r.paymentStatus === 'pending' || r.paymentStatus === 'partial') && (
-                        <button className="btn btn-gold btn-sm" onClick={() => { setPartialItem(r); setPartialAmt(''); setPartialMethod('FPS'); }}>部分</button>
+                        <span style={S.link} onClick={() => { setPartialItem(r); setPartialAmt(''); setPartialMethod('FPS'); }}>部分</span>
                       )}
                       {r.paymentStatus === 'pending' && (
-                        <button className="btn btn-outline btn-sm" onClick={() => { setPayMethodItem({ ...r, _quick: true }); setPayMethod('FPS'); }}>快捷</button>
+                        <span style={S.link} onClick={() => { setPayMethodItem({ ...r, _quick: true }); setPayMethod('FPS'); }}>快捷</span>
                       )}
                       {r.paymentStatus === 'paid' && (
-                        <button className="btn btn-red btn-sm" onClick={() => { setRefundItem(r); setRefundAmt(''); setRefundReason(''); }}>退款</button>
+                        <span style={{...S.link, color: ECTCM.btnDanger}} onClick={() => { setRefundItem(r); setRefundAmt(''); setRefundReason(''); }}>退款</span>
                       )}
-                      <button className="btn btn-outline btn-sm" onClick={() => printReceipt(r)}>收據</button>
+                      <span style={S.link} onClick={() => printReceipt(r)}>收據</span>
                     </div>
                   </td>
                 </tr>
@@ -712,15 +712,14 @@ export default function BillingPage({ data, setData, showToast, allData, user })
             </tbody>
             {list.length > 0 && (
               <tfoot role="status" aria-live="polite">
-                <tr style={{ background: 'var(--gray-50)', fontWeight: 700 }}>
-                  <td colSpan={5} style={{ textAlign: 'right' }}>合計</td>
-                  <td className="money">{fmtM(summary.totalFee)}</td>
-                  <td colSpan={4} />
+                <tr style={{ background: ECTCM.trEvenBg, fontWeight: 700 }}>
+                  <td colSpan={5} style={{...S.td, textAlign: 'right'}}>合計</td>
+                  <td style={{...S.td, textAlign: 'right', fontWeight: 700}}>{fmtM(summary.totalFee)}</td>
+                  <td colSpan={4} style={S.td} />
                 </tr>
               </tfoot>
             )}
           </table>
-        </div>
       </div>
 
       {/* Payment Method Selector */}
@@ -867,6 +866,6 @@ export default function BillingPage({ data, setData, showToast, allData, user })
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
