@@ -1113,6 +1113,8 @@ function MainApp() {
     'pay', 'schedule',
     // 分析
     'doc', 'report', 'ectcm',
+    // 客戶
+    'dailycare',
   ]);
 
   const corePages = visiblePages.filter(p => CORE_IDS.has(p.id));
