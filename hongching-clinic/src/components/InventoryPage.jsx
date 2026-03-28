@@ -7,6 +7,7 @@ import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const CATEGORIES = ['中藥', '耗材', '器材', '其他'];
 const UNITS = ['g', 'kg', '件', '包', '盒'];
@@ -487,32 +488,34 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
   // Render
   // ══════════════════════════════════
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>藥物管理 &gt; 中藥管理</div>
+
       {/* Quick Access: Medicine Scanner */}
       {onNavigate && (
-        <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#f0fafa', borderBottom: `1px solid ${ECTCM.tdBorder}` }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--teal-700)' }}>📦 藥材採購單掃描</div>
-            <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>影相採購單，AI 自動入庫 + 記帳</div>
+            <span style={{ fontWeight: 600, fontSize: 13, color: ECTCM.headerBg }}>藥材採購單掃描</span>
+            <span style={{ fontSize: 11, color: ECTCM.textLight, marginLeft: 8 }}>影相採購單，AI 自動入庫 + 記帳</span>
           </div>
-          <button className="btn btn-teal" onClick={() => onNavigate('medscan')}>開始掃描</button>
+          <button style={S.actionBtn} onClick={() => onNavigate('medscan')}>開始掃描</button>
         </div>
       )}
 
       {/* Enhanced Dashboard */}
-      <div className="stats-grid">
-        <div className="stat-card teal"><div className="stat-label">總品項</div><div className="stat-value teal">{stats.total}</div></div>
-        <div className="stat-card red" style={{ cursor: 'pointer' }} onClick={() => setFilterStatus('low')}>
-          <div className="stat-label">低庫存 ⚠️</div><div className="stat-value red">{stats.lowStock}</div>
-          {stats.lowStock > 0 && <div style={{ fontSize: 10, color: '#dc2626', marginTop: 2 }}>點擊查看</div>}
+      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
+        <div style={S.statCard}><div style={S.statValue}>{stats.total}</div><div style={S.statLabel}>總品項</div></div>
+        <div style={{ ...S.statCard, cursor: 'pointer' }} onClick={() => setFilterStatus('low')}>
+          <div style={{ ...S.statValue, color: '#cc0000' }}>{stats.lowStock}</div><div style={S.statLabel}>低庫存</div>
+          {stats.lowStock > 0 && <div style={{ fontSize: 10, color: '#cc0000', marginTop: 2 }}>點擊查看</div>}
         </div>
-        <div className="stat-card gold"><div className="stat-label">存貨總值</div><div className="stat-value gold">{fmtM(stats.totalValue)}</div></div>
-        <div className="stat-card green" style={{ cursor: stats.expired.length + stats.expiring30.length > 0 ? 'pointer' : 'default' }} onClick={() => (stats.expired.length + stats.expiring30.length > 0) && setFilterStatus('expiring')}>
-          <div className="stat-label">到期提醒</div>
-          <div className="stat-value green" style={{ color: stats.expired.length > 0 ? '#dc2626' : stats.expiring30.length > 0 ? '#d97706' : '#10b981' }}>
+        <div style={S.statCard}><div style={{ ...S.statValue, color: '#cc6600' }}>{fmtM(stats.totalValue)}</div><div style={S.statLabel}>存貨總值</div></div>
+        <div style={{ ...S.statCard, cursor: stats.expired.length + stats.expiring30.length > 0 ? 'pointer' : 'default' }} onClick={() => (stats.expired.length + stats.expiring30.length > 0) && setFilterStatus('expiring')}>
+          <div style={{ ...S.statValue, color: stats.expired.length > 0 ? '#cc0000' : stats.expiring30.length > 0 ? '#cc6600' : ECTCM.headerBg }}>
             {stats.expired.length + stats.expiring30.length}
           </div>
-          {stats.expired.length > 0 && <div style={{ fontSize: 10, color: '#dc2626' }}>已過期 {stats.expired.length}</div>}
+          <div style={S.statLabel}>到期提醒</div>
+          {stats.expired.length > 0 && <div style={{ fontSize: 10, color: '#cc0000' }}>已過期 {stats.expired.length}</div>}
         </div>
       </div>
 
@@ -574,32 +577,35 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       )}
 
       {/* Filter Bar */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input style={{ flex: 1, minWidth: 200 }} placeholder="搜尋品名..." value={search} onChange={e => setSearch(e.target.value)} />
-        <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>搜尋:</span>
+        <input style={{ ...S.filterInput, flex: 1, minWidth: 160 }} placeholder="搜尋品名..." value={search} onChange={e => setSearch(e.target.value)} />
+        <span style={S.filterLabel}>店舖:</span>
+        <select style={S.filterSelect} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">所有店舖</option>
           {STORES.map(s => <option key={s}>{s}</option>)}
         </select>
-        <select style={{ width: 'auto' }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <span style={S.filterLabel}>狀態:</span>
+        <select style={S.filterSelect} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="all">所有狀態</option>
           <option value="low">低庫存</option>
           <option value="normal">充足</option>
           <option value="expired">已過期</option>
           <option value="expiring">即將過期(30日)</option>
         </select>
-        <button className="btn btn-teal" onClick={openAdd}>+ 新增存貨</button>
-        <button className="btn btn-green" onClick={() => fileInputRef.current?.click()}>匯入XLS</button>
+        <button style={S.actionBtn} onClick={openAdd}>+ 新增存貨</button>
+        <button style={S.actionBtnGreen} onClick={() => fileInputRef.current?.click()}>匯入XLS</button>
         <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.html,.htm,.csv" style={{ display: 'none' }} onChange={handleFileImport} />
-        <button className="btn btn-outline" onClick={handleExport}>匯出CSV</button>
+        <button style={S.actionBtn} onClick={handleExport}>匯出CSV</button>
         {lowStockItems.length > 0 && (
-          <button className="btn btn-gold" onClick={() => setShowPO(true)}>採購單 ({lowStockItems.length})</button>
+          <button style={S.actionBtnOrange} onClick={() => setShowPO(true)}>採購單 ({lowStockItems.length})</button>
         )}
         {batchSelected.length > 0 && (
-          <button className="btn btn-green" onClick={() => setShowBatchRestock(true)}>批量入貨 ({batchSelected.length})</button>
+          <button style={S.actionBtnGreen} onClick={() => setShowBatchRestock(true)}>批量入貨 ({batchSelected.length})</button>
         )}
-        <button className="btn btn-outline" onClick={() => setShowReport(!showReport)}>{showReport ? '隱藏報表' : '庫存報表'}</button>
-        <button className="btn btn-outline" onClick={() => setShowSuppliers(!showSuppliers)}>供應商目錄 ({supplierList.length})</button>
-        <button className="btn btn-outline" onClick={() => setShowMovements(!showMovements)}>變動紀錄 ({movements.length})</button>
+        <span style={S.link} onClick={() => setShowReport(!showReport)}>{showReport ? '隱藏報表' : '庫存報表'}</span>
+        <span style={S.link} onClick={() => setShowSuppliers(!showSuppliers)}>供應商目錄 ({supplierList.length})</span>
+        <span style={S.link} onClick={() => setShowMovements(!showMovements)}>變動紀錄 ({movements.length})</span>
       </div>
 
       {/* Category Report */}
@@ -633,71 +639,69 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       )}
 
       {/* Inventory Table */}
-      <div className="card" style={{ padding: 0 }}>
-        <div className="card-header">
-          <h3>存貨清單 ({list.length} 項)</h3>
-        </div>
-        <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
-          <table>
+      <div style={{ background: ECTCM.cardBg }}>
+        <div style={{ ...S.titleBar, fontSize: 12, padding: '4px 12px' }}>存貨清單 ({list.length} 項)</div>
+        <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+          <table style={S.table}>
             <thead>
               <tr>
-                <th style={{ width: 32 }}><input type="checkbox" checked={batchSelected.length === list.length && list.length > 0} onChange={toggleBatchAll} /></th>
-                <th>編號</th>
-                <th className="sortable-th" onClick={() => toggleSort('name')}>品名{sortIcon('name')}</th>
-                <th>分類</th>
-                <th>庫存</th>
-                <th>最低庫存</th>
-                <th style={{ textAlign: 'right' }}>單位成本</th>
-                <th style={{ textAlign: 'right' }}>存貨價值</th>
-                <th>到期日</th>
-                <th>供應商</th>
-                <th>店舖</th>
-                <th>狀態</th>
-                <th>操作</th>
+                <th style={{ ...S.th, width: 32 }}><input type="checkbox" checked={batchSelected.length === list.length && list.length > 0} onChange={toggleBatchAll} /></th>
+                <th style={S.th}>編號</th>
+                <th style={{ ...S.th, cursor: 'pointer' }} onClick={() => toggleSort('name')}>品名{sortIcon('name')}</th>
+                <th style={S.th}>分類</th>
+                <th style={S.th}>庫存</th>
+                <th style={S.th}>最低庫存</th>
+                <th style={{ ...S.th, textAlign: 'right' }}>單位成本</th>
+                <th style={{ ...S.th, textAlign: 'right' }}>存貨價值</th>
+                <th style={S.th}>到期日</th>
+                <th style={S.th}>供應商</th>
+                <th style={S.th}>店舖</th>
+                <th style={S.th}>狀態</th>
+                <th style={S.th}>操作</th>
               </tr>
             </thead>
             <tbody>
               {!list.length && (
-                <tr><td colSpan={13} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有存貨紀錄</td></tr>
+                <tr><td colSpan={13} style={{ ...S.td, textAlign: 'center', padding: 40, color: '#aaa' }}>未有存貨紀錄</td></tr>
               )}
-              {list.map(r => {
+              {list.map((r, idx) => {
                 const isLow = Number(r.stock) < Number(r.minStock);
                 const value = Number(r.stock) * Number(r.costPerUnit);
                 return (
-                  <tr key={r.id}>
-                    <td><input type="checkbox" checked={batchSelected.includes(r.id)} onChange={() => toggleBatch(r.id)} /></td>
-                    <td style={{ fontSize: 11, color: 'var(--gray-400)' }}>{r.medicineCode || '-'}</td>
-                    <td style={{ fontWeight: 600 }}>{r.name}</td>
-                    <td>
-                      <span style={{ background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600 }}>
+                  <tr key={r.id} style={rowStyle(idx)}>
+                    <td style={S.td}><input type="checkbox" checked={batchSelected.includes(r.id)} onChange={() => toggleBatch(r.id)} /></td>
+                    <td style={{ ...S.td, fontSize: 11, color: ECTCM.textMuted }}>{r.medicineCode || '-'}</td>
+                    <td style={{ ...S.td, fontWeight: 600 }}>{r.name}</td>
+                    <td style={S.td}>
+                      <span style={{ background: '#f0f0f0', padding: '1px 6px', borderRadius: 2, fontSize: 10, fontWeight: 600 }}>
                         {r.category}
                       </span>
                     </td>
-                    <td>{r.stock} {r.unit}</td>
-                    <td>{r.minStock} {r.unit}</td>
-                    <td className="money">{fmtM(r.costPerUnit)}</td>
-                    <td className="money">{fmtM(value)}</td>
-                    <td style={{ fontSize: 11 }}>{(() => {
-                      if (!r.expiryDate) return <span style={{ color: 'var(--gray-400)' }}>-</span>;
+                    <td style={S.td}>{r.stock} {r.unit}</td>
+                    <td style={S.td}>{r.minStock} {r.unit}</td>
+                    <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(r.costPerUnit)}</td>
+                    <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(value)}</td>
+                    <td style={{ ...S.td, fontSize: 11 }}>{(() => {
+                      if (!r.expiryDate) return <span style={{ color: ECTCM.textMuted }}>-</span>;
                       const today = new Date().toISOString().substring(0, 10);
                       const in30 = (() => { const d = new Date(); d.setDate(d.getDate() + 30); return d.toISOString().substring(0, 10); })();
-                      if (r.expiryDate <= today) return <span style={{ color: '#dc2626', fontWeight: 700 }}>已過期 {r.expiryDate}</span>;
-                      if (r.expiryDate <= in30) return <span style={{ color: '#d97706', fontWeight: 600 }}>{r.expiryDate}</span>;
+                      if (r.expiryDate <= today) return <span style={{ color: '#cc0000', fontWeight: 700 }}>已過期 {r.expiryDate}</span>;
+                      if (r.expiryDate <= in30) return <span style={{ color: '#cc6600', fontWeight: 600 }}>{r.expiryDate}</span>;
                       return r.expiryDate;
                     })()}</td>
-                    <td style={{ color: 'var(--gray-500)', fontSize: 12 }}>{r.supplier || '-'}</td>
-                    <td>{r.store}</td>
-                    <td>
+                    <td style={{ ...S.td, color: ECTCM.textLight, fontSize: 12 }}>{r.supplier || '-'}</td>
+                    <td style={S.td}>{r.store}</td>
+                    <td style={S.td}>
                       <span className={`tag ${isLow ? 'tag-overdue' : 'tag-paid'}`}>
                         {isLow ? '低庫存' : '充足'}
                       </span>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <button className="btn btn-green btn-sm" onClick={() => openRestock(r)}>入貨</button>
-                        {r.store !== '兩店共用' && <button className="btn btn-gold btn-sm" onClick={() => { setTransferItem(r); setTransferQty(''); }}>轉倉</button>}
-                        <button className="btn btn-outline btn-sm" onClick={() => openEdit(r)}>編輯</button>
-                        <button className="btn btn-red btn-sm" onClick={() => setDeleteId(r.id)}>刪除</button>
+                    <td style={S.td}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <span style={{ ...S.link, color: ECTCM.btnSuccess }} onClick={() => openRestock(r)}>入貨</span>
+                        {r.store !== '兩店共用' && <span style={{ ...S.link, color: ECTCM.btnWarning }} onClick={() => { setTransferItem(r); setTransferQty(''); }}>轉倉</span>}
+                        <span style={S.link} onClick={() => openEdit(r)}>編輯</span>
+                        <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => setDeleteId(r.id)}>刪除</span>
                       </div>
                     </td>
                   </tr>
@@ -1188,6 +1192,6 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
           onCancel={() => setDeleteId(null)}
         />
       )}
-    </>
+    </div>
   );
 }
