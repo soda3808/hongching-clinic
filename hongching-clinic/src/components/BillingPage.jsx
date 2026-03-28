@@ -587,14 +587,14 @@ export default function BillingPage({ data, setData, showToast, allData, user })
       </div>
 
       {/* Revenue Reconciliation (#83) */}
-      <div className="grid-2" style={{ marginBottom: 0 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>收入核對 ({filterDate})</div>
+      <div style={{ ...S.grid2, marginBottom: 0 }}>
+        <div style={{ ...S.card, padding: 16 }}>
+          <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 8 }}>收入核對 ({filterDate})</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>帳單收費</div><div style={{ fontSize: 18, fontWeight: 800, color: 'var(--teal-700)' }}>{fmtM(reconciliation.billedFromQueue)}</div></div>
-            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>營業紀錄</div><div style={{ fontSize: 18, fontWeight: 800, color: 'var(--green-600)' }}>{fmtM(reconciliation.revenueTotal)}</div></div>
-            <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>差異</div><div style={{ fontSize: 18, fontWeight: 800, color: Math.abs(reconciliation.discrepancy) > 1 ? '#dc2626' : 'var(--green-600)' }}>{reconciliation.discrepancy > 0 ? '+' : ''}{fmtM(reconciliation.discrepancy)}</div></div>
-            {reconciliation.refundTotal > 0 && <div><div style={{ fontSize: 10, color: 'var(--gray-400)' }}>退款</div><div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>-{fmtM(reconciliation.refundTotal)}</div></div>}
+            <div><div style={{ fontSize: 10, color: '#9ca3af' }}>帳單收費</div><div style={{ fontSize: 18, fontWeight: 800, color: '#0f766e' }}>{fmtM(reconciliation.billedFromQueue)}</div></div>
+            <div><div style={{ fontSize: 10, color: '#9ca3af' }}>營業紀錄</div><div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a' }}>{fmtM(reconciliation.revenueTotal)}</div></div>
+            <div><div style={{ fontSize: 10, color: '#9ca3af' }}>差異</div><div style={{ fontSize: 18, fontWeight: 800, color: Math.abs(reconciliation.discrepancy) > 1 ? '#dc2626' : '#16a34a' }}>{reconciliation.discrepancy > 0 ? '+' : ''}{fmtM(reconciliation.discrepancy)}</div></div>
+            {reconciliation.refundTotal > 0 && <div><div style={{ fontSize: 10, color: '#9ca3af' }}>退款</div><div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626' }}>-{fmtM(reconciliation.refundTotal)}</div></div>}
           </div>
           {Math.abs(reconciliation.discrepancy) > 1 && (
             <div style={{ marginTop: 8, padding: 6, background: '#fef2f2', borderRadius: 6, fontSize: 11, color: '#dc2626' }}>
@@ -602,14 +602,14 @@ export default function BillingPage({ data, setData, showToast, allData, user })
             </div>
           )}
         </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>付款方式明細</div>
+        <div style={{ ...S.card, padding: 16 }}>
+          <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 8 }}>付款方式明細</div>
           {Object.keys(reconciliation.payBreak).length > 0 ? (
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {Object.entries(reconciliation.payBreak).sort((a, b) => b[1] - a[1]).map(([m, amt]) => (
-                <div key={m} style={{ textAlign: 'center', padding: '4px 8px', background: 'var(--gray-50)', borderRadius: 6 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal-700)' }}>{fmtM(amt)}</div>
-                  <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>{m}</div>
+                <div key={m} style={{ textAlign: 'center', padding: '4px 8px', background: '#f9fafb', borderRadius: 6 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#0f766e' }}>{fmtM(amt)}</div>
+                  <div style={{ fontSize: 10, color: '#9ca3af' }}>{m}</div>
                 </div>
               ))}
             </div>

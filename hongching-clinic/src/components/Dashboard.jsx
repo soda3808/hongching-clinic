@@ -4,7 +4,7 @@ import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 import { openWhatsApp, sendTelegram } from '../api';
 import escapeHtml from '../utils/escapeHtml';
-import { S, ECTCM } from '../styles/ectcm';
+import { S, ECTCM, statusTag } from '../styles/ectcm';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
@@ -285,16 +285,16 @@ export default function Dashboard({ data, onNavigate }) {
   return (
     <div role="main" aria-label="診所總覽儀表板" style={S.page}>
       {/* AI Daily Briefing */}
-      <div className="card" style={{ marginBottom: 16, background: ECTCM.pageBg, border: `1px solid ${ECTCM.borderColor}` }}>
+      <div style={{ ...S.card, marginBottom: 16, background: ECTCM.pageBg, border: `1px solid ${ECTCM.borderColor}` }}>
         <div style={{ ...S.titleBar, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: briefing ? 8 : 0 }}>
           <h3 style={{ margin: 0, fontSize: 14, color: ECTCM.headerText }}>🤖 今日智能簡報</h3>
           {!briefing && (
-            <button className="btn btn-teal btn-sm" onClick={loadBriefing} disabled={briefingLoading} style={{ fontSize: 11 }}>
+            <button style={{ ...S.actionBtn, fontSize: 11 }} onClick={loadBriefing} disabled={briefingLoading}>
               {briefingLoading ? '生成中...' : '生成簡報'}
             </button>
           )}
           {briefing && (
-            <button className="btn btn-outline btn-sm" onClick={() => { setBriefing(null); localStorage.removeItem('hcmc_briefing'); }} style={{ fontSize: 11 }}>
+            <button style={{ ...S.actionBtn, fontSize: 11 }} onClick={() => { setBriefing(null); localStorage.removeItem('hcmc_briefing'); }}>
               刷新
             </button>
           )}
@@ -308,7 +308,7 @@ export default function Dashboard({ data, onNavigate }) {
       </div>
 
       {/* Daily Operations Checklist */}
-      <div className="card" style={{ marginBottom: 16, background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
+      <div style={{ ...S.card, marginBottom: 16, background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
         <div style={{ ...S.titleBar, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <h3 style={{ margin: 0, fontSize: 14, color: ECTCM.headerText }}>
             {new Date().getHours() < 14 ? '🌅 開店清單' : '🌙 收店清單'}
@@ -340,18 +340,18 @@ export default function Dashboard({ data, onNavigate }) {
 
       {/* Quick Actions */}
       {onNavigate && (
-        <div className="quick-actions" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 }}>
           {[
             { icon: '➕', label: '新增營業', page: 'rev' },
             { icon: '🧾', label: '新增開支', page: 'exp' },
             { icon: '📅', label: '新增預約', page: 'booking' },
             { icon: '📋', label: '生成糧單', page: 'pay' },
           ].map(a => (
-            <button key={a.page} className="btn btn-outline" style={{ padding: '14px 12px', fontSize: 13, justifyContent: 'center' }} onClick={() => onNavigate(a.page)}>
+            <button key={a.page} style={{ ...S.actionBtn, padding: '14px 12px', fontSize: 13, justifyContent: 'center' }} onClick={() => onNavigate(a.page)}>
               <span style={{ fontSize: 18 }}>{a.icon}</span> {a.label}
             </button>
           ))}
-          <button className="btn" style={{ padding: '14px 12px', fontSize: 13, justifyContent: 'center', background: '#0088cc', color: '#fff' }} onClick={() => {
+          <button style={{ ...S.actionBtn, padding: '14px 12px', fontSize: 13, justifyContent: 'center', background: '#0088cc', color: '#fff' }} onClick={() => {
             const tgCfg = (() => { try { return JSON.parse(localStorage.getItem('hcmc_telegram_config') || '{}'); } catch { return {}; } })();
             const schedule = (() => { try { return JSON.parse(localStorage.getItem('hcmc_doc_schedule') || '{}'); } catch { return {}; } })();
             const dow = new Date().getDay();
@@ -368,16 +368,16 @@ export default function Dashboard({ data, onNavigate }) {
           }}>
             <span style={{ fontSize: 18 }}>📢</span> TG通知排班
           </button>
-          <button className="btn btn-gold" style={{ padding: '14px 12px', fontSize: 13, justifyContent: 'center', gridColumn: '1 / -1' }} onClick={printDailyClose}>
+          <button style={{ ...S.actionBtnOrange, padding: '14px 12px', fontSize: 13, justifyContent: 'center', gridColumn: '1 / -1' }} onClick={printDailyClose}>
             📊 日結總報告 — 列印今日全面結算
           </button>
         </div>
       )}
 
       {/* Store Tabs */}
-      <div className="tab-bar">
+      <div style={S.tabBar}>
         {['all', ...getTenantStoreNames()].map(s => (
-          <button key={s} className={`tab-btn ${store === s ? 'active' : ''}`} onClick={() => setStore(s)}>
+          <button key={s} style={store === s ? S.tabActive : S.tab} onClick={() => setStore(s)}>
             {s === 'all' ? `🏢 ${getTenantStoreNames().length}店合計` : `📍 ${s}`}
           </button>
         ))}
@@ -385,7 +385,7 @@ export default function Dashboard({ data, onNavigate }) {
 
       {/* KPI Cards — with trend indicators */}
       <div style={{ ...S.titleBar, marginBottom: 8 }}>本月關鍵指標</div>
-      <div className="stats-grid" aria-live="polite" aria-label="本月關鍵指標">
+      <div style={S.grid4} aria-live="polite" aria-label="本月關鍵指標">
         <div style={{ ...S.statCard, borderTop: `3px solid ${ECTCM.btnWarning}` }}>
           <div style={S.statLabel}>本月營業額</div>
           <div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{fmtM(thisRev)}</div>
@@ -504,7 +504,7 @@ export default function Dashboard({ data, onNavigate }) {
         return (
           <div style={{ marginBottom: 16 }}>
             {alerts.map((a, i) => (
-              <div key={i} className={`alert-banner alert-banner-${a.type}`}>
+              <div key={i} style={{ padding: '8px 12px', marginBottom: 6, borderRadius: 6, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, background: a.type === 'danger' ? '#fef2f2' : a.type === 'warning' ? '#fffbeb' : '#eff6ff', border: `1px solid ${a.type === 'danger' ? '#fecaca' : a.type === 'warning' ? '#fde68a' : '#bfdbfe'}`, color: a.type === 'danger' ? '#dc2626' : a.type === 'warning' ? '#d97706' : '#2563eb' }}>
                 <span>{a.icon}</span> <span>{a.msg}</span>
               </div>
             ))}
@@ -524,8 +524,8 @@ export default function Dashboard({ data, onNavigate }) {
 
         if (!upcomingFollowUps.length && !overdueCount) return null;
         return (
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div className="card-header">
+          <div style={{ ...S.card, marginBottom: 16 }}>
+            <div style={S.cardHeader}>
               <h3>🔔 覆診提醒 (本週)</h3>
               {overdueCount > 0 && <span style={{ fontSize: 11, color: '#dc2626', fontWeight: 700 }}>⚠️ {overdueCount} 個逾期</span>}
             </div>
@@ -577,7 +577,7 @@ export default function Dashboard({ data, onNavigate }) {
         const todaySummaryRevTotal = todaySummaryRev.reduce((s, r) => s + Number(r.amount || 0), 0);
         const todaySummaryNewPatients = (data.patients || []).filter(p => (p.createdAt || '').substring(0, 10) === todaySummaryStr).length;
         return (
-          <div className="card" style={{ marginBottom: 16, border: '1px solid #bae6fd', background: 'linear-gradient(135deg, #f0f9ff 0%, #f0fdfa 100%)' }}>
+          <div style={{ ...S.card, marginBottom: 16, border: '1px solid #bae6fd', background: 'linear-gradient(135deg, #f0f9ff 0%, #f0fdfa 100%)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <h3 style={{ margin: 0, fontSize: 14, color: '#0e7490' }}>📋 今日摘要 — {todaySummaryStr}</h3>
               <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
@@ -626,7 +626,7 @@ export default function Dashboard({ data, onNavigate }) {
         const methods = Object.entries(byMethod).sort((a, b) => b[1] - a[1]);
         if (todayTotal === 0) return null;
         return (
-          <div className="card" style={{ marginBottom: 16, padding: 12 }}>
+          <div style={{ ...S.card, marginBottom: 16, padding: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--teal-700)' }}>💳 今日收款明細</span>
               <span style={{ fontWeight: 800, fontSize: 16, color: 'var(--green-700)' }}>{fmtM(todayTotal)}</span>
@@ -656,17 +656,17 @@ export default function Dashboard({ data, onNavigate }) {
         const expectedPct = (dayOfMonth / daysInMonth) * 100;
         const onTrack = goalPct >= expectedPct;
         return (
-          <div className="card" style={{ marginBottom: 16, border: onTrack ? '1px solid var(--green-200)' : '1px solid var(--gold-200)', background: onTrack ? 'var(--green-50)' : '' }}>
+          <div style={{ ...S.card, marginBottom: 16, border: onTrack ? '1px solid var(--green-200)' : '1px solid var(--gold-200)', background: onTrack ? 'var(--green-50)' : '' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h3 style={{ margin: 0, fontSize: 14, color: 'var(--teal-700)' }}>🎯 本月營業目標</h3>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {editingGoal ? (
                   <>
                     <input type="number" value={revGoal} onChange={e => setRevGoal(Number(e.target.value))} style={{ width: 100, padding: '4px 8px', fontSize: 12, borderRadius: 4, border: '1px solid var(--gray-300)' }} />
-                    <button className="btn btn-teal btn-sm" style={{ fontSize: 10 }} onClick={() => { localStorage.setItem('hcmc_rev_goal', revGoal); setEditingGoal(false); }}>確定</button>
+                    <button style={{ ...S.actionBtn, fontSize: 10 }} onClick={() => { localStorage.setItem('hcmc_rev_goal', revGoal); setEditingGoal(false); }}>確定</button>
                   </>
                 ) : (
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => setEditingGoal(true)}>修改目標</button>
+                  <button style={{ ...S.actionBtn, fontSize: 10 }} onClick={() => setEditingGoal(true)}>修改目標</button>
                 )}
               </div>
             </div>
@@ -703,8 +703,8 @@ export default function Dashboard({ data, onNavigate }) {
         const overBudget = Object.entries(budgets).filter(([cat, limit]) => (catSpending[cat] || 0) > limit * 0.8);
         if (!hasBudgets) return null;
         return (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-header"><h3>💰 支出預算追蹤</h3></div>
+        <div style={{ ...S.card, marginBottom: 16 }}>
+          <div style={S.cardHeader}><h3>💰 支出預算追蹤</h3></div>
           <div style={{ display: 'grid', gap: 6, padding: '4px 0' }}>
             {Object.entries(budgets).sort((a, b) => (catSpending[b[0]] || 0) / b[1] - (catSpending[a[0]] || 0) / a[1]).map(([cat, limit]) => {
               const spent = catSpending[cat] || 0;
@@ -728,10 +728,10 @@ export default function Dashboard({ data, onNavigate }) {
       })()}
 
       {/* P&L Table */}
-      <div className="card" style={{ marginBottom: 16, border: `1px solid ${ECTCM.borderColor}` }}>
+      <div style={{ ...S.card, marginBottom: 16, border: `1px solid ${ECTCM.borderColor}` }}>
         <div style={S.titleBar}>📊 損益表 P&L Statement</div>
         <div style={{ overflowX: 'auto' }}>
-          <table className="pl-table" aria-label="損益表">
+          <table style={S.table} aria-label="損益表">
             <thead>
               <tr>
                 <th style={{ textAlign: 'left' }}>項目</th>
@@ -747,17 +747,17 @@ export default function Dashboard({ data, onNavigate }) {
               </tr>
               {Object.keys(catByMonth).map(cat => (
                 <tr key={cat}>
-                  <td className="row-header">{cat}</td>
+                  <td style={{ fontWeight: 600 }}>{cat}</td>
                   {months.map(m => <td key={m}>{catByMonth[cat][m] ? fmtM(catByMonth[cat][m]) : '-'}</td>)}
                   <td>{fmtM(allCats[cat])}</td>
                 </tr>
               ))}
-              <tr className="subtotal-row">
+              <tr style={{ fontWeight: 700, borderTop: '2px solid #ddd' }}>
                 <td>總開支</td>
                 {months.map(m => <td key={m} style={{ color: 'var(--red-600)' }}>{fmtM(expByMonth[m])}</td>)}
                 <td style={{ color: 'var(--red-600)' }}>{fmtM(totalExp)}</td>
               </tr>
-              <tr className="total-row">
+              <tr style={{ fontWeight: 800, background: '#f0fafa', borderTop: '2px solid #006666' }}>
                 <td>淨利潤</td>
                 {months.map(m => {
                   const n = revByMonth[m] - expByMonth[m];
@@ -771,9 +771,9 @@ export default function Dashboard({ data, onNavigate }) {
       </div>
 
       {/* Charts */}
-      <div className="grid-2">
-        <div className="card">
-          <div className="card-header"><h3>📈 營業額 vs 開支趨勢</h3></div>
+      <div style={S.grid2}>
+        <div style={S.card}>
+          <div style={S.cardHeader}><h3>📈 營業額 vs 開支趨勢</h3></div>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={barData}>
               <XAxis dataKey="month" fontSize={11} />
@@ -784,8 +784,8 @@ export default function Dashboard({ data, onNavigate }) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="card">
-          <div className="card-header"><h3>🍩 開支分類佔比</h3></div>
+        <div style={S.card}>
+          <div style={S.cardHeader}><h3>🍩 開支分類佔比</h3></div>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false} fontSize={10}>
@@ -798,8 +798,8 @@ export default function Dashboard({ data, onNavigate }) {
       </div>
 
       {/* Line Chart */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header"><h3>📉 營業額趨勢折線圖</h3></div>
+      <div style={{ ...S.card, marginTop: 16 }}>
+        <div style={S.cardHeader}><h3>📉 營業額趨勢折線圖</h3></div>
         <ResponsiveContainer width="100%" height={280}>
           <LineChart data={barData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -832,8 +832,8 @@ export default function Dashboard({ data, onNavigate }) {
         const trend = slope > 0 ? '上升' : slope < 0 ? '下降' : '持平';
 
         return (
-          <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>🔮 營業額預測</h3></div>
+          <div style={{ ...S.card, marginTop: 16 }}>
+            <div style={S.cardHeader}><h3>🔮 營業額預測</h3></div>
             <div style={{ padding: '12px 16px', display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
               <div><strong>下月預測：</strong><span style={{ color: 'var(--teal-700)', fontWeight: 700 }}>{fmtM(nextMonthForecast)}</span></div>
               <div><strong>趨勢：</strong><span style={{ color: slope > 0 ? 'var(--green-600)' : 'var(--red-500)', fontWeight: 600 }}>{trend} ({slope > 0 ? '+' : ''}{fmtM(slope)}/月)</span></div>
@@ -862,8 +862,8 @@ export default function Dashboard({ data, onNavigate }) {
         );
         const total = storeRevs.reduce((s, v) => s + v, 0) || 1;
         return (
-          <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>🏢 分店本月對比</h3></div>
+          <div style={{ ...S.card, marginTop: 16 }}>
+            <div style={S.cardHeader}><h3>🏢 分店本月對比</h3></div>
             <div style={{ padding: 16 }}>
               <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
                 {storeNames.map((name, i) => (
@@ -885,10 +885,10 @@ export default function Dashboard({ data, onNavigate }) {
       })()}
 
       {/* Patient Funnel & Inventory Widget */}
-      <div className="grid-2" style={{ marginTop: 16 }}>
+      <div style={{ ...S.grid2, marginTop: 16 }}>
         {/* Patient Funnel */}
-        <div className="card">
-          <div className="card-header"><h3>👥 病人漏斗</h3></div>
+        <div style={S.card}>
+          <div style={S.cardHeader}><h3>👥 病人漏斗</h3></div>
           {(() => {
             const pts = data.patients || [];
             const cons = data.consultations || [];
@@ -930,8 +930,8 @@ export default function Dashboard({ data, onNavigate }) {
         </div>
 
         {/* Inventory Alert Widget */}
-        <div className="card">
-          <div className="card-header"><h3>💊 庫存警示</h3></div>
+        <div style={S.card}>
+          <div style={S.cardHeader}><h3>💊 庫存警示</h3></div>
           {(() => {
             const inv = data.inventory || [];
             const lowStock = inv.filter(i => Number(i.stock) < Number(i.minStock));
@@ -1006,7 +1006,7 @@ export default function Dashboard({ data, onNavigate }) {
                 {lowStock.length === 0 && expired.length === 0 && expiring.length === 0 && (
                   <div style={{ padding: 16, textAlign: 'center', color: 'var(--green-600)', fontSize: 13 }}>✅ 庫存狀態良好</div>
                 )}
-                {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('inventory')}>查看庫存 →</button>}
+                {onNavigate && <button style={{ ...S.actionBtn, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('inventory')}>查看庫存 →</button>}
               </div>
             );
           })()}
@@ -1029,12 +1029,12 @@ export default function Dashboard({ data, onNavigate }) {
           openWhatsApp(p.phone, msg);
         };
         return (
-          <div className="card" style={{ marginTop: 16, border: '1px solid var(--gold-200)', background: 'var(--gold-50)' }}>
-            <div className="card-header"><h3>🎂 近期生日</h3></div>
+          <div style={{ ...S.card, marginTop: 16, border: '1px solid var(--gold-200)', background: 'var(--gold-50)' }}>
+            <div style={S.cardHeader}><h3>🎂 近期生日</h3></div>
             <div style={{ fontSize: 12 }}>
               {birthdayList.map((p, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: i < birthdayList.length - 1 ? '1px solid var(--gray-100)' : 'none', alignItems: 'center' }}>
-                  <span className={`tag ${p.dayLabel === '今日' ? 'tag-overdue' : 'tag-pending-orange'}`} style={{ fontSize: 10 }}>{p.dayLabel}</span>
+                  <span style={{ fontSize: 10, display: 'inline-block', padding: '1px 8px', borderRadius: 3, fontWeight: 600, background: p.dayLabel === '今日' ? ECTCM.tagRed.bg : ECTCM.tagOrange.bg, color: p.dayLabel === '今日' ? ECTCM.tagRed.color : ECTCM.tagOrange.color, border: `1px solid ${p.dayLabel === '今日' ? ECTCM.tagRed.border : ECTCM.tagOrange.border}` }}>{p.dayLabel}</span>
                   <span style={{ fontWeight: 600 }}>{p.name}</span>
                   <span style={{ color: 'var(--gray-400)' }}>{p.phone}</span>
                   <span style={{ color: 'var(--gray-400)', marginLeft: 'auto', fontSize: 11 }}>{p.dob}</span>
@@ -1106,17 +1106,16 @@ export default function Dashboard({ data, onNavigate }) {
         };
 
         return (
-          <div className="card" style={{ marginTop: 16, border: todayFollowUps.length + overdueFollowUps.length > 0 ? '2px solid var(--gold-200)' : undefined }}>
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ ...S.card, marginTop: 16, border: todayFollowUps.length + overdueFollowUps.length > 0 ? '2px solid var(--gold-200)' : undefined }}>
+            <div style={{ ...S.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3>📋 覆診提醒</h3>
               <div style={{ display: 'flex', gap: 8, fontSize: 11, alignItems: 'center' }}>
-                {overdueFollowUps.length > 0 && <span className="tag tag-overdue">{overdueFollowUps.length} 逾期</span>}
-                {todayFollowUps.length > 0 && <span className="tag tag-pending-orange">{todayFollowUps.length} 今日</span>}
-                {upcomingFollowUps.length > 0 && <span className="tag tag-paid">{upcomingFollowUps.length} 本週</span>}
+                {overdueFollowUps.length > 0 && <span style={{ ...statusTag('', 'red'), fontSize: 11 }}>{overdueFollowUps.length} 逾期</span>}
+                {todayFollowUps.length > 0 && <span style={{ ...statusTag('', 'orange'), fontSize: 11 }}>{todayFollowUps.length} 今日</span>}
+                {upcomingFollowUps.length > 0 && <span style={{ ...statusTag('', 'green'), fontSize: 11 }}>{upcomingFollowUps.length} 本週</span>}
                 {(overdueFollowUps.length + todayFollowUps.length) > 1 && (
                   <button
-                    className="btn btn-sm"
-                    style={{ background: '#25D366', color: '#fff', border: 'none', fontSize: 10, padding: '3px 8px' }}
+                    style={{ ...S.actionBtn, background: '#25D366', color: '#fff', border: 'none', fontSize: 10, padding: '3px 8px' }}
                     onClick={() => { sendAll(overdueFollowUps, 'overdue'); sendAll(todayFollowUps, 'today'); }}
                   >📱 全部提醒</button>
                 )}
@@ -1127,16 +1126,16 @@ export default function Dashboard({ data, onNavigate }) {
               {todayFollowUps.map((c, i) => <FollowUpRow key={'t' + i} c={c} type="today" bg="var(--gold-50)" />)}
               {upcomingFollowUps.slice(0, 5).map((c, i) => <FollowUpRow key={'u' + i} c={c} type="upcoming" />)}
             </div>
-            {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('emr')}>查看病歷 →</button>}
+            {onNavigate && <button style={{ ...S.actionBtn, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('emr')}>查看病歷 →</button>}
           </div>
         );
       })()}
 
       {/* ARAP & Queue Alerts */}
-      <div className="grid-2" style={{ marginTop: 16 }}>
+      <div style={{ ...S.grid2, marginTop: 16 }}>
         {/* Today Queue Status */}
-        <div className="card">
-          <div className="card-header"><h3>🎫 今日排隊</h3></div>
+        <div style={S.card}>
+          <div style={S.cardHeader}><h3>🎫 今日排隊</h3></div>
           {(() => {
             const queue = data.queue || [];
             const todayStr = new Date().toISOString().substring(0, 10);
@@ -1174,15 +1173,15 @@ export default function Dashboard({ data, onNavigate }) {
                   </div>
                 ))}
                 {todayQ.length === 0 && <div style={{ padding: 12, textAlign: 'center', color: 'var(--gray-400)', fontSize: 12 }}>暫無排隊</div>}
-                {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('queue')}>管理排隊 →</button>}
+                {onNavigate && <button style={{ ...S.actionBtn, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('queue')}>管理排隊 →</button>}
               </div>
             );
           })()}
         </div>
 
         {/* ARAP Alerts */}
-        <div className="card">
-          <div className="card-header"><h3>📑 應收應付提醒</h3></div>
+        <div style={S.card}>
+          <div style={S.cardHeader}><h3>📑 應收應付提醒</h3></div>
           {(() => {
             const arap = data.arap || [];
             const todayStr = new Date().toISOString().substring(0, 10);
@@ -1214,7 +1213,7 @@ export default function Dashboard({ data, onNavigate }) {
                   </div>
                 )}
                 {pendingAR.length === 0 && pendingAP.length === 0 && <div style={{ padding: 12, textAlign: 'center', color: 'var(--green-600)', fontSize: 13 }}>✅ 無待處理帳項</div>}
-                {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('arap')}>查看帳項 →</button>}
+                {onNavigate && <button style={{ ...S.actionBtn, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('arap')}>查看帳項 →</button>}
               </div>
             );
           })()}
@@ -1228,8 +1227,8 @@ export default function Dashboard({ data, onNavigate }) {
         const todayBks = bks.filter(b => b.date === todayStr && b.status !== 'cancelled').sort((a, b) => (a.time || '').localeCompare(b.time || ''));
         if (!todayBks.length) return null;
         return (
-          <div className="card" style={{ marginTop: 16 }}>
-            <div className="card-header"><h3>📅 今日預約 ({todayBks.length})</h3></div>
+          <div style={{ ...S.card, marginTop: 16 }}>
+            <div style={S.cardHeader}><h3>📅 今日預約 ({todayBks.length})</h3></div>
             <div style={{ fontSize: 12, maxHeight: 250, overflowY: 'auto' }}>
               {todayBks.map(b => (
                 <div key={b.id} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-100)', alignItems: 'center' }}>
@@ -1237,20 +1236,20 @@ export default function Dashboard({ data, onNavigate }) {
                   <span style={{ fontWeight: 600, minWidth: 60 }}>{b.patientName}</span>
                   <span style={{ color: 'var(--gray-400)' }}>{b.doctor}</span>
                   <span style={{ color: 'var(--gray-400)' }}>{b.store}</span>
-                  <span className={`tag ${b.status === 'completed' ? 'tag-paid' : b.status === 'confirmed' ? 'tag-fps' : b.status === 'no-show' ? 'tag-overdue' : 'tag-pending-orange'}`} style={{ fontSize: 10 }}>
+                  <span style={{ ...statusTag('', b.status === 'completed' ? 'green' : b.status === 'confirmed' ? 'blue' : b.status === 'no-show' ? 'red' : 'orange'), fontSize: 10 }}>
                     {b.status === 'completed' ? '已完成' : b.status === 'confirmed' ? '已確認' : b.status === 'no-show' ? '未到' : '待確認'}
                   </span>
                 </div>
               ))}
             </div>
-            {onNavigate && <button className="btn btn-outline btn-sm" style={{ marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('booking')}>管理預約 →</button>}
+            {onNavigate && <button style={{ ...S.actionBtn, marginTop: 8, width: '100%', justifyContent: 'center' }} onClick={() => onNavigate('booking')}>管理預約 →</button>}
           </div>
         );
       })()}
 
       {/* Recent Activity */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="card-header"><h3>🕐 近期活動</h3></div>
+      <div style={{ ...S.card, marginTop: 16 }}>
+        <div style={S.cardHeader}><h3>🕐 近期活動</h3></div>
         <div style={{ fontSize: 13 }}>
           {recentActivity.map((a, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: i < recentActivity.length - 1 ? '1px solid var(--gray-100)' : 'none', alignItems: 'center' }}>

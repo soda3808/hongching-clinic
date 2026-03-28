@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { openWhatsApp, sendFollowupWhatsApp, dailyCareLogOps } from '../api';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
+import { S as ES, ECTCM, rowStyle } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 const GREEN = '#25D366';
@@ -519,7 +520,9 @@ export default function DailyCare({ data, showToast, user }) {
 
   // ── Render ──
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div style={ES.page}>
+      <div style={ES.titleBar}>客戶 &gt; 每日關懷</div>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 12px' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1e293b', margin: 0 }}>💝 每日關懷</h2>
@@ -614,7 +617,7 @@ export default function DailyCare({ data, showToast, user }) {
                   <thead>
                     <tr>
                       {['', '姓名', '治療', '醫師', '電話', '店舖'].map(h => (
-                        <th key={h} style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 12 }}>{h}</th>
+                        <th key={h} style={ES.th}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -985,7 +988,7 @@ export default function DailyCare({ data, showToast, user }) {
                 <thead>
                   <tr>
                     {['日期', '病人', '類型', '醫師', '訊息摘要', '發送人'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', padding: '8px 10px', borderBottom: '2px solid #e2e8f0', fontWeight: 600, color: '#475569', fontSize: 12 }}>{h}</th>
+                      <th key={h} style={ES.th}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -1010,6 +1013,7 @@ export default function DailyCare({ data, showToast, user }) {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }

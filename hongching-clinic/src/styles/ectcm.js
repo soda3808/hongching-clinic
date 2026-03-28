@@ -281,6 +281,80 @@ export const S = {
     color: '#999',
     marginTop: 2,
   },
+
+  // Card (replaces .card)
+  card: {
+    background: ECTCM.cardBg,
+    border: `1px solid ${ECTCM.borderColor}`,
+    borderRadius: 6,
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+
+  cardHeader: {
+    background: ECTCM.headerBg,
+    color: ECTCM.headerText,
+    padding: '8px 14px',
+    fontWeight: 700,
+    fontSize: 13,
+  },
+
+  cardBody: {
+    padding: 14,
+  },
+
+  // Modal (replaces .modal-overlay + .modal)
+  modalOverlay: {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    background: 'rgba(0,0,0,0.5)', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+  },
+
+  modal: {
+    background: '#fff', borderRadius: 8, padding: 0, maxWidth: 600, width: '95%',
+    maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 25px rgba(0,0,0,0.15)',
+  },
+
+  modalHeader: {
+    background: ECTCM.headerBg, color: '#fff', padding: '10px 16px',
+    fontWeight: 700, fontSize: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  },
+
+  modalBody: {
+    padding: 16,
+  },
+
+  // Money (replaces .money)
+  money: {
+    textAlign: 'right', fontFamily: "'Courier New', monospace", fontWeight: 600,
+  },
+
+  // Grid layouts
+  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+  grid3: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 },
+  grid4: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 },
+
+  // Button variants
+  btnDanger: {
+    padding: '4px 12px', background: ECTCM.btnDanger, color: '#fff',
+    border: '1px solid #aa0000', borderRadius: 3, cursor: 'pointer', fontSize: 12, fontWeight: 600,
+  },
+
+  // Input group
+  inputGroup: {
+    display: 'flex', gap: 6, alignItems: 'center',
+  },
+
+  // Form label
+  formLabel: {
+    fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 4,
+  },
+
+  // Form input (larger than filter)
+  formInput: {
+    width: '100%', padding: '8px 10px', border: '1px solid #d1d5db',
+    borderRadius: 4, fontSize: 14, boxSizing: 'border-box',
+  },
 };
 
 // ── Helper: get row style based on index ──

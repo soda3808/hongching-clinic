@@ -7,7 +7,7 @@ import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
-import { S, ECTCM, rowStyle } from '../styles/ectcm';
+import { S, ECTCM, rowStyle, statusTag } from '../styles/ectcm';
 
 const CATEGORIES = ['中藥', '耗材', '器材', '其他'];
 const UNITS = ['g', 'kg', '件', '包', '盒'];
@@ -532,15 +532,15 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
               {stats.lowStock > 5 ? '...' : ''}
             </div>
           </div>
-          <button className="btn btn-sm" style={{ background: '#dc2626', color: '#fff', fontSize: 12 }} onClick={() => setFilterStatus('low')}>查看</button>
-          <button className="btn btn-sm" style={{ background: '#d97706', color: '#fff', fontSize: 12 }} onClick={() => setShowPO(true)}>生成補貨單</button>
+          <button style={{ ...S.btnDanger, fontSize: 12 }} onClick={() => setFilterStatus('low')}>查看</button>
+          <button style={{ ...S.actionBtnOrange, fontSize: 12 }} onClick={() => setShowPO(true)}>生成補貨單</button>
         </div>
       )}
 
       {/* Expiry Alerts (#91) */}
       {(stats.expired.length > 0 || stats.expiring7.length > 0 || stats.expiring30.length > 0) && (
-        <div className="card" style={{ padding: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--gray-600)' }}>到期提醒</div>
+        <div style={{ ...S.card, padding: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#666' }}>到期提醒</div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             {stats.expired.length > 0 && (
               <div style={{ padding: '6px 12px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca', cursor: 'pointer' }} onClick={() => setFilterStatus('expired')}>
@@ -562,9 +562,9 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
               </div>
             )}
             {stats.expiring90.length > 0 && (
-              <div style={{ padding: '6px 12px', background: 'var(--gray-50)', borderRadius: 8, border: '1px solid var(--gray-200)' }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--gray-600)' }}>{stats.expiring90.length}</div>
-                <div style={{ fontSize: 10, color: 'var(--gray-400)' }}>90日內到期</div>
+              <div style={{ padding: '6px 12px', background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#666' }}>{stats.expiring90.length}</div>
+                <div style={{ fontSize: 10, color: '#999' }}>90日內到期</div>
               </div>
             )}
           </div>
@@ -610,27 +610,27 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
 
       {/* Category Report */}
       {showReport && (
-        <div className="card">
-          <div className="card-header"><h3>庫存分類報表</h3></div>
-          <div className="table-wrap">
-            <table>
+        <div style={S.card}>
+          <div style={S.cardHeader}><h3 style={{ margin: 0, fontSize: 'inherit' }}>庫存分類報表</h3></div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={S.table}>
               <thead>
-                <tr><th>分類</th><th>品項數</th><th style={{ textAlign: 'right' }}>存貨價值</th><th>低庫存</th></tr>
+                <tr><th style={S.th}>分類</th><th style={S.th}>品項數</th><th style={{ ...S.th, textAlign: 'right' }}>存貨價值</th><th style={S.th}>低庫存</th></tr>
               </thead>
               <tbody>
-                {categoryReport.map(([cat, info]) => (
-                  <tr key={cat}>
-                    <td style={{ fontWeight: 600 }}>{cat}</td>
-                    <td>{info.count}</td>
-                    <td className="money">{fmtM(info.value)}</td>
-                    <td>{info.lowStock > 0 ? <span className="tag tag-overdue">{info.lowStock} 項</span> : <span className="tag tag-paid">正常</span>}</td>
+                {categoryReport.map(([cat, info], idx) => (
+                  <tr key={cat} style={rowStyle(idx)}>
+                    <td style={{ ...S.td, fontWeight: 600 }}>{cat}</td>
+                    <td style={S.td}>{info.count}</td>
+                    <td style={{ ...S.td, ...S.money }}>{fmtM(info.value)}</td>
+                    <td style={S.td}>{info.lowStock > 0 ? <span style={statusTag(info.lowStock + ' 項', 'red')}>{info.lowStock} 項</span> : <span style={statusTag('正常', 'green')}>正常</span>}</td>
                   </tr>
                 ))}
-                <tr style={{ fontWeight: 700, background: 'var(--gray-50)' }}>
-                  <td>合計</td>
-                  <td>{categoryReport.reduce((s, [, i]) => s + i.count, 0)}</td>
-                  <td className="money">{fmtM(categoryReport.reduce((s, [, i]) => s + i.value, 0))}</td>
-                  <td>{categoryReport.reduce((s, [, i]) => s + i.lowStock, 0)} 項低庫存</td>
+                <tr style={{ fontWeight: 700, background: '#f9fafb' }}>
+                  <td style={S.td}>合計</td>
+                  <td style={S.td}>{categoryReport.reduce((s, [, i]) => s + i.count, 0)}</td>
+                  <td style={{ ...S.td, ...S.money }}>{fmtM(categoryReport.reduce((s, [, i]) => s + i.value, 0))}</td>
+                  <td style={S.td}>{categoryReport.reduce((s, [, i]) => s + i.lowStock, 0)} 項低庫存</td>
                 </tr>
               </tbody>
             </table>
@@ -692,7 +692,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                     <td style={{ ...S.td, color: ECTCM.textLight, fontSize: 12 }}>{r.supplier || '-'}</td>
                     <td style={S.td}>{r.store}</td>
                     <td style={S.td}>
-                      <span className={`tag ${isLow ? 'tag-overdue' : 'tag-paid'}`}>
+                      <span style={statusTag(isLow ? '低庫存' : '充足', isLow ? 'red' : 'green')}>
                         {isLow ? '低庫存' : '充足'}
                       </span>
                     </td>
@@ -716,18 +716,19 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       {/* Add / Edit Modal               */}
       {/* ════════════════════════════════ */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label={editItem ? '編輯存貨' : '新增存貨'}>
-          <div className="modal" onClick={e => e.stopPropagation()} ref={modalRef} style={{ maxWidth: 600 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>{editItem ? '編輯存貨' : '新增存貨'}</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowModal(false)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label={editItem ? '編輯存貨' : '新增存貨'}>
+          <div style={{ ...S.modal, maxWidth: 600 }} onClick={e => e.stopPropagation()} ref={modalRef}>
+            <div style={S.modalHeader}>
+              <span>{editItem ? '編輯存貨' : '新增存貨'}</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }} onClick={() => setShowModal(false)} aria-label="關閉">✕</button>
             </div>
+            <div style={S.modalBody}>
             <form onSubmit={handleSave}>
               <div style={{ marginBottom: 12 }}>
                 <label>藥材編號</label>
                 <input value={form.medicineCode || ''} onChange={e => setForm({ ...form, medicineCode: e.target.value })} placeholder="例: H001" />
               </div>
-              <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid2, marginBottom: 12 }}>
                 <div style={{ position: 'relative' }}>
                   <label>品名 *</label>
                   <input
@@ -738,10 +739,10 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                     placeholder="例: 黃芪"
                   />
                   {herbSuggestions.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: 180, overflowY: 'auto' }}>
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: 180, overflowY: 'auto' }}>
                       {herbSuggestions.map(h => (
-                        <div key={h} onMouseDown={() => selectHerb(h)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--gray-100)' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'var(--teal-50)'}
+                        <div key={h} onMouseDown={() => selectHerb(h)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f0fdfa'}
                           onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                           {h}
                         </div>
@@ -756,7 +757,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                   </select>
                 </div>
               </div>
-              <div className="grid-3" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid3, marginBottom: 12 }}>
                 <div>
                   <label>單位</label>
                   <select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}>
@@ -772,7 +773,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                   <input type="number" min="0" step="any" value={form.minStock} onChange={e => setForm({ ...form, minStock: e.target.value })} />
                 </div>
               </div>
-              <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid2, marginBottom: 12 }}>
                 <div>
                   <label>單位成本 ($)</label>
                   <input type="number" min="0" step="0.01" value={form.costPerUnit} onChange={e => setForm({ ...form, costPerUnit: e.target.value })} />
@@ -782,7 +783,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                   <input type="date" value={form.expiryDate || ''} onChange={e => setForm({ ...form, expiryDate: e.target.value })} />
                 </div>
               </div>
-              <div className="grid-3" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid3, marginBottom: 12 }}>
                 <div>
                   <label>供應商</label>
                   <input list="supplier-list" value={form.supplier} onChange={e => setForm({ ...form, supplier: e.target.value })} placeholder="選擇或輸入供應商" />
@@ -802,12 +803,13 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <button type="submit" className="btn btn-teal" disabled={saving}>
+                <button type="submit" style={S.actionBtn} disabled={saving}>
                   {saving ? '儲存中...' : editItem ? '更新存貨' : '新增存貨'}
                 </button>
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>取消</button>
+                <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setShowModal(false)}>取消</button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
@@ -816,14 +818,15 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       {/* Quick Restock Modal             */}
       {/* ════════════════════════════════ */}
       {restockItem && (
-        <div className="modal-overlay" onClick={() => setRestockItem(null)} role="dialog" aria-modal="true" aria-label="快速入貨">
-          <div className="modal" onClick={e => e.stopPropagation()} ref={restockRef} style={{ maxWidth: 400 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>入貨 — {restockItem.name}</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setRestockItem(null)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setRestockItem(null)} role="dialog" aria-modal="true" aria-label="快速入貨">
+          <div style={{ ...S.modal, maxWidth: 400 }} onClick={e => e.stopPropagation()} ref={restockRef}>
+            <div style={S.modalHeader}>
+              <span>入貨 — {restockItem.name}</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }} onClick={() => setRestockItem(null)} aria-label="關閉">✕</button>
             </div>
-            <div style={{ background: 'var(--gray-50)', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-              <div className="grid-2">
+            <div style={S.modalBody}>
+            <div style={{ background: '#f9fafb', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+              <div style={S.grid2}>
                 <div><strong>現有庫存：</strong>{restockItem.stock} {restockItem.unit}</div>
                 <div><strong>最低庫存：</strong>{restockItem.minStock} {restockItem.unit}</div>
                 <div><strong>現時成本：</strong>{fmtM(restockItem.costPerUnit)}/{restockItem.unit}</div>
@@ -839,14 +842,15 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
               <input type="number" min="0" step="0.01" value={restockCost} onChange={e => setRestockCost(e.target.value)} placeholder={`不填則維持 ${fmtM(restockItem.costPerUnit)}`} />
             </div>
             {restockQty && Number(restockQty) > 0 && (
-              <div style={{ background: 'var(--teal-50)', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 12, color: 'var(--teal-700)' }}>
+              <div style={{ background: '#f0fdfa', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 12, color: '#0f766e' }}>
                 入貨後庫存：<strong>{Number(restockItem.stock) + Number(restockQty)} {restockItem.unit}</strong>
                 {restockCost && <span> | 新成本：<strong>{fmtM(parseFloat(restockCost))}/{restockItem.unit}</strong></span>}
               </div>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-green" onClick={handleRestock}>確認入貨</button>
-              <button className="btn btn-outline" onClick={() => setRestockItem(null)}>取消</button>
+              <button style={S.actionBtnGreen} onClick={handleRestock}>確認入貨</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setRestockItem(null)}>取消</button>
+            </div>
             </div>
           </div>
         </div>
@@ -854,13 +858,14 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
 
       {/* Batch Restock Modal */}
       {showBatchRestock && (
-        <div className="modal-overlay" onClick={() => setShowBatchRestock(false)} role="dialog" aria-modal="true" aria-label="批量入貨">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>批量入貨 ({batchSelected.length} 項)</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowBatchRestock(false)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setShowBatchRestock(false)} role="dialog" aria-modal="true" aria-label="批量入貨">
+          <div style={{ ...S.modal, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}>
+              <span>批量入貨 ({batchSelected.length} 項)</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }} onClick={() => setShowBatchRestock(false)} aria-label="關閉">✕</button>
             </div>
-            <div style={{ background: 'var(--gray-50)', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+            <div style={S.modalBody}>
+            <div style={{ background: '#f9fafb', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
               已選品項：{batchSelected.map(id => inventory.find(r => r.id === id)?.name).filter(Boolean).join('、')}
             </div>
             <div style={{ marginBottom: 16 }}>
@@ -868,8 +873,9 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
               <input type="number" min="1" step="any" value={batchRestockQty} onChange={e => setBatchRestockQty(e.target.value)} placeholder="輸入數量" autoFocus />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-green" onClick={handleBatchRestock}>確認批量入貨</button>
-              <button className="btn btn-outline" onClick={() => setShowBatchRestock(false)}>取消</button>
+              <button style={S.actionBtnGreen} onClick={handleBatchRestock}>確認批量入貨</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setShowBatchRestock(false)}>取消</button>
+            </div>
             </div>
           </div>
         </div>
@@ -879,55 +885,57 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       {/* Bulk Import Modal              */}
       {/* ════════════════════════════════ */}
       {showImport && (
-        <div className="modal-overlay" onClick={() => setShowImport(false)} role="dialog" aria-modal="true" aria-label="批量匯入">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 900, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>批量匯入藥材</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowImport(false)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setShowImport(false)} role="dialog" aria-modal="true" aria-label="批量匯入">
+          <div style={{ ...S.modal, maxWidth: 900, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}>
+              <span>批量匯入藥材</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }} onClick={() => setShowImport(false)} aria-label="關閉">✕</button>
             </div>
+            <div style={S.modalBody}>
             {importSummary && (
-              <div className="stats-grid" style={{ marginBottom: 16 }}>
-                <div className="stat-card teal"><div className="stat-label">解析品項</div><div className="stat-value teal">{importSummary.total}</div></div>
-                <div className="stat-card green"><div className="stat-label">有庫存</div><div className="stat-value green">{importSummary.withStock}</div></div>
-                <div className="stat-card gold"><div className="stat-label">總庫存量</div><div className="stat-value gold">{importSummary.totalStock}g</div></div>
-                <div className="stat-card red"><div className="stat-label">已選匯入</div><div className="stat-value red">{importSelected.length}</div></div>
+              <div style={{ ...S.grid4, marginBottom: 16 }}>
+                <div style={S.statCard}><div style={S.statLabel}>解析品項</div><div style={S.statValue}>{importSummary.total}</div></div>
+                <div style={S.statCard}><div style={S.statLabel}>有庫存</div><div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{importSummary.withStock}</div></div>
+                <div style={S.statCard}><div style={S.statLabel}>總庫存量</div><div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{importSummary.totalStock}g</div></div>
+                <div style={S.statCard}><div style={S.statLabel}>已選匯入</div><div style={{ ...S.statValue, color: ECTCM.btnDanger }}>{importSelected.length}</div></div>
               </div>
             )}
             {importSummary && (
               <div style={{ display: 'flex', gap: 12, marginBottom: 12, fontSize: 12 }}>
                 {Object.entries(importSummary.byType).map(([type, count]) => (
-                  <span key={type} style={{ background: 'var(--gray-100)', padding: '4px 10px', borderRadius: 12 }}>{type}: {count}</span>
+                  <span key={type} style={{ background: '#f3f4f6', padding: '4px 10px', borderRadius: 12 }}>{type}: {count}</span>
                 ))}
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <button className="btn btn-outline btn-sm" onClick={() => setImportSelected(importRecords.filter(r => r.isNew).map(r => r.id))}>只選新品</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setImportSelected(importRecords.map(r => r.id))}>全選</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setImportSelected([])}>全不選</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setImportSelected(importRecords.filter(r => r.isNew).map(r => r.id))}>只選新品</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setImportSelected(importRecords.map(r => r.id))}>全選</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setImportSelected([])}>全不選</button>
             </div>
-            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
-              <table>
-                <thead><tr><th style={{ width: 32 }}></th><th>品名</th><th>編號</th><th>分類</th><th>庫存</th><th>店舖</th><th>狀態</th></tr></thead>
+            <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
+              <table style={S.table}>
+                <thead><tr><th style={{ ...S.th, width: 32 }}></th><th style={S.th}>品名</th><th style={S.th}>編號</th><th style={S.th}>分類</th><th style={S.th}>庫存</th><th style={S.th}>店舖</th><th style={S.th}>狀態</th></tr></thead>
                 <tbody>
-                  {importRecords.map(r => (
-                    <tr key={r.id} style={{ opacity: importSelected.includes(r.id) ? 1 : 0.4 }}>
-                      <td><input type="checkbox" checked={importSelected.includes(r.id)} onChange={() => toggleImportItem(r.id)} /></td>
-                      <td style={{ fontWeight: 600 }}>{r.name}</td>
-                      <td style={{ fontSize: 11 }}>{r.code}</td>
-                      <td><span style={{ background: 'var(--gray-100)', padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>{r.category}</span></td>
-                      <td>{r.stock} {r.unit}</td>
-                      <td>{r.store}</td>
-                      <td>{r.isDuplicate ? <span className="tag tag-pending">已存在</span> : <span className="tag tag-paid">新品</span>}</td>
+                  {importRecords.map((r, idx) => (
+                    <tr key={r.id} style={{ ...rowStyle(idx), opacity: importSelected.includes(r.id) ? 1 : 0.4 }}>
+                      <td style={S.td}><input type="checkbox" checked={importSelected.includes(r.id)} onChange={() => toggleImportItem(r.id)} /></td>
+                      <td style={{ ...S.td, fontWeight: 600 }}>{r.name}</td>
+                      <td style={{ ...S.td, fontSize: 11 }}>{r.code}</td>
+                      <td style={S.td}><span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: 10, fontSize: 10 }}>{r.category}</span></td>
+                      <td style={S.td}>{r.stock} {r.unit}</td>
+                      <td style={S.td}>{r.store}</td>
+                      <td style={S.td}>{r.isDuplicate ? <span style={statusTag('已存在', 'orange')}>已存在</span> : <span style={statusTag('新品', 'green')}>新品</span>}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button className="btn btn-teal" onClick={handleBulkImport} disabled={importing || !importSelected.length}>
+              <button style={S.actionBtn} onClick={handleBulkImport} disabled={importing || !importSelected.length}>
                 {importing ? '匯入中...' : `確認匯入 (${importSelected.length} 項)`}
               </button>
-              <button className="btn btn-outline" onClick={() => setShowImport(false)}>取消</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setShowImport(false)}>取消</button>
+            </div>
             </div>
           </div>
         </div>
@@ -937,15 +945,16 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       {/* Purchase Order Modal            */}
       {/* ════════════════════════════════ */}
       {showPO && (
-        <div className="modal-overlay" onClick={() => setShowPO(false)} role="dialog" aria-modal="true" aria-label="採購單">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>低庫存採購單 ({lowStockItems.length} 項)</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowPO(false)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setShowPO(false)} role="dialog" aria-modal="true" aria-label="採購單">
+          <div style={{ ...S.modal, maxWidth: 800, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}>
+              <span>低庫存採購單 ({lowStockItems.length} 項)</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }} onClick={() => setShowPO(false)} aria-label="關閉">✕</button>
             </div>
-            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
-              <table>
-                <thead><tr><th>品名</th><th>分類</th><th>現有庫存</th><th>最低庫存</th><th>建議採購量</th><th>供應商</th></tr></thead>
+            <div style={S.modalBody}>
+            <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
+              <table style={S.table}>
+                <thead><tr><th style={S.th}>品名</th><th style={S.th}>分類</th><th style={S.th}>現有庫存</th><th style={S.th}>最低庫存</th><th style={S.th}>建議採購量</th><th style={S.th}>供應商</th></tr></thead>
                 <tbody>
                   {lowStockItems.map(r => {
                     const orderQty = Math.max(Number(r.minStock) * 2 - Number(r.stock), Number(r.minStock));
@@ -964,8 +973,9 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
               </table>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-              <button className="btn btn-teal" onClick={printPurchaseOrder}>列印採購單</button>
-              <button className="btn btn-outline" onClick={() => setShowPO(false)}>關閉</button>
+              <button style={S.actionBtn} onClick={printPurchaseOrder}>列印採購單</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setShowPO(false)}>關閉</button>
+            </div>
             </div>
           </div>
         </div>
@@ -973,14 +983,15 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
 
       {/* Stock Transfer Modal (#60) */}
       {transferItem && (
-        <div className="modal-overlay" onClick={() => setTransferItem(null)} role="dialog" aria-modal="true" aria-label="庫存轉倉">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 420 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>轉倉 — {transferItem.name}</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setTransferItem(null)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setTransferItem(null)} role="dialog" aria-modal="true" aria-label="庫存轉倉">
+          <div style={{ ...S.modal, maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}>
+              <span>轉倉 — {transferItem.name}</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }} onClick={() => setTransferItem(null)} aria-label="關閉">✕</button>
             </div>
-            <div style={{ background: 'var(--gray-50)', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-              <div className="grid-2">
+            <div style={S.modalBody}>
+            <div style={{ background: '#f9fafb', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+              <div style={S.grid2}>
                 <div><strong>來源店舖：</strong>{transferItem.store}</div>
                 <div><strong>目標店舖：</strong>{getTenantStoreNames().find(s => s !== transferItem.store) || getTenantStoreNames()[0]}</div>
                 <div><strong>現有庫存：</strong>{transferItem.stock} {transferItem.unit}</div>
@@ -992,14 +1003,15 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
               <input type="number" min="1" max={transferItem.stock} step="any" value={transferQty} onChange={e => setTransferQty(e.target.value)} placeholder="輸入數量" autoFocus />
             </div>
             {transferQty && Number(transferQty) > 0 && (
-              <div style={{ background: 'var(--gold-50, #fffbeb)', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
+              <div style={{ background: '#fffbeb', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 12 }}>
                 <div>📦 {transferItem.store}：{transferItem.stock} → <strong>{Number(transferItem.stock) - Number(transferQty)} {transferItem.unit}</strong></div>
                 <div>📦 {getTenantStoreNames().find(s => s !== transferItem.store) || getTenantStoreNames()[0]}：+<strong>{transferQty} {transferItem.unit}</strong></div>
               </div>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-gold" onClick={handleTransfer}>確認轉倉</button>
-              <button className="btn btn-outline" onClick={() => setTransferItem(null)}>取消</button>
+              <button style={S.actionBtnOrange} onClick={handleTransfer}>確認轉倉</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setTransferItem(null)}>取消</button>
+            </div>
             </div>
           </div>
         </div>
@@ -1009,9 +1021,9 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       {/* Stock Movement History (#111)   */}
       {/* ════════════════════════════════ */}
       {showMovements && (
-        <div className="card">
-          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>庫存變動紀錄</h3>
+        <div style={S.card}>
+          <div style={{ ...S.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: 'inherit', color: 'inherit' }}>庫存變動紀錄</h3>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <select style={{ width: 'auto', fontSize: 12 }} value={movementFilter} onChange={e => setMovementFilter(e.target.value)}>
                 <option value="all">全部類型</option>
@@ -1024,7 +1036,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                 <option value="匯入">匯入</option>
               </select>
               {movements.length > 0 && (
-                <button className="btn btn-outline btn-sm" onClick={() => {
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => {
                   const cols = [
                     { key: 'date', label: '日期' }, { key: 'type', label: '類型' },
                     { key: 'itemName', label: '品名' }, { key: 'qty', label: '數量' },
@@ -1035,16 +1047,16 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                 }}>匯出CSV</button>
               )}
               {movements.length > 0 && (
-                <button className="btn btn-red btn-sm" onClick={() => { setMovements([]); localStorage.removeItem('hcmc_stock_movements'); clearStockMovementsRemote(); showToast('已清除紀錄'); }}>清除</button>
+                <button style={S.btnDanger} onClick={() => { setMovements([]); localStorage.removeItem('hcmc_stock_movements'); clearStockMovementsRemote(); showToast('已清除紀錄'); }}>清除</button>
               )}
             </div>
           </div>
           {!movements.length ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#aaa' }}>未有變動紀錄</div>
           ) : (
-            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
-              <table>
-                <thead><tr><th>時間</th><th>類型</th><th>品名</th><th>數量變動</th><th>詳情</th></tr></thead>
+            <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
+              <table style={S.table}>
+                <thead><tr><th style={S.th}>時間</th><th style={S.th}>類型</th><th style={S.th}>品名</th><th style={S.th}>數量變動</th><th style={S.th}>詳情</th></tr></thead>
                 <tbody>
                   {movements
                     .filter(m => movementFilter === 'all' || m.type === movementFilter)
@@ -1063,7 +1075,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                       <td style={{ color: Number(m.qty) > 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
                         {Number(m.qty) > 0 ? '+' : ''}{m.qty} {m.unit}
                       </td>
-                      <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{m.details}</td>
+                      <td style={{ fontSize: 11, color: '#6b7280' }}>{m.details}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1071,7 +1083,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
             </div>
           )}
           {movements.length > 0 && (
-            <div style={{ padding: '8px 16px', fontSize: 11, color: 'var(--gray-500)', borderTop: '1px solid var(--gray-100)' }}>
+            <div style={{ padding: '8px 16px', fontSize: 11, color: '#6b7280', borderTop: '1px solid #f3f4f6' }}>
               共 {movements.filter(m => movementFilter === 'all' || m.type === movementFilter).length} 條紀錄 | 顯示最近 100 條
             </div>
           )}
@@ -1082,37 +1094,37 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
       {/* Supplier Directory (#110)       */}
       {/* ════════════════════════════════ */}
       {showSuppliers && (
-        <div className="card">
-          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3>供應商目錄</h3>
-            <button className="btn btn-teal btn-sm" onClick={openAddSupplier}>+ 新增供應商</button>
+        <div style={S.card}>
+          <div style={{ ...S.cardHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: 'inherit', color: 'inherit' }}>供應商目錄</h3>
+            <button style={S.actionBtn} onClick={openAddSupplier}>+ 新增供應商</button>
           </div>
           {!supplierList.length ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#aaa' }}>未有供應商紀錄，請新增</div>
           ) : (
-            <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
-              <table>
+            <div style={{ overflowX: 'auto', maxHeight: 400, overflowY: 'auto' }}>
+              <table style={S.table}>
                 <thead>
-                  <tr><th>供應商名稱</th><th>聯絡人</th><th>電話</th><th>電郵</th><th>付款條件</th><th>交貨天數</th><th>關聯品項</th><th style={{ textAlign: 'right' }}>關聯貨值</th><th>操作</th></tr>
+                  <tr><th style={S.th}>供應商名稱</th><th style={S.th}>聯絡人</th><th style={S.th}>電話</th><th style={S.th}>電郵</th><th style={S.th}>付款條件</th><th style={S.th}>交貨天數</th><th style={S.th}>關聯品項</th><th style={{ ...S.th, textAlign: 'right' }}>關聯貨值</th><th style={S.th}>操作</th></tr>
                 </thead>
                 <tbody>
                   {supplierList.map(s => {
                     const st = supplierStats[s.name] || { items: 0, value: 0 };
                     return (
-                      <tr key={s.id}>
-                        <td style={{ fontWeight: 600 }}>{s.name}</td>
-                        <td>{s.contactPerson || '-'}</td>
-                        <td>{s.phone ? <a href={`tel:${s.phone}`} style={{ color: 'var(--teal-600)' }}>{s.phone}</a> : '-'}</td>
-                        <td style={{ fontSize: 11 }}>{s.email || '-'}</td>
-                        <td style={{ fontSize: 11 }}>{s.paymentTerms || '-'}</td>
-                        <td>{s.leadTimeDays ? `${s.leadTimeDays} 天` : '-'}</td>
-                        <td><span className="tag tag-paid">{st.items} 項</span></td>
-                        <td className="money">{fmtM(st.value)}</td>
-                        <td>
+                      <tr key={s.id} style={rowStyle(supplierList.indexOf(s))}>
+                        <td style={{ ...S.td, fontWeight: 600 }}>{s.name}</td>
+                        <td style={S.td}>{s.contactPerson || '-'}</td>
+                        <td style={S.td}>{s.phone ? <a href={`tel:${s.phone}`} style={{ color: ECTCM.headerBg }}>{s.phone}</a> : '-'}</td>
+                        <td style={{ ...S.td, fontSize: 11 }}>{s.email || '-'}</td>
+                        <td style={{ ...S.td, fontSize: 11 }}>{s.paymentTerms || '-'}</td>
+                        <td style={S.td}>{s.leadTimeDays ? `${s.leadTimeDays} 天` : '-'}</td>
+                        <td style={S.td}><span style={statusTag(st.items + ' 項', 'green')}>{st.items} 項</span></td>
+                        <td style={{ ...S.td, ...S.money }}>{fmtM(st.value)}</td>
+                        <td style={S.td}>
                           <div style={{ display: 'flex', gap: 4 }}>
-                            {s.phone && <button className="btn btn-green btn-sm" onClick={() => window.open(`https://wa.me/852${s.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`${s.name} 你好，我係${getClinicName()}，想查詢藥材供應事宜。`)}`, '_blank')}>WhatsApp</button>}
-                            <button className="btn btn-outline btn-sm" onClick={() => openEditSupplier(s)}>編輯</button>
-                            <button className="btn btn-red btn-sm" onClick={() => deleteSupplierById(s.id)}>刪除</button>
+                            {s.phone && <button style={S.actionBtnGreen} onClick={() => window.open(`https://wa.me/852${s.phone.replace(/\D/g,'')}?text=${encodeURIComponent(`${s.name} 你好，我係${getClinicName()}，想查詢藥材供應事宜。`)}`, '_blank')}>WhatsApp</button>}
+                            <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => openEditSupplier(s)}>編輯</button>
+                            <button style={S.btnDanger} onClick={() => deleteSupplierById(s.id)}>刪除</button>
                           </div>
                         </td>
                       </tr>
@@ -1123,7 +1135,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
             </div>
           )}
           {supplierList.length > 0 && (
-            <div style={{ padding: '8px 16px', fontSize: 11, color: 'var(--gray-500)', borderTop: '1px solid var(--gray-100)' }}>
+            <div style={{ padding: '8px 16px', fontSize: 11, color: '#6b7280', borderTop: '1px solid #f3f4f6' }}>
               共 {supplierList.length} 間供應商 | 關聯 {Object.values(supplierStats).reduce((s, v) => s + v.items, 0)} 項存貨 | 總貨值 {fmtM(Object.values(supplierStats).reduce((s, v) => s + v.value, 0))}
             </div>
           )}
@@ -1132,17 +1144,18 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
 
       {/* Supplier Add/Edit Modal */}
       {supplierModal && (
-        <div className="modal-overlay" onClick={() => setSupplierModal(false)} role="dialog" aria-modal="true" aria-label={editSupplierItem ? '編輯供應商' : '新增供應商'}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 550 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>{editSupplierItem ? '編輯供應商' : '新增供應商'}</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setSupplierModal(false)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setSupplierModal(false)} role="dialog" aria-modal="true" aria-label={editSupplierItem ? '編輯供應商' : '新增供應商'}>
+          <div style={{ ...S.modal, maxWidth: 550 }} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}>
+              <span>{editSupplierItem ? '編輯供應商' : '新增供應商'}</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16 }} onClick={() => setSupplierModal(false)} aria-label="關閉">✕</button>
             </div>
+            <div style={S.modalBody}>
             <div style={{ marginBottom: 12 }}>
               <label>供應商名稱 *</label>
               <input value={supplierForm.name} onChange={e => setSupplierForm({ ...supplierForm, name: e.target.value })} placeholder="例: 同仁堂" autoFocus />
             </div>
-            <div className="grid-2" style={{ marginBottom: 12 }}>
+            <div style={{ ...S.grid2, marginBottom: 12 }}>
               <div>
                 <label>聯絡人</label>
                 <input value={supplierForm.contactPerson} onChange={e => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })} placeholder="聯絡人姓名" />
@@ -1152,7 +1165,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                 <input value={supplierForm.phone} onChange={e => setSupplierForm({ ...supplierForm, phone: e.target.value })} placeholder="例: 98765432" />
               </div>
             </div>
-            <div className="grid-2" style={{ marginBottom: 12 }}>
+            <div style={{ ...S.grid2, marginBottom: 12 }}>
               <div>
                 <label>電郵</label>
                 <input type="email" value={supplierForm.email} onChange={e => setSupplierForm({ ...supplierForm, email: e.target.value })} placeholder="supplier@example.com" />
@@ -1162,7 +1175,7 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
                 <input value={supplierForm.address} onChange={e => setSupplierForm({ ...supplierForm, address: e.target.value })} placeholder="供應商地址" />
               </div>
             </div>
-            <div className="grid-2" style={{ marginBottom: 12 }}>
+            <div style={{ ...S.grid2, marginBottom: 12 }}>
               <div>
                 <label>付款條件</label>
                 <input value={supplierForm.paymentTerms} onChange={e => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value })} placeholder="例: 月結30天" />
@@ -1177,8 +1190,9 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
               <textarea rows={2} value={supplierForm.notes} onChange={e => setSupplierForm({ ...supplierForm, notes: e.target.value })} placeholder="其他備註" style={{ width: '100%', resize: 'vertical' }} />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-teal" onClick={handleSaveSupplier}>{editSupplierItem ? '更新供應商' : '新增供應商'}</button>
-              <button className="btn btn-outline" onClick={() => setSupplierModal(false)}>取消</button>
+              <button style={S.actionBtn} onClick={handleSaveSupplier}>{editSupplierItem ? '更新供應商' : '新增供應商'}</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setSupplierModal(false)}>取消</button>
+            </div>
             </div>
           </div>
         </div>

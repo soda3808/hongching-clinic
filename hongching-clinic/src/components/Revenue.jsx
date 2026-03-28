@@ -5,6 +5,7 @@ import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import ConfirmModal from './ConfirmModal';
 import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 export default function Revenue({ data, setData, showToast, user, allData }) {
   const isDoctor = user?.role === 'doctor';
@@ -263,7 +264,8 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
   };
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 收入統計</div>
       {/* Add Form */}
       <div className="card">
         <div className="card-header">
@@ -315,47 +317,45 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
 
       {/* Records */}
       <div className="card">
-        <div className="card-header">
-          <h3>📋 營業紀錄 ({list.length} 筆 | 合計 {fmtM(total)})</h3>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部月份</option>
-              {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
-            </select>
-            <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}
-            </select>
-            <select value={filterDoc} onChange={e => setFilterDoc(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部醫師</option>
-              {DOCTORS.map(d => <option key={d}>{d}</option>)}
-            </select>
-            <select value={filterPay} onChange={e => setFilterPay(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部付款</option>
-              {['現金','FPS','Payme','AlipayHK','WeChat Pay','信用卡','其他'].map(p => <option key={p}>{p}</option>)}
-            </select>
-            {selected.size > 0 && <button className="btn btn-red btn-sm" onClick={handleBatchDel}>刪除 ({selected.size})</button>}
-          </div>
+        <div style={S.filterBar}>
+          <span style={S.filterLabel}>📋 營業紀錄 ({list.length} 筆 | 合計 {fmtM(total)})</span>
+          <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={S.filterSelect}>
+            <option value="">全部月份</option>
+            {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+          </select>
+          <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={S.filterSelect}>
+            <option value="">全部店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}
+          </select>
+          <select value={filterDoc} onChange={e => setFilterDoc(e.target.value)} style={S.filterSelect}>
+            <option value="">全部醫師</option>
+            {DOCTORS.map(d => <option key={d}>{d}</option>)}
+          </select>
+          <select value={filterPay} onChange={e => setFilterPay(e.target.value)} style={S.filterSelect}>
+            <option value="">全部付款</option>
+            {['現金','FPS','Payme','AlipayHK','WeChat Pay','信用卡','其他'].map(p => <option key={p}>{p}</option>)}
+          </select>
+          {selected.size > 0 && <button className="btn btn-red btn-sm" onClick={handleBatchDel}>刪除 ({selected.size})</button>}
         </div>
         <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
           <table>
             <thead>
               <tr>
-                <th style={{ width: 30 }}><input type="checkbox" checked={selected.size === list.length && list.length > 0} onChange={toggleSelectAll} /></th>
-                <th></th>
-                <th className="sortable-th" onClick={() => toggleSort('date')}>日期{sortIcon('date')}</th>
-                <th>店舖</th>
-                <th>病人</th>
-                <th>項目</th>
-                <th className="sortable-th" onClick={() => toggleSort('amount')} style={{ textAlign: 'right' }}>金額{sortIcon('amount')}</th>
-                <th>付款</th>
-                <th>醫師</th>
-                <th>備註</th>
-                <th></th>
+                <th style={{ ...S.th, width: 30 }}><input type="checkbox" checked={selected.size === list.length && list.length > 0} onChange={toggleSelectAll} /></th>
+                <th style={S.th}></th>
+                <th style={S.th} className="sortable-th" onClick={() => toggleSort('date')}>日期{sortIcon('date')}</th>
+                <th style={S.th}>店舖</th>
+                <th style={S.th}>病人</th>
+                <th style={S.th}>項目</th>
+                <th style={{ ...S.th, textAlign: 'right' }} className="sortable-th" onClick={() => toggleSort('amount')}>金額{sortIcon('amount')}</th>
+                <th style={S.th}>付款</th>
+                <th style={S.th}>醫師</th>
+                <th style={S.th}>備註</th>
+                <th style={S.th}></th>
               </tr>
             </thead>
             <tbody>
               {!list.length && <tr><td colSpan={11} className="empty" style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
-              {paged.map(r => (
+              {paged.map((r, idx) => (
                 editRow?.id === r.id ? (
                   <tr key={r.id} style={{ background: 'var(--teal-50)' }}>
                     <td></td>
@@ -379,8 +379,8 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
                     </td>
                   </tr>
                 ) : (
-                  <tr key={r.id}>
-                    <td><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)} /></td>
+                  <tr key={r.id} style={rowStyle(idx)}>
+                    <td style={S.td}><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleSelect(r.id)} /></td>
                     <td><span onClick={() => setDeleteId(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
                     <td>{String(r.date).substring(0, 10)}</td>
                     <td>{r.store}</td>
@@ -448,6 +448,6 @@ export default function Revenue({ data, setData, showToast, user, allData }) {
       )}
 
       {deleteId && <ConfirmModal message="確認刪除此營業紀錄？此操作無法復原。" onConfirm={handleDel} onCancel={() => setDeleteId(null)} />}
-    </>
+    </div>
   );
 }

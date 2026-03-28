@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { saveExpense, deleteRecord, recurringExpensesOps, budgetsOps } from '../api';
 import { uid, fmtM, fmt, getMonth, monthLabel, EXPENSE_CATEGORIES, ALL_CATEGORIES, getStoreNames, getDefaultStore } from '../data';
 import ConfirmModal from './ConfirmModal';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 export default function Expenses({ data, setData, showToast, onNavigate }) {
   const STORE_NAMES = getStoreNames();
@@ -271,7 +272,8 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
   };
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 支出管理</div>
       {/* Quick Access: Medicine Scanner + Receipt Scanner */}
       {onNavigate && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -574,41 +576,39 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
 
       {/* Records */}
       <div className="card">
-        <div className="card-header">
-          <h3>📋 開支紀錄 ({list.length} 筆 | 合計 {fmtM(total)})</h3>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部月份</option>
-              {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
-            </select>
-            <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}<option>兩店共用</option>
-            </select>
-            <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ width: 'auto', padding: '6px 10px', fontSize: 12 }}>
-              <option value="">全部類別</option>
-              {ALL_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
+        <div style={S.filterBar}>
+          <span style={S.filterLabel}>📋 開支紀錄 ({list.length} 筆 | 合計 {fmtM(total)})</span>
+          <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={S.filterSelect}>
+            <option value="">全部月份</option>
+            {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+          </select>
+          <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={S.filterSelect}>
+            <option value="">全部店舖</option>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}<option>兩店共用</option>
+          </select>
+          <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={S.filterSelect}>
+            <option value="">全部類別</option>
+            {ALL_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
         </div>
         <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
           <table>
             <thead>
               <tr>
-                <th></th>
-                <th>📎</th>
-                <th className="sortable-th" onClick={() => toggleSort('date')}>日期{sortIcon('date')}</th>
-                <th>店舖</th>
-                <th>商戶</th>
-                <th>類別</th>
-                <th className="sortable-th" onClick={() => toggleSort('amount')} style={{ textAlign: 'right' }}>金額{sortIcon('amount')}</th>
-                <th>付款</th>
-                <th>描述</th>
+                <th style={S.th}></th>
+                <th style={S.th}>📎</th>
+                <th style={S.th} className="sortable-th" onClick={() => toggleSort('date')}>日期{sortIcon('date')}</th>
+                <th style={S.th}>店舖</th>
+                <th style={S.th}>商戶</th>
+                <th style={S.th}>類別</th>
+                <th style={{ ...S.th, textAlign: 'right' }} className="sortable-th" onClick={() => toggleSort('amount')}>金額{sortIcon('amount')}</th>
+                <th style={S.th}>付款</th>
+                <th style={S.th}>描述</th>
               </tr>
             </thead>
             <tbody>
               {!list.length && <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>未有紀錄</td></tr>}
-              {list.map(r => (
-                <tr key={r.id}>
+              {list.map((r, idx) => (
+                <tr key={r.id} style={rowStyle(idx)}>
                   <td><span onClick={() => setDeleteId(r.id)} style={{ cursor: 'pointer', color: 'var(--red-500)', fontWeight: 700 }}>✕</span></td>
                   <td>{r.receipt ? <a href={r.receipt} target="_blank" rel="noopener" title="查看收據" style={{ fontSize: 16 }}>🧾</a> : <span style={{ color: '#ddd' }}>-</span>}</td>
                   <td>{String(r.date).substring(0, 10)}</td>
@@ -626,6 +626,6 @@ export default function Expenses({ data, setData, showToast, onNavigate }) {
       </div>
 
       {deleteId && <ConfirmModal message="確認刪除此開支紀錄？此操作無法復原。" onConfirm={handleDel} onCancel={() => setDeleteId(null)} />}
-    </>
+    </div>
   );
 }
