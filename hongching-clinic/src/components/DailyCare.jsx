@@ -143,6 +143,9 @@ export default function DailyCare({ data, showToast, user }) {
   const [batchSending, setBatchSending] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
+  // Store filter for today's care tab
+  const [careStore, setCareStore] = useState('all');
+
 
   // Load from Supabase on mount
   useEffect(() => {
@@ -660,19 +663,57 @@ export default function DailyCare({ data, showToast, user }) {
       {tab === 'today' && (
         <div>
           {/* Batch send button */}
-          {todayItems.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#334155' }}>
-                💊 今日病人 ({todayItems.length})
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={handleBatchSend} disabled={batchSending}
-                  style={{ ...S.btn, background: batchSending ? '#94a3b8' : GREEN }}>
-                  {batchSending ? `📤 發送中 (${batchProgress.current}/${batchProgress.total})...` : '📤 一鍵發送全部'}
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Store tabs for WhatsApp separation */}
+          {todayItems.length > 0 && (() => {
+            const stores = [...new Set(todayItems.map(i => i.store || '未知'))].sort();
+            const storeWA = { '宋皇臺': '6341 6663', '太子': '6506 5891', '宋皇臺店': '6341 6663', '太子店': '6506 5891' };
+            const storeCounts = {};
+            stores.forEach(s => { storeCounts[s] = todayItems.filter(i => (i.store || '未知') === s).length; });
+            return (
+              <>
+                {/* Store tab bar */}
+                <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #0e7490', marginBottom: 0 }}>
+                  <div onClick={() => setCareStore('all')}
+                    style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: careStore === 'all' ? 700 : 400,
+                      background: careStore === 'all' ? '#fff' : '#e8e8e8', border: '1px solid #ccc', borderBottom: careStore === 'all' ? '2px solid #fff' : 'none',
+                      borderRadius: '6px 6px 0 0', marginBottom: -2, color: careStore === 'all' ? '#0e7490' : '#666' }}>
+                    全部 ({todayItems.length})
+                  </div>
+                  {stores.map(s => {
+                    const wa = storeWA[s] || '';
+                    return (
+                      <div key={s} onClick={() => setCareStore(s)}
+                        style={{ padding: '8px 16px', cursor: 'pointer', fontSize: 13, fontWeight: careStore === s ? 700 : 400,
+                          background: careStore === s ? '#fff' : '#e8e8e8', border: '1px solid #ccc', borderBottom: careStore === s ? '2px solid #fff' : 'none',
+                          borderRadius: '6px 6px 0 0', marginBottom: -2, color: careStore === s ? '#0e7490' : '#666' }}>
+                        {s} ({storeCounts[s]}) {wa && <span style={{ fontSize: 10, color: '#25D366' }}>📱{wa}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Store WhatsApp reminder */}
+                {careStore !== 'all' && storeWA[careStore] && (
+                  <div style={{ background: '#f0fdf4', padding: '6px 12px', fontSize: 12, color: '#166534', borderBottom: '1px solid #bbf7d0' }}>
+                    📱 請用 <b>{careStore}</b> 嘅 WhatsApp Business（<b>{storeWA[careStore]}</b>）發送以下訊息
+                  </div>
+                )}
+
+                {/* Batch send button */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#334155' }}>
+                    💊 {careStore === 'all' ? '全部' : careStore} 病人 ({(careStore === 'all' ? todayItems : todayItems.filter(i => (i.store || '未知') === careStore)).length})
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={handleBatchSend} disabled={batchSending}
+                      style={{ ...S.btn, background: batchSending ? '#94a3b8' : GREEN }}>
+                      {batchSending ? `📤 發送中 (${batchProgress.current}/${batchProgress.total})...` : '📤 一鍵發送全部'}
+                    </button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
 
           {/* Batch progress */}
           {batchSending && (
@@ -694,7 +735,7 @@ export default function DailyCare({ data, showToast, user }) {
             </div>
           )}
 
-          {todayItems.map(item => {
+          {todayItems.filter(item => careStore === 'all' || (item.store || '未知') === careStore).map(item => {
             const status = getSendStatus(item.id, item.treatmentType);
             const [bg, fg] = treatmentColor(item.treatmentType);
             const key0 = `${item.id}_day0`;
