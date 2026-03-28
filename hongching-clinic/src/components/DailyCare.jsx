@@ -153,6 +153,7 @@ export default function DailyCare({ data, showToast, user }) {
     });
   }, []);
 
+
   const saveLog = (next) => {
     setLog(next);
     localStorage.setItem(LK, JSON.stringify(next));
@@ -471,6 +472,15 @@ export default function DailyCare({ data, showToast, user }) {
     }
     setScraping(false);
   };
+
+  // Auto-scrape eCTCM on mount (only once per session per date)
+  useEffect(() => {
+    const key = `hcmc_autoscrape_${selectedDate}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    const t = setTimeout(() => { handleAutoScrape(); }, 800);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Import handlers ──
   const handleParse = () => {
