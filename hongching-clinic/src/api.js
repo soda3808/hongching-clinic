@@ -4,8 +4,9 @@
 // ══════════════════════════════════
 
 import { supabase } from './supabase';
-import { getTenantId, getAuthHeader } from './auth';
+import { getTenantId, getAuthHeader, getCurrentUser } from './auth';
 import { encryptPII, decryptPII } from './utils/piiFields';
+import { logDataChange, logCreate } from './utils/audit';
 
 const GAS_URL = import.meta.env.VITE_GAS_URL || '';
 
@@ -189,11 +190,41 @@ export async function loadAllData() {
 }
 
 // ── Generic save (Supabase + GAS + localStorage) ──
-async function saveRecord(collection, record, gasAction) {
+const AUDIT_COLLECTIONS = new Set(['patients', 'consultations', 'bookings', 'inventory', 'revenue', 'expenses']);
+
+async function saveRecord(collection, record, gasAction, opts) {
+  // Audit trail: log changes for tracked collections
+  if (AUDIT_COLLECTIONS.has(collection)) {
+    try {
+      const user = getCurrentUser();
+      const userName = user?.name || user?.username || 'system';
+      const before = opts?.before;
+      if (before) {
+        logDataChange(userName, 'update', collection, record.id, before, record);
+      } else if (!opts?.skipAudit) {
+        // Check if this is a new record by looking in localStorage
+        const existing = getLocal(collection)?.find(r => r.id === record.id);
+        if (existing) {
+          logDataChange(userName, 'update', collection, record.id, existing, record);
+        } else {
+          logCreate(userName, collection, record.id, record);
+        }
+      }
+    } catch (e) { /* audit logging should never block saves */ }
+  }
+
   await sbUpsert(collection, record);
   if (gasAction) gasCall(gasAction, { record });
   saveLocal(collection, record);
   return { ok: true };
+}
+
+function getLocal(collection) {
+  try {
+    const key = `hcmc_${collection}`;
+    const s = localStorage.getItem(key);
+    return s ? JSON.parse(s) : [];
+  } catch { return []; }
 }
 
 // ── Revenue ──
