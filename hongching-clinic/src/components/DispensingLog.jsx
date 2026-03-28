@@ -4,6 +4,7 @@ import { getClinicName } from '../tenant';
 import { dispensingLogOps } from '../api';
 import escapeHtml from '../utils/escapeHtml';
 import { getHerbSafetyInfo } from '../utils/drugInteractions';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const STATUS_MAP = {
   pending: { label: '待配藥', color: '#f59e0b', bg: '#fffbeb' },
@@ -122,11 +123,12 @@ export default function DispensingLog({ data, showToast, user }) {
   };
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div style={S.page}>
+      <div style={S.titleBar}>藥物管理 &gt; 開藥日誌</div>
+      <div style={{ padding: 12 }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>📋 開藥日誌</h2>
         <div style={{ flex: 1 }} />
-        <button onClick={handlePrint} className="btn btn-outline" style={{ fontSize: 12 }}>🖨️ 列印</button>
+        <button onClick={handlePrint} style={S.actionBtn}>列印</button>
       </div>
 
       {/* Stats Cards */}
@@ -140,43 +142,45 @@ export default function DispensingLog({ data, showToast, user }) {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="input" style={{ width: 150 }} />
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="input" style={{ width: 130 }}>
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>日期：</span>
+        <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} style={{ ...S.filterInput, width: 150 }} />
+        <span style={S.filterLabel}>狀態：</span>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...S.filterSelect, width: 130 }}>
           <option value="all">全部狀態</option>
           {Object.entries(STATUS_MAP).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
         </select>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋病人/醫師/處方..." className="input" style={{ flex: 1, minWidth: 150 }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="搜尋病人/醫師/處方..." style={{ ...S.filterInput, flex: 1, minWidth: 150 }} />
       </div>
 
       {/* Dispensing Table */}
       <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <table style={S.table}>
           <thead>
-            <tr style={{ background: '#f8fafc' }}>
-              <th style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>排號</th>
-              <th style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>病人</th>
-              <th style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>醫師</th>
-              <th style={{ padding: '8px 6px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>處方</th>
-              <th style={{ padding: '8px 6px', textAlign: 'center', borderBottom: '2px solid #e5e7eb' }}>藥材數</th>
-              <th style={{ padding: '8px 6px', textAlign: 'center', borderBottom: '2px solid #e5e7eb' }}>天數</th>
-              <th style={{ padding: '8px 6px', textAlign: 'center', borderBottom: '2px solid #e5e7eb' }}>狀態</th>
-              <th style={{ padding: '8px 6px', textAlign: 'center', borderBottom: '2px solid #e5e7eb' }}>操作</th>
+            <tr>
+              <th style={S.th}>排號</th>
+              <th style={S.th}>病人</th>
+              <th style={S.th}>醫師</th>
+              <th style={S.th}>處方</th>
+              <th style={{ ...S.th, textAlign: 'center' }}>藥材數</th>
+              <th style={{ ...S.th, textAlign: 'center' }}>天數</th>
+              <th style={{ ...S.th, textAlign: 'center' }}>狀態</th>
+              <th style={{ ...S.th, textAlign: 'center' }}>操作</th>
             </tr>
           </thead>
           <tbody>
-            {items.length === 0 && <tr><td colSpan={8} style={{ textAlign: 'center', padding: 30, color: '#999' }}>當日無配藥記錄</td></tr>}
+            {items.length === 0 && <tr><td colSpan={8} style={{ ...S.td, textAlign: 'center', padding: 30, color: '#999' }}>當日無配藥記錄</td></tr>}
             {items.filter(i => i.rxCount > 0).map((item, idx) => {
               const st = STATUS_MAP[item.dispenseStatus] || STATUS_MAP.pending;
               const isExpanded = expandedRows.has(item.id);
               const hasLowStock = item.rxList.some(r => { const s = getStock(r.herb); return s && s.stock < s.minStock; });
               const hasNoStock = item.rxList.some(r => { const s = getStock(r.herb); return s && s.stock <= 0; });
               return (
-                <tr key={item.id} style={{ borderBottom: isExpanded ? 'none' : '1px solid #f3f4f6', verticalAlign: 'top' }}>
-                  <td style={{ padding: '8px 6px', fontWeight: 700, color: '#0e7490' }}>{idx + 1}</td>
-                  <td style={{ padding: '8px 6px' }}>{item.patientName}</td>
-                  <td style={{ padding: '8px 6px' }}>{item.doctor}</td>
-                  <td style={{ padding: '8px 6px', maxWidth: 300 }} colSpan={isExpanded ? 1 : 1}>
+                <tr key={item.id} style={{ ...rowStyle(idx), verticalAlign: 'top' }}>
+                  <td style={{ ...S.td, fontWeight: 700, color: ECTCM.headerBg }}>{idx + 1}</td>
+                  <td style={S.td}>{item.patientName}</td>
+                  <td style={S.td}>{item.doctor}</td>
+                  <td style={{ ...S.td, maxWidth: 300 }} colSpan={isExpanded ? 1 : 1}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => toggleExpand(item.id)}>
                       <span style={{ fontSize: 10, color: '#888' }}>{isExpanded ? '▼' : '▶'}</span>
                       <span style={{ fontWeight: 600 }}>{item.formulaName || '自訂處方'}</span>
@@ -219,17 +223,17 @@ export default function DispensingLog({ data, showToast, user }) {
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: '8px 6px', textAlign: 'center' }}>{item.rxCount}</td>
-                  <td style={{ padding: '8px 6px', textAlign: 'center' }}>{item.formulaDays || '-'}</td>
-                  <td style={{ padding: '8px 6px', textAlign: 'center' }}>
+                  <td style={{ ...S.td, textAlign: 'center' }}>{item.rxCount}</td>
+                  <td style={{ ...S.td, textAlign: 'center' }}>{item.formulaDays || '-'}</td>
+                  <td style={{ ...S.td, textAlign: 'center' }}>
                     <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, color: st.color, background: st.bg }}>{st.label}</span>
                   </td>
-                  <td style={{ padding: '8px 6px', textAlign: 'center' }}>
+                  <td style={{ ...S.td, textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
-                      {item.dispenseStatus === 'pending' && <button onClick={() => updateStatus(item.id, 'dispensing')} className="btn btn-outline" style={{ fontSize: 11, padding: '2px 8px' }}>開始配藥</button>}
-                      {item.dispenseStatus === 'dispensing' && <button onClick={() => updateStatus(item.id, 'dispensed')} className="btn btn-primary" style={{ fontSize: 11, padding: '2px 8px' }}>配藥完成</button>}
-                      {item.dispenseStatus === 'dispensed' && <button onClick={() => updateStatus(item.id, 'collected')} className="btn btn-primary" style={{ fontSize: 11, padding: '2px 8px', background: '#10b981' }}>已取藥</button>}
-                      <button onClick={() => setDetail(item)} className="btn btn-outline" style={{ fontSize: 11, padding: '2px 8px' }}>詳情</button>
+                      {item.dispenseStatus === 'pending' && <button onClick={() => updateStatus(item.id, 'dispensing')} style={{ ...S.actionBtnOrange, fontSize: 11, padding: '2px 8px' }}>開始配藥</button>}
+                      {item.dispenseStatus === 'dispensing' && <button onClick={() => updateStatus(item.id, 'dispensed')} style={{ ...S.actionBtn, fontSize: 11, padding: '2px 8px' }}>配藥完成</button>}
+                      {item.dispenseStatus === 'dispensed' && <button onClick={() => updateStatus(item.id, 'collected')} style={{ ...S.actionBtnGreen, fontSize: 11, padding: '2px 8px' }}>已取藥</button>}
+                      <button onClick={() => setDetail(item)} style={{ ...S.actionBtn, fontSize: 11, padding: '2px 8px' }}>詳情</button>
                     </div>
                   </td>
                 </tr>
@@ -239,6 +243,7 @@ export default function DispensingLog({ data, showToast, user }) {
         </table>
       </div>
 
+      </div>
       {/* Detail Modal */}
       {detail && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }} onClick={() => setDetail(null)}>

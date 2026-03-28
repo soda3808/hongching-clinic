@@ -4,6 +4,7 @@ import { fmtM, fmt, getMonth, monthLabel, linearRegression } from '../data';
 import { getTenantStoreNames, getClinicName } from '../tenant';
 import { openWhatsApp, sendTelegram } from '../api';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 const COLORS = ['#0e7490','#8B6914','#C0392B','#1A7A42','#7C3AED','#EA580C','#0284C7','#BE185D'];
 
@@ -282,11 +283,11 @@ export default function Dashboard({ data, onNavigate }) {
   }, [data]);
 
   return (
-    <div role="main" aria-label="診所總覽儀表板">
+    <div role="main" aria-label="診所總覽儀表板" style={S.page}>
       {/* AI Daily Briefing */}
-      <div className="card" style={{ marginBottom: 16, background: 'linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)', border: '1px solid var(--teal-200)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: briefing ? 8 : 0 }}>
-          <h3 style={{ margin: 0, fontSize: 14, color: 'var(--teal-700)' }}>🤖 今日智能簡報</h3>
+      <div className="card" style={{ marginBottom: 16, background: ECTCM.pageBg, border: `1px solid ${ECTCM.borderColor}` }}>
+        <div style={{ ...S.titleBar, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: briefing ? 8 : 0 }}>
+          <h3 style={{ margin: 0, fontSize: 14, color: ECTCM.headerText }}>🤖 今日智能簡報</h3>
           {!briefing && (
             <button className="btn btn-teal btn-sm" onClick={loadBriefing} disabled={briefingLoading} style={{ fontSize: 11 }}>
               {briefingLoading ? '生成中...' : '生成簡報'}
@@ -307,16 +308,16 @@ export default function Dashboard({ data, onNavigate }) {
       </div>
 
       {/* Daily Operations Checklist */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <h3 style={{ margin: 0, fontSize: 14, color: 'var(--teal-700)' }}>
+      <div className="card" style={{ marginBottom: 16, background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
+        <div style={{ ...S.titleBar, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 14, color: ECTCM.headerText }}>
             {new Date().getHours() < 14 ? '🌅 開店清單' : '🌙 收店清單'}
           </h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 80, height: 6, borderRadius: 3, background: 'var(--gray-100)' }}>
-              <div style={{ width: `${checklistProgress}%`, height: '100%', borderRadius: 3, background: checklistProgress === 100 ? '#16a34a' : '#0e7490', transition: 'width 0.3s' }} />
+            <div style={{ width: 80, height: 6, borderRadius: 3, background: '#e0e0e0' }}>
+              <div style={{ width: `${checklistProgress}%`, height: '100%', borderRadius: 3, background: checklistProgress === 100 ? ECTCM.btnSuccess : ECTCM.headerBg, transition: 'width 0.3s' }} />
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: checklistProgress === 100 ? 'var(--green-700)' : 'var(--teal-700)' }}>{checklistProgress}%</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: checklistProgress === 100 ? ECTCM.btnSuccess : '#fff' }}>{checklistProgress}%</span>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -383,46 +384,47 @@ export default function Dashboard({ data, onNavigate }) {
       </div>
 
       {/* KPI Cards — with trend indicators */}
+      <div style={{ ...S.titleBar, marginBottom: 8 }}>本月關鍵指標</div>
       <div className="stats-grid" aria-live="polite" aria-label="本月關鍵指標">
-        <div className="stat-card gold">
-          <div className="stat-label">本月營業額</div>
-          <div className="stat-value gold">{fmtM(thisRev)}</div>
-          <div className="stat-sub" style={{ color: revGrowth >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+        <div style={{ ...S.statCard, borderTop: `3px solid ${ECTCM.btnWarning}` }}>
+          <div style={S.statLabel}>本月營業額</div>
+          <div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{fmtM(thisRev)}</div>
+          <div style={{ fontSize: 11, color: revGrowth >= 0 ? ECTCM.btnSuccess : ECTCM.btnDanger, fontWeight: 600 }}>
             {revGrowth > 0 ? '↑' : revGrowth < 0 ? '↓' : '→'} {Math.abs(revGrowth)}% vs 上月
           </div>
         </div>
-        <div className="stat-card red">
-          <div className="stat-label">本月開支</div>
-          <div className="stat-value red">{fmtM(thisExp)}</div>
-          <div className="stat-sub" style={{ color: expGrowth <= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+        <div style={{ ...S.statCard, borderTop: `3px solid ${ECTCM.btnDanger}` }}>
+          <div style={S.statLabel}>本月開支</div>
+          <div style={{ ...S.statValue, color: ECTCM.btnDanger }}>{fmtM(thisExp)}</div>
+          <div style={{ fontSize: 11, color: expGrowth <= 0 ? ECTCM.btnSuccess : ECTCM.btnDanger, fontWeight: 600 }}>
             {expGrowth > 0 ? '↑' : expGrowth < 0 ? '↓' : '→'} {Math.abs(expGrowth)}% vs 上月
           </div>
         </div>
-        <div className="stat-card teal">
-          <div className="stat-label">本月診症人次</div>
-          <div className="stat-value teal">{patientCount}</div>
-          <div className="stat-sub" style={{ color: patientGrowth >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+        <div style={{ ...S.statCard, borderTop: `3px solid ${ECTCM.headerBg}` }}>
+          <div style={S.statLabel}>本月診症人次</div>
+          <div style={{ ...S.statValue, color: ECTCM.headerBg }}>{patientCount}</div>
+          <div style={{ fontSize: 11, color: patientGrowth >= 0 ? ECTCM.btnSuccess : ECTCM.btnDanger, fontWeight: 600 }}>
             {patientGrowth > 0 ? '↑' : patientGrowth < 0 ? '↓' : '→'} {Math.abs(patientGrowth)}% vs 上月
           </div>
         </div>
-        <div className="stat-card green">
-          <div className="stat-label">本月預約數</div>
-          <div className="stat-value green">{thisBookings}</div>
-          <div className="stat-sub" style={{ color: bookingGrowth >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+        <div style={{ ...S.statCard, borderTop: `3px solid ${ECTCM.btnSuccess}` }}>
+          <div style={S.statLabel}>本月預約數</div>
+          <div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{thisBookings}</div>
+          <div style={{ fontSize: 11, color: bookingGrowth >= 0 ? ECTCM.btnSuccess : ECTCM.btnDanger, fontWeight: 600 }}>
             {bookingGrowth > 0 ? '↑' : bookingGrowth < 0 ? '↓' : '→'} {Math.abs(bookingGrowth)}% vs 上月
           </div>
         </div>
-        <div className="stat-card" style={{ '--c': net >= 0 ? 'var(--green-600)' : 'var(--red-500)' }}>
-          <div className="stat-label">本月損益</div>
-          <div className="stat-value" style={{ color: thisRev - thisExp >= 0 ? '#16a34a' : '#dc2626' }}>
+        <div style={{ ...S.statCard, borderTop: `3px solid ${thisRev - thisExp >= 0 ? ECTCM.btnSuccess : ECTCM.btnDanger}` }}>
+          <div style={S.statLabel}>本月損益</div>
+          <div style={{ ...S.statValue, color: thisRev - thisExp >= 0 ? ECTCM.btnSuccess : ECTCM.btnDanger }}>
             {fmtM(thisRev - thisExp)}
           </div>
-          <div className="stat-sub">利潤率 {thisRev ? ((thisRev - thisExp) / thisRev * 100).toFixed(1) : 0}%</div>
+          <div style={S.statLabel}>利潤率 {thisRev ? ((thisRev - thisExp) / thisRev * 100).toFixed(1) : 0}%</div>
         </div>
-        <div className="stat-card gold">
-          <div className="stat-label">總營業額</div>
-          <div className="stat-value gold">{fmtM(totalRev)}</div>
-          <div className="stat-sub">{months.length} 個月累計</div>
+        <div style={{ ...S.statCard, borderTop: `3px solid ${ECTCM.btnWarning}` }}>
+          <div style={S.statLabel}>總營業額</div>
+          <div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{fmtM(totalRev)}</div>
+          <div style={S.statLabel}>{months.length} 個月累計</div>
         </div>
       </div>
 
@@ -726,8 +728,8 @@ export default function Dashboard({ data, onNavigate }) {
       })()}
 
       {/* P&L Table */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="card-header"><h3>📊 損益表 P&L Statement</h3></div>
+      <div className="card" style={{ marginBottom: 16, border: `1px solid ${ECTCM.borderColor}` }}>
+        <div style={S.titleBar}>📊 損益表 P&L Statement</div>
         <div style={{ overflowX: 'auto' }}>
           <table className="pl-table" aria-label="損益表">
             <thead>
