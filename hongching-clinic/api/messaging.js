@@ -2595,9 +2595,70 @@ async function scrapeECTCM(date) {
   return patients.map(p => ({ ...p, treatmentType: classifyTreatment(p.service) }));
 }
 
+async function handleECTCMScrapeDebug(req, res) {
+  const username = process.env.ECTCM_USERNAME;
+  const password = process.env.ECTCM_PASSWORD;
+  const clinicId = process.env.ECTCM_CLINIC_ID || '890';
+  const steps = [];
+
+  try {
+    // Step 1: GET /Login
+    const initRes = await fetch('https://os.ectcm.com/Login', { redirect: 'manual' });
+    let cookies = collectCookies(initRes);
+    steps.push({ step: 'init', status: initRes.status, cookies: cookies.split(';').map(c => c.trim().split('=')[0]).join(',') });
+
+    // Step 2: ValidateLogin
+    const vBody = new URLSearchParams({ LoginName: username, EncryptedPassword: password, AccessTicket: '', BrowserVersion: 'Chrome 120' });
+    const vRes = await fetch('https://os.ectcm.com/Login/ValidateLogin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies, 'X-Requested-With': 'XMLHttpRequest' },
+      body: vBody.toString(), redirect: 'manual',
+    });
+    cookies = collectCookies(vRes, cookies);
+    const vResult = await vRes.text();
+    steps.push({ step: 'validate', status: vRes.status, result: vResult.substring(0, 200), cookies: cookies.split(';').map(c => c.trim().split('=')[0]).join(',') });
+
+    // Step 3: Clinic select (if "2")
+    if (vResult === '2' || vResult === '"2"') {
+      const cBody = new URLSearchParams({ LoginName: username, EncryptedPassword: password, AccessTicket: '', BrowserVersion: 'Chrome 120', ClinicID: clinicId, IsSkipMFACheck: 'True', AllowGrantLoginCookie: 'True' });
+      const cRes = await fetch('https://os.ectcm.com/Login/ValidateLogin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies, 'X-Requested-With': 'XMLHttpRequest' },
+        body: cBody.toString(), redirect: 'manual',
+      });
+      cookies = collectCookies(cRes, cookies);
+      const cResult = await cRes.text();
+      steps.push({ step: 'clinic', status: cRes.status, result: cResult.substring(0, 200), cookies: cookies.split(';').map(c => c.trim().split('=')[0]).join(',') });
+
+      // Follow redirect
+      if (cResult && !cResult.includes('error')) {
+        const url = cResult.startsWith('/') ? 'https://os.ectcm.com' + cResult : cResult;
+        const fRes = await fetch(url.replace(/"/g, ''), { headers: { Cookie: cookies }, redirect: 'manual' });
+        cookies = collectCookies(fRes, cookies);
+        steps.push({ step: 'redirect', status: fRes.status, url: url.substring(0, 100), cookies: cookies.split(';').map(c => c.trim().split('=')[0]).join(',') });
+      }
+    }
+
+    // Step 4: Search
+    const sBody = new URLSearchParams({ ClinicID: clinicId, RegistertDate: req.body?.date || '2026-03-28', HasClinicListPermission: 'true', ClinicIDs: '0,890,1167', PageIndex: '1' });
+    const sRes = await fetch('https://os.ectcm.com/DispenseMedicines/Search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookies, 'X-Requested-With': 'XMLHttpRequest' },
+      body: sBody.toString(),
+    });
+    const sHtml = await sRes.text();
+    steps.push({ step: 'search', status: sRes.status, length: sHtml.length, preview: sHtml.substring(0, 300).replace(/</g, '[') });
+
+    return res.status(200).json({ success: true, steps });
+  } catch (err) {
+    steps.push({ step: 'error', message: err.message });
+    return res.status(500).json({ success: false, steps, error: err.message });
+  }
+}
+
 async function handleECTCMScrape(req, res) {
+  if (req.body?.debug || req.query?.debug) return handleECTCMScrapeDebug(req, res);
   const date = req.body?.date || new Date().toISOString().substring(0, 10);
-  const debug = req.body?.debug || req.query?.debug;
   try {
     const patients = await scrapeECTCM(date);
     return res.status(200).json({ success: true, date, count: patients.length, patients });
