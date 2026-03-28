@@ -7,6 +7,7 @@ import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import SignaturePad, { SignaturePreview } from './SignaturePad';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle, statusTag } from '../styles/ectcm';
 
 const STATUS_LABELS = {
   waiting: '等候中',
@@ -22,6 +23,14 @@ const STATUS_TAGS = {
   dispensing: 'tag-pending-orange',
   billing: 'tag-cash',
   completed: 'tag-paid',
+};
+
+const STATUS_TAG_TYPE = {
+  waiting: 'orange',
+  'in-consultation': 'blue',
+  dispensing: 'orange',
+  billing: 'blue',
+  completed: 'green',
 };
 
 const STORES = getTenantStoreNames();
@@ -439,151 +448,169 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
   };
 
   return (
-    <>
-      {/* Stats */}
-      <div className="stats-grid">
-        <div className="stat-card teal"><div className="stat-label">今日掛號</div><div className="stat-value teal">{stats.total}</div></div>
-        <div className="stat-card gold"><div className="stat-label">等候中</div><div className="stat-value gold">{stats.waiting}</div>{estimatedWait > 0 && <div className="stat-sub">預計等 ~{estimatedWait} 分鐘</div>}</div>
-        <div className="stat-card green"><div className="stat-label">診症中</div><div className="stat-value green">{stats.inConsult}</div></div>
-        <div className="stat-card red"><div className="stat-label">平均等候</div><div className="stat-value red">{avgWaitTime} 分</div></div>
+    <div style={S.page}>
+      {/* eCTCM Title Bar */}
+      <div style={S.titleBar}>顧客管理 &gt; 掛號列表</div>
+
+      {/* Tab Bar */}
+      <div style={S.tabBar}>
+        <div style={S.tabActive}>掛號列表 ({stats.total})</div>
+        <div style={S.tab}>網上預約列表</div>
+        <div style={S.tab}>顧客列表 ({patients.length})</div>
       </div>
 
-      {/* Filter + Quick Register */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input type="date" style={{ width: 'auto' }} value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-        <select style={{ width: 'auto' }} value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)}>
-          <option value="all">全部醫師</option>
-          {DOCTORS.map(d => <option key={d}>{d}</option>)}
-        </select>
-        <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
+      {/* Quick Action Toolbar */}
+      <div style={S.toolbar}>
+        <button style={S.actionBtn} onClick={() => setShowModal(true)}>掛號</button>
+        <button style={S.actionBtn} onClick={() => setShowModal(true)}>快速掛號</button>
+        {stats.waiting > 0 && (
+          <button style={S.actionBtnGreen} onClick={batchNotifyWaiting}>WhatsApp 通知等候中 ({stats.waiting})</button>
+        )}
+        <button style={{ ...S.actionBtn, background: '#666', border: '1px solid #555' }} onClick={() => setShowAnalytics(!showAnalytics)}>{showAnalytics ? '隱藏分析' : '排隊分析'}</button>
+        <div style={{ flex: 1 }} />
+        {/* Compact stats */}
+        <span style={{ fontSize: 12, color: ECTCM.textLight }}>
+          等候 <strong style={{ color: ECTCM.btnWarning }}>{stats.waiting}</strong> | 診症 <strong style={{ color: ECTCM.btnSuccess }}>{stats.inConsult}</strong> | 已完成 <strong style={{ color: ECTCM.headerBg }}>{stats.completed}</strong> | 平均等 <strong>{avgWaitTime}分</strong>
+          {estimatedWait > 0 && <span> | 預計等 ~{estimatedWait}分</span>}
+        </span>
+      </div>
+
+      {/* Yellow Filter Bar */}
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>所屬分店</span>
+        <select style={{ ...S.filterSelect, minWidth: 100 }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">全部店舖</option>
           {STORES.map(s => <option key={s}>{s}</option>)}
         </select>
-        <div style={{ flex: 1 }} />
-        {stats.waiting > 0 && (
-          <button className="btn btn-green btn-sm" onClick={batchNotifyWaiting}>WhatsApp 通知等候中 ({stats.waiting})</button>
-        )}
-        <button className="btn btn-teal" onClick={() => setShowModal(true)}>+ 快速掛號</button>
+        <span style={S.filterLabel}>掛號日期</span>
+        <input type="date" style={{ ...S.filterInput, width: 140 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+        <span style={S.filterLabel}>醫師/治療師</span>
+        <select style={{ ...S.filterSelect, minWidth: 100 }} value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)}>
+          <option value="all">全部醫師</option>
+          {DOCTORS.map(d => <option key={d}>{d}</option>)}
+        </select>
+        <button style={S.actionBtn} onClick={() => { setFilterDate(getToday()); setFilterDoctor('all'); setFilterStore('all'); }}>刷新</button>
+        <button style={S.actionBtn} onClick={() => { setFilterDate(getToday()); }}>今天所有掛號</button>
       </div>
 
-      {/* Queue Table */}
-      <div className="card" style={{ padding: 0 }}>
-        <div className="card-header">
-          <h3>排隊列表 ({todayQueue.length} 人)</h3>
-        </div>
-        <div className="table-wrap" style={{ maxHeight: 500, overflowY: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>號碼</th>
-                <th>病人</th>
-                <th>電話</th>
-                <th>醫師</th>
-                <th>服務</th>
-                <th style={{ textAlign: 'right' }}>費用</th>
-                <th>掛號時間</th>
-                <th>狀態</th>
-                <th>操作</th>
+      {/* Dense Queue Table */}
+      <div style={{ overflowX: 'auto', maxHeight: 520, overflowY: 'auto' }}>
+        <table style={S.table}>
+          <thead>
+            <tr>
+              <th style={S.th}>排號</th>
+              <th style={S.th}>顧客姓名</th>
+              <th style={S.th}>手機</th>
+              <th style={S.th}>診所</th>
+              <th style={S.th}>掛號時間</th>
+              <th style={S.th}>等候</th>
+              <th style={S.th}>診治醫師</th>
+              <th style={S.th}>服務項目</th>
+              <th style={{ ...S.th, textAlign: 'right' }}>費用</th>
+              <th style={S.th}>狀態</th>
+              <th style={S.th}>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!todayQueue.length && (
+              <tr><td colSpan={11} style={{ ...S.td, textAlign: 'center', padding: 40, color: ECTCM.textMuted }}>暫無掛號紀錄</td></tr>
+            )}
+            {todayQueue.map((r, idx) => (
+              <tr key={r.id} style={{ ...rowStyle(idx), cursor: 'default' }}
+                onMouseEnter={e => e.currentTarget.style.background = ECTCM.trHoverBg}
+                onMouseLeave={e => e.currentTarget.style.background = (idx % 2 === 0 ? ECTCM.trOddBg : ECTCM.trEvenBg)}>
+                <td style={{ ...S.td, fontWeight: 700, color: ECTCM.headerBg }}>{r.queueNo}</td>
+                <td style={{ ...S.td, fontWeight: 600 }}>{r.patientName}</td>
+                <td style={{ ...S.td, fontSize: 12, color: ECTCM.textLight }}>{r.patientPhone || '-'}</td>
+                <td style={{ ...S.td, fontSize: 12 }}>{r.store}</td>
+                <td style={{ ...S.td, fontSize: 12, color: ECTCM.textLight }}>{r.registeredAt}</td>
+                <td style={S.td}>
+                  {r.status === 'waiting' && (() => {
+                    const mins = getWaitMins(r);
+                    if (mins === null) return '-';
+                    const color = mins > 60 ? ECTCM.btnDanger : mins > 30 ? ECTCM.btnWarning : ECTCM.headerBg;
+                    return <span style={{ fontSize: 11, fontWeight: 700, color }}>{mins}分</span>;
+                  })()}
+                  {r.status !== 'waiting' && '-'}
+                </td>
+                <td style={S.td}>{r.doctor}</td>
+                <td style={{ ...S.td, fontSize: 12, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.services}</td>
+                <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, fontSize: 12 }}>{fmtM(r.serviceFee)}</td>
+                <td style={S.td}><span style={statusTag(STATUS_LABELS[r.status], STATUS_TAG_TYPE[r.status] || 'blue')}>{STATUS_LABELS[r.status]}</span></td>
+                <td style={{ ...S.td, whiteSpace: 'nowrap' }}>
+                  {r.status === 'waiting' && (
+                    <>
+                      <span style={{ ...S.link, marginRight: 6 }} onClick={() => startConsultation(r)}>開始診症</span>
+                      {r.patientPhone && <span style={{ ...S.link, color: ECTCM.btnSuccess, marginRight: 6 }} onClick={() => notifyPatient(r, 'ready')}>{isNotified(r.id, 'ready') ? 'WA✓' : 'WA'}</span>}
+                    </>
+                  )}
+                  {r.status === 'in-consultation' && (
+                    <>
+                      <span style={{ ...S.link, marginRight: 6 }} onClick={() => startConsultation(r)}>開EMR</span>
+                      <span style={{ ...S.link, color: ECTCM.btnWarning, marginRight: 6 }} onClick={() => updateStatus(r, 'dispensing')}>配藥</span>
+                    </>
+                  )}
+                  {r.status === 'dispensing' && (
+                    <>
+                      <span style={{ ...S.link, marginRight: 6 }} onClick={() => updateStatus(r, 'billing')}>收費</span>
+                      {r.patientPhone && <span style={{ ...S.link, color: ECTCM.btnSuccess, marginRight: 6 }} onClick={() => notifyPatient(r, 'dispensing')}>{isNotified(r.id, 'dispensing') ? 'WA✓' : 'WA'}</span>}
+                    </>
+                  )}
+                  {r.status === 'billing' && (
+                    <span style={{ ...S.link, color: ECTCM.btnSuccess, marginRight: 6 }} onClick={() => updateStatus(r, 'completed')}>完成</span>
+                  )}
+                  {r.status === 'completed' && r.patientPhone && (
+                    <span style={{ ...S.link, color: ECTCM.btnSuccess, marginRight: 6 }} onClick={() => notifyPatient(r, 'completed')}>{isNotified(r.id, 'completed') ? 'WA✓' : 'WA'}</span>
+                  )}
+                  <span style={{ ...S.link, marginRight: 6 }} onClick={() => startConsentSign(r)}>同意書</span>
+                  {r.status !== 'completed' && (
+                    <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => setDeleteId(r.id)}>刪除</span>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {!todayQueue.length && (
-                <tr><td colSpan={9} style={{ textAlign: 'center', padding: 40, color: '#aaa' }}>暫無掛號紀錄</td></tr>
-              )}
-              {todayQueue.map(r => (
-                <tr key={r.id}>
-                  <td style={{ fontWeight: 800, fontSize: 14, color: 'var(--teal-700)' }}>{r.queueNo}</td>
-                  <td style={{ fontWeight: 600 }}>{r.patientName}</td>
-                  <td style={{ color: 'var(--gray-500)', fontSize: 11 }}>{r.patientPhone || '-'}</td>
-                  <td>{r.doctor}</td>
-                  <td style={{ fontSize: 11 }}>{r.services}</td>
-                  <td className="money">{fmtM(r.serviceFee)}</td>
-                  <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>
-                    {r.registeredAt}
-                    {r.status === 'waiting' && (() => {
-                      const mins = getWaitMins(r);
-                      if (mins === null) return null;
-                      const color = mins > 60 ? '#dc2626' : mins > 30 ? '#d97706' : 'var(--teal-600)';
-                      return <div style={{ fontSize: 10, fontWeight: 700, color }}>{mins} 分鐘</div>;
-                    })()}
-                  </td>
-                  <td><span className={`tag ${STATUS_TAGS[r.status] || ''}`}>{STATUS_LABELS[r.status]}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                      {r.status === 'waiting' && (
-                        <>
-                          <button className="btn btn-green btn-sm" onClick={() => startConsultation(r)}>開始診症</button>
-                          {r.patientPhone && <button className="btn btn-outline btn-sm" onClick={() => notifyPatient(r, 'ready')} title="WhatsApp 叫號通知" style={isNotified(r.id, 'ready') ? { background: '#dcfce7' } : {}}>📱{isNotified(r.id, 'ready') ? '✓' : ''}</button>}
-                        </>
-                      )}
-                      {r.status === 'in-consultation' && (
-                        <>
-                          <button className="btn btn-teal btn-sm" onClick={() => startConsultation(r)}>開EMR</button>
-                          <button className="btn btn-gold btn-sm" onClick={() => updateStatus(r, 'dispensing')}>配藥</button>
-                        </>
-                      )}
-                      {r.status === 'dispensing' && (
-                        <>
-                          <button className="btn btn-teal btn-sm" onClick={() => updateStatus(r, 'billing')}>收費</button>
-                          {r.patientPhone && <button className="btn btn-outline btn-sm" onClick={() => notifyPatient(r, 'dispensing')} title="WhatsApp 取藥通知" style={isNotified(r.id, 'dispensing') ? { background: '#dcfce7' } : {}}>📱{isNotified(r.id, 'dispensing') ? '✓' : ''}</button>}
-                        </>
-                      )}
-                      {r.status === 'billing' && (
-                        <button className="btn btn-green btn-sm" onClick={() => updateStatus(r, 'completed')}>完成</button>
-                      )}
-                      {r.status === 'completed' && r.patientPhone && (
-                        <button className="btn btn-outline btn-sm" onClick={() => notifyPatient(r, 'completed')} title="WhatsApp 感謝通知" style={isNotified(r.id, 'completed') ? { background: '#dcfce7' } : {}}>📱{isNotified(r.id, 'completed') ? '✓' : ''}</button>
-                      )}
-                      <button className="btn btn-outline btn-sm" onClick={() => startConsentSign(r)} title="同意書(簽名)">📄</button>
-                      {r.status !== 'completed' && (
-                        <button className="btn btn-outline btn-sm" onClick={() => setDeleteId(r.id)}>刪除</button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer Stats */}
+      <div style={S.footer}>
+        共 {todayQueue.length} 筆記錄 | 等候 {stats.waiting} | 診症中 {stats.inConsult} | 已完成 {stats.completed}
       </div>
 
       {/* Queue Analytics */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button className="btn btn-outline btn-sm" onClick={() => setShowAnalytics(!showAnalytics)}>{showAnalytics ? '隱藏' : '📊'} 排隊分析</button>
-        {showAnalytics && <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>今日已完成 {analytics.completedCount} 人</span>}
-      </div>
       {showAnalytics && (
-        <div className="card">
-          <div className="card-header"><h3>📊 今日排隊分析</h3></div>
-          <div className="stats-grid" style={{ marginBottom: 12 }}>
-            <div className="stat-card teal"><div className="stat-label">平均等候</div><div className="stat-value teal">{analytics.avgWait} 分</div></div>
-            <div className="stat-card green"><div className="stat-label">平均診症</div><div className="stat-value green">{analytics.avgConsult} 分</div></div>
-            <div className="stat-card gold"><div className="stat-label">平均總時</div><div className="stat-value gold">{analytics.avgTotal} 分</div></div>
-            <div className="stat-card red"><div className="stat-label">最長等候</div><div className="stat-value red">{analytics.maxWait} 分</div></div>
+        <div style={{ background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}`, margin: '8px 0', padding: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 13, color: ECTCM.headerBg, marginBottom: 8 }}>今日排隊分析 — 已完成 {analytics.completedCount} 人</div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <div style={S.statCard}><div style={S.statValue}>{analytics.avgWait}</div><div style={S.statLabel}>平均等候(分)</div></div>
+            <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{analytics.avgConsult}</div><div style={S.statLabel}>平均診症(分)</div></div>
+            <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{analytics.avgTotal}</div><div style={S.statLabel}>平均總時(分)</div></div>
+            <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnDanger }}>{analytics.maxWait}</div><div style={S.statLabel}>最長等候(分)</div></div>
           </div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12 }}>
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--teal-700)' }}>醫師效率</div>
+              <div style={{ fontWeight: 700, marginBottom: 6, color: ECTCM.headerBg }}>醫師效率</div>
               {analytics.byDoctor.map(d => (
-                <div key={d.doctor} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--gray-100)' }}>
+                <div key={d.doctor} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: `1px solid ${ECTCM.tdBorder}` }}>
                   <span style={{ fontWeight: 600 }}>{d.doctor}</span>
                   <span>{d.count} 人 | 平均 {d.avgConsult} 分/人</span>
                 </div>
               ))}
-              {analytics.byDoctor.length === 0 && <div style={{ color: 'var(--gray-400)' }}>暫無數據</div>}
+              {analytics.byDoctor.length === 0 && <div style={{ color: ECTCM.textMuted }}>暫無數據</div>}
             </div>
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontWeight: 700, marginBottom: 6, color: 'var(--teal-700)' }}>掛號時段分佈</div>
+              <div style={{ fontWeight: 700, marginBottom: 6, color: ECTCM.headerBg }}>掛號時段分佈</div>
               {Object.entries(analytics.hourCounts).sort().map(([h, c]) => (
-                <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ minWidth: 40, fontWeight: 600 }}>{h}:00</span>
-                  <div style={{ flex: 1, height: 14, background: 'var(--gray-100)', borderRadius: 4 }}>
-                    <div style={{ width: `${(c / Math.max(...Object.values(analytics.hourCounts), 1)) * 100}%`, height: '100%', background: 'var(--teal-500)', borderRadius: 4 }} />
+                <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                  <span style={{ minWidth: 36, fontWeight: 600 }}>{h}:00</span>
+                  <div style={{ flex: 1, height: 12, background: '#e8e8e8', borderRadius: 3 }}>
+                    <div style={{ width: `${(c / Math.max(...Object.values(analytics.hourCounts), 1)) * 100}%`, height: '100%', background: ECTCM.headerBg, borderRadius: 3 }} />
                   </div>
-                  <span style={{ minWidth: 20, textAlign: 'right' }}>{c}</span>
+                  <span style={{ minWidth: 18, textAlign: 'right' }}>{c}</span>
                 </div>
               ))}
-              <div style={{ marginTop: 8, color: 'var(--gray-500)' }}>高峰時段：{analytics.peakHour}</div>
+              <div style={{ marginTop: 6, color: ECTCM.textLight }}>高峰時段：{analytics.peakHour}</div>
             </div>
           </div>
         </div>
@@ -594,7 +621,7 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
         <div className="modal-overlay" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label="快速掛號">
           <div className="modal" onClick={e => e.stopPropagation()} ref={modalRef} style={{ maxWidth: 520 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3>快速掛號</h3>
+              <h3 style={{ margin: 0, fontSize: 14, color: ECTCM.headerBg }}>快速掛號</h3>
               <button className="btn btn-outline btn-sm" onClick={() => setShowModal(false)} aria-label="關閉">✕</button>
             </div>
             <form onSubmit={handleRegister}>
@@ -608,10 +635,10 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                   autoFocus
                 />
                 {patientSuggestions.length > 0 && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: 180, overflowY: 'auto' }}>
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: `1px solid ${ECTCM.borderColor}`, borderRadius: 3, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: 180, overflowY: 'auto' }}>
                     {patientSuggestions.map(p => (
-                      <div key={p.id} onMouseDown={() => selectPatient(p)} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--gray-100)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--teal-50)'}
+                      <div key={p.id} onMouseDown={() => selectPatient(p)} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: 13, borderBottom: `1px solid ${ECTCM.tdBorder}` }}
+                        onMouseEnter={e => e.currentTarget.style.background = ECTCM.trHoverBg}
                         onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                         {p.name} — {p.phone}
                       </div>
@@ -649,7 +676,7 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                 </div>
               </div>
               {selectedServices.length > 0 && (
-                <div style={{ background: 'var(--teal-50)', padding: 10, borderRadius: 8, marginBottom: 16, fontSize: 13, color: 'var(--teal-700)' }}>
+                <div style={{ background: ECTCM.trEvenBg, padding: 10, borderRadius: 4, marginBottom: 16, fontSize: 13, color: ECTCM.headerBg }}>
                   費用合計：<strong>{fmtM(selectedServices.reduce((sum, label) => {
                     const svc = SERVICES.find(s => s.label === label);
                     return sum + (svc ? svc.fee : 0);
@@ -714,6 +741,6 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
           onCancel={() => setDeleteId(null)}
         />
       )}
-    </>
+    </div>
   );
 }
