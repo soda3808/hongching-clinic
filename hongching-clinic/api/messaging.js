@@ -1,8 +1,8 @@
 // Consolidated Messaging API — handles whatsapp, telegram, reminders, email-reminder
 // POST /api/messaging?action=whatsapp|telegram|reminders|email-reminder
 
-// Vercel serverless function config — extend timeout for AI operations
-export const config = { maxDuration: 60 };
+// Vercel serverless function config — HK region for eCTCM access + extended timeout
+export const config = { maxDuration: 60, regions: ['hkg1'] };
 
 import { setCORS, handleOptions, requireAuth, requireRole, rateLimit, getClientIP, validatePhone, sanitizeString, errorResponse } from './_middleware.js';
 import { sendEmail, appointmentReminderEmail } from './_email.js';
