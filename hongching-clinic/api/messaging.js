@@ -2575,23 +2575,34 @@ async function scrapeECTCM(date) {
     body: searchBody.toString(),
   });
 
-  if (!searchRes.ok) throw new Error(`eCTCM Search failed: ${searchRes.status}`);
-
+  const searchStatus = searchRes.status;
   const html = await searchRes.text();
-  if (!html || html.length < 50) throw new Error('Empty response from eCTCM — session may have expired');
 
-  // Step 4: Parse HTML table
+  // Debug: return diagnostic info if search fails
+  if (!html || html.length < 50 || html.includes('/Login')) {
+    const debugInfo = {
+      searchStatus,
+      searchResLength: html?.length || 0,
+      searchResPreview: html?.substring(0, 200)?.replace(/</g, '&lt;') || 'empty',
+      cookieCount: cookies.split(';').filter(Boolean).length,
+      cookieNames: cookies.split(';').map(c => c.trim().split('=')[0]).join(', '),
+    };
+    throw new Error(`eCTCM scrape failed — ${JSON.stringify(debugInfo)}`);
+  }
+
+  // Step 5: Parse HTML table
   const patients = parseECTCMTable(html);
   return patients.map(p => ({ ...p, treatmentType: classifyTreatment(p.service) }));
 }
 
 async function handleECTCMScrape(req, res) {
   const date = req.body?.date || new Date().toISOString().substring(0, 10);
+  const debug = req.body?.debug || req.query?.debug;
   try {
     const patients = await scrapeECTCM(date);
     return res.status(200).json({ success: true, date, count: patients.length, patients });
   } catch (err) {
-    console.error('eCTCM scrape error:', err);
+    console.error('eCTCM scrape error:', err.message);
     return res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
   }
 }
