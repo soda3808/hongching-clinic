@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { openWhatsApp, sendFollowupWhatsApp, dailyCareLogOps } from '../api';
+import { openWhatsApp, sendFollowupWhatsApp, scrapeECTCM, dailyCareLogOps } from '../api';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
 
@@ -142,6 +142,9 @@ export default function DailyCare({ data, showToast, user }) {
   const [sendingIds, setSendingIds] = useState({});
   const [batchSending, setBatchSending] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+
+  // Auto-scrape state
+  const [scraping, setScraping] = useState(false);
 
   // Load from Supabase on mount
   useEffect(() => {
@@ -436,6 +439,39 @@ export default function DailyCare({ data, showToast, user }) {
     showToast(`✅ 批量發送完成！共 ${pending.length} 條`);
   };
 
+  // ── Auto-scrape from eCTCM ──
+  const handleAutoScrape = async () => {
+    setScraping(true);
+    showToast('🔄 正在自動抓取中醫在線...');
+    try {
+      const result = await scrapeECTCM(selectedDate);
+      if (result.success && result.patients?.length > 0) {
+        // Convert to parsed format with phone matching
+        const items = result.patients.map(p => {
+          const ptMatch = (patients || []).find(pt =>
+            pt.name === p.patientName || (pt.name || '').replace(/\s/g, '') === (p.patientName || '').replace(/\s/g, '')
+          );
+          return {
+            id: uid(), ...p,
+            phone: ptMatch?.phone || '',
+            phoneSrc: ptMatch ? 'auto' : 'manual',
+            include: true,
+          };
+        });
+        setParsedItems(items);
+        setImportDone(false);
+        showToast(`✅ 自動抓取成功！${items.length} 個病人`);
+      } else if (result.demo || result.error?.includes('not configured')) {
+        showToast('⚠️ eCTCM 帳號未設定，請喺 Vercel 設定 ECTCM_USERNAME 同 ECTCM_PASSWORD');
+      } else {
+        showToast(`❌ 抓取失敗：${result.error || '未知錯誤'}`);
+      }
+    } catch (err) {
+      showToast(`❌ 抓取錯誤：${err.message}`);
+    }
+    setScraping(false);
+  };
+
   // ── Import handlers ──
   const handleParse = () => {
     const items = parseTCMOnline(pasteText, patients);
@@ -546,7 +582,22 @@ export default function DailyCare({ data, showToast, user }) {
       {/* ═══ Tab: Import from 中醫在線 ═══ */}
       {tab === 'import' && (
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#334155', marginBottom: 8 }}>📋 從中醫在線匯入今日病人</div>
+          {/* Auto-scrape section */}
+          <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#0f766e' }}>🤖 自動抓取中醫在線</div>
+                <div style={{ fontSize: 12, color: '#5eead4', marginTop: 2 }}>自動登入 eCTCM → 抓取今日病人列表 → 自動分類</div>
+              </div>
+              <button onClick={handleAutoScrape} disabled={scraping}
+                style={{ ...S.btn, background: scraping ? '#94a3b8' : '#0f766e', padding: '10px 24px', fontSize: 15 }}>
+                {scraping ? '🔄 抓取中...' : '🤖 一鍵自動抓取'}
+              </button>
+            </div>
+          </div>
+
+          {/* Manual paste section */}
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#334155', marginBottom: 8 }}>📋 或手動貼入中醫在線數據</div>
           <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 12px' }}>
             1. 喺中醫在線揀選今日記錄 → 2. 全選表格內容（Ctrl+A）→ 3. 複製（Ctrl+C）→ 4. 貼入下面
           </p>

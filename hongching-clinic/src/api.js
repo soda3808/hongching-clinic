@@ -321,6 +321,21 @@ export function openWhatsApp(phone, message) {
   return { success: true };
 }
 
+// ── eCTCM Auto-Scrape ──
+export async function scrapeECTCM(date) {
+  try {
+    const res = await fetch('/api/scrape?action=fetch-today', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ date }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('eCTCM scrape error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ── WhatsApp Follow-up (via Business API: text + image) ──
 export async function sendFollowupWhatsApp({ phone, message, imageUrl, store }) {
   try {
