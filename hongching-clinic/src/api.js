@@ -321,6 +321,35 @@ export function openWhatsApp(phone, message) {
   return { success: true };
 }
 
+// ── WhatsApp Follow-up (via Business API: text + image) ──
+export async function sendFollowupWhatsApp({ phone, message, imageUrl, store }) {
+  try {
+    const res = await fetch('/api/messaging?action=whatsapp-followup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ phone, message, imageUrl, store }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('WhatsApp followup error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function sendBatchFollowupWhatsApp(items) {
+  try {
+    const res = await fetch('/api/messaging?action=whatsapp-batch-followup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ items }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('WhatsApp batch followup error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ── Telegram Bot ──
 export async function sendTelegram(message, chatId) {
   try {

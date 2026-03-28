@@ -2281,6 +2281,109 @@ JSON array 回覆（無markdown無解釋）：
   }
 }
 
+// ── Handler: WhatsApp Follow-up (text + image) ──
+async function handleWhatsAppFollowup(req, res) {
+  const auth = requireAuth(req);
+  if (!auth.authenticated) return errorResponse(res, 401, auth.error);
+  const rl = await rateLimit(`wa-followup:${auth.user.userId}`, 30, 60000);
+  if (!rl.allowed) return errorResponse(res, 429, '發送過於頻繁');
+
+  const { phone, message, imageUrl, store = '' } = req.body || {};
+  if (!phone || !message) return errorResponse(res, 400, 'Missing phone or message');
+  if (!validatePhone(phone)) return errorResponse(res, 400, 'Invalid phone number');
+
+  const phoneMap = (() => { try { return JSON.parse(process.env.WHATSAPP_PHONE_MAP || '{}'); } catch { return {}; } })();
+  const phoneId = phoneMap[store] || process.env.WHATSAPP_PHONE_ID || process.env.WHATSAPP_PHONE_ID_TKW;
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!token || !phoneId) return res.status(200).json({ success: false, error: 'WhatsApp not configured', demo: true });
+
+  let formattedPhone = phone.replace(/[\s\-()]/g, '');
+  if (formattedPhone.length === 8) formattedPhone = '852' + formattedPhone;
+  if (!formattedPhone.startsWith('+')) formattedPhone = '+' + formattedPhone;
+
+  try {
+    // 1. Send text message
+    const textRes = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: formattedPhone, type: 'text', text: { body: message } }),
+    });
+    const textResult = await textRes.json();
+    if (!textRes.ok) return res.status(textRes.status).json({ success: false, error: textResult.error?.message || 'WhatsApp text send failed' });
+
+    // 2. Send image (if provided)
+    let imageMessageId = null;
+    if (imageUrl) {
+      const imgRes = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: formattedPhone, type: 'image', image: { link: imageUrl } }),
+      });
+      const imgResult = await imgRes.json();
+      if (imgRes.ok) imageMessageId = imgResult.messages?.[0]?.id;
+    }
+
+    return res.status(200).json({ success: true, textMessageId: textResult.messages?.[0]?.id, imageMessageId });
+  } catch { return res.status(500).json({ success: false, error: '伺服器錯誤，請稍後再試' }); }
+}
+
+// ── Handler: WhatsApp Batch Follow-up ──
+async function handleWhatsAppBatchFollowup(req, res) {
+  const auth = requireAuth(req);
+  if (!auth.authenticated) return errorResponse(res, 401, auth.error);
+
+  const { items = [] } = req.body || {};
+  if (!items.length) return errorResponse(res, 400, 'No items to send');
+  if (items.length > 50) return errorResponse(res, 400, 'Max 50 items per batch');
+
+  const phoneMap = (() => { try { return JSON.parse(process.env.WHATSAPP_PHONE_MAP || '{}'); } catch { return {}; } })();
+  const token = process.env.WHATSAPP_TOKEN;
+  if (!token) return res.status(200).json({ success: false, error: 'WhatsApp not configured', demo: true });
+
+  const results = [];
+  for (let i = 0; i < items.length; i++) {
+    const { phone, message, imageUrl, store = '' } = items[i];
+    if (!phone || !message) { results.push({ index: i, success: false, error: 'Missing phone/message' }); continue; }
+
+    const phoneId = phoneMap[store] || process.env.WHATSAPP_PHONE_ID || process.env.WHATSAPP_PHONE_ID_TKW;
+    let formattedPhone = phone.replace(/[\s\-()]/g, '');
+    if (formattedPhone.length === 8) formattedPhone = '852' + formattedPhone;
+    if (!formattedPhone.startsWith('+')) formattedPhone = '+' + formattedPhone;
+
+    try {
+      // Send text
+      const textRes = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: formattedPhone, type: 'text', text: { body: message } }),
+      });
+      const textResult = await textRes.json();
+
+      // Send image
+      let imageMessageId = null;
+      if (imageUrl && textRes.ok) {
+        const imgRes = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+          method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: formattedPhone, type: 'image', image: { link: imageUrl } }),
+        });
+        const imgResult = await imgRes.json();
+        if (imgRes.ok) imageMessageId = imgResult.messages?.[0]?.id;
+      }
+
+      results.push({
+        index: i, success: textRes.ok,
+        textMessageId: textResult.messages?.[0]?.id, imageMessageId,
+        error: textRes.ok ? null : textResult.error?.message,
+      });
+    } catch (err) {
+      results.push({ index: i, success: false, error: err.message });
+    }
+
+    // 2-second delay between sends to avoid rate limiting
+    if (i < items.length - 1) await new Promise(r => setTimeout(r, 2000));
+  }
+
+  const sent = results.filter(r => r.success).length;
+  return res.status(200).json({ success: true, sent, failed: results.length - sent, results });
+}
+
 // ── Main Router ──
 export default async function handler(req, res) {
   setCORS(req, res);
@@ -2295,6 +2398,8 @@ export default async function handler(req, res) {
 
   switch (action) {
     case 'whatsapp': return handleWhatsApp(req, res);
+    case 'whatsapp-followup': return handleWhatsAppFollowup(req, res);
+    case 'whatsapp-batch-followup': return handleWhatsAppBatchFollowup(req, res);
     case 'telegram': return handleTelegram(req, res);
     case 'reminders': return handleReminders(req, res);
     case 'email-reminder': return handleEmailReminder(req, res);
