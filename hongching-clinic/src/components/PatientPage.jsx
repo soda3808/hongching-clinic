@@ -7,6 +7,7 @@ import { getTenantStoreNames, getClinicName } from '../tenant';
 import usePagination, { PaginationBar } from '../hooks/usePagination.jsx';
 import EmptyState from './EmptyState';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const EMPTY = { name:'', phone:'', gender:'男', dob:'', dobYear:'', dobMonth:'', dobDay:'', address:'', allergies:'', notes:'', store:getTenantStoreNames()[0] || '', doctor:DOCTORS[0], chronicConditions:'', medications:'', bloodType:'', referralSource:'', consentFollowUp: true };
 const REFERRAL_SOURCES = ['親友推薦', '網上搜尋', '社交媒體', '路過', '醫師轉介', '舊病人回歸', '廣告', '其他'];
@@ -267,13 +268,14 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
   }, [detail, communications]);
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>診所顧客列表 &gt; 顧客列表</div>
       {/* Stats */}
-      <div className="stats-grid">
-        <div className="stat-card teal"><div className="stat-label">總病人數</div><div className="stat-value teal">{stats.total}</div></div>
-        <div className="stat-card green"><div className="stat-label">本月新病人</div><div className="stat-value green">{stats.newThisMonth}</div></div>
-        <div className="stat-card gold"><div className="stat-label">活躍病人 (30天)</div><div className="stat-value gold">{stats.active}</div></div>
-        <div className="stat-card red"><div className="stat-label">流失風險</div><div className="stat-value red">{churnRisk.length}</div></div>
+      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
+        <div style={S.statCard}><div style={S.statLabel}>總病人數</div><div style={{ ...S.statValue, color: ECTCM.headerBg }}>{stats.total}</div></div>
+        <div style={S.statCard}><div style={S.statLabel}>本月新病人</div><div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{stats.newThisMonth}</div></div>
+        <div style={S.statCard}><div style={S.statLabel}>活躍病人 (30天)</div><div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{stats.active}</div></div>
+        <div style={S.statCard}><div style={S.statLabel}>流失風險</div><div style={{ ...S.statValue, color: ECTCM.btnDanger }}>{churnRisk.length}</div></div>
       </div>
 
       {/* Churn Risk Alert */}
@@ -445,17 +447,21 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
       </div>
 
       {/* Search & Filter */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }} role="search" aria-label="病人搜尋與篩選">
-        <input style={{ flex: 1, minWidth: 200 }} placeholder="🔍 搜尋姓名或電話..." value={search} onChange={e => setSearch(e.target.value)} aria-label="搜尋病人姓名或電話" />
-        <select style={{ width: 'auto' }} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
+      <div style={S.filterBar} role="search" aria-label="病人搜尋與篩選">
+        <span style={S.filterLabel}>搜尋：</span>
+        <input style={{ ...S.filterInput, flex: 1, minWidth: 200 }} placeholder="搜尋姓名或電話..." value={search} onChange={e => setSearch(e.target.value)} aria-label="搜尋病人姓名或電話" />
+        <span style={S.filterLabel}>醫師：</span>
+        <select style={S.filterSelect} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
           <option value="all">所有醫師</option>
           {DOCTORS.map(d => <option key={d}>{d}</option>)}
         </select>
-        <select style={{ width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
+        <span style={S.filterLabel}>店舖：</span>
+        <select style={S.filterSelect} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">所有店舖</option>
           {getTenantStoreNames().map(s => <option key={s}>{s}</option>)}
         </select>
-        <select style={{ width: 'auto' }} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+        <span style={S.filterLabel}>狀態：</span>
+        <select style={S.filterSelect} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="all">所有狀態</option>
           <option value="active">活躍</option><option value="inactive">非活躍</option>
         </select>
@@ -500,35 +506,33 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
       )}
 
       {/* Table */}
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-wrap">
-          <table aria-label="病人列表">
-            <thead>
-              <tr>
-                <th style={{ width: 30 }}><input type="checkbox" aria-label="全選病人" checked={filtered.length > 0 && selected.size === filtered.length} onChange={e => setSelected(e.target.checked ? new Set(filtered.map(p => p.id)) : new Set())} /></th>
-                <th>姓名</th><th>電話</th><th>性別</th><th>年齡</th><th>主診醫師</th>
-                <th>首次到診</th><th>最後到診</th><th>總次數</th><th>累計消費</th>
+      <div style={{ overflow: 'auto' }}>
+        <table style={S.table} aria-label="病人列表">
+          <thead>
+            <tr>
+              <th style={{ ...S.th, width: 30 }}><input type="checkbox" aria-label="全選病人" checked={filtered.length > 0 && selected.size === filtered.length} onChange={e => setSelected(e.target.checked ? new Set(filtered.map(p => p.id)) : new Set())} /></th>
+              <th style={S.th}>姓名</th><th style={S.th}>電話</th><th style={S.th}>性別</th><th style={S.th}>年齡</th><th style={S.th}>主診醫師</th>
+              <th style={S.th}>首次到診</th><th style={S.th}>最後到診</th><th style={S.th}>總次數</th><th style={S.th}>累計消費</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((p, idx) => (
+              <tr key={p.id} style={selected.has(p.id) ? { background: '#e0f0f0' } : rowStyle(idx)}>
+                <td style={S.td}><input type="checkbox" checked={selected.has(p.id)} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(p.id) : s.delete(p.id); setSelected(s); }} /></td>
+                <td style={S.td}><span style={{ color: ECTCM.link, cursor: 'pointer', fontWeight: 600 }} onClick={() => setDetail(p)}>{p.name}</span></td>
+                <td style={S.td}>{p.phone}</td>
+                <td style={S.td}>{p.gender}</td>
+                <td style={S.td}>{calcAge(p.dob)}</td>
+                <td style={S.td}>{p.doctor}</td>
+                <td style={S.td}>{p.firstVisit}</td>
+                <td style={S.td}>{p.lastVisit}</td>
+                <td style={S.td}>{p.totalVisits}</td>
+                <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(p.totalSpent || 0)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {paged.map(p => (
-                <tr key={p.id} style={{ background: selected.has(p.id) ? 'var(--teal-50)' : undefined }}>
-                  <td><input type="checkbox" checked={selected.has(p.id)} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(p.id) : s.delete(p.id); setSelected(s); }} /></td>
-                  <td><span style={{ color: 'var(--teal-700)', cursor: 'pointer', fontWeight: 600 }} onClick={() => setDetail(p)}>{p.name}</span></td>
-                  <td>{p.phone}</td>
-                  <td>{p.gender}</td>
-                  <td>{calcAge(p.dob)}</td>
-                  <td>{p.doctor}</td>
-                  <td>{p.firstVisit}</td>
-                  <td>{p.lastVisit}</td>
-                  <td>{p.totalVisits}</td>
-                  <td className="money">{fmtM(p.totalSpent || 0)}</td>
-                </tr>
-              ))}
-              {filtered.length === 0 && <tr><td colSpan={10} style={{ padding: 0 }}><EmptyState icon="👥" title="暫無病人紀錄" description="請使用上方表單新增病人資料" compact /></td></tr>}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={10} style={{ ...S.td, padding: 0 }}><EmptyState icon="👥" title="暫無病人紀錄" description="請使用上方表單新增病人資料" compact /></td></tr>}
+          </tbody>
+        </table>
         <PaginationBar {...pgProps} />
       </div>
 
@@ -1156,6 +1160,6 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         </div>
         );
       })()}
-    </>
+    </div>
   );
 }
