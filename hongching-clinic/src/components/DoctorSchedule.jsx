@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { getDoctorSchedule, saveDoctorSchedule } from '../config';
 import { getTenantDoctors, getTenantStoreNames, getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const DAYS = [
   { id: 'mon', label: '星期一' },
@@ -134,17 +135,21 @@ export default function DoctorSchedule({ data, showToast, user }) {
   };
 
   return (
-    <>
+    <div style={S.page}>
+      {/* Title Bar */}
+      <div style={S.titleBar}>公司運作管理 &gt; 醫師上班時間列表</div>
+
       {/* Filter + Actions */}
-      <div className="card" style={{ padding: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select style={{ width: 'auto' }} value={selectedDoctor} onChange={e => setSelectedDoctor(e.target.value)}>
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>醫師：</span>
+        <select style={S.filterSelect} value={selectedDoctor} onChange={e => setSelectedDoctor(e.target.value)}>
           <option value="all">所有醫師</option>
           {allDoctors.map(d => <option key={d}>{d}</option>)}
         </select>
-        {isAdmin && !editing && <button className="btn btn-teal" onClick={() => setEditing(true)}>編輯排班</button>}
+        {isAdmin && !editing && <button style={S.actionBtn} onClick={() => setEditing(true)}>編輯排班</button>}
         {!editing && (
           <>
-            <button className="btn btn-outline btn-sm" onClick={() => {
+            <button style={S.actionBtn} onClick={() => {
               const headers = ['醫師', ...DAYS.map(d => d.label)];
               const rows = [];
               allDoctors.forEach(doc => {
@@ -162,7 +167,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
               a.click();
               showToast('已匯出排班表');
             }}>匯出CSV</button>
-            <button className="btn btn-gold btn-sm" onClick={() => {
+            <button style={S.actionBtnOrange} onClick={() => {
               const w = window.open('', '_blank');
               if (!w) return;
               const docRows = allDoctors.map(doc => {
@@ -197,7 +202,7 @@ export default function DoctorSchedule({ data, showToast, user }) {
           </>
         )}
         {isAdmin && !editing && (
-          <button className="btn btn-outline" onClick={async () => {
+          <button style={S.actionBtn} onClick={async () => {
             setAiLoading(true); setAiTip(null);
             try {
               const scheduleStr = JSON.stringify(schedule);
@@ -214,70 +219,68 @@ export default function DoctorSchedule({ data, showToast, user }) {
               setAiTip(result.success ? result.reply : '無法取得建議');
             } catch { setAiTip('網絡錯誤'); }
             setAiLoading(false);
-          }} disabled={aiLoading} style={{ fontSize: 12 }}>
-            {aiLoading ? '分析中...' : '🤖 AI 排班建議'}
+          }} disabled={aiLoading}>
+            {aiLoading ? '分析中...' : 'AI 排班建議'}
           </button>
         )}
         {editing && (
           <>
-            <button className="btn btn-green" onClick={handleSave}>儲存</button>
-            <button className="btn btn-outline" onClick={handleCancel}>取消</button>
+            <button style={S.actionBtnGreen} onClick={handleSave}>儲存</button>
+            <button style={S.actionBtn} onClick={handleCancel}>取消</button>
           </>
         )}
       </div>
 
       {/* AI Suggestion */}
       {aiTip && (
-        <div className="card" style={{ padding: 12, background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <strong style={{ fontSize: 13, color: 'var(--teal-700)' }}>🤖 AI 排班建議</strong>
-            <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setAiTip(null)}>關閉</button>
+        <div style={{ padding: '8px 12px', background: ECTCM.tagBlue.bg, border: `1px solid ${ECTCM.tagBlue.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <strong style={{ fontSize: 13, color: ECTCM.headerBg }}>AI 排班建議</strong>
+            <button style={{ ...S.actionBtn, padding: '2px 8px', fontSize: 11 }} onClick={() => setAiTip(null)}>關閉</button>
           </div>
-          <div style={{ fontSize: 12, lineHeight: 1.8, whiteSpace: 'pre-wrap', color: 'var(--gray-700)' }}>{aiTip}</div>
+          <div style={{ fontSize: 12, lineHeight: 1.8, whiteSpace: 'pre-wrap', color: ECTCM.text }}>{aiTip}</div>
         </div>
       )}
 
       {/* Legend */}
-      <div className="card" style={{ padding: '8px 16px', display: 'flex', gap: 16, alignItems: 'center', fontSize: 12 }}>
-        <span style={{ fontWeight: 600, color: 'var(--gray-500)' }}>圖例：</span>
+      <div style={{ ...S.toolbar, gap: 16 }}>
+        <span style={S.filterLabel}>圖例：</span>
         {getStoreOptions().map(s => {
           const sc = getStoreColors()[s];
           return (
             <span key={s} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 14, height: 14, borderRadius: 3, background: sc.bg, border: `1px solid ${sc.border}`, display: 'inline-block' }} />
-              <span style={{ color: sc.color, fontWeight: 600 }}>{s}</span>
+              <span style={{ color: sc.color, fontWeight: 600, fontSize: 12 }}>{s}</span>
             </span>
           );
         })}
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, background: '#fee2e2', border: '1px solid #fecaca', display: 'inline-block' }} />
-          <span style={{ color: '#991b1b', fontWeight: 600 }}>請假</span>
+          <span style={{ color: '#991b1b', fontWeight: 600, fontSize: 12 }}>請假</span>
         </span>
-        {editing && <span style={{ color: 'var(--teal-600)', fontWeight: 600, marginLeft: 'auto' }}>點擊格子可修改</span>}
+        {editing && <span style={{ color: ECTCM.headerBg, fontWeight: 600, marginLeft: 'auto', fontSize: 12 }}>點擊格子可修改</span>}
       </div>
 
       {/* Schedule Grid */}
       {doctors.map(doctor => (
-        <div key={doctor} className="card" style={{ padding: 0 }}>
-          <div className="card-header">
-            <h3>
-              <span role="img" aria-label="doctor">👨‍⚕️</span> {doctor}
-            </h3>
+        <div key={doctor} style={{ background: ECTCM.cardBg, marginBottom: 2 }}>
+          <div style={{ ...S.titleBar, background: '#007777', fontSize: 13 }}>
+            {doctor}
           </div>
-          <div className="table-wrap">
-            <table>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={S.table}>
               <thead>
                 <tr>
-                  <th style={{ width: 80 }}>時段</th>
-                  {DAYS.map(d => <th key={d.id} style={{ textAlign: 'center' }}>{d.label}</th>)}
+                  <th style={{ ...S.th, width: 80 }}>時段</th>
+                  {DAYS.map(d => <th key={d.id} style={{ ...S.th, textAlign: 'center' }}>{d.label}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {SLOTS.map(slot => (
-                  <tr key={slot}>
-                    <td style={{ fontWeight: 700, color: 'var(--gray-600)', fontSize: 13 }}>{slot}</td>
+                {SLOTS.map((slot, si) => (
+                  <tr key={slot} style={rowStyle(si)}>
+                    <td style={{ ...S.td, fontWeight: 700, color: ECTCM.text }}>{slot}</td>
                     {DAYS.map(day => (
-                      <td key={day.id} style={{ padding: 4 }}>
+                      <td key={day.id} style={{ ...S.td, padding: 4 }}>
                         {renderCell(doctor, day, slot)}
                       </td>
                     ))}
@@ -290,20 +293,20 @@ export default function DoctorSchedule({ data, showToast, user }) {
       ))}
 
       {/* Summary Stats */}
-      <div className="card">
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--gray-600)', marginBottom: 12 }}>每週工作統計</h3>
-        <div className="table-wrap">
-          <table>
+      <div style={{ background: ECTCM.cardBg }}>
+        <div style={S.titleBar}>每週工作統計</div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={S.table}>
             <thead>
               <tr>
-                <th>醫師</th>
-                {getTenantStoreNames().map(name => <th key={name} style={{ textAlign: 'right' }}>{name}</th>)}
-                <th style={{ textAlign: 'right' }}>總時段</th>
-                <th style={{ textAlign: 'right' }}>休息</th>
+                <th style={S.th}>醫師</th>
+                {getTenantStoreNames().map(name => <th key={name} style={{ ...S.th, textAlign: 'right' }}>{name}</th>)}
+                <th style={{ ...S.th, textAlign: 'right' }}>總時段</th>
+                <th style={{ ...S.th, textAlign: 'right' }}>休息</th>
               </tr>
             </thead>
             <tbody>
-              {allDoctors.map(doc => {
+              {allDoctors.map((doc, di) => {
                 const storeNames = getTenantStoreNames();
                 const storeColors = getStoreColors();
                 const counts = {};
@@ -318,13 +321,13 @@ export default function DoctorSchedule({ data, showToast, user }) {
                 });
                 const totalWorking = storeNames.reduce((s, name) => s + counts[name], 0);
                 return (
-                  <tr key={doc}>
-                    <td style={{ fontWeight: 600 }}>{doc}</td>
+                  <tr key={doc} style={rowStyle(di)}>
+                    <td style={{ ...S.td, fontWeight: 600 }}>{doc}</td>
                     {storeNames.map(name => (
-                      <td key={name} className="money" style={{ color: storeColors[name]?.color || 'var(--gray-600)' }}>{counts[name]}</td>
+                      <td key={name} style={{ ...S.td, textAlign: 'right', color: storeColors[name]?.color || ECTCM.text }}>{counts[name]}</td>
                     ))}
-                    <td className="money" style={{ fontWeight: 700 }}>{totalWorking}</td>
-                    <td className="money" style={{ color: 'var(--gray-400)' }}>{off}</td>
+                    <td style={{ ...S.td, textAlign: 'right', fontWeight: 700 }}>{totalWorking}</td>
+                    <td style={{ ...S.td, textAlign: 'right', color: ECTCM.textMuted }}>{off}</td>
                   </tr>
                 );
               })}
@@ -332,6 +335,6 @@ export default function DoctorSchedule({ data, showToast, user }) {
           </table>
         </div>
       </div>
-    </>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import { uid, fmtM, fmt, getMonth, getEmployees, saveEmployees } from '../data';
 import { getClinicName, getClinicNameEn } from '../tenant';
 import { getCurrentUser, hasPermission } from '../auth';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 export default function Payslip({ data, setData, showToast, allData }) {
   const currentUser = getCurrentUser();
@@ -217,18 +218,18 @@ export default function Payslip({ data, setData, showToast, allData }) {
   };
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>薪酬管理 &gt; 糧單</div>
+
       {/* Employee Presets — hidden for doctor self-view with single employee */}
       {(!isDoctorSelfView || visibleEmployees.length > 1) && (
-        <div className="card">
-          <div className="card-header"><h3>👤 選擇員工</h3></div>
-          <div className="preset-bar">
-            {visibleEmployees.map(e => (
-              <div key={e.id} className={`preset-chip ${empId === e.id ? 'active' : ''}`} onClick={() => loadEmp(e.id)}>
-                {e.name} <span style={{ opacity: .6, marginLeft: 4, fontSize: 10 }}>{e.pos}</span>
-              </div>
-            ))}
-          </div>
+        <div style={S.filterBar}>
+          <span style={S.filterLabel}>選擇員工:</span>
+          {visibleEmployees.map(e => (
+            <button key={e.id} style={empId === e.id ? S.actionBtn : { ...S.actionBtn, background: '#e0e0e0', color: '#333', border: '1px solid #bbb' }} onClick={() => loadEmp(e.id)}>
+              {e.name} <span style={{ opacity: .6, marginLeft: 4, fontSize: 10 }}>{e.pos}</span>
+            </button>
+          ))}
         </div>
       )}
 
@@ -344,32 +345,34 @@ export default function Payslip({ data, setData, showToast, allData }) {
 
         {/* Revenue by store */}
         {form.revenueByStore.some(r => r.amount > 0) && (
-          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 8 }}>
-            <thead><tr style={{ background: 'var(--teal-700, #0f766e)', color: '#fff' }}><th style={{ padding: '6px 10px', textAlign: 'left' }}>分店</th><th style={{ padding: '6px 10px', textAlign: 'center' }}>次數</th><th style={{ padding: '6px 10px', textAlign: 'right' }}>營業額</th></tr></thead>
+          <table style={S.table}>
+            <thead><tr><th style={S.th}>分店</th><th style={{ ...S.th, textAlign: 'center' }}>次數</th><th style={{ ...S.th, textAlign: 'right' }}>營業額</th></tr></thead>
             <tbody>
               {form.revenueByStore.filter(r => r.amount > 0).map((r, i) => (
-                <tr key={i}><td style={{ padding: '4px 10px' }}>{r.store}</td><td style={{ padding: '4px 10px', textAlign: 'center' }}>{r.visits}</td><td style={{ padding: '4px 10px', textAlign: 'right' }}>{fmtM(r.amount)}</td></tr>
+                <tr key={i} style={rowStyle(i)}><td style={S.td}>{r.store}</td><td style={{ ...S.td, textAlign: 'center' }}>{r.visits}</td><td style={{ ...S.td, textAlign: 'right' }}>{fmtM(r.amount)}</td></tr>
               ))}
-              <tr style={{ background: 'var(--gray-100, #f3f4f6)', fontWeight: 700, borderTop: '2px solid #ccc' }}>
-                <td style={{ padding: '6px 10px' }}>合計</td><td style={{ padding: '6px 10px', textAlign: 'center' }}>{totalVisits}</td><td style={{ padding: '6px 10px', textAlign: 'right' }}>{fmtM(totalRevenue)}</td>
+              <tr style={{ background: ECTCM.trEvenBg, fontWeight: 700, borderTop: '2px solid ' + ECTCM.headerBg }}>
+                <td style={S.td}>合計</td><td style={{ ...S.td, textAlign: 'center' }}>{totalVisits}</td><td style={{ ...S.td, textAlign: 'right' }}>{fmtM(totalRevenue)}</td>
               </tr>
             </tbody>
           </table>
         )}
 
-        <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-          <thead><tr style={{ background: 'var(--teal-700, #0f766e)', color: '#fff' }}><th style={{ padding: '8px 12px', textAlign: 'left' }}>項目</th><th style={{ padding: '8px 12px', textAlign: 'right' }}>金額</th></tr></thead>
+        <table style={S.table}>
+          <thead><tr><th style={S.th}>項目</th><th style={{ ...S.th, textAlign: 'right' }}>金額</th></tr></thead>
           <tbody>
-            <tr><td style={{ padding: '6px 12px' }}>{emp?.type === 'monthly' ? '基本月薪' : emp?.type === 'hourly' ? `時薪 (${hourlyPay?.paidHours || 0}h × $${emp?.rate})` : '底薪'}</td><td style={{ padding: '6px 12px', textAlign: 'right' }}>{fmtM(base)}</td></tr>
-            {comm.total > 0 && <tr><td style={{ padding: '6px 12px' }}>佣金 (營業額 {fmtM(totalRevenue)})</td><td style={{ padding: '6px 12px', textAlign: 'right' }}>{fmtM(comm.total)}</td></tr>}
-            {form.bonus > 0 && <tr><td style={{ padding: '6px 12px' }}>獎金</td><td style={{ padding: '6px 12px', textAlign: 'right' }}>{fmtM(form.bonus)}</td></tr>}
-            {form.allow > 0 && <tr><td style={{ padding: '6px 12px' }}>津貼</td><td style={{ padding: '6px 12px', textAlign: 'right' }}>{fmtM(form.allow)}</td></tr>}
-            <tr><td style={{ padding: '6px 12px', color: 'var(--gray-400, #9ca3af)' }}>MPF僱員 ({mpf.status})</td><td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--red-600, #dc2626)' }}>-{fmtM(mpf.ee)}</td></tr>
-            {form.deduct > 0 && <tr><td style={{ padding: '6px 12px', color: 'var(--gray-400, #9ca3af)' }}>扣款</td><td style={{ padding: '6px 12px', textAlign: 'right', color: 'var(--red-600, #dc2626)' }}>-{fmtM(form.deduct)}</td></tr>}
-            <tr style={{ background: 'var(--gray-100, #f3f4f6)', fontWeight: 700, borderTop: '2px solid var(--gray-300, #d1d5db)' }}>
-              <td style={{ padding: '10px 12px', textAlign: 'right' }}>淨發薪額</td>
-              <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 18, color: 'var(--teal-700, #0f766e)' }}>{fmtM(net)}</td>
+            {(() => { let ri = 0; return (<>
+            <tr style={rowStyle(ri++)}><td style={S.td}>{emp?.type === 'monthly' ? '基本月薪' : emp?.type === 'hourly' ? `時薪 (${hourlyPay?.paidHours || 0}h × $${emp?.rate})` : '底薪'}</td><td style={{ ...S.td, textAlign: 'right' }}>{fmtM(base)}</td></tr>
+            {comm.total > 0 && <tr style={rowStyle(ri++)}><td style={S.td}>佣金 (營業額 {fmtM(totalRevenue)})</td><td style={{ ...S.td, textAlign: 'right' }}>{fmtM(comm.total)}</td></tr>}
+            {form.bonus > 0 && <tr style={rowStyle(ri++)}><td style={S.td}>獎金</td><td style={{ ...S.td, textAlign: 'right' }}>{fmtM(form.bonus)}</td></tr>}
+            {form.allow > 0 && <tr style={rowStyle(ri++)}><td style={S.td}>津貼</td><td style={{ ...S.td, textAlign: 'right' }}>{fmtM(form.allow)}</td></tr>}
+            <tr style={rowStyle(ri++)}><td style={{ ...S.td, color: ECTCM.textMuted }}>MPF僱員 ({mpf.status})</td><td style={{ ...S.td, textAlign: 'right', color: '#cc0000' }}>-{fmtM(mpf.ee)}</td></tr>
+            {form.deduct > 0 && <tr style={rowStyle(ri++)}><td style={{ ...S.td, color: ECTCM.textMuted }}>扣款</td><td style={{ ...S.td, textAlign: 'right', color: '#cc0000' }}>-{fmtM(form.deduct)}</td></tr>}
+            <tr style={{ background: ECTCM.trEvenBg, fontWeight: 700, borderTop: '2px solid ' + ECTCM.headerBg }}>
+              <td style={{ ...S.td, textAlign: 'right' }}>淨發薪額</td>
+              <td style={{ ...S.td, textAlign: 'right', fontSize: 18, color: ECTCM.headerBg }}>{fmtM(net)}</td>
             </tr>
+            </>); })()}
           </tbody>
         </table>
         <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>僱主MPF: {fmtM(mpf.er)} ｜ 僱主總成本: {fmtM(net + mpf.er)}</div>
@@ -424,25 +427,25 @@ export default function Payslip({ data, setData, showToast, allData }) {
         });
         if (!doctorPerf.length) return null;
         return (
-          <div className="card" style={{ marginTop: 16, padding: 0 }}>
-            <div className="card-header"><h3>本月醫師績效一覽 ({thisMonth})</h3></div>
-            <div className="table-wrap">
-              <table>
+          <div style={{ marginTop: 12 }}>
+            <div style={S.titleBar}>本月醫師績效一覽 ({thisMonth})</div>
+            <div style={{ overflow: 'auto' }}>
+              <table style={S.table}>
                 <thead>
-                  <tr><th>醫師</th><th style={{ textAlign: 'right' }}>本月營業額</th><th style={{ textAlign: 'right' }}>診症數</th><th style={{ textAlign: 'right' }}>平均單價</th><th style={{ textAlign: 'right' }}>目標</th><th style={{ textAlign: 'right' }}>達成率</th><th style={{ textAlign: 'right' }}>今日病人</th></tr>
+                  <tr><th style={S.th}>醫師</th><th style={{ ...S.th, textAlign: 'right' }}>本月營業額</th><th style={{ ...S.th, textAlign: 'right' }}>診症數</th><th style={{ ...S.th, textAlign: 'right' }}>平均單價</th><th style={{ ...S.th, textAlign: 'right' }}>目標</th><th style={{ ...S.th, textAlign: 'right' }}>達成率</th><th style={{ ...S.th, textAlign: 'right' }}>今日病人</th></tr>
                 </thead>
                 <tbody>
-                  {doctorPerf.map(d => (
-                    <tr key={d.doc}>
-                      <td style={{ fontWeight: 600 }}>{d.doc}</td>
-                      <td className="money" style={{ color: 'var(--gold-700, #b45309)', fontWeight: 600 }}>{fmtM(d.revenue)}</td>
-                      <td className="money">{d.consultCount}</td>
-                      <td className="money">{fmtM(d.avgPerConsult)}</td>
-                      <td className="money" style={{ color: 'var(--gray-400, #9ca3af)' }}>{d.target > 0 ? fmtM(d.target) : '未設'}</td>
-                      <td className="money" style={{ fontWeight: 700, color: d.achievement === null ? 'var(--gray-400, #9ca3af)' : d.achievement >= 100 ? 'var(--green-600, #16a34a)' : d.achievement >= 80 ? '#d97706' : '#dc2626' }}>
+                  {doctorPerf.map((d, i) => (
+                    <tr key={d.doc} style={rowStyle(i)}>
+                      <td style={{ ...S.td, fontWeight: 600 }}>{d.doc}</td>
+                      <td style={{ ...S.td, textAlign: 'right', color: ECTCM.btnWarning, fontWeight: 600 }}>{fmtM(d.revenue)}</td>
+                      <td style={{ ...S.td, textAlign: 'right' }}>{d.consultCount}</td>
+                      <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(d.avgPerConsult)}</td>
+                      <td style={{ ...S.td, textAlign: 'right', color: ECTCM.textMuted }}>{d.target > 0 ? fmtM(d.target) : '未設'}</td>
+                      <td style={{ ...S.td, textAlign: 'right', fontWeight: 700, color: d.achievement === null ? ECTCM.textMuted : d.achievement >= 100 ? ECTCM.btnSuccess : d.achievement >= 80 ? '#d97706' : '#dc2626' }}>
                         {d.achievement !== null ? `${d.achievement}%` : '-'}
                       </td>
-                      <td className="money">{d.todayPatients}</td>
+                      <td style={{ ...S.td, textAlign: 'right' }}>{d.todayPatients}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -451,6 +454,6 @@ export default function Payslip({ data, setData, showToast, allData }) {
           </div>
         );
       })()}
-    </>
+    </div>
   );
 }

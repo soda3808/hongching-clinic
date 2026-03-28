@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { getDoctors, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const STATUS_FLOW = ['候診中', '診症中', '診症完畢', '服務完成', '已消除'];
 const STATUS_COLORS = { '候診中': '#d97706', '診症中': '#2563eb', '診症完畢': '#7c3aed', '服務完成': '#16a34a', '已消除': '#dc2626' };
@@ -120,9 +121,12 @@ export default function ConsultationList({ data, setData, showToast, user }) {
   };
 
   return (
-    <div>
+    <div style={S.page}>
+      {/* eCTCM Title Bar */}
+      <div style={S.titleBar}>診所顧客列表 &gt; 診症列表</div>
+
       {/* Stats Bar */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
         {STATUS_FLOW.map(st => (
           <div key={st} style={s.stat(STATUS_BG[st])}>
             <div style={{ fontSize: 22, fontWeight: 800, color: STATUS_COLORS[st] }}>{stats[st] || 0}</div>
@@ -132,83 +136,76 @@ export default function ConsultationList({ data, setData, showToast, user }) {
       </div>
 
       {/* Filters */}
-      <div style={{ ...s.card, padding: 10, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <label style={{ fontSize: 12, color: '#6b7280' }}>所屬診所</label>
-        <select style={{ ...s.inp, width: 'auto' }} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>所屬診所</span>
+        <select style={S.filterSelect} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
           <option value="all">全部診所</option>
           {STORES.map(st => <option key={st}>{st}</option>)}
         </select>
-        <label style={{ fontSize: 12, color: '#6b7280', marginLeft: 4 }}>日期範圍</label>
-        <input type="date" style={{ ...s.inp, width: 'auto' }} value={startDate} onChange={e => setStartDate(e.target.value)} />
-        <span style={{ color: '#aaa' }}>~</span>
-        <input type="date" style={{ ...s.inp, width: 'auto' }} value={endDate} onChange={e => setEndDate(e.target.value)} />
-        <input style={{ ...s.inp, flex: 1, minWidth: 120 }} placeholder="關鍵字搜尋（姓名/電話/醫師）" value={keyword} onChange={e => setKeyword(e.target.value)} />
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button style={{ ...s.btn, ...s.btnO }} onClick={handlePrint}>列印</button>
-          <button style={{ ...s.btn, ...s.btnO }} onClick={handleExport}>複製</button>
-        </div>
+        <span style={S.filterLabel}>日期範圍</span>
+        <input type="date" style={S.filterInput} value={startDate} onChange={e => setStartDate(e.target.value)} />
+        <span style={{ color: '#999' }}>~</span>
+        <input type="date" style={S.filterInput} value={endDate} onChange={e => setEndDate(e.target.value)} />
+        <input style={{ ...S.filterInput, flex: 1, minWidth: 120 }} placeholder="關鍵字搜尋（姓名/電話/醫師）" value={keyword} onChange={e => setKeyword(e.target.value)} />
+        <button style={S.actionBtn} onClick={handlePrint}>列印</button>
+        <button style={S.actionBtn} onClick={handleExport}>複製</button>
       </div>
 
       {/* Table */}
-      <div style={s.card}>
-        <div style={s.header}>
-          <span>診症列表 ({list.length})</span>
-        </div>
-        <div style={{ overflowX: 'auto', maxHeight: 520, overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 960 }}>
-            <thead><tr>
-              {['排號','顧客編號','顧客姓名','性別','年齡','手機','掛號日期','掛號時間','到診時間','診治醫師','現時狀態','最後更新','診所','服務項目'].map(h => <th key={h} style={s.th}>{h}</th>)}
-              <th style={{ ...s.th, textAlign: 'center' }}>操作</th>
-            </tr></thead>
-            <tbody>
-              {list.length === 0 && (
-                <tr><td colSpan={15} style={{ textAlign: 'center', padding: 40, color: '#aaa', fontSize: 13 }}>暫無診症紀錄</td></tr>
-              )}
-              {list.map(c => {
-                const booking = findBooking(c);
-                const waitMins = c.currentStatus === '候診中' ? waitMinutes(c.arrivedTime || c.time) : null;
-                const waitColor = waitMins != null ? (waitMins > 60 ? '#dc2626' : waitMins > 30 ? '#d97706' : '#0e7490') : '#888';
-                return (
-                  <tr key={c.id} style={{ background: c.currentStatus === '已消除' ? '#fef2f2' : undefined }}>
-                    <td style={{ ...s.td, fontWeight: 800, color: '#0e7490' }}>{c.id?.slice(-5).toUpperCase() || '-'}</td>
-                    <td style={s.td}>{c.patientId || booking?.patientId || '-'}</td>
-                    <td style={{ ...s.td, fontWeight: 600 }}>{c.patientName}</td>
-                    <td style={s.td}>{c.gender || booking?.gender || '-'}</td>
-                    <td style={s.td}>{c.age || booking?.age || '-'}</td>
-                    <td style={{ ...s.td, color: '#6b7280' }}>{c.phone || '-'}</td>
-                    <td style={s.td}>{c.date}</td>
-                    <td style={s.td}>{c.time || '-'}</td>
-                    <td style={s.td}>
-                      {c.arrivedTime || '-'}
-                      {c.currentStatus === '候診中' && waitMins != null && (
-                        <div style={{ fontSize: 10, fontWeight: 700, color: waitColor }}>{fmtWait(waitMins)}</div>
+      <div style={{ overflowX: 'auto', maxHeight: 520, overflowY: 'auto' }}>
+        <table style={S.table}>
+          <thead><tr>
+            {['排號','顧客編號','顧客姓名','性別','年齡','手機','掛號日期','掛號時間','到診時間','診治醫師','現時狀態','最後更新','診所','服務項目'].map(h => <th key={h} style={S.th}>{h}</th>)}
+            <th style={{ ...S.th, textAlign: 'center' }}>操作</th>
+          </tr></thead>
+          <tbody>
+            {list.length === 0 && (
+              <tr><td colSpan={15} style={{ ...S.td, textAlign: 'center', padding: 40, color: '#aaa' }}>暫無診症紀錄</td></tr>
+            )}
+            {list.map((c, idx) => {
+              const booking = findBooking(c);
+              const waitMins = c.currentStatus === '候診中' ? waitMinutes(c.arrivedTime || c.time) : null;
+              const waitColor = waitMins != null ? (waitMins > 60 ? '#dc2626' : waitMins > 30 ? '#d97706' : ECTCM.headerBg) : '#888';
+              return (
+                <tr key={c.id} style={c.currentStatus === '已消除' ? { background: '#fef2f2' } : rowStyle(idx)}>
+                  <td style={{ ...S.td, fontWeight: 800, color: ECTCM.headerBg }}>{c.id?.slice(-5).toUpperCase() || '-'}</td>
+                  <td style={S.td}>{c.patientId || booking?.patientId || '-'}</td>
+                  <td style={{ ...S.td, fontWeight: 600 }}>{c.patientName}</td>
+                  <td style={S.td}>{c.gender || booking?.gender || '-'}</td>
+                  <td style={S.td}>{c.age || booking?.age || '-'}</td>
+                  <td style={{ ...S.td, color: ECTCM.textLight }}>{c.phone || '-'}</td>
+                  <td style={S.td}>{c.date}</td>
+                  <td style={S.td}>{c.time || '-'}</td>
+                  <td style={S.td}>
+                    {c.arrivedTime || '-'}
+                    {c.currentStatus === '候診中' && waitMins != null && (
+                      <div style={{ fontSize: 10, fontWeight: 700, color: waitColor }}>{fmtWait(waitMins)}</div>
+                    )}
+                  </td>
+                  <td style={S.td}>{c.doctor}</td>
+                  <td style={S.td}>{(() => {
+                    const active = c.currentStatus !== '服務完成' && c.currentStatus !== '已消除';
+                    return <span style={{ ...s.badge(c.currentStatus), cursor: active ? 'pointer' : 'default' }}
+                      onClick={() => active && advanceStatus(c)} title={active ? '點擊推進狀態' : ''}
+                      role={active ? 'button' : undefined} tabIndex={active ? 0 : undefined}
+                      onKeyDown={e => { if (e.key === 'Enter' && active) advanceStatus(c); }}>{c.currentStatus}</span>;
+                  })()}</td>
+                  <td style={{ ...S.td, fontSize: 11, color: ECTCM.textLight }}>{c.lastUpdate || '-'}</td>
+                  <td style={S.td}>{c.store || '-'}</td>
+                  <td style={{ ...S.td, fontSize: 11 }}>{c.formulaName || c.treatments || '-'}</td>
+                  <td style={{ ...S.td, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                      <button style={S.actionBtn} onClick={() => setDetailItem(c)}>病歷</button>
+                      {c.currentStatus !== '服務完成' && c.currentStatus !== '已消除' && (
+                        <button style={S.actionBtnOrange} onClick={() => cancelItem(c)}>消除</button>
                       )}
-                    </td>
-                    <td style={s.td}>{c.doctor}</td>
-                    <td style={s.td}>{(() => {
-                      const active = c.currentStatus !== '服務完成' && c.currentStatus !== '已消除';
-                      return <span style={{ ...s.badge(c.currentStatus), cursor: active ? 'pointer' : 'default' }}
-                        onClick={() => active && advanceStatus(c)} title={active ? '點擊推進狀態' : ''}
-                        role={active ? 'button' : undefined} tabIndex={active ? 0 : undefined}
-                        onKeyDown={e => { if (e.key === 'Enter' && active) advanceStatus(c); }}>{c.currentStatus}</span>;
-                    })()}</td>
-                    <td style={{ ...s.td, fontSize: 11, color: '#6b7280' }}>{c.lastUpdate || '-'}</td>
-                    <td style={s.td}>{c.store || '-'}</td>
-                    <td style={{ ...s.td, fontSize: 11 }}>{c.formulaName || c.treatments || '-'}</td>
-                    <td style={{ ...s.td, textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-                        <button style={{ ...s.btn, ...s.btnT }} onClick={() => setDetailItem(c)}>病歷</button>
-                        {c.currentStatus !== '服務完成' && c.currentStatus !== '已消除' && (
-                          <button style={{ ...s.btn, ...s.btnR }} onClick={() => cancelItem(c)}>消除</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* Detail Modal */}

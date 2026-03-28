@@ -3,6 +3,7 @@ import { fmtM, getStoreNames, getDefaultStore } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
 import { dailyClosingsOps, settlementLocksOps } from '../api';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const PAYMENT_METHODS = ['現金', 'FPS', '信用卡', 'PayMe', '八達通', '長者醫療券', '其他'];
 
@@ -162,36 +163,39 @@ export default function DailyClosing({ data, showToast, user }) {
   };
 
   return (
-    <>
-      <div className="tab-bar">
-        <button className={`tab-btn ${tab === 'current' ? 'active' : ''}`} onClick={() => setTab('current')}>今日日結</button>
-        <button className={`tab-btn ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>歷史紀錄</button>
+    <div style={S.page}>
+      {/* Title bar */}
+      <div style={S.titleBar}>日結管理 &gt; {tab === 'current' ? '今日日結' : '歷史紀錄'}</div>
+
+      {/* Tab bar */}
+      <div style={S.tabBar}>
+        <div style={tab === 'current' ? S.tabActive : S.tab} onClick={() => setTab('current')}>今日日結</div>
+        <div style={tab === 'history' ? S.tabActive : S.tab} onClick={() => setTab('history')}>歷史紀錄</div>
       </div>
 
       {tab === 'current' && (
         <>
           {/* Date & Store selector */}
-          <div className="card" style={{ padding: 12, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div><label style={{ fontSize: 12, fontWeight: 600 }}>日期</label><input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ width: 'auto' }} /></div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600 }}>店舖</label>
-              <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} style={{ width: 'auto' }}>
-                <option value="all">全部店舖</option>
-                {STORE_NAMES.map(s => <option key={s}>{s}</option>)}
-              </select>
-            </div>
+          <div style={S.filterBar}>
+            <span style={S.filterLabel}>日期</span>
+            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={S.filterInput} />
+            <span style={S.filterLabel}>店舖</span>
+            <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)} style={S.filterSelect}>
+              <option value="all">全部店舖</option>
+              {STORE_NAMES.map(s => <option key={s}>{s}</option>)}
+            </select>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
               {isLocked ? (
-                <button className="btn btn-outline btn-sm" onClick={handleUnlock} style={{ color: '#dc2626', borderColor: '#dc2626' }}>🔓 解鎖結算</button>
+                <button style={{ ...S.actionBtn, background: ECTCM.btnDanger, border: '1px solid #aa0000' }} onClick={handleUnlock}>解鎖結算</button>
               ) : (
-                <button className="btn btn-outline btn-sm" onClick={handleLock} style={{ color: '#16a34a', borderColor: '#16a34a' }}>🔒 鎖定結算</button>
+                <button style={S.actionBtnGreen} onClick={handleLock}>鎖定結算</button>
               )}
-              <button className="btn btn-outline btn-sm" onClick={printDailyReport}>🖨️ 列印報表</button>
+              <button style={S.actionBtn} onClick={printDailyReport}>列印報表</button>
             </div>
           </div>
 
           {isLocked && (
-            <div className="card" style={{ background: '#fef2f2', border: '1px solid #ef4444', padding: 12, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ background: '#fef2f2', border: '1px solid #ef4444', padding: '8px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 18 }}>🔒</span>
               <div>
                 <strong style={{ color: '#dc2626' }}>此日結算已鎖定</strong>
@@ -201,62 +205,69 @@ export default function DailyClosing({ data, showToast, user }) {
             </div>
           )}
           {existingClosing && !isLocked && (
-            <div className="card" style={{ background: '#f0fdf4', border: '1px solid #16a34a', padding: 12, fontSize: 12 }}>
+            <div style={{ background: '#f0fdf4', border: '1px solid #16a34a', padding: '8px 12px', fontSize: 12 }}>
               此日已完成日結 ({new Date(existingClosing.closedAt).toLocaleString('zh-HK')})
               {existingClosing.discrepancy !== 0 && <span style={{ marginLeft: 8, color: existingClosing.discrepancy < 0 ? '#dc2626' : '#16a34a', fontWeight: 700 }}>差異: {fmtM(existingClosing.discrepancy)}</span>}
             </div>
           )}
 
           {/* Summary Stats */}
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-            <div className="stat-card teal"><div className="stat-label">總營業額</div><div className="stat-value teal">{fmtM(grandTotal)}</div></div>
-            <div className="stat-card green"><div className="stat-label">交易筆數</div><div className="stat-value green">{transactionCount}</div></div>
-            <div className="stat-card gold"><div className="stat-label">實收金額</div><div className="stat-value gold">{actualTotal > 0 ? fmtM(actualTotal) : '-'}</div></div>
-            <div className="stat-card" style={{ borderLeft: `4px solid ${discrepancy === 0 ? '#16a34a' : discrepancy > 0 ? '#0e7490' : '#dc2626'}` }}>
-              <div className="stat-label">差異</div>
-              <div className="stat-value" style={{ color: discrepancy === 0 ? '#16a34a' : discrepancy > 0 ? '#0e7490' : '#dc2626' }}>
+          <div style={{ display: 'flex', gap: 12, padding: '10px 12px', flexWrap: 'wrap' }}>
+            <div style={S.statCard}><div style={S.statValue}>{fmtM(grandTotal)}</div><div style={S.statLabel}>總營業額</div></div>
+            <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{transactionCount}</div><div style={S.statLabel}>交易筆數</div></div>
+            <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{actualTotal > 0 ? fmtM(actualTotal) : '-'}</div><div style={S.statLabel}>實收金額</div></div>
+            <div style={S.statCard}>
+              <div style={{ ...S.statValue, color: discrepancy === 0 ? '#16a34a' : discrepancy > 0 ? '#0e7490' : '#dc2626' }}>
                 {actualTotal > 0 ? fmtM(discrepancy) : '-'}
               </div>
+              <div style={S.statLabel}>差異</div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 12px' }}>
             {/* Payment Method Reconciliation */}
-            <div className="card">
-              <div className="card-header"><h3 style={{ margin: 0, fontSize: 14 }}>付款方式對賬</h3></div>
-              <table>
-                <thead><tr><th>付款方式</th><th style={{ textAlign: 'right' }}>應收</th><th style={{ width: 120 }}>實收</th><th style={{ textAlign: 'right' }}>差異</th></tr></thead>
+            <div style={{ background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
+              <div style={{ ...S.titleBar, fontSize: 12, padding: '5px 10px' }}>付款方式對賬</div>
+              <table style={S.table}>
+                <thead>
+                  <tr>
+                    <th style={S.th}>付款方式</th>
+                    <th style={{ ...S.th, textAlign: 'right' }}>應收</th>
+                    <th style={{ ...S.th, width: 120 }}>實收</th>
+                    <th style={{ ...S.th, textAlign: 'right' }}>差異</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {PAYMENT_METHODS.map(method => {
+                  {PAYMENT_METHODS.map((method, idx) => {
                     const expected = expectedTotals[method] || 0;
                     const actual = Number(actualAmounts[method] || 0);
                     const diff = actual - expected;
                     const hasActual = actualAmounts[method] !== undefined && actualAmounts[method] !== '';
                     return (
-                      <tr key={method} style={{ background: expected > 0 ? '' : 'var(--gray-50)' }}>
-                        <td style={{ fontWeight: expected > 0 ? 600 : 400 }}>{method}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{expected > 0 ? fmtM(expected) : '-'}</td>
-                        <td>
+                      <tr key={method} style={rowStyle(idx)}>
+                        <td style={{ ...S.td, fontWeight: expected > 0 ? 600 : 400 }}>{method}</td>
+                        <td style={{ ...S.td, textAlign: 'right', fontWeight: 600 }}>{expected > 0 ? fmtM(expected) : '-'}</td>
+                        <td style={S.td}>
                           <input
                             type="number"
                             step="0.01"
                             placeholder="輸入實收"
                             value={actualAmounts[method] || ''}
                             onChange={e => setActualAmounts({ ...actualAmounts, [method]: e.target.value })}
-                            style={{ width: '100%', textAlign: 'right', padding: '4px 8px', fontSize: 12 }}
+                            style={{ width: '100%', textAlign: 'right', padding: '3px 8px', fontSize: 12, border: '1px solid #999', borderRadius: 2 }}
                           />
                         </td>
-                        <td style={{ textAlign: 'right', fontWeight: 600, color: !hasActual ? 'var(--gray-300)' : diff === 0 ? '#16a34a' : diff > 0 ? '#0e7490' : '#dc2626' }}>
+                        <td style={{ ...S.td, textAlign: 'right', fontWeight: 600, color: !hasActual ? '#999' : diff === 0 ? '#16a34a' : diff > 0 ? '#0e7490' : '#dc2626' }}>
                           {hasActual ? fmtM(diff) : '-'}
                         </td>
                       </tr>
                     );
                   })}
-                  <tr style={{ fontWeight: 700, borderTop: '2px solid var(--gray-300)' }}>
-                    <td>合計</td>
-                    <td style={{ textAlign: 'right' }}>{fmtM(grandTotal)}</td>
-                    <td style={{ textAlign: 'right', padding: '4px 8px', fontSize: 12 }}>{actualTotal > 0 ? fmtM(actualTotal) : ''}</td>
-                    <td style={{ textAlign: 'right', color: discrepancy === 0 ? '#16a34a' : discrepancy > 0 ? '#0e7490' : '#dc2626' }}>
+                  <tr style={{ fontWeight: 700, borderTop: '2px solid #999' }}>
+                    <td style={S.td}>合計</td>
+                    <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(grandTotal)}</td>
+                    <td style={{ ...S.td, textAlign: 'right', fontSize: 12 }}>{actualTotal > 0 ? fmtM(actualTotal) : ''}</td>
+                    <td style={{ ...S.td, textAlign: 'right', color: discrepancy === 0 ? '#16a34a' : discrepancy > 0 ? '#0e7490' : '#dc2626' }}>
                       {actualTotal > 0 ? fmtM(discrepancy) : '-'}
                     </td>
                   </tr>
@@ -266,35 +277,47 @@ export default function DailyClosing({ data, showToast, user }) {
 
             {/* Doctor & Item breakdown */}
             <div>
-              <div className="card">
-                <div className="card-header"><h3 style={{ margin: 0, fontSize: 14 }}>醫師明細</h3></div>
-                <table>
-                  <thead><tr><th>醫師</th><th style={{ textAlign: 'right' }}>人次</th><th style={{ textAlign: 'right' }}>金額</th></tr></thead>
+              <div style={{ background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
+                <div style={{ ...S.titleBar, fontSize: 12, padding: '5px 10px' }}>醫師明細</div>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>醫師</th>
+                      <th style={{ ...S.th, textAlign: 'right' }}>人次</th>
+                      <th style={{ ...S.th, textAlign: 'right' }}>金額</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {byDoctor.map(([doc, d]) => (
-                      <tr key={doc}>
-                        <td style={{ fontWeight: 600 }}>{doc}</td>
-                        <td style={{ textAlign: 'right' }}>{d.count}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtM(d.total)}</td>
+                    {byDoctor.map(([doc, d], idx) => (
+                      <tr key={doc} style={rowStyle(idx)}>
+                        <td style={{ ...S.td, fontWeight: 600 }}>{doc}</td>
+                        <td style={{ ...S.td, textAlign: 'right' }}>{d.count}</td>
+                        <td style={{ ...S.td, textAlign: 'right', fontWeight: 600 }}>{fmtM(d.total)}</td>
                       </tr>
                     ))}
-                    {byDoctor.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--gray-400)' }}>暫無數據</td></tr>}
+                    {byDoctor.length === 0 && <tr><td colSpan={3} style={{ ...S.td, textAlign: 'center', color: '#999' }}>暫無數據</td></tr>}
                   </tbody>
                 </table>
               </div>
-              <div className="card" style={{ marginTop: 16 }}>
-                <div className="card-header"><h3 style={{ margin: 0, fontSize: 14 }}>服務項目明細</h3></div>
-                <table>
-                  <thead><tr><th>項目</th><th style={{ textAlign: 'right' }}>次數</th><th style={{ textAlign: 'right' }}>金額</th></tr></thead>
+              <div style={{ background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}`, marginTop: 12 }}>
+                <div style={{ ...S.titleBar, fontSize: 12, padding: '5px 10px' }}>服務項目明細</div>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>項目</th>
+                      <th style={{ ...S.th, textAlign: 'right' }}>次數</th>
+                      <th style={{ ...S.th, textAlign: 'right' }}>金額</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {byItem.map(([item, d]) => (
-                      <tr key={item}>
-                        <td>{item}</td>
-                        <td style={{ textAlign: 'right' }}>{d.count}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtM(d.total)}</td>
+                    {byItem.map(([item, d], idx) => (
+                      <tr key={item} style={rowStyle(idx)}>
+                        <td style={S.td}>{item}</td>
+                        <td style={{ ...S.td, textAlign: 'right' }}>{d.count}</td>
+                        <td style={{ ...S.td, textAlign: 'right', fontWeight: 600 }}>{fmtM(d.total)}</td>
                       </tr>
                     ))}
-                    {byItem.length === 0 && <tr><td colSpan={3} style={{ textAlign: 'center', color: 'var(--gray-400)' }}>暫無數據</td></tr>}
+                    {byItem.length === 0 && <tr><td colSpan={3} style={{ ...S.td, textAlign: 'center', color: '#999' }}>暫無數據</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -302,50 +325,64 @@ export default function DailyClosing({ data, showToast, user }) {
           </div>
 
           {/* Notes & Save */}
-          <div className="card" style={{ marginTop: 16 }}>
+          <div style={{ padding: '12px', margin: '12px' , background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontWeight: 600, fontSize: 13 }}>日結備註</label>
-              <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="記錄任何異常或備註..." style={{ marginTop: 4 }} />
+              <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="記錄任何異常或備註..." style={{ marginTop: 4, width: '100%', padding: '4px 8px', fontSize: 13, border: '1px solid #999', borderRadius: 2 }} />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-teal" onClick={handleSaveClosing} disabled={isLocked}>確認日結</button>
-              <button className="btn btn-outline" onClick={() => { setActualAmounts({}); setNotes(''); }}>清除</button>
+              <button style={S.actionBtnGreen} onClick={handleSaveClosing} disabled={isLocked}>確認日結</button>
+              <button style={S.actionBtn} onClick={() => { setActualAmounts({}); setNotes(''); }}>清除</button>
             </div>
           </div>
         </>
       )}
 
       {tab === 'history' && (
-        <div className="card">
-          <div className="card-header"><h3 style={{ margin: 0, fontSize: 14 }}>日結歷史</h3></div>
-          {closings.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--gray-400)' }}>暫無日結紀錄</div>
-          ) : (
-            <div className="table-wrap">
-              <table>
-                <thead><tr><th>日期</th><th>店舖</th><th style={{ textAlign: 'right' }}>應收</th><th style={{ textAlign: 'right' }}>實收</th><th style={{ textAlign: 'right' }}>差異</th><th>交易數</th><th>鎖定</th><th>備註</th><th>結算時間</th></tr></thead>
-                <tbody>
-                  {closings.map(c => (
-                    <tr key={c.id}>
-                      <td style={{ fontWeight: 600 }}>{c.date}</td>
-                      <td>{c.store === 'all' ? '全部' : c.store}</td>
-                      <td style={{ textAlign: 'right' }}>{fmtM(c.grandTotal)}</td>
-                      <td style={{ textAlign: 'right' }}>{fmtM(c.actualTotal)}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, color: c.discrepancy === 0 ? '#16a34a' : c.discrepancy > 0 ? '#0e7490' : '#dc2626' }}>
-                        {fmtM(c.discrepancy)}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>{c.transactionCount}</td>
-                      <td style={{ textAlign: 'center' }}>{locks.find(l => l.date === c.date && (l.store === c.store || l.store === 'all')) ? <span style={{ color: '#dc2626' }}>🔒</span> : <span style={{ color: '#ccc' }}>-</span>}</td>
-                      <td style={{ fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.notes || '-'}</td>
-                      <td style={{ fontSize: 11, color: 'var(--gray-500)' }}>{c.closedAt ? new Date(c.closedAt).toLocaleString('zh-HK') : '-'}</td>
+        <div style={{ padding: 12 }}>
+          <div style={{ background: ECTCM.cardBg, border: `1px solid ${ECTCM.borderColor}` }}>
+            <div style={{ ...S.titleBar, fontSize: 12, padding: '5px 10px' }}>日結歷史</div>
+            {closings.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#999' }}>暫無日結紀錄</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={S.table}>
+                  <thead>
+                    <tr>
+                      <th style={S.th}>日期</th>
+                      <th style={S.th}>店舖</th>
+                      <th style={{ ...S.th, textAlign: 'right' }}>應收</th>
+                      <th style={{ ...S.th, textAlign: 'right' }}>實收</th>
+                      <th style={{ ...S.th, textAlign: 'right' }}>差異</th>
+                      <th style={S.th}>交易數</th>
+                      <th style={S.th}>鎖定</th>
+                      <th style={S.th}>備註</th>
+                      <th style={S.th}>結算時間</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {closings.map((c, idx) => (
+                      <tr key={c.id} style={rowStyle(idx)}>
+                        <td style={{ ...S.td, fontWeight: 600 }}>{c.date}</td>
+                        <td style={S.td}>{c.store === 'all' ? '全部' : c.store}</td>
+                        <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(c.grandTotal)}</td>
+                        <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(c.actualTotal)}</td>
+                        <td style={{ ...S.td, textAlign: 'right', fontWeight: 700, color: c.discrepancy === 0 ? '#16a34a' : c.discrepancy > 0 ? '#0e7490' : '#dc2626' }}>
+                          {fmtM(c.discrepancy)}
+                        </td>
+                        <td style={{ ...S.td, textAlign: 'center' }}>{c.transactionCount}</td>
+                        <td style={{ ...S.td, textAlign: 'center' }}>{locks.find(l => l.date === c.date && (l.store === c.store || l.store === 'all')) ? <span style={{ color: '#dc2626' }}>🔒</span> : <span style={{ color: '#ccc' }}>-</span>}</td>
+                        <td style={{ ...S.td, fontSize: 11, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.notes || '-'}</td>
+                        <td style={{ ...S.td, fontSize: 11, color: '#666' }}>{c.closedAt ? new Date(c.closedAt).toLocaleString('zh-HK') : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
