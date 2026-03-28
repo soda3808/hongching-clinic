@@ -6,6 +6,7 @@ import { uid, fmtM, getMonth } from '../data';
 import { savePatient } from '../api';
 import { getClinicName, getTenantStoreNames } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 const VOUCHER_LIMIT = 2000; // Annual limit
 const ELIGIBLE_AGE = 65;
@@ -172,7 +173,8 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
   };
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>診症 &gt; 長者醫療券</div>
       {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card teal">
@@ -512,6 +514,6 @@ export default function ElderlyVoucherPage({ data, setData, showToast, allData, 
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

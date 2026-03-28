@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { fmtM, getMonth, monthLabel, getDoctors, getStoreNames } from '../data';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 const COLORS = ['#0e7490','#16a34a','#DAA520','#dc2626','#7C3AED','#0284c7','#f97316','#ec4899'];
@@ -228,7 +229,8 @@ export default function FinancialDashboard({ data, showToast, user }) {
   ];
 
   return (
-    <div>
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 財務總覽</div>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, fontWeight: 800, color: ACCENT, margin: 0 }}>財務總覽</h2>

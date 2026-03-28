@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { getStoreNames, TCM_HERBS_DB } from '../data';
 import { loadDrugPricing, persistDrugPricing, loadPriceHistory, persistPriceHistory } from '../api';
+import { S as ES, ECTCM } from '../styles/ectcm';
 
 const LS_PRICING = 'hcmc_drug_pricing';
 const LS_HISTORY = 'hcmc_price_history';
@@ -142,6 +143,8 @@ export default function DrugPricing({ data, setData, showToast, user }) {
   };
 
   return (
+    <div style={ES.page}>
+      <div style={ES.titleBar}>藥物管理 &gt; 藥物收費設定</div>
     <div style={S.page}>
       <h1 style={S.h1}>藥物定價與安全量管理</h1>
       <div style={S.tabs}>
@@ -271,6 +274,7 @@ export default function DrugPricing({ data, setData, showToast, user }) {
           </div>
         </div>
       </div>}
+    </div>
     </div>
   );
 }

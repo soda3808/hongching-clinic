@@ -3,6 +3,7 @@ import { getDoctors, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
 import { auditTrailOps } from '../api';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 const AUDIT_KEY = 'hcmc_audit_log';
 const OP_TYPES = ['全部', '新增', '修改', '刪除', '查看', '匯出', '列印'];
@@ -163,6 +164,8 @@ export default function AuditTrail({ data, showToast, user }) {
   ];
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>系統 &gt; 修改日誌</div>
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <h2 style={{ margin: 0, color: '#0e7490' }}>審計日誌</h2>
@@ -235,6 +238,7 @@ export default function AuditTrail({ data, showToast, user }) {
       )}
 
       {renderDetail()}
+    </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { fmtM, getMonth, monthLabel } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 const PAY_METHODS = ['現金', '信用卡', '醫療券', '轉賬', '其他'];
@@ -193,6 +194,8 @@ export default function CashFlowReport({ data, showToast, user }) {
   });
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 現金流報表</div>
     <div className="card">
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
@@ -452,6 +455,7 @@ export default function CashFlowReport({ data, showToast, user }) {
       <div style={{ marginTop: 16, fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
         報告期間：{monthLabel(selMonth)} | 產生時間：{new Date().toLocaleString('zh-HK')} | {getClinicName()}
       </div>
+    </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { uid, fmtM, getMonth } from '../data';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import ConfirmModal from './ConfirmModal';
 import { getTenantStoreNames } from '../tenant';
+import { S, ECTCM } from '../styles/ectcm';
 
 const CATEGORIES = ['保健品', '養生茶', '外用品', '其他'];
 const STORES = getTenantStoreNames();
@@ -206,7 +207,8 @@ export default function ProductPage({ data, setData, showToast, allData, user })
   const selectedSaleProduct = products.find(p => p.id === saleForm.productId);
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>商品管理 &gt; 我的商品</div>
       {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card teal"><div className="stat-label">總商品數</div><div className="stat-value teal">{stats.total}</div></div>
@@ -535,6 +537,6 @@ export default function ProductPage({ data, setData, showToast, allData, user })
       )}
 
       {deleteId && <ConfirmModal message="確認刪除此商品？" onConfirm={handleDelete} onCancel={() => setDeleteId(null)} />}
-    </>
+    </div>
   );
 }

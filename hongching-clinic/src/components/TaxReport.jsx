@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { fmtM, getMonth } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_tax_adjustments';
@@ -165,6 +166,8 @@ export default function TaxReport({ data, showToast, user }) {
   ];
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 稅務報表</div>
     <div style={{ padding: 16, maxWidth: 960, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
         <h2 style={{ margin: 0, color: ACCENT }}>稅務報告 (利得稅)</h2>
@@ -360,6 +363,7 @@ export default function TaxReport({ data, showToast, user }) {
       </>}
 
       <div style={{ textAlign: 'center', color: '#999', fontSize: 12, marginTop: 20 }}>此報告僅供內部參考，正式報稅請諮詢註冊會計師</div>
+    </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
+import { S, ECTCM } from '../styles/ectcm';
 
 const A = '#0e7490', BG = '#f0fdfa', BDR = '#cffafe', DANGER = '#dc2626', WARN = '#f59e0b', SUCCESS = '#16a34a';
 const card = { background: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)' };
@@ -493,6 +494,8 @@ export default function DataImport({ showToast, data, setData, user }) {
   });
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>系統 &gt; 數據匯入</div>
     <div style={containerStyle}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
@@ -1212,6 +1215,7 @@ export default function DataImport({ showToast, data, setData, user }) {
           }
         }
       `}</style>
+    </div>
     </div>
   );
 }

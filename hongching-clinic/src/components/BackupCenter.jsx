@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { getClinicName } from '../tenant';
 import { bulkImport, saveAllLocal } from '../api';
+import { S, ECTCM } from '../styles/ectcm';
 
 const A = '#0e7490', BG = '#f0fdfa', BDR = '#cffafe', DANGER = '#dc2626';
 const card = { background: '#fff', borderRadius: 10, padding: 16, marginBottom: 14, border: '1px solid #e5e7eb' };
@@ -173,6 +174,8 @@ export default function BackupCenter({ data, setData, showToast, user }) {
   ];
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>系統 &gt; 數據備份中心</div>
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 14 }}>
@@ -337,6 +340,7 @@ export default function BackupCenter({ data, setData, showToast, user }) {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }

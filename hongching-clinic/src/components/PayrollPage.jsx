@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { uid, fmtM, fmt } from '../data';
+import { S, ECTCM } from '../styles/ectcm';
 
 // ── Constants ──
 const STORAGE_KEY = 'hcmc_payroll';
@@ -695,6 +696,8 @@ export default function PayrollPage({ showToast, data, user }) {
   };
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>人事 &gt; 薪酬管理</div>
     <div style={styles.container}>
       {/* Tab Bar */}
       <div style={styles.tabBar}>
@@ -741,6 +744,7 @@ export default function PayrollPage({ showToast, data, user }) {
 
       {/* Detail Modal */}
       {renderDetailModal()}
+    </div>
     </div>
   );
 }

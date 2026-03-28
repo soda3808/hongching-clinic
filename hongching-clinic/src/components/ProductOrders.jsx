@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { uid, getStoreNames } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S as ES, ECTCM } from '../styles/ectcm';
 
 const LS_KEY = 'hcmc_product_orders';
 const STATUSES = [
@@ -119,6 +120,8 @@ export default function ProductOrders({ data, showToast, user }) {
   const S = { card: { background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', textAlign: 'center' }, badge: (st) => ({ padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, color: st.color, background: st.bg, display: 'inline-block' }) };
 
   return (
+    <div style={ES.page}>
+      <div style={ES.titleBar}>商品管理 &gt; 訂單管理</div>
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 18 }}>🛒 商品訂單管理</h2>
@@ -334,6 +337,7 @@ export default function ProductOrders({ data, showToast, user }) {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

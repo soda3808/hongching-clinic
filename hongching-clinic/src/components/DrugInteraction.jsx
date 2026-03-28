@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { S as ES, ECTCM } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_interaction_checks';
@@ -140,6 +141,8 @@ export default function DrugInteraction({ data, showToast, user }) {
   const clearHistory = () => { setHistory([]); saveJSON(LS_KEY, []); showToast('歷史記錄已清除'); };
 
   return (
+    <div style={ES.page}>
+      <div style={ES.titleBar}>藥物管理 &gt; 藥物相互作用</div>
     <div style={S.page}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <h2 style={S.h1}>藥物相互作用檢查</h2>
@@ -282,6 +285,7 @@ export default function DrugInteraction({ data, showToast, user }) {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { fmtM, getMonth, monthLabel, uid } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
 import { dailyClosingsOps, recurringExpensesOps, monthCloseOps, saveExpense } from '../api';
+import { S, ECTCM } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 
@@ -354,6 +355,8 @@ export default function MonthEndClosing({ data, setData, showToast, user, onNavi
   );
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 月結</div>
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
       {/* Header */}
       <div className="card" style={{ padding: 16, marginBottom: 16 }}>
@@ -666,6 +669,7 @@ export default function MonthEndClosing({ data, setData, showToast, user, onNavi
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

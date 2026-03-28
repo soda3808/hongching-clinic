@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { uid } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 const PO_KEY = 'hcmc_purchase_orders';
 const SUPPLIER_KEY = 'hcmc_suppliers';
@@ -108,6 +109,8 @@ export default function PurchaseOrders({ data, setData, showToast, user }) {
   }, [orders]);
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>藥物管理 &gt; 入貨管理</div>
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 18 }}>📦 進貨管理</h2>
@@ -255,6 +258,7 @@ export default function PurchaseOrders({ data, setData, showToast, user }) {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

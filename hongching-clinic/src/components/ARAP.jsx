@@ -4,6 +4,7 @@ import { uid, fmtM, fmt, getMonth } from '../data';
 import { getClinicName } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
 import ConfirmModal from './ConfirmModal';
+import { S, ECTCM } from '../styles/ectcm';
 
 export default function ARAP({ data, setData, showToast }) {
   const [tab, setTab] = useState('receivable');
@@ -202,7 +203,8 @@ export default function ARAP({ data, setData, showToast }) {
   };
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 應收應付</div>
       {/* Stats */}
       <div className="stats-grid">
         <div className="stat-card teal">
@@ -385,6 +387,6 @@ export default function ARAP({ data, setData, showToast }) {
       )}
 
       {deleteId && <ConfirmModal message={`確認刪除此${tab === 'receivable' ? '應收' : '應付'}帳紀錄？此操作無法復原。`} onConfirm={handleDel} onCancel={() => setDeleteId(null)} />}
-    </>
+    </div>
   );
 }

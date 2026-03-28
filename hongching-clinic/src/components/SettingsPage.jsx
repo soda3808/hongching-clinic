@@ -10,6 +10,7 @@ import { supabase } from '../supabase';
 import { getClinicName, getClinicNameEn, getTenantStores, getTenantStoreNames, getTenantDoctors, getTenantServices, getTenantSettings, getTenantSlug, applyTenantTheme } from '../tenant';
 import { getAuthHeader, getTenantConfig } from '../auth';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM } from '../styles/ectcm';
 
 export default function SettingsPage({ data, setData, showToast, user }) {
   const [tab, setTab] = useState('clinic');
@@ -274,7 +275,8 @@ export default function SettingsPage({ data, setData, showToast, user }) {
   const activeStores = stores.filter(s => s.active);
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>系統 &gt; 設定</div>
       {/* Tabs */}
       <div className="tab-bar" style={{ flexWrap: 'wrap' }}>
         {isAdmin && <button className={`tab-btn ${tab==='tenant'?'active':''}`} onClick={()=>setTab('tenant')}>🌐 租戶設定</button>}
@@ -1222,6 +1224,6 @@ export default function SettingsPage({ data, setData, showToast, user }) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

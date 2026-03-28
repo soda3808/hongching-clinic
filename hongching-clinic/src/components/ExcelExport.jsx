@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { fmtM } from '../data';
+import { S, ECTCM } from '../styles/ectcm';
 
 const A = '#0e7490';
 const card = { background: '#fff', borderRadius: 10, padding: 16, marginBottom: 14, border: '1px solid #e5e7eb' };
@@ -149,6 +150,8 @@ export default function ExcelExport({ data, showToast, user }) {
   const stats = useMemo(() => CATEGORIES.map(c => ({ ...c, count: getRows(c).length })), [data, dateFrom, dateTo]);
 
   return (
+    <div style={S.page}>
+      <div style={S.titleBar}>系統 &gt; 數據匯出</div>
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       <h2 style={{ fontSize: 20, fontWeight: 800, color: A, marginBottom: 4 }}>數據匯出中心</h2>
       <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16 }}>選擇類別、日期範圍及格式，預覽後匯出 CSV / JSON</p>
@@ -291,6 +294,7 @@ export default function ExcelExport({ data, showToast, user }) {
           )}
         </div>
       )}
+    </div>
     </div>
   );
 }
