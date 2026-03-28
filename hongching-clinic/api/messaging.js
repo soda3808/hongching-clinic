@@ -2434,6 +2434,19 @@ function parseECTCMTable(html) {
   return results;
 }
 
+// Helper to collect cookies from response headers
+function collectCookies(res, existing = '') {
+  const raw = res.headers.getSetCookie?.() || [];
+  const newCookies = raw.map(c => c.split(';')[0]);
+  const existingPairs = existing ? existing.split('; ').filter(Boolean) : [];
+  const map = new Map();
+  [...existingPairs, ...newCookies].forEach(c => {
+    const [k] = c.split('=');
+    if (k) map.set(k.trim(), c);
+  });
+  return Array.from(map.values()).join('; ');
+}
+
 async function scrapeECTCM(date) {
   const username = process.env.ECTCM_USERNAME;
   const password = process.env.ECTCM_PASSWORD;
@@ -2442,43 +2455,96 @@ async function scrapeECTCM(date) {
 
   if (!username || !password) throw new Error('eCTCM credentials not configured');
 
-  // Step 1: Login — POST form data to /Login
-  const loginBody = new URLSearchParams({
-    UserName: username,
-    Password: password,
+  let cookies = '';
+
+  // Step 1: GET /Login to establish session cookie
+  const initRes = await fetch('https://os.ectcm.com/Login', { redirect: 'manual' });
+  cookies = collectCookies(initRes, cookies);
+
+  // Step 2: POST /Login/ValidateLogin — authenticate
+  const validateBody = new URLSearchParams({
+    LoginName: username,
+    EncryptedPassword: password,
+    AccessTicket: '',
+    BrowserVersion: 'Chrome 120',
   });
 
-  const loginRes = await fetch('https://os.ectcm.com/Login', {
+  const validateRes = await fetch('https://os.ectcm.com/Login/ValidateLogin', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: loginBody.toString(),
-    redirect: 'manual', // Don't follow redirect, capture cookies
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Cookie': cookies,
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: validateBody.toString(),
+    redirect: 'manual',
   });
+  cookies = collectCookies(validateRes, cookies);
 
-  // Collect session cookies from login response
-  const setCookies = loginRes.headers.getSetCookie?.() || [];
-  const cookies = setCookies.map(c => c.split(';')[0]).join('; ');
+  const validateResult = await validateRes.text();
+  console.log('eCTCM ValidateLogin result:', validateResult?.substring(0, 100));
 
-  if (!cookies) {
-    // Try following redirect and getting cookies from there
-    const loginRes2 = await fetch('https://os.ectcm.com/Login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: loginBody.toString(),
-    });
-    if (loginRes2.url?.includes('/Login')) throw new Error('Login failed — check credentials');
+  // Response "2" = multi-clinic, need to select clinic
+  // Response "4" = wrong credentials
+  // Response URL = success (single clinic)
+  if (validateResult === '4' || validateResult.startsWith('4_')) {
+    throw new Error('Login failed — wrong username or password');
   }
 
-  // Step 2: Select clinic (if multi-clinic login required)
-  // Try selecting the clinic by visiting the clinic selection endpoint
-  try {
-    await fetch(`https://os.ectcm.com/Login/SelectClinic?clinicId=${clinicId}`, {
-      headers: { Cookie: cookies },
-      redirect: 'follow',
+  if (validateResult === '2') {
+    // Step 3: Multi-clinic — POST /Login/ValidateLogin again with ClinicID
+    const clinicBody = new URLSearchParams({
+      LoginName: username,
+      EncryptedPassword: password,
+      AccessTicket: '',
+      BrowserVersion: 'Chrome 120',
+      ClinicID: clinicId,
+      IsSkipMFACheck: 'True',
+      AllowGrantLoginCookie: 'True',
     });
-  } catch {}
 
-  // Step 3: Fetch today's patient list via DispenseMedicines/Search API
+    const clinicRes = await fetch('https://os.ectcm.com/Login/ValidateLogin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': cookies,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: clinicBody.toString(),
+      redirect: 'manual',
+    });
+    cookies = collectCookies(clinicRes, cookies);
+
+    const clinicResult = await clinicRes.text();
+    console.log('eCTCM clinic select result:', clinicResult?.substring(0, 100));
+
+    // Follow the redirect URL to complete login
+    if (clinicResult && clinicResult.includes('http')) {
+      const finalRes = await fetch(clinicResult, {
+        headers: { Cookie: cookies },
+        redirect: 'manual',
+      });
+      cookies = collectCookies(finalRes, cookies);
+    } else if (clinicResult && clinicResult.startsWith('/')) {
+      const finalRes = await fetch('https://os.ectcm.com' + clinicResult, {
+        headers: { Cookie: cookies },
+        redirect: 'manual',
+      });
+      cookies = collectCookies(finalRes, cookies);
+    }
+  } else if (validateResult && (validateResult.includes('http') || validateResult.startsWith('/'))) {
+    // Single clinic — follow redirect
+    const url = validateResult.startsWith('/') ? 'https://os.ectcm.com' + validateResult : validateResult;
+    const finalRes = await fetch(url, {
+      headers: { Cookie: cookies },
+      redirect: 'manual',
+    });
+    cookies = collectCookies(finalRes, cookies);
+  }
+
+  if (!cookies) throw new Error('Login failed — no session cookies');
+
+  // Step 4: Fetch today's patient list via DispenseMedicines/Search API
   const searchBody = new URLSearchParams({
     CodeID: '',
     Keyword: '',
