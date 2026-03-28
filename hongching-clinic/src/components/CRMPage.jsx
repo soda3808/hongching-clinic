@@ -3,6 +3,7 @@ import { saveConversation, openWhatsApp, saveInquiry } from '../api';
 import { uid, CLINIC_PRICING } from '../data';
 import { getClinicName, getTenantStores, getTenantStoreNames } from '../tenant';
 import { useFocusTrap, nullRef } from './ConfirmModal';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 
 function buildQuickReplies() {
@@ -399,11 +400,11 @@ export default function CRMPage({ data, setData, showToast }) {
   };
 
   return (
-    <div>
-      <h2 style={{ marginBottom: 12 }}>WhatsApp CRM</h2>
+    <div style={S.page}>
+      <div style={S.titleBar}>顧客管理 &gt; 顧客分析</div>
 
       {/* Tab bar */}
-      <div className="tab-bar" style={{ marginBottom: 16 }}>
+      <div className="tab-bar" style={{ marginBottom: 0 }}>
         <button className={`tab-btn${tab === 'inquiries' ? ' active' : ''}`} onClick={() => setTab('inquiries')}>
           客人查詢{newInquiries.length > 0 ? ` (${newInquiries.length})` : ''}
         </button>

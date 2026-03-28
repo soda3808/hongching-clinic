@@ -4,6 +4,7 @@ import { getClinicName, getClinicNameEn, getTenantStoreNames } from '../tenant';
 import { monthCloseOps } from '../api';
 import escapeHtml from '../utils/escapeHtml';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 // Lazy-loaded sub-reports for code splitting
 const DoctorConsultRate = lazy(() => import('./reports/DoctorConsultRate'));
@@ -771,11 +772,13 @@ export default function Reports({ data }) {
   const showMonthFilter = ['monthly', 'doctor', 'patient', 'consultrate', 'regstats', 'treatment', 'serviceusage', 'paymethod', 'close'].includes(reportType);
 
   return (
-    <>
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 報表中心</div>
+
       {/* Report Type Tabs — Grouped */}
       {REPORT_GROUPS.map(group => (
         <div key={group.label} style={{ marginBottom: 2 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gray-400)', padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1 }}>{group.label}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: ECTCM.textMuted, padding: '4px 8px', textTransform: 'uppercase', letterSpacing: 1 }}>{group.label}</div>
           <div className="tab-bar" style={{ flexWrap: 'wrap', marginBottom: 0 }}>
             {group.tabs.map(tab => (
               <button key={tab.id} className={`tab-btn ${reportType === tab.id ? 'active' : ''}`} onClick={() => setReportType(tab.id)}>
@@ -787,7 +790,7 @@ export default function Reports({ data }) {
       ))}
 
       {/* Filters */}
-      <div className="card" style={{ padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div style={S.filterBar}>
         {showMonthFilter && (
           <div>
             <label>月份</label>
@@ -850,7 +853,7 @@ export default function Reports({ data }) {
         {reportType === 'executive' && <MonthlyExecutiveReport data={data} />}
       </Suspense>
       {reportType === 'close' && <MonthlyClose data={data} selectedMonth={selectedMonth} />}
-    </>
+    </div>
   );
 }
 

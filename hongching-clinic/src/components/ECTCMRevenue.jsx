@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { fmtM, getEmployees, uid } from '../data';
 import { saveRevenue } from '../api';
+import { S as ES, ECTCM, rowStyle } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 const LS_KEY = 'hcmc_ectcm_monthly';
@@ -222,7 +223,9 @@ export default function ECTCMRevenue({ showToast }) {
   ];
 
   return (
-    <div style={S.page}>
+    <div style={ES.page}>
+      <div style={ES.titleBar}>營運報表 &gt; eCTCM營收追蹤</div>
+      <div style={S.page}>
       <h2 style={S.h1}>eCTCM 營收追蹤</h2>
       <div style={S.sub}>中醫在線系統月度營運數據 — 醫師銷售統計 × Commission 計算</div>
 
@@ -595,6 +598,7 @@ export default function ECTCMRevenue({ showToast }) {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

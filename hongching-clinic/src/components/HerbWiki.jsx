@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import escapeHtml from '../utils/escapeHtml';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 const FAV_KEY = 'hcmc_herb_favorites';
@@ -131,13 +132,13 @@ h1{color:${ACCENT};font-size:22px;border-bottom:2px solid ${ACCENT};padding-bott
   };
 
   return (
-    <div style={s.wrap}>
-      <div style={s.hdr}>
-        <h2 style={s.title}>中藥百科</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input style={s.search} placeholder="搜尋：藥名、拼音、功效⋯" value={search} onChange={e => setSearch(e.target.value)} />
-          <button style={s.favBtn} onClick={() => setShowFavOnly(!showFavOnly)}>{showFavOnly ? '★ 收藏中' : '☆ 收藏'}</button>
-        </div>
+    <div style={S.page}>
+      <div style={S.titleBar}>藥物管理 &gt; 中藥管理</div>
+      <div style={s.wrap}>
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>搜尋</span>
+        <input style={{ ...S.filterInput, width: 220 }} placeholder="藥名、拼音、功效⋯" value={search} onChange={e => setSearch(e.target.value)} />
+        <button style={s.favBtn} onClick={() => setShowFavOnly(!showFavOnly)}>{showFavOnly ? '★ 收藏中' : '☆ 收藏'}</button>
       </div>
 
       <div style={s.cats}>
@@ -197,6 +198,7 @@ h1{color:${ACCENT};font-size:22px;border-bottom:2px solid ${ACCENT};padding-bott
           ))}
         </div>
       )}
+    </div>
     </div>
   );
 }

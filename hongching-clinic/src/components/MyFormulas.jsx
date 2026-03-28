@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { uid, TCM_HERBS_DB, TCM_FORMULAS_DB } from '../data';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const STORAGE_KEY = 'hcmc_custom_formulas';
 const FAV_HERBS_KEY = 'hcmc_fav_herbs';
@@ -81,9 +82,11 @@ export default function MyFormulas({ showToast, user }) {
   const updateHerb = (i, key, val) => setForm(f => ({ ...f, herbs: f.herbs.map((h, j) => j === i ? { ...h, [key]: val } : h) }));
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+    <div style={S.page}>
+      <div style={S.titleBar}>個人管理 &gt; 我的常用複方管理</div>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '12px' }}>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>💊 我的常用藥/複方</h2>
+        <h2 style={{ margin: 0, fontSize: 18 }}>我的常用藥/複方</h2>
         <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', gap: 4, background: '#f3f4f6', borderRadius: 8, padding: 2 }}>
           {[['formulas', `我的處方 (${formulas.length})`], ['herbs', `常用藥 (${favHerbs.length})`], ['library', `方劑庫 (${TCM_FORMULAS_DB.length})`]].map(([k, label]) => (
@@ -93,8 +96,9 @@ export default function MyFormulas({ showToast, user }) {
       </div>
 
       {/* Search & Actions */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <input value={tab === 'herbs' ? herbSearch : search} onChange={e => tab === 'herbs' ? setHerbSearch(e.target.value) : setSearch(e.target.value)} placeholder={tab === 'herbs' ? '搜尋藥材（名稱/拼音/分類）...' : '搜尋處方...'} className="input" style={{ flex: 1, minWidth: 200 }} />
+      <div style={S.filterBar}>
+        <span style={S.filterLabel}>搜尋</span>
+        <input value={tab === 'herbs' ? herbSearch : search} onChange={e => tab === 'herbs' ? setHerbSearch(e.target.value) : setSearch(e.target.value)} placeholder={tab === 'herbs' ? '搜尋藥材（名稱/拼音/分類）...' : '搜尋處方...'} style={{ ...S.filterInput, flex: 1, minWidth: 200 }} />
         {tab === 'formulas' && <button onClick={() => { setShowAdd(true); setEditId(null); setForm({ name: '', indication: '', herbs: [{ herb: '', dosage: '' }], instructions: '每日一劑，水煎服', days: 3, notes: '' }); }} className="btn btn-primary">+ 新增處方</button>}
       </div>
 
@@ -203,6 +207,7 @@ export default function MyFormulas({ showToast, user }) {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

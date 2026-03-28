@@ -3,6 +3,7 @@ import { getClinicName } from '../tenant';
 import { getTenantStoreNames } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
 import { fmtM, getMonth, monthLabel } from '../data';
+import { S, ECTCM, rowStyle } from '../styles/ectcm';
 
 const ACCENT = '#0e7490';
 
@@ -241,11 +242,13 @@ export default function IncomeStatement({ data, showToast, user }) {
   const big = { fontSize: 20, fontWeight: 800 };
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+    <div style={S.page}>
+      <div style={S.titleBar}>營運報表 &gt; 收費總額報表</div>
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '12px' }}>
       <div className="card">
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 800, color: ACCENT, margin: 0 }}>📊 損益表 P&L</h3>
+          <h3 style={{ fontSize: 16, fontWeight: 800, color: ACCENT, margin: 0 }}>損益表 P&L</h3>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select value={mode} onChange={e => setMode(e.target.value)} style={{ width: 'auto', fontSize: 12 }}>
               <option value="month">按月</option>
@@ -326,7 +329,7 @@ export default function IncomeStatement({ data, showToast, user }) {
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: ACCENT }}>收入明細</div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>項目</th><th style={{ textAlign: 'right' }}>金額</th><th style={{ textAlign: 'right' }}>佔比</th></tr></thead>
+                <thead><tr><th style={S.th}>項目</th><th style={{ ...S.th, textAlign: 'right' }}>金額</th><th style={{ ...S.th, textAlign: 'right' }}>佔比</th></tr></thead>
                 <tbody>
                   {REV_ORDER.map(k => {
                     const v = revBreakdown.map[k] || 0;
@@ -353,7 +356,7 @@ export default function IncomeStatement({ data, showToast, user }) {
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: '#dc2626' }}>開支明細</div>
             <div className="table-wrap">
               <table>
-                <thead><tr><th>類別</th><th style={{ textAlign: 'right' }}>金額</th><th style={{ textAlign: 'right' }}>佔比</th></tr></thead>
+                <thead><tr><th style={S.th}>類別</th><th style={{ ...S.th, textAlign: 'right' }}>金額</th><th style={{ ...S.th, textAlign: 'right' }}>佔比</th></tr></thead>
                 <tbody>
                   {EXP_ORDER.map(k => {
                     const v = expBreakdown.map[k] || 0;
@@ -493,6 +496,7 @@ export default function IncomeStatement({ data, showToast, user }) {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
