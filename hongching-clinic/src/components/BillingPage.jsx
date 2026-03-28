@@ -724,25 +724,25 @@ export default function BillingPage({ data, setData, showToast, allData, user })
 
       {/* Payment Method Selector */}
       {payMethodItem && (
-        <div className="modal-overlay" onClick={() => setPayMethodItem(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
-            <h3 style={{ marginBottom: 12 }}>收費方式</h3>
-            <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--gray-600)' }}>
+        <div style={S.modalOverlay} onClick={() => setPayMethodItem(null)}>
+          <div style={{ ...S.modal, maxWidth: 360 }} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}><span>收費方式</span></div>
+            <div style={S.modalBody}>
+            <div style={{ fontSize: 13, marginBottom: 12, color: '#4b5563' }}>
               <strong>{payMethodItem.patientName}</strong> ({payMethodItem.queueNo})<br />
-              金額：<strong style={{ fontSize: 16, color: 'var(--teal-700)' }}>{fmtM(payMethodItem.serviceFee)}</strong>
+              金額：<strong style={{ fontSize: 16, color: '#0f766e' }}>{fmtM(payMethodItem.serviceFee)}</strong>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
               {['FPS', '現金', 'PayMe', '信用卡'].map(m => (
-                <button key={m} className={`btn ${payMethod === m ? 'btn-teal' : 'btn-outline'}`}
-                  style={{ padding: '10px 0', fontSize: 14, fontWeight: payMethod === m ? 700 : 400 }}
+                <button key={m} style={{ ...S.actionBtn, padding: '10px 0', fontSize: 14, fontWeight: payMethod === m ? 700 : 400, background: payMethod === m ? ECTCM.headerBg : '#fff', color: payMethod === m ? '#fff' : '#333', border: payMethod === m ? `1px solid ${ECTCM.headerBorder}` : '1px solid #ddd' }}
                   onClick={() => setPayMethod(m)}>
                   {m === 'FPS' ? '📱 FPS' : m === '現金' ? '💵 現金' : m === 'PayMe' ? '💳 PayMe' : '💳 信用卡'}
                 </button>
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setPayMethodItem(null)}>取消</button>
-              <button className="btn btn-teal" style={{ flex: 1, fontWeight: 700 }} onClick={() => {
+              <button style={{ ...S.actionBtn, flex: 1, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setPayMethodItem(null)}>取消</button>
+              <button style={{ ...S.actionBtn, flex: 1, fontWeight: 700 }} onClick={() => {
                 if (payMethodItem._quick) {
                   const { _quick, ...item } = payMethodItem;
                   quickProcess(item, payMethod);
@@ -753,22 +753,24 @@ export default function BillingPage({ data, setData, showToast, allData, user })
                 確認收費
               </button>
             </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Partial Payment Modal (#47) */}
       {partialItem && (
-        <div className="modal-overlay" onClick={() => setPartialItem(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <h3>部分收費</h3>
-            <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--gray-600)' }}>
+        <div style={S.modalOverlay} onClick={() => setPartialItem(null)}>
+          <div style={{ ...S.modal, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}><span>部分收費</span></div>
+            <div style={S.modalBody}>
+            <div style={{ fontSize: 13, marginBottom: 12, color: '#4b5563' }}>
               <strong>{partialItem.patientName}</strong> ({partialItem.queueNo})<br />
               總費用：<strong>{fmtM(partialItem.serviceFee)}</strong>
               {partialItem.paidAmount > 0 && <> ・已收：<strong>{fmtM(partialItem.paidAmount)}</strong> ・餘額：<strong>{fmtM(Number(partialItem.serviceFee) - Number(partialItem.paidAmount || 0))}</strong></>}
             </div>
             {(partialItem.payments || []).length > 0 && (
-              <div style={{ marginBottom: 12, fontSize: 11, background: 'var(--gray-50)', padding: 8, borderRadius: 6 }}>
+              <div style={{ marginBottom: 12, fontSize: 11, background: '#f9fafb', padding: 8, borderRadius: 6 }}>
                 <strong>付款紀錄：</strong>
                 {partialItem.payments.map((p, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
@@ -778,7 +780,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
                 ))}
               </div>
             )}
-            <div className="grid-2" style={{ marginBottom: 12 }}>
+            <div style={{ ...S.grid2, marginBottom: 12 }}>
               <div>
                 <label>收取金額 *</label>
                 <input type="number" value={partialAmt} onChange={e => setPartialAmt(e.target.value)} placeholder="金額" autoFocus />
@@ -791,8 +793,9 @@ export default function BillingPage({ data, setData, showToast, allData, user })
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-teal" onClick={handlePartialPay}>確認收費</button>
-              <button className="btn btn-outline" onClick={() => setPartialItem(null)}>取消</button>
+              <button style={S.actionBtn} onClick={handlePartialPay}>確認收費</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setPartialItem(null)}>取消</button>
+            </div>
             </div>
           </div>
         </div>
@@ -800,10 +803,11 @@ export default function BillingPage({ data, setData, showToast, allData, user })
 
       {/* Refund Modal (#47) */}
       {refundItem && (
-        <div className="modal-overlay" onClick={() => setRefundItem(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <h3 style={{ color: '#dc2626' }}>退款處理</h3>
-            <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--gray-600)' }}>
+        <div style={S.modalOverlay} onClick={() => setRefundItem(null)}>
+          <div style={{ ...S.modal, maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+            <div style={{ ...S.modalHeader, background: '#dc2626' }}><span>退款處理</span></div>
+            <div style={S.modalBody}>
+            <div style={{ fontSize: 13, marginBottom: 12, color: '#4b5563' }}>
               <strong>{refundItem.patientName}</strong> ({refundItem.queueNo})<br />
               已收費：<strong>{fmtM(refundItem.paidAmount || refundItem.serviceFee)}</strong>
               {refundItem.totalRefunded > 0 && <> ・已退：<strong style={{ color: '#dc2626' }}>{fmtM(refundItem.totalRefunded)}</strong></>}
@@ -828,8 +832,9 @@ export default function BillingPage({ data, setData, showToast, allData, user })
               <input value={refundReason} onChange={e => setRefundReason(e.target.value)} placeholder="退款原因（選填）" />
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-red" onClick={handleRefund}>確認退款</button>
-              <button className="btn btn-outline" onClick={() => setRefundItem(null)}>取消</button>
+              <button style={S.btnDanger} onClick={handleRefund}>確認退款</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ddd' }} onClick={() => setRefundItem(null)}>取消</button>
+            </div>
             </div>
           </div>
         </div>
@@ -837,7 +842,7 @@ export default function BillingPage({ data, setData, showToast, allData, user })
 
       {/* Print-only receipt (fallback) */}
       {receiptItem && (
-        <div className="print-only" style={{ padding: 24, maxWidth: 280, margin: '0 auto', fontFamily: "'Microsoft YaHei', monospace" }}>
+        <div style={{ display: 'none', padding: 24, maxWidth: 280, margin: '0 auto', fontFamily: "'Microsoft YaHei', monospace" }}>
           <div style={{ textAlign: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 14, fontWeight: 800 }}>{getClinicName()}</div>
             <div style={{ fontSize: 9, color: '#666' }}>{getClinicNameEn().toUpperCase()}</div>
