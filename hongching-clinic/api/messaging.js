@@ -2386,21 +2386,9 @@ async function handleWhatsAppBatchFollowup(req, res) {
 
 // ── Main Router ──
 // ══════════════════════════════════════════════════════════════
-// eCTCM Auto-Scraper — fetches today's patient list from os.ectcm.com
+// eCTCM Auto-Scraper — Direct HTTP API (no Puppeteer needed)
+// POST /DispenseMedicines/Search returns HTML table
 // ══════════════════════════════════════════════════════════════
-
-let _chromium, _puppeteer;
-
-async function getECTCMBrowser() {
-  if (!_chromium) _chromium = (await import('@sparticuz/chromium')).default;
-  if (!_puppeteer) _puppeteer = (await import('puppeteer-core')).default;
-  return _puppeteer.launch({
-    args: _chromium.args,
-    defaultViewport: { width: 1280, height: 900 },
-    executablePath: await _chromium.executablePath(),
-    headless: _chromium.headless,
-  });
-}
 
 function classifyTreatment(service) {
   const s = service || '';
@@ -2411,79 +2399,124 @@ function classifyTreatment(service) {
   return 'acupuncture';
 }
 
+// Simple HTML table parser — extracts rows from eCTCM HTML response
+function parseECTCMTable(html) {
+  const results = [];
+  // Match each <tr> that contains <td> cells
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  while ((rowMatch = rowRegex.exec(html)) !== null) {
+    const rowHtml = rowMatch[1];
+    const cells = [];
+    const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    let cellMatch;
+    while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
+      // Strip HTML tags and trim
+      cells.push(cellMatch[1].replace(/<[^>]*>/g, '').trim());
+    }
+    if (cells.length < 9) continue;
+    // Skip header rows
+    if (cells[0]?.includes('診所') || cells[4]?.includes('顧客姓名')) continue;
+    const patientName = cells[4] || '';
+    if (!patientName || patientName === '-') continue;
+    results.push({
+      store: cells[0] || '',
+      date: cells[1] || '',
+      queueNo: cells[2] || '',
+      customerCode: cells[3] || '',
+      patientName,
+      gender: cells[5] || '',
+      age: cells[6] || '',
+      doctor: cells[7] || '',
+      service: cells[8] || '',
+    });
+  }
+  return results;
+}
+
 async function scrapeECTCM(date) {
   const username = process.env.ECTCM_USERNAME;
   const password = process.env.ECTCM_PASSWORD;
+  const clinicId = process.env.ECTCM_CLINIC_ID || '890';
+  const clinicIds = process.env.ECTCM_CLINIC_IDS || '0,890,1167';
+
   if (!username || !password) throw new Error('eCTCM credentials not configured');
 
-  const browser = await getECTCMBrowser();
-  const page = await browser.newPage();
+  // Step 1: Login — POST form data to /Login
+  const loginBody = new URLSearchParams({
+    UserName: username,
+    Password: password,
+  });
 
-  try {
-    await page.goto('https://os.ectcm.com/Login', { waitUntil: 'networkidle2', timeout: 30000 });
-    await page.waitForSelector('input[type="password"]', { timeout: 10000 });
+  const loginRes = await fetch('https://os.ectcm.com/Login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: loginBody.toString(),
+    redirect: 'manual', // Don't follow redirect, capture cookies
+  });
 
-    // Find username input
-    const userSelectors = ['input[name="username"]', 'input[name="userName"]', 'input[name="account"]', 'input[name="loginId"]', 'input[type="text"]:not([type="password"])'];
-    let userInput = null;
-    for (const sel of userSelectors) { userInput = await page.$(sel); if (userInput) break; }
-    if (!userInput) userInput = await page.$('input:not([type="password"]):not([type="hidden"]):not([type="submit"]):not([type="checkbox"])');
-    if (!userInput) throw new Error('Cannot find username input');
+  // Collect session cookies from login response
+  const setCookies = loginRes.headers.getSetCookie?.() || [];
+  const cookies = setCookies.map(c => c.split(';')[0]).join('; ');
 
-    await userInput.click({ clickCount: 3 });
-    await userInput.type(username, { delay: 50 });
-
-    const pwInput = await page.$('input[type="password"]');
-    if (!pwInput) throw new Error('Cannot find password input');
-    await pwInput.click({ clickCount: 3 });
-    await pwInput.type(password, { delay: 50 });
-
-    // Submit
-    const submitSels = ['button[type="submit"]', 'input[type="submit"]', 'button.login', '.btn-login', '#loginBtn'];
-    let submitted = false;
-    for (const sel of submitSels) {
-      try {
-        const btn = await page.$(sel);
-        if (btn) { const t = await page.evaluate(el => el.textContent || el.value || '', btn); if (t.includes('登') || t.includes('Login') || sel.includes('submit')) { await btn.click(); submitted = true; break; } }
-      } catch {}
-    }
-    if (!submitted) await pwInput.press('Enter');
-
-    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {});
-    await new Promise(r => setTimeout(r, 3000));
-
-    if (page.url().includes('/Login') || page.url().includes('/login')) throw new Error('Login failed — check credentials');
-
-    // Navigate to dispensary page
-    for (const url of ['https://os.ectcm.com/Dispensary', 'https://os.ectcm.com/Dispensary/List', 'https://os.ectcm.com/Billing']) {
-      try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 10000 }); if (await page.$('table')) break; } catch {}
-    }
-
-    // Click 當天記錄 if available
-    try {
-      const btns = await page.$$('button, a, .btn');
-      for (const b of btns) { const t = await page.evaluate(el => el.textContent || '', b); if (t.includes('當天記錄') || t.includes('當天')) { await b.click(); await new Promise(r => setTimeout(r, 2000)); break; } }
-    } catch {}
-
-    await page.waitForSelector('table', { timeout: 10000 });
-
-    const patients = await page.evaluate(() => {
-      const results = [];
-      for (const table of document.querySelectorAll('table')) {
-        for (const row of table.querySelectorAll('tbody tr, tr')) {
-          const cells = row.querySelectorAll('td');
-          if (cells.length < 9) continue;
-          const v = Array.from(cells).map(c => (c.textContent || '').trim());
-          if (v[0]?.includes('診所') || v[4]?.includes('顧客姓名') || !v[4] || v[4] === '-') continue;
-          results.push({ store: v[0], date: v[1], queueNo: v[2], customerCode: v[3], patientName: v[4], gender: v[5], age: v[6], doctor: v[7], service: v[8] });
-        }
-      }
-      return results;
+  if (!cookies) {
+    // Try following redirect and getting cookies from there
+    const loginRes2 = await fetch('https://os.ectcm.com/Login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: loginBody.toString(),
     });
+    if (loginRes2.url?.includes('/Login')) throw new Error('Login failed — check credentials');
+  }
 
-    await browser.close();
-    return patients.map(p => ({ ...p, treatmentType: classifyTreatment(p.service) }));
-  } catch (err) { await browser.close(); throw err; }
+  // Step 2: Select clinic (if multi-clinic login required)
+  // Try selecting the clinic by visiting the clinic selection endpoint
+  try {
+    await fetch(`https://os.ectcm.com/Login/SelectClinic?clinicId=${clinicId}`, {
+      headers: { Cookie: cookies },
+      redirect: 'follow',
+    });
+  } catch {}
+
+  // Step 3: Fetch today's patient list via DispenseMedicines/Search API
+  const searchBody = new URLSearchParams({
+    CodeID: '',
+    Keyword: '',
+    SortBy: '',
+    SortDir: '',
+    PageIndex: '1',
+    PrescriptionStatus: '',
+    PaymentStatus: '',
+    IsRelatedPrescribeClinic: 'false',
+    DoctorName: '',
+    ClientName: '',
+    PurchaseStartDate: '',
+    PurchaseEndDate: '',
+    PaymentType: '',
+    ClinicID: clinicId,
+    RegistertDate: date,
+    HasClinicListPermission: 'true',
+    ClinicIDs: clinicIds,
+  });
+
+  const searchRes = await fetch('https://os.ectcm.com/DispenseMedicines/Search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Cookie': cookies,
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+    body: searchBody.toString(),
+  });
+
+  if (!searchRes.ok) throw new Error(`eCTCM Search failed: ${searchRes.status}`);
+
+  const html = await searchRes.text();
+  if (!html || html.length < 50) throw new Error('Empty response from eCTCM — session may have expired');
+
+  // Step 4: Parse HTML table
+  const patients = parseECTCMTable(html);
+  return patients.map(p => ({ ...p, treatmentType: classifyTreatment(p.service) }));
 }
 
 async function handleECTCMScrape(req, res) {

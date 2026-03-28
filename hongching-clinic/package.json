@@ -11,13 +11,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^143.0.4",
     "@supabase/supabase-js": "^2.97.0",
     "@upstash/redis": "^1.36.2",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.344.0",
-    "puppeteer-core": "^24.40.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.12.0",
