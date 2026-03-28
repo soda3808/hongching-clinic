@@ -324,7 +324,7 @@ export function openWhatsApp(phone, message) {
 // ── eCTCM Auto-Scrape ──
 export async function scrapeECTCM(date) {
   try {
-    const res = await fetch('/api/scrape?action=fetch-today', {
+    const res = await fetch('/api/messaging?action=ectcm-scrape', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
       body: JSON.stringify({ date }),

@@ -2385,6 +2385,118 @@ async function handleWhatsAppBatchFollowup(req, res) {
 }
 
 // ── Main Router ──
+// ══════════════════════════════════════════════════════════════
+// eCTCM Auto-Scraper — fetches today's patient list from os.ectcm.com
+// ══════════════════════════════════════════════════════════════
+
+let _chromium, _puppeteer;
+
+async function getECTCMBrowser() {
+  if (!_chromium) _chromium = (await import('@sparticuz/chromium')).default;
+  if (!_puppeteer) _puppeteer = (await import('puppeteer-core')).default;
+  return _puppeteer.launch({
+    args: _chromium.args,
+    defaultViewport: { width: 1280, height: 900 },
+    executablePath: await _chromium.executablePath(),
+    headless: _chromium.headless,
+  });
+}
+
+function classifyTreatment(service) {
+  const s = service || '';
+  const hasAcu = /針灸|拔罐|刮痧|艾灸|推拿|天灸/.test(s);
+  const hasHerbal = /中藥|配藥|處方/.test(s);
+  if (hasAcu && hasHerbal) return 'both';
+  if (hasHerbal) return 'herbal';
+  return 'acupuncture';
+}
+
+async function scrapeECTCM(date) {
+  const username = process.env.ECTCM_USERNAME;
+  const password = process.env.ECTCM_PASSWORD;
+  if (!username || !password) throw new Error('eCTCM credentials not configured');
+
+  const browser = await getECTCMBrowser();
+  const page = await browser.newPage();
+
+  try {
+    await page.goto('https://os.ectcm.com/Login', { waitUntil: 'networkidle2', timeout: 30000 });
+    await page.waitForSelector('input[type="password"]', { timeout: 10000 });
+
+    // Find username input
+    const userSelectors = ['input[name="username"]', 'input[name="userName"]', 'input[name="account"]', 'input[name="loginId"]', 'input[type="text"]:not([type="password"])'];
+    let userInput = null;
+    for (const sel of userSelectors) { userInput = await page.$(sel); if (userInput) break; }
+    if (!userInput) userInput = await page.$('input:not([type="password"]):not([type="hidden"]):not([type="submit"]):not([type="checkbox"])');
+    if (!userInput) throw new Error('Cannot find username input');
+
+    await userInput.click({ clickCount: 3 });
+    await userInput.type(username, { delay: 50 });
+
+    const pwInput = await page.$('input[type="password"]');
+    if (!pwInput) throw new Error('Cannot find password input');
+    await pwInput.click({ clickCount: 3 });
+    await pwInput.type(password, { delay: 50 });
+
+    // Submit
+    const submitSels = ['button[type="submit"]', 'input[type="submit"]', 'button.login', '.btn-login', '#loginBtn'];
+    let submitted = false;
+    for (const sel of submitSels) {
+      try {
+        const btn = await page.$(sel);
+        if (btn) { const t = await page.evaluate(el => el.textContent || el.value || '', btn); if (t.includes('登') || t.includes('Login') || sel.includes('submit')) { await btn.click(); submitted = true; break; } }
+      } catch {}
+    }
+    if (!submitted) await pwInput.press('Enter');
+
+    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {});
+    await new Promise(r => setTimeout(r, 3000));
+
+    if (page.url().includes('/Login') || page.url().includes('/login')) throw new Error('Login failed — check credentials');
+
+    // Navigate to dispensary page
+    for (const url of ['https://os.ectcm.com/Dispensary', 'https://os.ectcm.com/Dispensary/List', 'https://os.ectcm.com/Billing']) {
+      try { await page.goto(url, { waitUntil: 'networkidle2', timeout: 10000 }); if (await page.$('table')) break; } catch {}
+    }
+
+    // Click 當天記錄 if available
+    try {
+      const btns = await page.$$('button, a, .btn');
+      for (const b of btns) { const t = await page.evaluate(el => el.textContent || '', b); if (t.includes('當天記錄') || t.includes('當天')) { await b.click(); await new Promise(r => setTimeout(r, 2000)); break; } }
+    } catch {}
+
+    await page.waitForSelector('table', { timeout: 10000 });
+
+    const patients = await page.evaluate(() => {
+      const results = [];
+      for (const table of document.querySelectorAll('table')) {
+        for (const row of table.querySelectorAll('tbody tr, tr')) {
+          const cells = row.querySelectorAll('td');
+          if (cells.length < 9) continue;
+          const v = Array.from(cells).map(c => (c.textContent || '').trim());
+          if (v[0]?.includes('診所') || v[4]?.includes('顧客姓名') || !v[4] || v[4] === '-') continue;
+          results.push({ store: v[0], date: v[1], queueNo: v[2], customerCode: v[3], patientName: v[4], gender: v[5], age: v[6], doctor: v[7], service: v[8] });
+        }
+      }
+      return results;
+    });
+
+    await browser.close();
+    return patients.map(p => ({ ...p, treatmentType: classifyTreatment(p.service) }));
+  } catch (err) { await browser.close(); throw err; }
+}
+
+async function handleECTCMScrape(req, res) {
+  const date = req.body?.date || new Date().toISOString().substring(0, 10);
+  try {
+    const patients = await scrapeECTCM(date);
+    return res.status(200).json({ success: true, date, count: patients.length, patients });
+  } catch (err) {
+    console.error('eCTCM scrape error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Scraping failed' });
+  }
+}
+
 export default async function handler(req, res) {
   setCORS(req, res);
   if (handleOptions(req, res)) return;
@@ -2403,6 +2515,7 @@ export default async function handler(req, res) {
     case 'telegram': return handleTelegram(req, res);
     case 'reminders': return handleReminders(req, res);
     case 'email-reminder': return handleEmailReminder(req, res);
+    case 'ectcm-scrape': return handleECTCMScrape(req, res);
     default: return errorResponse(res, 400, `Unknown messaging action: ${action}`);
   }
 }
