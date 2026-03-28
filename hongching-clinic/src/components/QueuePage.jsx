@@ -618,12 +618,13 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
 
       {/* Quick Registration Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label="快速掛號">
-          <div className="modal" onClick={e => e.stopPropagation()} ref={modalRef} style={{ maxWidth: 520 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 14, color: ECTCM.headerBg }}>快速掛號</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowModal(false)} aria-label="關閉">✕</button>
+        <div style={S.modalOverlay} onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label="快速掛號">
+          <div style={{ ...S.modal, maxWidth: 520 }} onClick={e => e.stopPropagation()} ref={modalRef}>
+            <div style={S.modalHeader}>
+              <span>快速掛號</span>
+              <button style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 16, fontWeight: 700 }} onClick={() => setShowModal(false)} aria-label="關閉">✕</button>
             </div>
+            <div style={S.modalBody}>
             <form onSubmit={handleRegister}>
               <div style={{ marginBottom: 12, position: 'relative' }}>
                 <label>病人 *</label>
@@ -646,7 +647,7 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                   </div>
                 )}
               </div>
-              <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid2, marginBottom: 12 }}>
                 <div>
                   <label>醫師</label>
                   <select value={formDoctor} onChange={e => setFormDoctor(e.target.value)}>
@@ -667,7 +668,7 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                     <button
                       type="button"
                       key={svc.label}
-                      className={`preset-chip ${selectedServices.includes(svc.label) ? 'active' : ''}`}
+                      style={selectedServices.includes(svc.label) ? { ...S.actionBtnGreen, fontSize: 12, padding: '4px 10px' } : { ...S.actionBtn, background: '#e0e0e0', color: '#333', border: '1px solid #ccc', fontSize: 12, padding: '4px 10px' }}
                       onClick={() => toggleService(svc.label)}
                     >
                       {svc.label} ({fmtM(svc.fee)})
@@ -684,12 +685,13 @@ export default function QueuePage({ data, setData, showToast, allData, user, onN
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" className="btn btn-teal" disabled={saving}>
+                <button type="submit" style={{ ...S.actionBtnGreen, opacity: saving ? 0.6 : 1 }} disabled={saving}>
                   {saving ? '掛號中...' : '確認掛號'}
                 </button>
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>取消</button>
+                <button type="button" style={{ ...S.actionBtn, background: '#666', border: '1px solid #555' }} onClick={() => setShowModal(false)}>取消</button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}

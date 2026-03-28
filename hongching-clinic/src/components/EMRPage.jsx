@@ -54,8 +54,8 @@ function PatientSummary({ patientId, consultations, patients, allData }) {
     : null;
 
   return (
-    <div className="patient-summary">
-      <div className="patient-summary-header">
+    <div style={{ padding: 12, background: '#f0fdfa', border: '1px solid #99d1c6', borderRadius: 8, marginBottom: 12, fontSize: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <h4>📋 {patient.name} — 病歷摘要</h4>
         <button
           onClick={() => setCollapsed(c => !c)}
@@ -67,22 +67,22 @@ function PatientSummary({ patientId, consultations, patients, allData }) {
       {!collapsed && (
         <>
           {allergies && (
-            <div className="summary-alert">
+            <div style={{ padding: '6px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, color: '#991b1b', fontWeight: 700, marginBottom: 6 }}>
               🚨 過敏：{allergies}
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px', marginTop: 8 }}>
-            <div className="summary-item">
-              <span className="summary-item-label">就診次數</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <span style={{ fontWeight: 700, color: '#374151', minWidth: 60, fontSize: 11 }}>就診次數</span>
               <span>{visitCount} 次</span>
             </div>
-            <div className="summary-item">
-              <span className="summary-item-label">上次就診</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+              <span style={{ fontWeight: 700, color: '#374151', minWidth: 60, fontSize: 11 }}>上次就診</span>
               <span>{lastVisitDate}{daysSince !== null ? ` (${daysSince}天前)` : ''}</span>
             </div>
             {medications && (
-              <div className="summary-item" style={{ gridColumn: '1 / -1' }}>
-                <span className="summary-item-label">用藥記錄</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, gridColumn: '1 / -1' }}>
+                <span style={{ fontWeight: 700, color: '#374151', minWidth: 60, fontSize: 11 }}>用藥記錄</span>
                 <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{medications}</span>
               </div>
             )}
@@ -1022,11 +1022,11 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
       {/* ══════ New Consultation Modal ══════ */}
       {showAdd && (
-        <div className="modal-overlay" onClick={() => setShowAdd(false)} role="dialog" aria-modal="true" aria-label="新增診症">
-          <div className="modal" onClick={e => e.stopPropagation()} ref={addRef} style={{ maxWidth: 820, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={S.modalOverlay} onClick={() => setShowAdd(false)} role="dialog" aria-modal="true" aria-label="新增診症">
+          <div style={{ ...S.modal, maxWidth: 820, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()} ref={addRef}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>新增診症紀錄</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowAdd(false)} aria-label="關閉">✕</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setShowAdd(false)} aria-label="關閉">✕</button>
             </div>
             {/* Draft Restore Banner */}
             {showDraftRestore && draftData && (
@@ -1039,15 +1039,15 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button type="button" className="btn btn-gold btn-sm" style={{ fontSize: 11 }} onClick={restoreDraft}>恢復草稿</button>
-                  <button type="button" className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={dismissDraft}>忽略</button>
+                  <button type="button" style={{ ...S.actionBtn, background: '#DAA520', color: '#fff', border: '1px solid #b8860b', fontSize: 11 }} onClick={restoreDraft}>恢復草稿</button>
+                  <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 11 }} onClick={dismissDraft}>忽略</button>
                 </div>
               </div>
             )}
             <form onSubmit={handleSave} role="form" aria-label="新增診症紀錄表單">
               {/* Patient selector */}
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>病人資料</h4></div>
-              <div className="grid-3" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.cardHeader, padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>病人資料</h4></div>
+              <div style={{ ...S.grid3, marginBottom: 12 }}>
                 <div style={{ position: 'relative' }}>
                   <label>病人 *</label>
                   <input value={patientSearch} placeholder="搜尋姓名或電話..."
@@ -1056,20 +1056,20 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                     onFocus={() => patientSearch && setShowPatientDD(true)}
                     onBlur={() => setTimeout(() => setShowPatientDD(false), 200)} />
                   {showPatientDD && patientMatches.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
                       {patientMatches.map(p => (
-                        <div key={p.id} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid var(--gray-100)' }}
+                        <div key={p.id} style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 13, borderBottom: '1px solid #f3f4f6' }}
                           onMouseDown={() => selectPatient(p)}>
-                          <strong>{p.name}</strong> <span style={{ color: 'var(--gray-400)' }}>{p.phone}</span>
+                          <strong>{p.name}</strong> <span style={{ color: '#9ca3af' }}>{p.phone}</span>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
-                <div><label>電話</label><input value={form.patientPhone} readOnly style={{ background: 'var(--gray-50)' }} /></div>
+                <div><label>電話</label><input value={form.patientPhone} readOnly style={{ background: '#f9fafb' }} /></div>
                 <div><label>日期 *</label><input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} aria-required="true" aria-label="診症日期" /></div>
               </div>
-              <div className="grid-3" style={{ marginBottom: 16 }}>
+              <div style={{ ...S.grid3, marginBottom: 16 }}>
                 <div><label>醫師</label><select value={form.doctor} onChange={e => setForm(f => ({ ...f, doctor: e.target.value }))}>{doctors.map(d => <option key={d}>{d}</option>)}</select></div>
                 <div><label>店舖</label><select value={form.store} onChange={e => setForm(f => ({ ...f, store: e.target.value }))}>{storeNames.map(s => <option key={s}>{s}</option>)}</select></div>
                 <div><label>診金 ($)</label><input type="number" min="0" value={form.fee} onChange={e => setForm(f => ({ ...f, fee: e.target.value }))} /></div>
@@ -1077,12 +1077,12 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
               {/* Active Packages (#70) */}
               {activePackages.length > 0 && (
-                <div style={{ marginBottom: 12, padding: 10, background: 'var(--green-50)', border: '1px solid var(--green-100)', borderRadius: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green-700)', marginBottom: 6 }}>🎫 有效套餐</div>
+                <div style={{ marginBottom: 12, padding: 10, background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d', marginBottom: 6 }}>🎫 有效套餐</div>
                   {activePackages.map(p => (
                     <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: 12 }}>
-                      <span><strong>{p.packageName}</strong> — 餘 <strong>{p.remaining}</strong>/{p.totalSessions} 次 {p.expiryDate && <span style={{ color: 'var(--gray-400)' }}>(到期: {p.expiryDate})</span>}</span>
-                      <button type="button" className="btn btn-green btn-sm" style={{ fontSize: 10, padding: '2px 8px' }} onClick={() => deductPackageSession(p)}>扣減 1 次</button>
+                      <span><strong>{p.packageName}</strong> — 餘 <strong>{p.remaining}</strong>/{p.totalSessions} 次 {p.expiryDate && <span style={{ color: '#9ca3af' }}>(到期: {p.expiryDate})</span>}</span>
+                      <button type="button" style={{ ...S.actionBtnGreen, fontSize: 10, padding: '2px 8px' }} onClick={() => deductPackageSession(p)}>扣減 1 次</button>
                     </div>
                   ))}
                 </div>
@@ -1100,18 +1100,18 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               {/* AI Consultation Assistant */}
               <ConsultAI form={form} setForm={setForm} showToast={showToast} />
 
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
+              <div style={{ ...S.cardHeader, padding: 0, marginBottom: 8 }}>
                 <h4 style={{ margin: 0, fontSize: 13 }}>SOAP 病歷</h4>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   <select style={{ width: 'auto', fontSize: 11, padding: '3px 6px' }} value="" onChange={e => { const t = SOAP_TEMPLATES.find(t => t.name === e.target.value); if (t) applySOAPTemplate(t); }}>
                     <option value="">快捷模板...</option>
                     {SOAP_TEMPLATES.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
                   </select>
-                  {form.patientName && <button type="button" className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => loadLastPrescription(form.patientName)}>重複上次處方</button>}
-                  <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>🎙 mic 語音</span>
+                  {form.patientName && <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 10 }} onClick={() => loadLastPrescription(form.patientName)}>重複上次處方</button>}
+                  <span style={{ fontSize: 11, color: '#9ca3af' }}>🎙 mic 語音</span>
                 </div>
               </div>
-              <div className="grid-2" style={{ marginBottom: 8 }}>
+              <div style={{ ...S.grid2, marginBottom: 8 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <label style={{ flex: 1 }}>Subjective 主訴</label>
@@ -1127,7 +1127,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   <textarea rows={2} value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))} placeholder="望聞問切、檢查結果..." />
                 </div>
               </div>
-              <div className="grid-2" style={{ marginBottom: 16 }}>
+              <div style={{ ...S.grid2, marginBottom: 16 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <label style={{ flex: 1 }}>Assessment 評估</label>
@@ -1145,24 +1145,24 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               </div>
 
               {/* TCM Specific */}
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>中醫辨證</h4></div>
-              <div className="grid-2" style={{ marginBottom: 8 }}>
+              <div style={{ ...S.cardHeader, padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>中醫辨證</h4></div>
+              <div style={{ ...S.grid2, marginBottom: 8 }}>
                 <div style={{ position: 'relative' }}>
-                  <label>中醫診斷 {form.icd10Code && <span style={{ fontSize: 10, color: 'var(--teal)', fontWeight: 400 }}>ICD-10: {form.icd10Code}</span>}</label>
+                  <label>中醫診斷 {form.icd10Code && <span style={{ fontSize: 10, color: '#0e7490', fontWeight: 400 }}>ICD-10: {form.icd10Code}</span>}</label>
                   <input value={form.tcmDiagnosis}
                     placeholder="搜尋病名（HKCTT 編碼）..."
                     onChange={e => { setForm(f => ({ ...f, tcmDiagnosis: e.target.value, icd10Code: '', cmDiagnosisCode: '' })); setDiagSearch(e.target.value); setShowDiagDD(true); }}
                     onFocus={() => { if (form.tcmDiagnosis) { setDiagSearch(form.tcmDiagnosis); setShowDiagDD(true); } }}
                     onBlur={() => setTimeout(() => setShowDiagDD(false), 200)} />
                   {showDiagDD && diagMatches.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, zIndex: 99, maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
                       {diagMatches.map(d => (
-                        <div key={d.code} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                        <div key={d.code} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                           onMouseDown={() => selectDiagnosis(d)}>
-                          <span><strong>{d.name}</strong> <span style={{ color: 'var(--gray-400)', fontSize: 11 }}>{d.category}</span></span>
+                          <span><strong>{d.name}</strong> <span style={{ color: '#9ca3af', fontSize: 11 }}>{d.category}</span></span>
                           <span style={{ fontSize: 10, display: 'flex', gap: 4 }}>
-                            <span style={{ background: 'var(--teal-50)', color: 'var(--teal-700)', padding: '1px 4px', borderRadius: 3 }}>ICD: {d.icd10}</span>
-                            <span style={{ color: 'var(--gray-400)' }}>{d.code}</span>
+                            <span style={{ background: '#f0fdfa', color: '#0e7490', padding: '1px 4px', borderRadius: 3 }}>ICD: {d.icd10}</span>
+                            <span style={{ color: '#9ca3af' }}>{d.code}</span>
                           </span>
                         </div>
                       ))}
@@ -1170,19 +1170,19 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   )}
                 </div>
                 <div style={{ position: 'relative' }}>
-                  <label>證型 {form.cmZhengCode && <span style={{ fontSize: 10, color: 'var(--teal)', fontWeight: 400 }}>code: {form.cmZhengCode}</span>}</label>
+                  <label>證型 {form.cmZhengCode && <span style={{ fontSize: 10, color: '#0e7490', fontWeight: 400 }}>code: {form.cmZhengCode}</span>}</label>
                   <input value={form.tcmPattern}
                     placeholder="搜尋證型..."
                     onChange={e => { setForm(f => ({ ...f, tcmPattern: e.target.value, cmZhengCode: '' })); setZhengSearch(e.target.value); setShowZhengDD(true); }}
                     onFocus={() => { if (form.tcmPattern) { setZhengSearch(form.tcmPattern); setShowZhengDD(true); } }}
                     onBlur={() => setTimeout(() => setShowZhengDD(false), 200)} />
                   {showZhengDD && zhengMatches.length > 0 && (
-                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
                       {zhengMatches.map(z => (
-                        <div key={z.code} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between' }}
+                        <div key={z.code} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between' }}
                           onMouseDown={() => selectZheng(z)}>
                           <strong>{z.name}</strong>
-                          <span style={{ fontSize: 10, color: 'var(--gray-400)' }}>{z.code}</span>
+                          <span style={{ fontSize: 10, color: '#9ca3af' }}>{z.code}</span>
                         </div>
                       ))}
                     </div>
@@ -1191,21 +1191,21 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               </div>
               {form.icd10Code && (
                 <div style={{ marginBottom: 8, display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11 }}>
-                  {form.cmDiagnosisCode && <span style={{ background: 'var(--teal-50)', color: 'var(--teal-700)', padding: '2px 8px', borderRadius: 4 }}>HKCTT: {form.cmDiagnosisCode}</span>}
+                  {form.cmDiagnosisCode && <span style={{ background: '#f0fdfa', color: '#0e7490', padding: '2px 8px', borderRadius: 4 }}>HKCTT: {form.cmDiagnosisCode}</span>}
                   <span style={{ background: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: 4 }}>ICD-10: {form.icd10Code}</span>
                   {form.cmZhengCode && <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4 }}>證型: {form.cmZhengCode}</span>}
                 </div>
               )}
-              <div className="grid-2" style={{ marginBottom: 16 }}>
+              <div style={{ ...S.grid2, marginBottom: 16 }}>
                 <div><label>舌象</label><input value={form.tongue} onChange={e => setForm(f => ({ ...f, tongue: e.target.value }))} placeholder="舌質舌苔" /></div>
                 <div><label>脈象</label><input value={form.pulse} onChange={e => setForm(f => ({ ...f, pulse: e.target.value }))} placeholder="脈象" /></div>
               </div>
 
               {/* Treatments */}
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>治療方式</h4></div>
-              <div className="preset-bar" style={{ marginBottom: 16 }}>
+              <div style={{ ...S.cardHeader, padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>治療方式</h4></div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
                 {TCM_TREATMENTS.map(t => (
-                  <button type="button" key={t} className={`preset-chip ${form.treatments.includes(t) ? 'active' : ''}`} onClick={() => toggleTreatment(t)}>{t}</button>
+                  <button type="button" key={t} style={{ padding: '4px 10px', borderRadius: 16, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: form.treatments.includes(t) ? '2px solid #0e7490' : '1px solid #d1d5db', background: form.treatments.includes(t) ? '#ecfeff' : '#fff', color: form.treatments.includes(t) ? '#0e7490' : '#666' }} onClick={() => toggleTreatment(t)}>{t}</button>
                 ))}
               </div>
 
@@ -1219,21 +1219,21 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                     {MERIDIANS.map(m => <option key={m.code} value={m.name}>{m.name}</option>)}
                   </select>
                 </div>
-                <div className="preset-bar" style={{ maxHeight: 120, overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 120, overflowY: 'auto' }}>
                   {(acupointMeridian === 'all'
                     ? ACUPOINTS_DB.filter(a => ['合谷','足三里','三陰交','太衝','內關','外關','曲池','肩井','風池','百會','大椎','命門','腎俞','肝俞','脾俞','肺俞','心俞','委中','環跳','陽陵泉','陰陵泉','太溪','崑崙','中脘','關元','氣海','天樞','血海','列缺','迎香','地倉','頰車','太陽','印堂'].includes(a.name))
                     : ACUPOINTS_DB.filter(a => a.mer === acupointMeridian)
                   ).map(pt => (
-                    <button type="button" key={pt.name} className={`preset-chip ${currentAcupoints.includes(pt.name) ? 'active' : ''}`} onClick={() => toggleAcupoint(pt.name)} title={`${pt.code} ${pt.ind}`}>{pt.name}</button>
+                    <button type="button" key={pt.name} style={{ padding: '4px 10px', borderRadius: 16, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: currentAcupoints.includes(pt.name) ? '2px solid #0e7490' : '1px solid #d1d5db', background: currentAcupoints.includes(pt.name) ? '#ecfeff' : '#fff', color: currentAcupoints.includes(pt.name) ? '#0e7490' : '#666' }} onClick={() => toggleAcupoint(pt.name)} title={`${pt.code} ${pt.ind}`}>{pt.name}</button>
                   ))}
                 </div>
               </div>
 
               {/* Prescription Builder */}
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}>
+              <div style={{ ...S.cardHeader, padding: 0, marginBottom: 8 }}>
                 <h4 style={{ margin: 0, fontSize: 13 }}>處方</h4>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <button type="button" className="btn btn-sm" style={{ fontSize: 12, background: '#0e7490', color: '#fff', fontWeight: 700, letterSpacing: 1 }} onClick={() => setShowFormulaModal(true)}>
+                  <button type="button" style={{ ...S.actionBtn, fontSize: 12, background: '#0e7490', color: '#fff', fontWeight: 700, letterSpacing: 1 }}  onClick={() => setShowFormulaModal(true)}>
                     📖 經方速查
                   </button>
                   <select style={{ width: 'auto', fontSize: 12, padding: '4px 8px' }} value="" onChange={e => {
@@ -1251,10 +1251,10 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                       </optgroup>
                     )}
                   </select>
-                  <button type="button" className="btn btn-sm" style={{ fontSize: 11, background: '#7c3aed', color: '#fff' }} onClick={saveCustomFormula} title="儲存當前處方為自訂模板">
+                  <button type="button" style={{ ...S.actionBtn, fontSize: 11, background: '#7c3aed', color: '#fff' }}  onClick={saveCustomFormula} title="儲存當前處方為自訂模板">
                     💾 儲存
                   </button>
-                  <button type="button" className="btn btn-outline btn-sm" onClick={handleAiSuggest} disabled={aiLoading} style={{ fontSize: 11 }}>
+                  <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 11 }} onClick={handleAiSuggest} disabled={aiLoading}>
                     {aiLoading ? '分析中...' : '🤖 AI'}
                   </button>
                 </div>
@@ -1262,12 +1262,12 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               {/* Frequent Herbs Chip Bar */}
               {frequentHerbs.length > 0 && (
                 <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--gray-400)', marginRight: 4 }}>常用藥：</span>
+                  <span style={{ fontSize: 11, color: '#9ca3af', marginRight: 4 }}>常用藥：</span>
                   {frequentHerbs.slice(0, 15).map(({ herb, count }) => (
                     <button key={herb} type="button" style={{
-                      padding: '2px 8px', fontSize: 11, borderRadius: 12, border: '1px solid var(--gray-200)',
-                      background: form.prescription.some(r => r.herb === herb) ? 'var(--teal-50)' : '#fff',
-                      color: form.prescription.some(r => r.herb === herb) ? 'var(--teal-700)' : 'var(--gray-600)',
+                      padding: '2px 8px', fontSize: 11, borderRadius: 12, border: '1px solid #e5e7eb',
+                      background: form.prescription.some(r => r.herb === herb) ? '#f0fdfa' : '#fff',
+                      color: form.prescription.some(r => r.herb === herb) ? '#0e7490' : '#4b5563',
                       cursor: 'pointer', fontWeight: form.prescription.some(r => r.herb === herb) ? 600 : 400,
                     }} onClick={() => quickAddHerb(herb)} title={`使用 ${count} 次`}>
                       {herb}
@@ -1277,19 +1277,19 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               )}
               {/* AI Suggestion Panel */}
               {aiSuggestion && (
-                <div style={{ background: 'var(--teal-50)', border: '1px solid var(--teal-200)', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12 }}>
+                <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <strong style={{ color: 'var(--teal-700)' }}>🤖 AI 建議</strong>
+                    <strong style={{ color: '#0e7490' }}>🤖 AI 建議</strong>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      <button type="button" className="btn btn-teal btn-sm" style={{ fontSize: 11 }} onClick={applyAiSuggestion}>套用建議</button>
-                      <button type="button" className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => setAiSuggestion(null)}>關閉</button>
+                      <button type="button" style={{ ...S.actionBtn, fontSize: 11 }}  onClick={applyAiSuggestion}>套用建議</button>
+                      <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 11 }} onClick={() => setAiSuggestion(null)}>關閉</button>
                     </div>
                   </div>
                   {aiSuggestion.formulaName && <div><strong>方劑：</strong>{aiSuggestion.formulaName}</div>}
                   {aiSuggestion.herbs && <div style={{ marginTop: 4 }}><strong>處方：</strong>{aiSuggestion.herbs.map(h => `${h.herb} ${h.dosage}`).join('、')}</div>}
                   {aiSuggestion.acupoints && <div style={{ marginTop: 4 }}><strong>穴位：</strong>{aiSuggestion.acupoints.join('、')}</div>}
-                  {aiSuggestion.explanation && <div style={{ marginTop: 4, color: 'var(--gray-600)' }}>{aiSuggestion.explanation}</div>}
-                  {aiSuggestion.caution && <div style={{ marginTop: 4, color: 'var(--red-600)' }}>⚠️ {aiSuggestion.caution}</div>}
+                  {aiSuggestion.explanation && <div style={{ marginTop: 4, color: '#4b5563' }}>{aiSuggestion.explanation}</div>}
+                  {aiSuggestion.caution && <div style={{ marginTop: 4, color: '#dc2626' }}>⚠️ {aiSuggestion.caution}</div>}
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -1300,18 +1300,18 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   <input type="radio" name="rxType" checked={form.prescriptionType === 'granule'} onChange={() => setForm(f => ({ ...f, prescriptionType: 'granule', formulaInstructions: '每日沖服' }))} /> 顆粒（濃縮藥粉）
                 </label>
               </div>
-              <div className="grid-3" style={{ marginBottom: 8 }}>
+              <div style={{ ...S.grid3, marginBottom: 8 }}>
                 <div><label>方名</label><input value={form.formulaName} onChange={e => setForm(f => ({ ...f, formulaName: e.target.value }))} placeholder="處方名稱" /></div>
                 <div><label>天數</label><input type="number" min="1" value={form.formulaDays} onChange={e => setForm(f => ({ ...f, formulaDays: e.target.value }))} /></div>
                 <div><label>服法</label><input value={form.formulaInstructions} onChange={e => setForm(f => ({ ...f, formulaInstructions: e.target.value }))} /></div>
               </div>
               {form.prescriptionType === 'granule' && (
-                <div className="grid-2" style={{ marginBottom: 8 }}>
+                <div style={{ ...S.grid2, marginBottom: 8 }}>
                   <div><label>每日次數</label><input type="number" min="1" max="4" value={form.granuleDosesPerDay} onChange={e => setForm(f => ({ ...f, granuleDosesPerDay: Number(e.target.value) }))} /></div>
                   <div><label>特別注意</label><input value={form.specialNotes || ''} onChange={e => setForm(f => ({ ...f, specialNotes: e.target.value }))} placeholder="如忌口、特殊服法等" /></div>
                 </div>
               )}
-              <div className="table-wrap" style={{ marginBottom: 8 }}>
+              <div style={{ overflowX: 'auto', marginBottom: 8 }}>
                 <table>
                   <thead><tr><th>藥材</th><th>劑量</th><th></th></tr></thead>
                   <tbody>
@@ -1323,7 +1323,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                             onFocus={() => { setHerbSearch(s => ({ ...s, [i]: rx.herb })); setActiveHerbIdx(i); }}
                             onBlur={() => setTimeout(() => setActiveHerbIdx(null), 200)} />
                           {activeHerbIdx === i && getHerbMatches(i).length > 0 && (
-                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--gray-200)', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, zIndex: 99, maxHeight: 200, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
                               {getHerbMatches(i).map(h => (
                                 <div key={h.n} style={{ padding: '6px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f3f4f6' }}
                                   onMouseDown={() => { updateRx(i, 'herb', h.n); if (!form.prescription[i].dosage) updateRx(i, 'dosage', `${h.dMax}g`); setHerbSearch(s => ({ ...s, [i]: '' })); setActiveHerbIdx(null); }}>
@@ -1359,12 +1359,12 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                           {rx.herb && (() => {
                             const info = getHerbSafetyInfo(rx.herb);
                             if (!info.maxDosage) return null;
-                            return <div style={{ fontSize: 9, color: 'var(--gray-400)', marginTop: 1 }}>{info.maxDosage.min}-{info.maxDosage.max}g{info.maxDosage.note ? ` (${info.maxDosage.note})` : ''}</div>;
+                            return <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 1 }}>{info.maxDosage.min}-{info.maxDosage.max}g{info.maxDosage.note ? ` (${info.maxDosage.note})` : ''}</div>;
                           })()}
                         </td>
                         <td style={{ width: 40 }}>
                           {form.prescription.length > 1 && (
-                            <button type="button" className="btn btn-red btn-sm" onClick={() => removeRxRow(i)} style={{ padding: '2px 8px' }}>✕</button>
+                            <button type="button" style={{ ...S.btnDanger, padding: '2px 8px' }} onClick={() => removeRxRow(i)}>✕</button>
                           )}
                         </td>
                       </tr>
@@ -1373,7 +1373,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 </table>
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <button type="button" className="btn btn-outline btn-sm" onClick={addRxRow}>+ 加藥材</button>
+                <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={addRxRow}>+ 加藥材</button>
               </div>
               {/* Drug Interaction Warnings */}
               {rxWarnings.length > 0 && (
@@ -1392,8 +1392,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               )}
 
               {/* Follow-up */}
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>覆診安排</h4></div>
-              <div className="grid-2" style={{ marginBottom: 16 }}>
+              <div style={{ ...S.cardHeader, padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>覆診安排</h4></div>
+              <div style={{ ...S.grid2, marginBottom: 16 }}>
                 <div><label>覆診日期</label><input type="date" value={form.followUpDate} onChange={e => setForm(f => ({ ...f, followUpDate: e.target.value }))} /></div>
                 <div><label>覆診備註</label><input value={form.followUpNotes} onChange={e => setForm(f => ({ ...f, followUpNotes: e.target.value }))} placeholder="覆診注意事項" /></div>
               </div>
@@ -1402,11 +1402,11 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               <div style={{ marginTop: 12 }}>
                 <label>上次治療效果評分</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div className="outcome-stars">
+                  <div style={{ display: 'flex', gap: 4 }}>
                     {[1,2,3,4,5].map(star => (
                       <span
                         key={star}
-                        className={`outcome-star ${(form.outcomeRating || 0) >= star ? 'active' : 'inactive'}`}
+                        style={{ fontSize: 24, cursor: 'pointer', color: (form.outcomeRating || 0) >= star ? '#f59e0b' : '#d1d5db' }}
                         onClick={() => setForm(f => ({ ...f, outcomeRating: f.outcomeRating === star ? 0 : star }))}
                       >
                         ★
@@ -1420,26 +1420,26 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               </div>
 
               {/* Doctor Signature */}
-              <div className="card-header" style={{ padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>醫師簽名</h4></div>
+              <div style={{ ...S.cardHeader, padding: 0, marginBottom: 8 }}><h4 style={{ margin: 0, fontSize: 13 }}>醫師簽名</h4></div>
               <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
                 {doctorSig ? (
                   <>
                     <SignaturePreview src={doctorSig} label={form.doctor} height={50} />
-                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)}>重新簽名</button>
-                    <button type="button" className="btn btn-outline btn-sm" onClick={() => { setDoctorSig(''); sessionStorage.removeItem(`hcmc_sig_doctor_${user?.name || ''}`); }}>清除</button>
+                    <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setShowSigPad(true)}>重新簽名</button>
+                    <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => { setDoctorSig(''); sessionStorage.removeItem(`hcmc_sig_doctor_${user?.name || ''}`); }}>清除</button>
                   </>
                 ) : (
-                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowSigPad(true)} style={{ padding: '8px 16px' }}>
+                  <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', padding: '8px 16px' }} onClick={() => setShowSigPad(true)}>
                     簽名 Sign
                   </button>
                 )}
-                <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>簽名將自動記住至此登入期間</span>
+                <span style={{ fontSize: 11, color: '#9ca3af' }}>簽名將自動記住至此登入期間</span>
               </div>
 
               {/* Submit */}
               <div style={{ display: 'flex', gap: 8 }} aria-live="polite">
-                <button type="submit" className="btn btn-teal">儲存診症紀錄</button>
-                <button type="button" className="btn btn-outline" onClick={() => setShowAdd(false)}>取消</button>
+                <button type="submit" style={{ ...S.actionBtn, padding: '6px 16px', fontSize: 13 }}>儲存診症紀錄</button>
+                <button type="button" style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', padding: '6px 16px', fontSize: 13 }} onClick={() => setShowAdd(false)}>取消</button>
               </div>
             </form>
           </div>
@@ -1448,28 +1448,28 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
       {/* ══════ Detail Modal ══════ */}
       {detail && (
-        <div className="modal-overlay" onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="診症詳情">
-          <div className="modal emr-print" onClick={e => e.stopPropagation()} ref={detailRef} style={{ maxWidth: 750, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={S.modalOverlay} onClick={() => setDetail(null)} role="dialog" aria-modal="true" aria-label="診症詳情">
+          <div style={{ ...S.modal, maxWidth: 750, maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()} ref={detailRef}>
             <div style={{ textAlign: 'center', marginBottom: 12 }} className="print-only">
               <img src="/logo.jpg" alt={clinicName} style={{ height: 48 }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>診症詳情 -- {detail.patientName}</h3>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-teal btn-sm" onClick={() => printPrescription(detail)}>列印處方</button>
-                <button className="btn btn-outline btn-sm" onClick={() => printSOAPNote(detail)}>列印SOAP</button>
-                <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => setShowLabel(detail)}>藥袋標籤</button>
-                <button className="btn btn-gold btn-sm" onClick={() => sendToBilling(detail)}>送往配藥收費</button>
-                <button className="btn btn-green btn-sm" onClick={() => handleReferral(detail)}>轉介信</button>
-                {detail.patientPhone && <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff' }} onClick={() => sendMedReminder(detail)}>💊 WhatsApp 服藥提醒</button>}
-                <button className="btn btn-sm" style={{ background: '#6366f1', color: '#fff', fontSize: 11 }} onClick={() => saveVersionSnapshot(detail)}>儲存版本</button>
-                <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => openVersionHistory(detail)}>版本歷史</button>
-                <button className="btn btn-outline btn-sm" onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
+                <button style={S.actionBtn} onClick={() => printPrescription(detail)}>列印處方</button>
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => printSOAPNote(detail)}>列印SOAP</button>
+                <button style={{ ...S.actionBtn, background: '#7c3aed', color: '#fff' }}  onClick={() => setShowLabel(detail)}>藥袋標籤</button>
+                <button style={{ ...S.actionBtn, background: '#DAA520', color: '#fff', border: '1px solid #b8860b' }} onClick={() => sendToBilling(detail)}>送往配藥收費</button>
+                <button style={S.actionBtnGreen} onClick={() => handleReferral(detail)}>轉介信</button>
+                {detail.patientPhone && <button style={{ ...S.actionBtn, background: '#25D366', color: '#fff' }}  onClick={() => sendMedReminder(detail)}>💊 WhatsApp 服藥提醒</button>}
+                <button style={{ ...S.actionBtn, background: '#6366f1', color: '#fff', fontSize: 11 }}  onClick={() => saveVersionSnapshot(detail)}>儲存版本</button>
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 11 }} onClick={() => openVersionHistory(detail)}>版本歷史</button>
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setDetail(null)} aria-label="關閉">✕ 關閉</button>
               </div>
             </div>
 
             {/* Basic info */}
-            <div className="grid-3" style={{ marginBottom: 16, fontSize: 13 }}>
+            <div style={{ ...S.grid3, marginBottom: 16, fontSize: 13 }}>
               <div><strong>日期：</strong>{detail.date}</div>
               <div><strong>醫師：</strong>{detail.doctor}</div>
               <div><strong>店舖：</strong>{detail.store}</div>
@@ -1481,9 +1481,9 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
             {/* SOAP */}
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>SOAP 病歷</h4>
-              <div className="grid-2" style={{ gap: 8 }}>
+              <div style={{ ...S.grid2, gap: 8 }}>
                 {[['S - 主訴', detail.subjective], ['O - 客觀', detail.objective], ['A - 評估', detail.assessment], ['P - 計劃', detail.plan]].map(([label, val]) => (
-                  <div key={label} style={{ background: 'var(--gray-50)', padding: 10, borderRadius: 6, fontSize: 13 }}>
+                  <div key={label} style={{ background: '#f9fafb', padding: 10, borderRadius: 6, fontSize: 13 }}>
                     <strong>{label}</strong>
                     <div style={{ marginTop: 4, whiteSpace: 'pre-wrap' }}>{val || '-'}</div>
                   </div>
@@ -1494,7 +1494,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
             {/* TCM */}
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>中醫辨證</h4>
-              <div className="grid-2" style={{ fontSize: 13, gap: 8 }}>
+              <div style={{ ...S.grid2, fontSize: 13, gap: 8 }}>
                 <div><strong>診斷：</strong>{detail.tcmDiagnosis || '-'}</div>
                 <div><strong>證型：</strong>{detail.tcmPattern || '-'}</div>
                 <div><strong>舌象：</strong>{detail.tongue || '-'}</div>
@@ -1502,7 +1502,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               </div>
               {(detail.icd10Code || detail.cmDiagnosisCode || detail.cmZhengCode) && (
                 <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {detail.cmDiagnosisCode && <span style={{ fontSize: 10, background: 'var(--teal-50)', color: 'var(--teal-700)', padding: '2px 8px', borderRadius: 4 }}>HKCTT: {detail.cmDiagnosisCode}</span>}
+                  {detail.cmDiagnosisCode && <span style={{ fontSize: 10, background: '#f0fdfa', color: '#0e7490', padding: '2px 8px', borderRadius: 4 }}>HKCTT: {detail.cmDiagnosisCode}</span>}
                   {detail.icd10Code && <span style={{ fontSize: 10, background: '#eff6ff', color: '#1e40af', padding: '2px 8px', borderRadius: 4 }}>ICD-10: {detail.icd10Code}</span>}
                   {detail.cmZhengCode && <span style={{ fontSize: 10, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 4 }}>證型: {detail.cmZhengCode}</span>}
                 </div>
@@ -1514,7 +1514,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>治療方式</h4>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {detail.treatments.map(t => <span key={t} className="tag">{t}</span>)}
+                  {detail.treatments.map(t => <span key={t} style={statusTag(t, 'blue')}>{t}</span>)}
                 </div>
               </div>
             )}
@@ -1533,7 +1533,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   處方{detail.formulaName ? ` -- ${detail.formulaName}` : ''}
                   {detail.formulaDays ? ` (${detail.formulaDays}天)` : ''}
                 </h4>
-                <div className="table-wrap">
+                <div style={{ overflowX: 'auto' }}>
                   <table>
                     <thead><tr><th>#</th><th>藥材</th><th>劑量</th></tr></thead>
                     <tbody>
@@ -1544,14 +1544,14 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                   </table>
                 </div>
                 {detail.formulaInstructions && (
-                  <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 6 }}>服法：{detail.formulaInstructions}</div>
+                  <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>服法：{detail.formulaInstructions}</div>
                 )}
               </div>
             )}
 
             {/* Follow-up */}
             {detail.followUpDate && (
-              <div style={{ marginBottom: 16, fontSize: 13, padding: 10, background: 'var(--teal-50)', borderRadius: 6 }}>
+              <div style={{ marginBottom: 16, fontSize: 13, padding: 10, background: '#f0fdfa', borderRadius: 6 }}>
                 <strong>覆診日期：</strong>{detail.followUpDate}
                 {detail.followUpNotes && <span> | {detail.followUpNotes}</span>}
               </div>
@@ -1562,7 +1562,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <strong style={{ fontSize: 13 }}>醫師簽名：</strong>
                 <SignaturePreview src={detail.doctorSignature} label={detail.doctor} height={50} />
-                <span style={{ fontSize: 10, color: 'var(--green-600)', fontWeight: 600 }}>已電子簽署</span>
+                <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>已電子簽署</span>
               </div>
             )}
           </div>
@@ -1588,31 +1588,31 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
       {/* ══ Formula Quick Search Modal ══ */}
       {showFormulaModal && (
-        <div className="modal-overlay" onClick={() => setShowFormulaModal(false)} role="dialog" aria-modal="true" aria-label="經方速查">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 800, maxHeight: '85vh', overflowY: 'auto', padding: 0 }}>
+        <div style={S.modalOverlay} onClick={() => setShowFormulaModal(false)} role="dialog" aria-modal="true" aria-label="經方速查">
+          <div style={{ ...S.modal, maxWidth: 800, maxHeight: '85vh', overflowY: 'auto', padding: 0 }} onClick={e => e.stopPropagation()}>
             <div style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 2, padding: '16px 20px 12px', borderBottom: '2px solid #0e7490' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <h3 style={{ margin: 0, color: '#0e7490' }}>📖 經方速查 ({TCM_FORMULAS_DB.length} 方)</h3>
-                <button className="btn btn-outline btn-sm" onClick={() => setShowFormulaModal(false)} aria-label="關閉">✕</button>
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setShowFormulaModal(false)} aria-label="關閉">✕</button>
               </div>
               <input type="text" placeholder="搜索方名、適應症、藥材名..." value={formulaSearch} onChange={e => setFormulaSearch(e.target.value)} style={{ width: '100%', marginBottom: 8, fontSize: 14, padding: '10px 14px', borderRadius: 8 }} autoFocus />
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                <button type="button" className={`preset-chip ${formulaCatFilter === '全部' ? 'active' : ''}`} onClick={() => setFormulaCatFilter('全部')} style={{ fontSize: 11, padding: '3px 10px' }}>全部</button>
+                <button type="button" style={{ padding: '4px 10px', borderRadius: 16, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: formulaCatFilter === '全部' ? '2px solid #0e7490' : '1px solid #d1d5db', background: formulaCatFilter === '全部' ? '#ecfeff' : '#fff', color: formulaCatFilter === '全部' ? '#0e7490' : '#666' }} onClick={() => setFormulaCatFilter('全部')}>全部</button>
                 {FORMULA_CATEGORIES.map(cat => (
-                  <button key={cat} type="button" className={`preset-chip ${formulaCatFilter === cat ? 'active' : ''}`} onClick={() => setFormulaCatFilter(cat)} style={{ fontSize: 11, padding: '3px 10px' }}>{cat}</button>
+                  <button key={cat} type="button" style={{ padding: '4px 10px', borderRadius: 16, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: formulaCatFilter === cat ? '2px solid #0e7490' : '1px solid #d1d5db', background: formulaCatFilter === cat ? '#ecfeff' : '#fff', color: formulaCatFilter === cat ? '#0e7490' : '#666' }} onClick={() => setFormulaCatFilter(cat)}>{cat}</button>
                 ))}
               </div>
             </div>
             <div style={{ padding: '12px 20px' }}>
               {filteredFormulas.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 40 }}>未找到符合的方劑</div>
+                <div style={{ textAlign: 'center', color: '#9ca3af', padding: 40 }}>未找到符合的方劑</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {filteredFormulas.map(f => (
-                    <div key={f.name} style={{ border: '1px solid var(--gray-200)', borderRadius: 8, padding: 12, cursor: 'pointer', transition: 'all .15s' }}
+                    <div key={f.name} style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12, cursor: 'pointer', transition: 'all .15s' }}
                       onClick={() => { loadFormula(f.name); setShowFormulaModal(false); }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = '#0e7490'; e.currentTarget.style.background = '#f0fdfa'; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--gray-200)'; e.currentTarget.style.background = ''; }}>
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = ''; }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                         <span style={{ fontWeight: 700, fontSize: 14, color: '#0e7490' }}>{f.name}</span>
                         <span style={{ display: 'flex', gap: 6, fontSize: 11, color: '#888' }}>
@@ -1636,8 +1636,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
       {/* ══ Safety Confirmation Dialog ══ */}
       {showSafetyConfirm && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="安全確認">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div style={S.modalOverlay} role="dialog" aria-modal="true" aria-label="安全確認">
+          <div style={{ ...S.modal, maxWidth: 500 }} onClick={e => e.stopPropagation()}>
             <div style={{ textAlign: 'center', marginBottom: 16 }}>
               <span style={{ fontSize: 48 }}>⚠️</span>
               <h3 style={{ margin: '8px 0', color: '#dc2626' }}>處方安全警告</h3>
@@ -1656,8 +1656,8 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
               ))}
             </div>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-              <button className="btn btn-outline" onClick={() => { setShowSafetyConfirm(false); setPendingSaveEvent(null); }} style={{ minWidth: 120 }}>返回修改</button>
-              <button className="btn" style={{ minWidth: 120, background: '#dc2626', color: '#fff' }} onClick={confirmSaveOverride}>確認儲存</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', padding: '6px 16px', fontSize: 13, minWidth: 120 }} onClick={() => { setShowSafetyConfirm(false); setPendingSaveEvent(null); }}>返回修改</button>
+              <button style={{ ...S.actionBtn, padding: '6px 16px', fontSize: 13, minWidth: 120, background: '#dc2626', color: '#fff' }}  onClick={confirmSaveOverride}>確認儲存</button>
             </div>
           </div>
         </div>
@@ -1665,31 +1665,31 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
 
       {/* Version History Modal */}
       {showVersionHistory && (
-        <div className="modal-overlay" onClick={() => setShowVersionHistory(false)} role="dialog" aria-modal="true" aria-label="版本歷史">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600, maxHeight: '80vh', overflowY: 'auto' }}>
+        <div style={S.modalOverlay} onClick={() => setShowVersionHistory(false)} role="dialog" aria-modal="true" aria-label="版本歷史">
+          <div style={{ ...S.modal, maxWidth: 600, maxHeight: '80vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>版本歷史</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowVersionHistory(false)} aria-label="關閉">✕</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setShowVersionHistory(false)} aria-label="關閉">✕</button>
             </div>
             {versionHistoryData.length === 0 ? (
-              <div style={{ textAlign: 'center', color: 'var(--gray-400)', padding: 24 }}>暫無版本歷史紀錄</div>
+              <div style={{ textAlign: 'center', color: '#9ca3af', padding: 24 }}>暫無版本歷史紀錄</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[...versionHistoryData].reverse().map((ver, idx) => (
-                  <div key={idx} style={{ padding: 12, border: '1px solid var(--gray-200)', borderRadius: 8, background: idx === 0 ? 'var(--teal-50)' : 'var(--gray-50)' }}>
+                  <div key={idx} style={{ padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, background: idx === 0 ? '#f0fdfa' : '#f9fafb' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <div>
                         <strong style={{ fontSize: 13 }}>{idx === 0 ? '最新版本' : `版本 ${versionHistoryData.length - idx}`}</strong>
-                        <span style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 8 }}>{new Date(ver.savedAt).toLocaleString('zh-HK')}</span>
-                        {ver.savedBy && <span style={{ fontSize: 11, color: 'var(--gray-400)', marginLeft: 8 }}>by {ver.savedBy}</span>}
+                        <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 8 }}>{new Date(ver.savedAt).toLocaleString('zh-HK')}</span>
+                        {ver.savedBy && <span style={{ fontSize: 11, color: '#9ca3af', marginLeft: 8 }}>by {ver.savedBy}</span>}
                         {ver.note && <span style={{ fontSize: 11, color: '#6366f1', marginLeft: 8 }}>({ver.note})</span>}
                       </div>
                       {idx !== 0 && detail && (
-                        <button className="btn btn-outline btn-sm" style={{ fontSize: 11 }} onClick={() => restoreVersion(detail, ver.snapshot)}>還原此版本</button>
+                        <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 11 }} onClick={() => restoreVersion(detail, ver.snapshot)}>還原此版本</button>
                       )}
                     </div>
                     {ver.snapshot && (
-                      <div style={{ fontSize: 11, color: 'var(--gray-500)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                      <div style={{ fontSize: 11, color: '#6b7280', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                         {ver.snapshot.subjective && <div><strong>S:</strong> {ver.snapshot.subjective.substring(0, 40)}{ver.snapshot.subjective.length > 40 ? '...' : ''}</div>}
                         {ver.snapshot.objective && <div><strong>O:</strong> {ver.snapshot.objective.substring(0, 40)}{ver.snapshot.objective.length > 40 ? '...' : ''}</div>}
                         {ver.snapshot.assessment && <div><strong>A:</strong> {ver.snapshot.assessment.substring(0, 40)}{ver.snapshot.assessment.length > 40 ? '...' : ''}</div>}

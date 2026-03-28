@@ -5,7 +5,7 @@ import { getClinicName, getClinicNameEn, getTenantStores } from '../tenant';
 import escapeHtml from '../utils/escapeHtml';
 import { useFocusTrap, nullRef } from './ConfirmModal';
 import EmptyState from './EmptyState';
-import { S, ECTCM, rowStyle } from '../styles/ectcm';
+import { S, ECTCM, rowStyle, statusTag } from '../styles/ectcm';
 
 const TYPES = ['初診','覆診','針灸','推拿','天灸','其他'];
 const STATUS_TAGS = { pending:'tag-pending-orange', confirmed:'tag-fps', completed:'tag-paid', cancelled:'tag-other', 'no-show':'tag-overdue' };
@@ -472,12 +472,12 @@ export default function BookingPage({ data, setData, showToast }) {
       <div style={S.titleBar}>診所顧客列表 &gt; 網上預約列表</div>
 
       {/* Stats */}
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }} role="status" aria-live="polite" aria-label="預約統計">
-        <div className="stat-card teal"><div className="stat-label">今日預約</div><div className="stat-value teal">{stats.today}</div></div>
-        <div className="stat-card green"><div className="stat-label">已完成</div><div className="stat-value green">{stats.completed}</div></div>
-        <div className="stat-card gold"><div className="stat-label">待到</div><div className="stat-value gold">{stats.pending}</div></div>
-        <div className="stat-card red"><div className="stat-label">未到 No-show</div><div className="stat-value red">{stats.noshow}</div></div>
-        <div className="stat-card" style={{ borderLeft: '4px solid #d97706' }}><div className="stat-label">候補中</div><div className="stat-value" style={{ color: '#d97706' }}>{totalWaitlistCount}</div></div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, padding: '12px 12px 0' }} role="status" aria-live="polite" aria-label="預約統計">
+        <div style={{ ...S.statCard, borderLeft: '4px solid #0e7490' }}><div style={S.statLabel}>今日預約</div><div style={{ ...S.statValue, color: '#0e7490' }}>{stats.today}</div></div>
+        <div style={{ ...S.statCard, borderLeft: '4px solid #228B22' }}><div style={S.statLabel}>已完成</div><div style={{ ...S.statValue, color: '#228B22' }}>{stats.completed}</div></div>
+        <div style={{ ...S.statCard, borderLeft: '4px solid #b8860b' }}><div style={S.statLabel}>待到</div><div style={{ ...S.statValue, color: '#b8860b' }}>{stats.pending}</div></div>
+        <div style={{ ...S.statCard, borderLeft: '4px solid #dc2626' }}><div style={S.statLabel}>未到 No-show</div><div style={{ ...S.statValue, color: '#dc2626' }}>{stats.noshow}</div></div>
+        <div style={{ ...S.statCard, borderLeft: '4px solid #d97706' }}><div style={S.statLabel}>候補中</div><div style={{ ...S.statValue, color: '#d97706' }}>{totalWaitlistCount}</div></div>
       </div>
 
       {/* Smart Scheduling Hints */}
@@ -523,7 +523,7 @@ export default function BookingPage({ data, setData, showToast }) {
             <span style={S.filterLabel}>預約提醒中心</span>
             <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => setShowReminderPanel(false)}>關閉</span>
           </div>
-          <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
+          <div style={{ overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
             <table style={S.table} aria-label="預約提醒列表">
               <thead>
                 <tr>{['日期','時間','病人','電話','醫師','店舖','提醒狀態','操作'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
@@ -585,7 +585,7 @@ export default function BookingPage({ data, setData, showToast }) {
             </select>
           </div>
           <div style={{ background: ECTCM.cardBg }}>
-            <div className="table-wrap">
+            <div style={{ overflowX: 'auto' }}>
               <table style={S.table} aria-label="預約列表">
                 <thead><tr>{['日期','時間','病人','電話','醫師','店舖','類型','狀態','操作'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
                 <tbody>
@@ -602,7 +602,7 @@ export default function BookingPage({ data, setData, showToast }) {
                       <td style={S.td}>{b.doctor}</td>
                       <td style={S.td}>{b.store}</td>
                       <td style={S.td}>{b.type}</td>
-                      <td style={S.td}><span className={`tag ${STATUS_TAGS[b.status] || ''}`}>{STATUS_LABELS[b.status] || b.status}</span></td>
+                      <td style={S.td}><span style={statusTag(STATUS_LABELS[b.status] || b.status, b.status === 'confirmed' ? 'blue' : b.status === 'completed' ? 'green' : b.status === 'cancelled' ? 'red' : 'orange')}>{STATUS_LABELS[b.status] || b.status}</span></td>
                       <td style={S.td}>
                         {b.status === 'pending' && (
                           <span style={{ display: 'inline-flex', gap: 8 }}>
@@ -652,12 +652,12 @@ export default function BookingPage({ data, setData, showToast }) {
               ))}
               {HOURS.map(time => (
                 <React.Fragment key={time}>
-                  <div style={{ padding: '4px 6px', fontSize: 10, color: 'var(--gray-400)', borderBottom: '1px solid var(--gray-100)', textAlign: 'right' }}>{time}</div>
+                  <div style={{ padding: '4px 6px', fontSize: 10, color: '#9ca3af', borderBottom: '1px solid #f3f4f6', textAlign: 'right' }}>{time}</div>
                   {weekDates.map(d => {
                     const cell = bookings.filter(b => b.date === d && b.time === time && b.status !== 'cancelled');
                     const wlCount = DOCTORS.reduce((sum, doc) => sum + getWaitlistCount(d, time, doc), 0);
                     return (
-                      <div key={d} style={{ borderBottom: '1px solid var(--gray-100)', borderLeft: '1px solid var(--gray-100)', padding: 2, minHeight: 28, cursor: 'pointer', background: d === today ? 'var(--teal-50)' : '' }}
+                      <div key={d} style={{ borderBottom: '1px solid #f3f4f6', borderLeft: '1px solid #f3f4f6', padding: 2, minHeight: 28, cursor: 'pointer', background: d === today ? '#f0fdfa' : '' }}
                         onClick={() => { setForm({...form, date: d, time}); setShowModal(true); }}>
                         {cell.map(b => (
                           <div key={b.id} style={{ background: DOC_COLORS[b.doctor] || '#666', color: '#fff', fontSize: 9, padding: '2px 4px', borderRadius: 3, marginBottom: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -685,7 +685,7 @@ export default function BookingPage({ data, setData, showToast }) {
           {activeWaitlist.length === 0 ? (
             <EmptyState icon="⏳" title="暫無候補預約" description="候補名單為空，可點擊「新增候補」按鈕加入" compact />
           ) : (
-            <div className="table-wrap">
+            <div style={{ overflowX: 'auto' }}>
               <table style={S.table}>
                 <thead><tr>{['日期','時間','病人','電話','醫師','店舖','備註','加入時間','操作'].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
                 <tbody>
@@ -739,15 +739,16 @@ export default function BookingPage({ data, setData, showToast }) {
 
       {/* Waitlist Add Form Modal */}
       {showWaitlistForm && (
-        <div className="modal-overlay" onClick={() => setShowWaitlistForm(null)} role="dialog" aria-modal="true" aria-label="新增候補">
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>新增候補預約</h3>
+        <div style={S.modalOverlay} onClick={() => setShowWaitlistForm(null)} role="dialog" aria-modal="true" aria-label="新增候補">
+          <div style={S.modal} onClick={e => e.stopPropagation()}>
+            <div style={S.modalHeader}>新增候補預約</div>
+            <div style={S.modalBody}>
             <form onSubmit={handleAddToWaitlist}>
-              <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid2, marginBottom: 12 }}>
                 <div><label>病人姓名 *</label><input value={wlForm.patientName} onChange={e => setWlForm({ ...wlForm, patientName: e.target.value })} placeholder="病人姓名" autoFocus /></div>
                 <div><label>電話</label><input value={wlForm.patientPhone} onChange={e => setWlForm({ ...wlForm, patientPhone: e.target.value })} placeholder="電話（用作通知）" /></div>
               </div>
-              <div className="grid-3" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid3, marginBottom: 12 }}>
                 <div><label>希望日期</label><input type="date" value={showWaitlistForm.date} onChange={e => setShowWaitlistForm({ ...showWaitlistForm, date: e.target.value })} /></div>
                 <div><label>希望時間</label><select value={showWaitlistForm.time} onChange={e => setShowWaitlistForm({ ...showWaitlistForm, time: e.target.value })}>{HOURS.map(t => <option key={t}>{t}</option>)}</select></div>
                 <div><label>醫師</label><select value={showWaitlistForm.doctor} onChange={e => setShowWaitlistForm({ ...showWaitlistForm, doctor: e.target.value })}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
@@ -758,35 +759,37 @@ export default function BookingPage({ data, setData, showToast }) {
               </div>
               <div style={{ marginBottom: 12 }}><label>備註</label><input value={wlForm.notes} onChange={e => setWlForm({ ...wlForm, notes: e.target.value })} placeholder="特別要求或備註" /></div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" className="btn btn-teal">加入候補</button>
-                <button type="button" className="btn btn-outline" onClick={() => setShowWaitlistForm(null)}>取消</button>
+                <button type="submit" style={S.actionBtnGreen}>加入候補</button>
+                <button type="button" style={{ ...S.actionBtn, background: '#666', border: '1px solid #555' }} onClick={() => setShowWaitlistForm(null)}>取消</button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* Add Modal */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label="新增預約">
-          <div className="modal" onClick={e => e.stopPropagation()} ref={addModalRef}>
-            <h3>新增預約</h3>
+        <div style={S.modalOverlay} onClick={() => setShowModal(false)} role="dialog" aria-modal="true" aria-label="新增預約">
+          <div style={S.modal} onClick={e => e.stopPropagation()} ref={addModalRef}>
+            <div style={S.modalHeader}>新增預約</div>
+            <div style={S.modalBody}>
             <form onSubmit={handleAdd}>
-              <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid2, marginBottom: 12 }}>
                 <div><label>病人姓名 *</label><input value={form.patientName} onChange={e => setForm({...form, patientName: e.target.value})} placeholder="病人姓名" aria-required="true" aria-label="病人姓名" /></div>
                 <div><label>電話</label><input value={form.patientPhone} onChange={e => setForm({...form, patientPhone: e.target.value})} placeholder="電話" /></div>
               </div>
-              <div className="grid-3" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid3, marginBottom: 12 }}>
                 <div><label>日期 *</label><input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} aria-required="true" aria-label="預約日期" /></div>
                 <div><label>時間 *</label><select value={form.time} onChange={e => setForm({...form, time: e.target.value})} aria-required="true" aria-label="預約時間">{HOURS.map(t => <option key={t}>{t}</option>)}</select></div>
                 <div><label>時長</label><select value={form.duration} onChange={e => setForm({...form, duration: +e.target.value})}><option value={30}>30 分鐘</option><option value={45}>45 分鐘</option><option value={60}>60 分鐘</option></select></div>
               </div>
-              <div className="grid-3" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid3, marginBottom: 12 }}>
                 <div><label>醫師</label><select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
                 <div><label>店舖</label><select value={form.store} onChange={e => setForm({...form, store: e.target.value})}>{STORE_NAMES.map(s => <option key={s}>{s}</option>)}</select></div>
                 <div><label>治療類型</label><select value={form.type} onChange={e => setForm({...form, type: e.target.value})}>{TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
               </div>
-              <div className="grid-2" style={{ marginBottom: 12 }}>
+              <div style={{ ...S.grid2, marginBottom: 12 }}>
                 <div>
                   <label>定期預約</label>
                   <select value={form.recurring} onChange={e => setForm({...form, recurring: e.target.value})}>
@@ -806,21 +809,22 @@ export default function BookingPage({ data, setData, showToast }) {
                 )}
               </div>
               {form.recurring !== 'none' && form.date && (
-                <div style={{ marginBottom: 12, padding: '6px 10px', background: 'var(--teal-50)', borderRadius: 6, fontSize: 11, color: 'var(--teal-700)' }}>
+                <div style={{ marginBottom: 12, padding: '6px 10px', background: ECTCM.trEvenBg, borderRadius: 6, fontSize: 11, color: ECTCM.headerBg }}>
                   將會建立 {form.recurCount} 個{form.recurring === 'weekly' ? '每週' : form.recurring === 'biweekly' ? '隔週' : '每月'}預約，從 {form.date} 開始
                 </div>
               )}
               <div style={{ marginBottom: 12 }}><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button type="submit" className="btn btn-teal">確認預約</button>
-                <button type="button" className="btn btn-sm" style={{ background: '#d97706', color: '#fff' }} onClick={() => {
+                <button type="submit" style={S.actionBtnGreen}>確認預約</button>
+                <button type="button" style={S.actionBtnOrange} onClick={() => {
                   setShowModal(false);
                   setShowWaitlistForm({ date: form.date, time: form.time, doctor: form.doctor, store: form.store });
                   setWlForm({ patientName: form.patientName, patientPhone: form.patientPhone, notes: form.notes });
-                }}>⏳ 加入候補</button>
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>取消</button>
+                }}>加入候補</button>
+                <button type="button" style={{ ...S.actionBtn, background: '#666', border: '1px solid #555' }} onClick={() => setShowModal(false)}>取消</button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}

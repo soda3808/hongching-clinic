@@ -280,8 +280,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
 
       {/* Churn Risk Alert */}
       {churnRisk.length > 0 && (
-        <div className="card" style={{ background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 16 }}>
-          <div className="card-header" style={{ borderBottom: 'none' }}>
+        <div style={{ ...S.card, background: '#fef2f2', border: '1px solid #fecaca', marginBottom: 16 }}>
+          <div style={{ ...S.cardHeader, borderBottom: 'none' }}>
             <h3 style={{ color: '#991b1b', fontSize: 14 }}>⚠️ 流失風險病人 ({churnRisk.length})</h3>
             <span style={{ fontSize: 11, color: '#991b1b' }}>60-90天未覆診 | 已流失(&gt;90天): {churned}</span>
           </div>
@@ -295,7 +295,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   <span style={{ color: '#888', fontSize: 10 }}>{p.totalVisits}次 | {fmtM(p.totalSpent || 0)}</span>
                   <span style={{ color: '#888', fontSize: 10, flex: 1 }}>{p.lastVisit}</span>
                   {p.phone && (
-                    <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', fontSize: 10, padding: '2px 8px' }} onClick={(e) => {
+                    <button style={{ ...S.actionBtn, background: '#25D366', color: '#fff', fontSize: 10, padding: '2px 8px' }} onClick={(e) => {
                       e.stopPropagation();
                       openWhatsApp(p.phone, `【${getClinicName()}】${p.name}你好！好耐無見，掛住你呀！😊\n\n我哋最近推出咗新嘅療程優惠，想邀請你嚟體驗下。\n\n🎁 舊客回訪優惠：覆診免診金\n\n歡迎隨時預約！\n📞 致電或WhatsApp預約\n祝身體健康！🙏`);
                     }}>📱 WA</button>
@@ -309,15 +309,15 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
       )}
 
       {/* Add Form */}
-      <div className="card">
-        <div className="card-header"><h3>新增病人</h3></div>
+      <div style={S.card}>
+        <div style={S.cardHeader}><h3>新增病人</h3></div>
         <form onSubmit={handleAdd}>
-          <div className="grid-3" style={{ marginBottom: 12 }}>
+          <div style={{ ...S.grid3, marginBottom: 12 }}>
             <div><label>姓名 *</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="病人姓名" aria-required="true" aria-label="病人姓名" /></div>
             <div><label>電話 *</label><input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} placeholder="電話號碼" aria-required="true" aria-label="病人電話" /></div>
             <div><label>性別</label><select value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}><option>男</option><option>女</option></select></div>
           </div>
-          <div className="grid-3" style={{ marginBottom: 12 }}>
+          <div style={{ ...S.grid3, marginBottom: 12 }}>
             <div><label>出生日期</label>
               <div style={{ display: 'flex', gap: 4 }}>
                 <select value={form.dobYear} onChange={e => { const y = e.target.value; setForm(f => ({ ...f, dobYear: y, dob: y && f.dobMonth && f.dobDay ? `${y}-${String(f.dobMonth).padStart(2,'0')}-${String(f.dobDay).padStart(2,'0')}` : '' })); }} style={{ flex: 1.2 }}>
@@ -334,12 +334,12 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             <div><label>地址</label><input value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="地址" /></div>
             <div><label>過敏史</label><input value={form.allergies} onChange={e => setForm({...form, allergies: e.target.value})} placeholder="如無請填「無」" /></div>
           </div>
-          <div className="grid-3" style={{ marginBottom: 12 }}>
+          <div style={{ ...S.grid3, marginBottom: 12 }}>
             <div><label>慢性病</label><input value={form.chronicConditions} onChange={e => setForm({...form, chronicConditions: e.target.value})} placeholder="如高血壓、糖尿病" /></div>
             <div><label>長期用藥</label><input value={form.medications} onChange={e => setForm({...form, medications: e.target.value})} placeholder="西藥名稱" /></div>
             <div><label>血型</label><select value={form.bloodType} onChange={e => setForm({...form, bloodType: e.target.value})}><option value="">未知</option>{['A','B','AB','O'].map(t => <option key={t}>{t}</option>)}</select></div>
           </div>
-          <div className="grid-3" style={{ marginBottom: 12 }}>
+          <div style={{ ...S.grid3, marginBottom: 12 }}>
             <div><label>主診醫師</label><select value={form.doctor} onChange={e => setForm({...form, doctor: e.target.value})}>{DOCTORS.map(d => <option key={d}>{d}</option>)}</select></div>
             <div><label>轉介來源</label><select value={form.referralSource} onChange={e => setForm({...form, referralSource: e.target.value})}><option value="">未填</option>{REFERRAL_SOURCES.map(s => <option key={s}>{s}</option>)}</select></div>
             <div><label>備註</label><input value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} placeholder="備註" /></div>
@@ -351,8 +351,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             </label>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" className="btn btn-teal">新增病人</button>
-            <label className="btn btn-outline" style={{ cursor: 'pointer' }}>
+            <button type="submit" style={{ ...S.actionBtn, padding: '6px 16px', fontSize: 13 }}>新增病人</button>
+            <label style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}>
               📥 CSV 匯入
               <input type="file" accept=".csv" onChange={handleCSVFile} style={{ display: 'none' }} />
             </label>
@@ -364,9 +364,9 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
           <div style={{ marginTop: 12, padding: '12px 16px', background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <div style={{ fontSize: 13 }}>✅ 已新增 <b>{justCreated.name}</b></div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn btn-teal btn-sm" onClick={() => quickQueue(justCreated)}>📋 即時掛號</button>
-              {onNavigate && <button className="btn btn-green btn-sm" onClick={() => { sessionStorage.setItem('hcmc_pending_consult', JSON.stringify({ patientName: justCreated.name, patientPhone: justCreated.phone, doctor: justCreated.doctor, store: justCreated.store, date: new Date().toISOString().substring(0, 10) })); setJustCreated(null); onNavigate('emr'); }}>🩺 直接開診</button>}
-              <button className="btn btn-outline btn-sm" onClick={() => setJustCreated(null)}>✕</button>
+              <button style={S.actionBtn} onClick={() => quickQueue(justCreated)}>📋 即時掛號</button>
+              {onNavigate && <button style={S.actionBtnGreen} onClick={() => { sessionStorage.setItem('hcmc_pending_consult', JSON.stringify({ patientName: justCreated.name, patientPhone: justCreated.phone, doctor: justCreated.doctor, store: justCreated.store, date: new Date().toISOString().substring(0, 10) })); setJustCreated(null); onNavigate('emr'); }}>🩺 直接開診</button>}
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setJustCreated(null)}>✕</button>
             </div>
           </div>
         )}
@@ -374,25 +374,25 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
 
       {/* CSV Import Modal */}
       {showImport && (
-        <div className="modal-overlay" onClick={() => setShowImport(false)} role="dialog" aria-modal="true">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
+        <div style={S.modalOverlay} onClick={() => setShowImport(false)} role="dialog" aria-modal="true">
+          <div style={{ ...S.modal, maxWidth: 700 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3>CSV 匯入預覽</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => setShowImport(false)}>✕</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setShowImport(false)}>✕</button>
             </div>
             <div style={{ marginBottom: 12, fontSize: 12, display: 'flex', gap: 16 }}>
               <span>總共 <strong>{importData.length}</strong> 筆</span>
-              <span style={{ color: 'var(--green-600)' }}>可匯入 <strong>{importData.filter(r => !r.isDupe).length}</strong></span>
-              <span style={{ color: 'var(--red-500)' }}>重複 <strong>{importData.filter(r => r.isDupe).length}</strong></span>
+              <span style={{ color: '#16a34a' }}>可匯入 <strong>{importData.filter(r => !r.isDupe).length}</strong></span>
+              <span style={{ color: '#ef4444' }}>重複 <strong>{importData.filter(r => r.isDupe).length}</strong></span>
               {importErrors.length > 0 && <span style={{ color: '#d97706' }}>錯誤 <strong>{importErrors.length}</strong></span>}
             </div>
-            <div className="table-wrap" style={{ maxHeight: 350, overflowY: 'auto' }}>
+            <div style={{ overflowX: 'auto', maxHeight: 350, overflowY: 'auto' }}>
               <table>
                 <thead><tr><th>狀態</th><th>姓名</th><th>電話</th><th>性別</th><th>出生日期</th><th>醫師</th><th>店舖</th></tr></thead>
                 <tbody>
                   {importData.map((r, i) => (
                     <tr key={i} style={{ opacity: r.isDupe ? 0.5 : 1 }}>
-                      <td>{r.isDupe ? <span className="tag tag-overdue" style={{ fontSize: 10 }}>重複</span> : <span className="tag tag-paid" style={{ fontSize: 10 }}>✓</span>}</td>
+                      <td>{r.isDupe ? <span style={{ ...statusTag('重複', 'red'), fontSize: 10 }}>重複</span> : <span style={{ ...statusTag('✓', 'green'), fontSize: 10 }}>✓</span>}</td>
                       <td style={{ fontWeight: 600 }}>{r.name}</td>
                       <td>{r.phone}</td>
                       <td>{r.gender}</td>
@@ -410,17 +410,17 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               </div>
             )}
             <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-              <button className="btn btn-teal" onClick={handleImportConfirm}>確認匯入 ({importData.filter(r => !r.isDupe).length} 筆)</button>
-              <button className="btn btn-outline" onClick={() => setShowImport(false)}>取消</button>
+              <button style={{ ...S.actionBtn, padding: '6px 16px', fontSize: 13 }} onClick={handleImportConfirm}>確認匯入 ({importData.filter(r => !r.isDupe).length} 筆)</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', padding: '6px 16px', fontSize: 13 }} onClick={() => setShowImport(false)}>取消</button>
             </div>
           </div>
         </div>
       )}
 
       {/* LTV & Segmentation (#93) */}
-      <div className="grid-2" style={{ marginBottom: 0 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>客戶分群</div>
+      <div style={{ ...S.grid2, marginBottom: 0 }}>
+        <div style={{ ...S.card, padding: 16 }}>
+          <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 8 }}>客戶分群</div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {Object.entries(SEGMENT_CONFIG).map(([key, cfg]) => (
               <div key={key} style={{ padding: '4px 10px', background: cfg.bg, borderRadius: 8, textAlign: 'center', minWidth: 60 }}>
@@ -429,17 +429,17 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--gray-400)' }}>
+          <div style={{ marginTop: 8, fontSize: 11, color: '#9ca3af' }}>
             平均 LTV：{fmtM(segmentation.avgLTV)} · 總 LTV：{fmtM(segmentation.totalLTV)}
           </div>
         </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', fontWeight: 600, marginBottom: 8 }}>TOP 10 高價值病人</div>
+        <div style={{ ...S.card, padding: 16 }}>
+          <div style={{ fontSize: 12, color: '#6b7280', fontWeight: 600, marginBottom: 8 }}>TOP 10 高價值病人</div>
           <div style={{ maxHeight: 120, overflowY: 'auto' }}>
             {segmentation.top10.map((p, i) => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 11, borderBottom: '1px solid var(--gray-100)' }}>
-                <span><span style={{ fontWeight: 700, color: i < 3 ? '#d97706' : 'var(--gray-500)', marginRight: 4 }}>{i + 1}.</span>{p.name}</span>
-                <span style={{ fontWeight: 600, color: 'var(--teal-700)' }}>{fmtM(p.ltv)}</span>
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontSize: 11, borderBottom: '1px solid #f3f4f6' }}>
+                <span><span style={{ fontWeight: 700, color: i < 3 ? '#d97706' : '#6b7280', marginRight: 4 }}>{i + 1}.</span>{p.name}</span>
+                <span style={{ fontWeight: 600, color: '#0e7490' }}>{fmtM(p.ltv)}</span>
               </div>
             ))}
           </div>
@@ -469,16 +469,16 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
 
       {/* Batch Actions (#95) */}
       {selected.size > 0 && (
-        <div className="card" style={{ padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', background: 'var(--teal-50)', border: '1px solid var(--teal-200)' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--teal-700)' }}>已選 {selected.size} 位病人</span>
-          <button className="btn btn-teal btn-sm" onClick={() => {
+        <div style={{ ...S.card, padding: '8px 12px', display: 'flex', gap: 8, alignItems: 'center', background: '#f0fdfa', border: '1px solid #99f6e4' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#0e7490' }}>已選 {selected.size} 位病人</span>
+          <button style={S.actionBtn} onClick={() => {
             const selPatients = filtered.filter(p => selected.has(p.id));
             const withPhone = selPatients.filter(p => p.phone);
             if (!withPhone.length) return showToast('所選病人沒有電話號碼');
             setBatchMsg(`親愛的病人，${getClinicName()}祝您身體健康！如需預約，歡迎致電或WhatsApp聯繫我們。`);
             setShowBatchWA(true);
           }}>批量 WhatsApp</button>
-          <button className="btn btn-outline btn-sm" onClick={() => {
+          <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => {
             const selPatients = filtered.filter(p => selected.has(p.id));
             const headers = ['姓名','電話','性別','年齡','主診醫師','店舖','首次到診','最後到診','總次數','累計消費'];
             const rows = selPatients.map(p => [p.name, p.phone, p.gender, calcAge(p.dob), p.doctor, p.store, p.firstVisit, p.lastVisit, p.totalVisits, p.totalSpent || 0]);
@@ -488,7 +488,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             a.download = `patients_selected_${new Date().toISOString().substring(0,10)}.csv`; a.click();
             showToast(`已匯出 ${selPatients.length} 位病人`);
           }}>匯出所選</button>
-          <button className="btn btn-outline btn-sm" onClick={() => {
+          <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => {
             const selPatients = filtered.filter(p => selected.has(p.id));
             const withPhone = selPatients.filter(p => p.phone || p.name);
             if (!withPhone.length) return showToast('所選病人沒有資料');
@@ -501,7 +501,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             a.download = `patients_contacts_${new Date().toISOString().substring(0,10)}.vcf`; a.click();
             showToast(`已匯出 ${withPhone.length} 位病人通訊錄（.vcf）`);
           }}>📱 匯出通訊錄</button>
-          <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())}>取消選擇</button>
+          <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setSelected(new Set())}>取消選擇</button>
         </div>
       )}
 
@@ -563,11 +563,11 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         })();
 
         return (
-        <div className="modal-overlay" onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 620 }}>
+        <div style={S.modalOverlay} onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>
+          <div style={{ ...S.modal, maxWidth: 620 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>批量 WhatsApp ({targets.length} 位)</h3>
-              <button className="btn btn-outline btn-sm" onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>✕</button>
+              <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>✕</button>
             </div>
 
             {/* Tab bar */}
@@ -592,7 +592,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 <label style={{ fontSize: 12, fontWeight: 600 }}>快速模板</label>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
                   {TEMPLATES.map(([name, tpl]) => (
-                    <button key={name} className="btn btn-outline btn-sm" style={{ fontSize: 10 }}
+                    <button key={name} style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 10 }}
                       onClick={() => setBatchMsg(tpl)}>{name}</button>
                   ))}
                 </div>
@@ -622,7 +622,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-teal" onClick={async () => {
+                <button style={{ ...S.actionBtn, padding: '6px 16px', fontSize: 13 }} onClick={async () => {
                   const token = sessionStorage.getItem('hcmc_jwt');
                   let apiSent = 0, linkSent = 0, failed = 0;
                   const templateName = findTemplateName(batchMsg);
@@ -674,7 +674,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   showToast(parts.join('、') || '發送完成');
                   setSelected(new Set());
                 }}>發送 ({targets.length})</button>
-                <button className="btn btn-outline" onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>取消</button>
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', padding: '6px 16px', fontSize: 13 }} onClick={() => { setShowBatchWA(false); setWaModalTab('send'); }}>取消</button>
               </div>
             </>)}
 
@@ -684,7 +684,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 <label style={{ fontSize: 12, fontWeight: 600 }}>快速模板</label>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
                   {TEMPLATES.map(([name, tpl]) => (
-                    <button key={name} className="btn btn-outline btn-sm" style={{ fontSize: 10 }}
+                    <button key={name} style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 10 }}
                       onClick={() => setBatchMsg(tpl)}>{name}</button>
                   ))}
                 </div>
@@ -703,7 +703,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   <input type="time" value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }} />
                 </div>
               </div>
-              <button className="btn btn-teal" style={{ marginBottom: 16 }} onClick={() => {
+              <button style={{ ...S.actionBtn, padding: '6px 16px', fontSize: 13, marginBottom: 16 }} onClick={() => {
                 if (!scheduleDate || !scheduleTime) return showToast('請選擇發送日期和時間');
                 if (!batchMsg.trim()) return showToast('請輸入訊息內容');
                 const entry = {
@@ -792,7 +792,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 ))}
               </div>
               {deliveryLog.length > 0 && (
-                <button className="btn btn-outline btn-sm" style={{ marginTop: 8, fontSize: 10, color: '#dc2626', borderColor: '#fecaca' }} onClick={() => {
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#dc2626', border: '1px solid #fecaca', marginTop: 8, fontSize: 10 }} onClick={() => {
                   if (window.confirm('確定清除所有發送記錄？')) {
                     setDeliveryLog([]);
                     try { localStorage.setItem('hc_msg_delivery_log', '[]'); } catch {}
@@ -815,12 +815,12 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
         const pts = getPatientPoints(detail.name, data.revenue, pointsHistory);
         const loyaltyTier = getLoyaltyTier(pts.balance);
         return (
-        <div className="modal-overlay" onClick={() => { setDetail(null); setTimelineFilter('all'); }} role="dialog" aria-modal="true" aria-label="病人詳情">
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 750 }}>
+        <div style={S.modalOverlay} onClick={() => { setDetail(null); setTimelineFilter('all'); }} role="dialog" aria-modal="true" aria-label="病人詳情">
+          <div style={{ ...S.modal, maxWidth: 750 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <h3>病人詳情 — {detail.name}</h3>
-                <span className="membership-badge" style={{ color: tier.color, background: tier.bg, border: `1px solid ${tier.color}` }}>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 12, display: 'inline-block', color: tier.color, background: tier.bg, border: `1px solid ${tier.color}` }}>
                   {tier.name}{tier.discount > 0 ? ` ${tier.discount*100}%折扣` : ''}
                 </span>
                 <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: loyaltyTier.color + '18', color: loyaltyTier.color, fontWeight: 700, cursor: 'pointer' }}
@@ -830,10 +830,10 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 {noShowCount > 0 && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: noShowCount >= 3 ? '#dc262618' : '#d9770618', color: noShowCount >= 3 ? '#dc2626' : '#d97706', fontWeight: 700 }}>NS×{noShowCount} {noShowCount >= 3 ? '高風險' : ''}</span>}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
-                <button className="btn btn-sm" style={{ background: '#DAA520', color: '#fff' }} onClick={() => setShowPoints(!showPoints)}>🎁 積分</button>
-                <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => setShowCommLog(!showCommLog)}>📝 記錄溝通</button>
-                {onNavigate && <button className="btn btn-teal btn-sm" onClick={() => { setDetail(null); onNavigate('emr'); }}>開診</button>}
-                <button className="btn btn-outline btn-sm" onClick={() => {
+                <button style={{ ...S.actionBtn, background: '#DAA520', color: '#fff' }} onClick={() => setShowPoints(!showPoints)}>🎁 積分</button>
+                <button style={{ ...S.actionBtn, background: '#7c3aed', color: '#fff' }} onClick={() => setShowCommLog(!showCommLog)}>📝 記錄溝通</button>
+                {onNavigate && <button style={S.actionBtn} onClick={() => { setDetail(null); onNavigate('emr'); }}>開診</button>}
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => {
                   const p = detail;
                   const tier = getMembershipTier(p.totalSpent || 0);
                   const cons = (data.consultations || []).filter(c => c.patientId === p.id || c.patientName === p.name).sort((a, b) => b.date.localeCompare(a.date));
@@ -892,10 +892,10 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   w.document.close();
                   setTimeout(() => w.print(), 300);
                 }}>🖨️ 列印檔案</button>
-                <button className="btn btn-outline btn-sm" onClick={() => { setDetail(null); setTimelineFilter('all'); }} aria-label="關閉">✕</button>
+                <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => { setDetail(null); setTimelineFilter('all'); }} aria-label="關閉">✕</button>
               </div>
             </div>
-            <div className="grid-3" style={{ marginBottom: 16, fontSize: 13 }}>
+            <div style={{ ...S.grid3, marginBottom: 16, fontSize: 13 }}>
               <div><strong>電話：</strong>{detail.phone}</div>
               <div><strong>性別：</strong>{detail.gender}</div>
               <div><strong>年齡：</strong>{calcAge(detail.dob)}</div>
@@ -919,20 +919,20 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 </div>
               </div>
             )}
-            {detail.notes && <div style={{ fontSize: 13, marginBottom: 16, padding: 10, background: 'var(--gray-50)', borderRadius: 6 }}><strong>備註：</strong>{detail.notes}</div>}
+            {detail.notes && <div style={{ fontSize: 13, marginBottom: 16, padding: 10, background: '#f9fafb', borderRadius: 6 }}><strong>備註：</strong>{detail.notes}</div>}
             {activeEnrollments.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>活躍套餐</h4>
                 {activeEnrollments.map(e => {
                   const pkg = (data.packages || []).find(p => p.id === e.packageId);
                   return (
-                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 8, background: 'var(--teal-50)', borderRadius: 6, marginBottom: 4, fontSize: 12 }}>
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 8, background: '#f0fdfa', borderRadius: 6, marginBottom: 4, fontSize: 12 }}>
                       <strong>{pkg?.name || '套餐'}</strong>
-                      <div className="progress-bar" style={{ flex: 1 }}>
-                        <div className="progress-bar-track"><div className="progress-bar-fill" style={{ width: `${(e.usedSessions/e.totalSessions)*100}%` }} /></div>
-                        <span className="progress-bar-label">{e.usedSessions}/{e.totalSessions}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }} >
+                        <div style={{ flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, overflow: 'hidden' }}><div style={{ height: '100%', background: '#0e7490', borderRadius: 3, transition: 'width 0.3s' }} style={{ width: `${(e.usedSessions/e.totalSessions)*100}%` }} /></div>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#6b7280', minWidth: 40, textAlign: 'right' }}>{e.usedSessions}/{e.totalSessions}</span>
                       </div>
-                      <span style={{ color: 'var(--gray-400)' }}>到期：{e.expiryDate}</span>
+                      <span style={{ color: '#9ca3af' }}>到期：{e.expiryDate}</span>
                     </div>
                   );
                 })}
@@ -943,41 +943,41 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
               <div style={{ marginBottom: 16, padding: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: '#DAA520' }}>{loyaltyTier.icon} 忠誠積分 — {loyaltyTier.name}</div>
-                  <button className="btn btn-outline btn-sm" style={{ fontSize: 10 }} onClick={() => setShowPoints(false)}>✕</button>
+                  <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc', fontSize: 10 }} onClick={() => setShowPoints(false)}>✕</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
                   <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6 }}>
-                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>累計獲得</div>
+                    <div style={{ fontSize: 10, color: '#6b7280' }}>累計獲得</div>
                     <div style={{ fontWeight: 700, fontSize: 16, color: '#16a34a' }}>{pts.earned.toLocaleString()}</div>
                   </div>
                   <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6 }}>
-                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>獎勵積分</div>
+                    <div style={{ fontSize: 10, color: '#6b7280' }}>獎勵積分</div>
                     <div style={{ fontWeight: 700, fontSize: 16, color: '#DAA520' }}>{pts.bonus.toLocaleString()}</div>
                   </div>
                   <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6 }}>
-                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>已兌換</div>
+                    <div style={{ fontSize: 10, color: '#6b7280' }}>已兌換</div>
                     <div style={{ fontWeight: 700, fontSize: 16, color: '#dc2626' }}>{pts.redeemed.toLocaleString()}</div>
                   </div>
                   <div style={{ textAlign: 'center', padding: 8, background: '#fff', borderRadius: 6, border: '2px solid #DAA520' }}>
-                    <div style={{ fontSize: 10, color: 'var(--gray-500)' }}>可用餘額</div>
+                    <div style={{ fontSize: 10, color: '#6b7280' }}>可用餘額</div>
                     <div style={{ fontWeight: 700, fontSize: 18, color: '#DAA520' }}>{pts.balance.toLocaleString()}</div>
-                    <div style={{ fontSize: 9, color: 'var(--gray-400)' }}>= ${pts.discountAvailable}折扣</div>
+                    <div style={{ fontSize: 9, color: '#9ca3af' }}>= ${pts.discountAvailable}折扣</div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button className="btn btn-sm" style={{ background: '#16a34a', color: '#fff', fontSize: 11 }} onClick={() => {
+                  <button style={{ ...S.actionBtn, background: '#16a34a', color: '#fff', fontSize: 11 }}  onClick={() => {
                     const updated = addPointsEntry(pointsHistory, { patientName: detail.name, type: 'bonus', points: LOYALTY_CONFIG.referralBonus, reason: '轉介獎賞' });
                     setPointsHistory(updated);
                     showToast(`已獎勵 ${LOYALTY_CONFIG.referralBonus} 積分（轉介獎賞）`);
                   }}>+{LOYALTY_CONFIG.referralBonus} 轉介獎賞</button>
-                  <button className="btn btn-sm" style={{ background: '#0e7490', color: '#fff', fontSize: 11 }} onClick={() => {
+                  <button style={{ ...S.actionBtn, background: '#0e7490', color: '#fff', fontSize: 11 }}  onClick={() => {
                     const updated = addPointsEntry(pointsHistory, { patientName: detail.name, type: 'bonus', points: LOYALTY_CONFIG.reviewBonus, reason: '好評獎賞' });
                     setPointsHistory(updated);
                     showToast(`已獎勵 ${LOYALTY_CONFIG.reviewBonus} 積分（好評獎賞）`);
                   }}>+{LOYALTY_CONFIG.reviewBonus} 好評獎賞</button>
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, alignItems: 'center' }}>
                     <input type="number" placeholder="兌換積分" value={redeemAmount} onChange={e => setRedeemAmount(e.target.value)} style={{ width: 80, fontSize: 11 }} />
-                    <button className="btn btn-sm" style={{ background: '#dc2626', color: '#fff', fontSize: 11 }} onClick={() => {
+                    <button style={{ ...S.actionBtn, background: '#dc2626', color: '#fff', fontSize: 11 }}  onClick={() => {
                       const amount = Number(redeemAmount);
                       if (!amount || amount <= 0) return showToast('請輸入兌換積分');
                       if (amount > pts.balance) return showToast('積分不足');
@@ -988,7 +988,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                     }}>兌換</button>
                   </div>
                 </div>
-                <div style={{ marginTop: 8, fontSize: 10, color: 'var(--gray-400)' }}>
+                <div style={{ marginTop: 8, fontSize: 10, color: '#9ca3af' }}>
                   積分規則：每消費 $1 = {LOYALTY_CONFIG.pointsPerDollar} 積分 | {LOYALTY_CONFIG.redemptionRate} 積分 = $1 折扣 | 生日月雙倍積分
                 </div>
               </div>
@@ -1009,8 +1009,8 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                   placeholder="溝通內容（例如：提醒覆診、跟進治療、回覆查詢...）"
                   style={{ width: '100%', minHeight: 60, padding: 8, borderRadius: 6, border: '1px solid #ddd', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }} />
                 <div style={{ display: 'flex', gap: 6, marginTop: 6, justifyContent: 'flex-end' }}>
-                  <button className="btn btn-sm btn-outline" onClick={() => setShowCommLog(false)}>取消</button>
-                  <button className="btn btn-sm" style={{ background: '#7c3aed', color: '#fff' }} onClick={() => logCommunication(detail.id, detail.name)}>儲存</button>
+                  <button style={{ ...S.actionBtn, background: '#fff', color: '#333', border: '1px solid #ccc' }} onClick={() => setShowCommLog(false)}>取消</button>
+                  <button style={{ ...S.actionBtn, background: '#7c3aed', color: '#fff' }}  onClick={() => logCommunication(detail.id, detail.name)}>儲存</button>
                 </div>
               </div>
             )}
@@ -1018,7 +1018,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             {consultations.length > 0 && (
               <div style={{ marginBottom: 16 }}>
                 <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: '#0e7490' }}>最近診症紀錄 ({consultations.length})</h4>
-                <div className="table-wrap" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                <div style={{ overflowX: 'auto', maxHeight: 200, overflowY: 'auto' }}>
                   <table style={{ fontSize: 11 }}>
                     <thead>
                       <tr>
@@ -1071,25 +1071,25 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
             {/* Timeline Stats Summary */}
             {(consultations.length > 0 || commHistory.length > 0) && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6, marginBottom: 12 }}>
-                <div style={{ padding: 8, background: 'var(--teal-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--teal-700)' }}>{consultations.length}</div>
-                  <div style={{ color: 'var(--teal-600)' }}>診症次數</div>
+                <div style={{ padding: 8, background: '#f0fdfa', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: '#0e7490' }}>{consultations.length}</div>
+                  <div style={{ color: '#0d9488' }}>診症次數</div>
                 </div>
-                <div style={{ padding: 8, background: 'var(--green-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--green-700)' }}>{[...new Set(consultations.map(c => c.doctor).filter(Boolean))].length}</div>
-                  <div style={{ color: 'var(--green-600)' }}>就診醫師</div>
+                <div style={{ padding: 8, background: '#f0fdf4', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: '#15803d' }}>{[...new Set(consultations.map(c => c.doctor).filter(Boolean))].length}</div>
+                  <div style={{ color: '#16a34a' }}>就診醫師</div>
                 </div>
-                <div style={{ padding: 8, background: 'var(--gold-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--gold-700)' }}>{[...new Set(consultations.map(c => c.tcmDiagnosis).filter(Boolean))].length}</div>
-                  <div style={{ color: 'var(--gold-700)' }}>診斷種類</div>
+                <div style={{ padding: 8, background: '#fffbeb', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: '#b45309' }}>{[...new Set(consultations.map(c => c.tcmDiagnosis).filter(Boolean))].length}</div>
+                  <div style={{ color: '#b45309' }}>診斷種類</div>
                 </div>
                 <div style={{ padding: 8, background: '#f5f3ff', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
                   <div style={{ fontWeight: 800, fontSize: 16, color: '#7c3aed' }}>{commHistory.length}</div>
                   <div style={{ color: '#7c3aed' }}>溝通紀錄</div>
                 </div>
-                <div style={{ padding: 8, background: 'var(--red-50)', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
-                  <div style={{ fontWeight: 800, fontSize: 16, color: 'var(--red-600)' }}>{consultations.filter(c => c.icd10Code).length}</div>
-                  <div style={{ color: 'var(--red-600)' }}>ICD-10 編碼</div>
+                <div style={{ padding: 8, background: '#fef2f2', borderRadius: 6, textAlign: 'center', fontSize: 11 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: '#dc2626' }}>{consultations.filter(c => c.icd10Code).length}</div>
+                  <div style={{ color: '#dc2626' }}>ICD-10 編碼</div>
                 </div>
               </div>
             )}
@@ -1105,7 +1105,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                 ...commHistory.map(c => ({ type: 'comm', date: c.date, data: c })),
               ].filter(item => timelineFilter === 'all' || item.type === timelineFilter)
               .sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--gray-100)' }}>
+                <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid #f3f4f6' }}>
                   {/* Timeline dot */}
                   <div style={{ minWidth: 44, textAlign: 'center' }}>
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: item.type === 'emr' ? '#0e7490' : item.type === 'booking' ? '#7c3aed' : item.type === 'comm' ? '#16a34a' : '#d97706', margin: '4px auto 4px' }} />
@@ -1135,7 +1135,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                       <div>
                         <span style={{ fontWeight: 600, color: '#7c3aed' }}>📅 預約 — {item.data.type}</span>
                         <span style={{ marginLeft: 8 }}>{item.data.time} | {item.data.doctor} | {item.data.store}</span>
-                        <span style={{ marginLeft: 8, fontSize: 11 }} className={`tag ${item.data.status === 'completed' ? 'tag-paid' : item.data.status === 'cancelled' ? 'tag-overdue' : 'tag-other'}`}>{item.data.status === 'completed' ? '已完成' : item.data.status === 'cancelled' ? '已取消' : item.data.status === 'no-show' ? '未到' : '已確認'}</span>
+                        <span style={{ marginLeft: 8, fontSize: 11, ...statusTag(item.data.status === 'completed' ? '已完成' : item.data.status === 'cancelled' ? '已取消' : item.data.status === 'no-show' ? '未到' : '已確認', item.data.status === 'completed' ? 'green' : item.data.status === 'cancelled' ? 'red' : 'blue') }}>{item.data.status === 'completed' ? '已完成' : item.data.status === 'cancelled' ? '已取消' : item.data.status === 'no-show' ? '未到' : '已確認'}</span>
                       </div>
                     ) : item.type === 'comm' ? (
                       <div>
