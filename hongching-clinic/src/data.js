@@ -130,6 +130,9 @@ export function getStoreNames() {
   return getTenantStoreNames();
 }
 
+// Staff names to exclude from CRM follow-up (non-doctor staff only)
+export const STAFF_NAMES = ['譚玉冰', '林永樑'];
+
 export function getDefaultStore() {
   const stores = getStoreNames();
   return stores[0] || '';

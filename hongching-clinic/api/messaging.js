@@ -2544,55 +2544,48 @@ async function scrapeECTCM(date) {
 
   if (!cookies) throw new Error('Login failed — no session cookies');
 
-  // Step 4: Fetch today's patient list via DispenseMedicines/Search API
-  const searchBody = new URLSearchParams({
-    CodeID: '',
-    Keyword: '',
-    SortBy: '',
-    SortDir: '',
-    PageIndex: '1',
-    PrescriptionStatus: '',
-    PaymentStatus: '',
-    IsRelatedPrescribeClinic: 'false',
-    DoctorName: '',
-    ClientName: '',
-    PurchaseStartDate: '',
-    PurchaseEndDate: '',
-    PaymentType: '',
-    ClinicID: clinicId,
-    RegistertDate: date,
-    HasClinicListPermission: 'true',
-    ClinicIDs: clinicIds,
-  });
+  // Step 4: Fetch today's patient list — search EACH clinic separately for completeness
+  const clinicList = clinicIds.split(',').map(s => s.trim()).filter(id => id && id !== '0');
+  let allPatients = [];
 
-  const searchRes = await fetch('https://os.ectcm.com/DispenseMedicines/Search', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Cookie': cookies,
-      'X-Requested-With': 'XMLHttpRequest',
-    },
-    body: searchBody.toString(),
-  });
+  for (const cid of clinicList) {
+    const searchBody = new URLSearchParams({
+      CodeID: '', Keyword: '', SortBy: '', SortDir: '', PageIndex: '1',
+      PrescriptionStatus: '', PaymentStatus: '',
+      IsRelatedPrescribeClinic: 'false',
+      DoctorName: '', ClientName: '',
+      PurchaseStartDate: '', PurchaseEndDate: '', PaymentType: '',
+      ClinicID: cid, RegistertDate: date,
+      HasClinicListPermission: 'true', ClinicIDs: clinicIds,
+    });
 
-  const searchStatus = searchRes.status;
-  const html = await searchRes.text();
+    try {
+      const searchRes = await fetch('https://os.ectcm.com/DispenseMedicines/Search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Cookie': cookies,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: searchBody.toString(),
+      });
 
-  // Debug: return diagnostic info if search fails
-  if (!html || html.length < 50 || html.includes('/Login')) {
-    const debugInfo = {
-      searchStatus,
-      searchResLength: html?.length || 0,
-      searchResPreview: html?.substring(0, 200)?.replace(/</g, '&lt;') || 'empty',
-      cookieCount: cookies.split(';').filter(Boolean).length,
-      cookieNames: cookies.split(';').map(c => c.trim().split('=')[0]).join(', '),
-    };
-    throw new Error(`eCTCM scrape failed — ${JSON.stringify(debugInfo)}`);
+      const html = await searchRes.text();
+      if (html && html.length > 50 && !html.includes('/Login')) {
+        const patients = parseECTCMTable(html);
+        console.log(`[eCTCM] Clinic ${cid}: ${patients.length} patients`);
+        allPatients.push(...patients);
+      }
+    } catch (e) {
+      console.error(`[eCTCM] Clinic ${cid} search failed:`, e.message);
+    }
   }
 
-  // Step 5: Parse HTML table
-  const patients = parseECTCMTable(html);
-  return patients.map(p => ({ ...p, treatmentType: classifyTreatment(p.service) }));
+  if (!allPatients.length) {
+    throw new Error('eCTCM scrape returned 0 patients for all clinics');
+  }
+
+  return allPatients.map(p => ({ ...p, treatmentType: classifyTreatment(p.service) }));
 }
 
 async function handleECTCMScrapeDebug(req, res) {

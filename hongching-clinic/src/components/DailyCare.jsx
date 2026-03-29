@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { openWhatsApp, sendFollowupWhatsApp, dailyCareLogOps } from '../api';
-import { uid } from '../data';
+import { openWhatsApp, sendFollowupWhatsApp, scrapeECTCM, dailyCareLogOps } from '../api';
+import { uid, STAFF_NAMES } from '../data';
 import { getClinicName } from '../tenant';
 import { S as ES, ECTCM, rowStyle } from '../styles/ectcm';
 
@@ -423,23 +423,73 @@ export default function DailyCare({ data, showToast, user }) {
     const pending = todayItems.filter(item => {
       const phone = (item.phone || '').replace(/[\s\-()]/g, '');
       if (!phone) return false;
+      if (STAFF_NAMES.includes(item.patientName || item.name)) return false; // skip staff
       const key = `${item.id}_${item.treatmentType}`;
       return sendingIds[key] !== 'sent' && !log.some(l => l.consultationId === item.id && l.type === 'day0');
     });
 
-    if (!pending.length) return showToast('無待發送嘅病人');
-    setBatchSending(true);
-    setBatchProgress({ current: 0, total: pending.length });
+    // Dedup by phone — family members (same phone) only get ONE message
+    const seenPhones = new Set();
+    const deduped = pending.filter(item => {
+      const phone = (item.phone || '').replace(/[\s\-()]/g, '');
+      if (seenPhones.has(phone)) return false;
+      seenPhones.add(phone);
+      return true;
+    });
 
-    for (let i = 0; i < pending.length; i++) {
-      const item = pending[i];
-      setBatchProgress({ current: i + 1, total: pending.length });
+    if (!deduped.length) return showToast('無待發送嘅病人');
+    setBatchSending(true);
+    setBatchProgress({ current: 0, total: deduped.length });
+
+    for (let i = 0; i < deduped.length; i++) {
+      const item = deduped[i];
+      setBatchProgress({ current: i + 1, total: deduped.length });
       await handleApiSend(item, item.treatmentType);
-      if (i < pending.length - 1) await new Promise(r => setTimeout(r, 1000));
+      if (i < deduped.length - 1) await new Promise(r => setTimeout(r, 1000));
     }
 
     setBatchSending(false);
-    showToast(`✅ 批量發送完成！共 ${pending.length} 條`);
+    showToast(`✅ 批量發送完成！共 ${deduped.length} 條（已去重）`);
+  };
+
+  // ── Filter staff + dedup by phone ──
+  const filterAndDedup = (items) => {
+    // 1. Exclude staff (non-doctor employees)
+    const filtered = items.filter(i => !STAFF_NAMES.includes(i.patientName));
+    // 2. Exclude $0 billing that isn't a real visit (e.g., staff self-check)
+    // Keep items with services (even if $0 — some legit visits have $0)
+    return filtered;
+  };
+
+  // ── One-click auto sync from eCTCM server ──
+  const [syncing, setSyncing] = useState(false);
+  const handleAutoSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await scrapeECTCM(selectedDate);
+      if (result.success && result.patients?.length) {
+        const items = filterAndDedup(result.patients.map((p, i) => ({
+          id: uid(), include: true,
+          store: p.clinic?.includes('太子') ? '太子' : '宋皇臺',
+          date: selectedDate, queueNo: p.queueNo || '',
+          customerCode: p.customerCode || '', patientName: p.patientName || p.name || '',
+          gender: p.gender || '', age: p.age || '', doctor: p.doctor || '',
+          service: p.service || '', treatmentType: p.treatmentType || classifyTreatment(p.service),
+          phone: p.phone || (patients.find(pt => pt.name === (p.patientName || p.name))?.phone) || '',
+          phoneSrc: (patients.find(pt => pt.name === (p.patientName || p.name))?.phone) ? 'auto' : '',
+          amount: p.amount || '',
+        })));
+        setParsedItems(items);
+        setImportDone(false);
+        showToast(`✅ 同步成功！兩間舖共 ${items.length} 位病人`);
+      } else {
+        showToast('⚠️ 自動同步未有數據，請用「手動貼入」');
+      }
+    } catch (e) {
+      console.error('Auto sync failed:', e);
+      showToast('⚠️ 自動同步失敗（可能 IP 限制），請用「手動貼入」');
+    }
+    setSyncing(false);
   };
 
   // ── One-click paste from clipboard ──
@@ -448,7 +498,7 @@ export default function DailyCare({ data, showToast, user }) {
       const text = await navigator.clipboard.readText();
       if (!text || text.trim().length < 10) return showToast('⚠️ 剪貼簿冇數據，請先喺中醫在線 Copy');
       setPasteText(text);
-      const items = parseTCMOnline(text, patients);
+      const items = filterAndDedup(parseTCMOnline(text, patients));
       if (!items.length) return showToast('⚠️ 無法解析，請確認複製咗完整嘅表格');
       setParsedItems(items);
       setImportDone(false);
@@ -574,13 +624,19 @@ export default function DailyCare({ data, showToast, user }) {
           <div style={{ background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 10, padding: 16, marginBottom: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#0f766e' }}>📋 從中醫在線匯入</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>1. 喺中醫在線㩒「當天記錄」→ 2. Ctrl+A 全選 → 3. Ctrl+C 複製 → 4. 返嚟㩒下面</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#0f766e' }}>從中醫在線匯入今日病人</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>自動拉取兩間舖今日所有配藥/收費紀錄，員工自動排除</div>
               </div>
-              <button onClick={handleClipboardPaste}
-                style={{ ...S.btn, background: '#0f766e', padding: '10px 24px', fontSize: 15 }}>
-                📋 一鍵貼入
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={handleAutoSync} disabled={syncing}
+                  style={{ ...S.btn, background: '#006666', padding: '10px 24px', fontSize: 15, opacity: syncing ? 0.6 : 1 }}>
+                  {syncing ? '⏳ 同步中...' : '🔄 一鍵同步 eCTCM'}
+                </button>
+                <button onClick={handleClipboardPaste}
+                  style={{ ...S.btn, background: '#64748b', padding: '10px 24px', fontSize: 14 }}>
+                  📋 手動貼入
+                </button>
+              </div>
             </div>
           </div>
 
