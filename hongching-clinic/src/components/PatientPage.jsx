@@ -269,13 +269,18 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
 
   return (
     <div style={S.page}>
-      <div style={S.titleBar}>診所顧客列表 &gt; 顧客列表</div>
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
-        <div style={S.statCard}><div style={S.statLabel}>總病人數</div><div style={{ ...S.statValue, color: ECTCM.headerBg }}>{stats.total}</div></div>
-        <div style={S.statCard}><div style={S.statLabel}>本月新病人</div><div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{stats.newThisMonth}</div></div>
-        <div style={S.statCard}><div style={S.statLabel}>活躍病人 (30天)</div><div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{stats.active}</div></div>
-        <div style={S.statCard}><div style={S.statLabel}>流失風險</div><div style={{ ...S.statValue, color: ECTCM.btnDanger }}>{churnRisk.length}</div></div>
+      {/* eCTCM breadcrumb */}
+      <div style={{ ...S.titleBar, background: '#b8d4d4', color: '#333', fontSize: 12, padding: '4px 12px' }}>診所顧客列表 &gt; 顧客列表</div>
+
+      {/* eCTCM quick actions bar */}
+      <div style={{ background: '#006666', color: '#fff', padding: '4px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span>快捷操作：</span>
+        <input style={{ ...S.filterInput, width: 200, fontSize: 11 }} placeholder="顧客編號,姓名,電話,完整證件號" />
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>搜索顧客</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>新增顧客</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>掛號</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>快速掛號</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>醫師掛號表</button>
       </div>
 
       {/* Churn Risk Alert */}
@@ -511,26 +516,25 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
           <thead>
             <tr>
               <th style={{ ...S.th, width: 30 }}><input type="checkbox" aria-label="全選病人" checked={filtered.length > 0 && selected.size === filtered.length} onChange={e => setSelected(e.target.checked ? new Set(filtered.map(p => p.id)) : new Set())} /></th>
-              <th style={S.th}>姓名</th><th style={S.th}>電話</th><th style={S.th}>性別</th><th style={S.th}>年齡</th><th style={S.th}>主診醫師</th>
-              <th style={S.th}>首次到診</th><th style={S.th}>最後到診</th><th style={S.th}>總次數</th><th style={S.th}>累計消費</th>
+              <th style={S.th}>顧客編號</th><th style={S.th}>顧客姓名</th><th style={S.th}>性別</th><th style={S.th}>年齡</th><th style={S.th}>手機</th>
+              <th style={S.th}>建檔日期</th><th style={S.th}>求診次數</th><th style={S.th}>主診醫師</th>
             </tr>
           </thead>
           <tbody>
             {paged.map((p, idx) => (
               <tr key={p.id} style={selected.has(p.id) ? { background: '#e0f0f0' } : rowStyle(idx)}>
                 <td style={S.td}><input type="checkbox" checked={selected.has(p.id)} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(p.id) : s.delete(p.id); setSelected(s); }} /></td>
+                <td style={{...S.td, fontSize: 11, color: '#0066cc'}}>{p.id?.substring(0, 10) || '-'}</td>
                 <td style={S.td}><span style={{ color: ECTCM.link, cursor: 'pointer', fontWeight: 600 }} onClick={() => setDetail(p)}>{p.name}</span></td>
-                <td style={S.td}>{p.phone}</td>
-                <td style={S.td}>{p.gender}</td>
-                <td style={S.td}>{calcAge(p.dob)}</td>
-                <td style={S.td}>{p.doctor}</td>
-                <td style={S.td}>{p.firstVisit}</td>
-                <td style={S.td}>{p.lastVisit}</td>
-                <td style={S.td}>{p.totalVisits}</td>
-                <td style={{ ...S.td, textAlign: 'right' }}>{fmtM(p.totalSpent || 0)}</td>
+                <td style={{...S.td, textAlign: 'center'}}>{p.gender || '-'}</td>
+                <td style={{...S.td, textAlign: 'center'}}>{calcAge(p.dob)}</td>
+                <td style={S.td}>{p.phone || '-'}</td>
+                <td style={S.td}>{p.firstVisit || p.createdAt?.substring(0,10) || '-'}</td>
+                <td style={{...S.td, textAlign: 'center'}}>{p.totalVisits || 0}</td>
+                <td style={S.td}>{p.doctor || '-'}</td>
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={10} style={{ ...S.td, padding: 0 }}><EmptyState icon="👥" title="暫無病人紀錄" description="請使用上方表單新增病人資料" compact /></td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={9} style={{ ...S.td, padding: 0 }}><EmptyState icon="👥" title="暫無病人紀錄" description="請使用上方表單新增病人資料" compact /></td></tr>}
           </tbody>
         </table>
         <PaginationBar {...pgProps} />
