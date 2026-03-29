@@ -489,35 +489,8 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
   // ══════════════════════════════════
   return (
     <div style={S.page}>
-      <div style={S.titleBar}>藥物管理 &gt; 中藥管理</div>
-
-      {/* Quick Access: Medicine Scanner */}
-      {onNavigate && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: '#f0fafa', borderBottom: `1px solid ${ECTCM.tdBorder}` }}>
-          <div>
-            <span style={{ fontWeight: 600, fontSize: 13, color: ECTCM.headerBg }}>藥材採購單掃描</span>
-            <span style={{ fontSize: 11, color: ECTCM.textLight, marginLeft: 8 }}>影相採購單，AI 自動入庫 + 記帳</span>
-          </div>
-          <button style={S.actionBtn} onClick={() => onNavigate('medscan')}>開始掃描</button>
-        </div>
-      )}
-
-      {/* Enhanced Dashboard */}
-      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
-        <div style={S.statCard}><div style={S.statValue}>{stats.total}</div><div style={S.statLabel}>總品項</div></div>
-        <div style={{ ...S.statCard, cursor: 'pointer' }} onClick={() => setFilterStatus('low')}>
-          <div style={{ ...S.statValue, color: '#cc0000' }}>{stats.lowStock}</div><div style={S.statLabel}>低庫存</div>
-          {stats.lowStock > 0 && <div style={{ fontSize: 10, color: '#cc0000', marginTop: 2 }}>點擊查看</div>}
-        </div>
-        <div style={S.statCard}><div style={{ ...S.statValue, color: '#cc6600' }}>{fmtM(stats.totalValue)}</div><div style={S.statLabel}>存貨總值</div></div>
-        <div style={{ ...S.statCard, cursor: stats.expired.length + stats.expiring30.length > 0 ? 'pointer' : 'default' }} onClick={() => (stats.expired.length + stats.expiring30.length > 0) && setFilterStatus('expiring')}>
-          <div style={{ ...S.statValue, color: stats.expired.length > 0 ? '#cc0000' : stats.expiring30.length > 0 ? '#cc6600' : ECTCM.headerBg }}>
-            {stats.expired.length + stats.expiring30.length}
-          </div>
-          <div style={S.statLabel}>到期提醒</div>
-          {stats.expired.length > 0 && <div style={{ fontSize: 10, color: '#cc0000' }}>已過期 {stats.expired.length}</div>}
-        </div>
-      </div>
+      {/* eCTCM breadcrumb */}
+      <div style={{ ...S.titleBar, background: '#b8d4d4', color: '#333', fontSize: 12, padding: '4px 12px' }}>藥物管理 &gt; 中藥管理</div>
 
       {/* Low Stock Quick Alert */}
       {stats.lowStock > 0 && filterStatus !== 'low' && (
@@ -585,27 +558,13 @@ export default function InventoryPage({ data, setData, showToast, onNavigate }) 
           <option value="all">所有店舖</option>
           {STORES.map(s => <option key={s}>{s}</option>)}
         </select>
-        <span style={S.filterLabel}>狀態:</span>
-        <select style={S.filterSelect} value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="all">所有狀態</option>
-          <option value="low">低庫存</option>
-          <option value="normal">充足</option>
-          <option value="expired">已過期</option>
-          <option value="expiring">即將過期(30日)</option>
-        </select>
-        <button style={S.actionBtn} onClick={openAdd}>+ 新增存貨</button>
-        <button style={S.actionBtnGreen} onClick={() => fileInputRef.current?.click()}>匯入XLS</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>搜索</button>
+        <button style={{ ...S.actionBtn, background: '#1565c0', fontSize: 12, padding: '4px 12px' }} onClick={() => { setSearch(''); setFilterStore('all'); setFilterStatus('all'); }}>刷新</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 12, padding: '4px 12px' }} onClick={handleExport}>導出Excel</button>
+        <button style={{ ...S.actionBtn, background: '#00838f', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>進階查詢</button>
+        <button style={{ ...S.actionBtn, background: '#455a64', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>藥物分析</button>
+        <button style={{ ...S.actionBtn, background: '#388e3c', fontSize: 12, padding: '4px 12px' }} onClick={openAdd}>更多操作... ▼</button>
         <input ref={fileInputRef} type="file" accept=".xls,.xlsx,.html,.htm,.csv" style={{ display: 'none' }} onChange={handleFileImport} />
-        <button style={S.actionBtn} onClick={handleExport}>匯出CSV</button>
-        {lowStockItems.length > 0 && (
-          <button style={S.actionBtnOrange} onClick={() => setShowPO(true)}>採購單 ({lowStockItems.length})</button>
-        )}
-        {batchSelected.length > 0 && (
-          <button style={S.actionBtnGreen} onClick={() => setShowBatchRestock(true)}>批量入貨 ({batchSelected.length})</button>
-        )}
-        <span style={S.link} onClick={() => setShowReport(!showReport)}>{showReport ? '隱藏報表' : '庫存報表'}</span>
-        <span style={S.link} onClick={() => setShowSuppliers(!showSuppliers)}>供應商目錄 ({supplierList.length})</span>
-        <span style={S.link} onClick={() => setShowMovements(!showMovements)}>變動紀錄 ({movements.length})</span>
       </div>
 
       {/* Category Report */}
