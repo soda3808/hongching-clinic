@@ -922,61 +922,33 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
   return (
     <div style={S.page}>
       {/* eCTCM Title Bar */}
-      <div style={S.titleBar}>診所顧客列表 &gt; 診症列表</div>
+      {/* eCTCM breadcrumb */}
+      <div style={{ ...S.titleBar, background: '#b8d4d4', color: '#333', fontSize: 12, padding: '4px 12px' }}>診所顧客列表 &gt; 診症列表</div>
 
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
-        <div style={S.statCard}><div style={S.statValue}>{stats.todayCount}</div><div style={S.statLabel}>今日診症</div></div>
-        <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnSuccess }}>{stats.monthCount}</div><div style={S.statLabel}>本月診症</div></div>
-        <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnWarning }}>{stats.uniquePatients}</div><div style={S.statLabel}>診症病人數</div></div>
-        <div style={S.statCard}><div style={{ ...S.statValue, color: ECTCM.btnDanger }}>{stats.followUps}</div><div style={S.statLabel}>本週覆診</div></div>
+      {/* eCTCM quick actions bar */}
+      <div style={{ background: '#006666', color: '#fff', padding: '4px 12px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span>快捷操作：</span>
+        <input style={{ ...S.filterInput, width: 200, fontSize: 11 }} placeholder="顧客編號,姓名,電話,完整證件號" />
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>搜索顧客</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>新增顧客</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>掛號</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>快速掛號</button>
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 11, padding: '3px 10px' }}>醫師掛號表</button>
       </div>
 
-      {/* Top action bar */}
-      <div style={S.toolbar}>
-        <span style={{ fontWeight: 700, fontSize: 13 }}>診症紀錄</span>
+      {/* eCTCM filter bar */}
+      <div style={{ ...S.filterBar, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 12px' }}>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>關鍵字:</span>
+        <input style={{ ...S.filterInput, width: 140 }} value={search} onChange={e => setSearch(e.target.value)} />
+        <span style={{ fontSize: 12, fontWeight: 600, marginLeft: 8 }}>掛號日期:</span>
+        <input type="date" style={{ ...S.filterInput, width: 130 }} value={customStart} onChange={e => { setCustomStart(e.target.value); setFilterDate('custom'); }} />
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 12, padding: '4px 12px' }} onClick={() => setFilterDate('custom')}>搜索</button>
+        <button style={{ ...S.actionBtn, background: '#00838f', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>進階查詢</button>
+        <button style={{ ...S.actionBtn, background: '#c8a600', color: '#333', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>逾期未處理診症</button>
+        <button style={{ ...S.actionBtn, background: '#455a64', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>顧客分析</button>
+        <button style={{ ...S.actionBtn, background: '#455a64', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>病史備份</button>
         <span style={{ flex: 1 }} />
         <button style={S.actionBtnGreen} onClick={() => setShowAdd(true)}>+ 新增診症</button>
-      </div>
-
-      {/* Filters */}
-      <div style={S.filterBar} role="search" aria-label="診症紀錄搜尋與篩選">
-        <span style={S.filterLabel}>搜尋:</span>
-        <input style={{ ...S.filterInput, flex: 1, minWidth: 160 }} placeholder="搜尋病人/診斷/證型/方劑..." value={search} onChange={e => setSearch(e.target.value)} aria-label="搜尋病人、診斷、證型或方劑" />
-        <input style={{ ...S.filterInput, width: 120 }} placeholder="篩選藥材..." value={filterHerb} onChange={e => setFilterHerb(e.target.value)} />
-        <span style={S.filterLabel}>日期:</span>
-        {[['all', '全部'], ['today', '今日'], ['week', '本週'], ['custom', '自選']].map(([k, l]) => (
-          <button key={k} style={{ ...S.actionBtn, background: filterDate === k ? ECTCM.headerBg : '#e0e0e0', color: filterDate === k ? '#fff' : '#333', border: 'none' }} onClick={() => setFilterDate(k)}>{l}</button>
-        ))}
-        {filterDate === 'custom' && (
-          <>
-            <input type="date" style={S.filterInput} value={customStart} onChange={e => setCustomStart(e.target.value)} />
-            <span style={{ fontSize: 12 }}>至</span>
-            <input type="date" style={S.filterInput} value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
-          </>
-        )}
-        <select style={S.filterSelect} value={filterDoc} onChange={e => setFilterDoc(e.target.value)}>
-          <option value="all">所有醫師</option>
-          {doctors.map(d => <option key={d}>{d}</option>)}
-        </select>
-        <select style={S.filterSelect} value={filterStore} onChange={e => setFilterStore(e.target.value)}>
-          <option value="all">所有店舖</option>
-          {storeNames.map(s => <option key={s}>{s}</option>)}
-        </select>
-        <button style={S.actionBtn} onClick={() => {
-          if (!filtered.length) return showToast('沒有診症紀錄可匯出');
-          const headers = ['日期','病人','醫師','店舖','中醫診斷','ICD-10','證型','證型碼','處方','劑數','治療','覆診日期'];
-          const rows = filtered.map(c => [
-            c.date, c.patientName, c.doctor, c.store, c.tcmDiagnosis || '', c.icd10Code || '', c.tcmPattern || '', c.cmZhengCode || '',
-            (c.prescription || []).map(rx => `${rx.herb}${rx.dosage ? ' ' + rx.dosage : ''}`).join('、'),
-            c.formulaDays || '', (c.treatments || []).join('、'), c.followUpDate || ''
-          ]);
-          const csv = '\uFEFF' + [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
-          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-          a.download = `consultations_${new Date().toISOString().substring(0,10)}.csv`; a.click();
-          showToast('已匯出診症紀錄');
-        }}>匯出CSV</button>
       </div>
 
       {/* Table */}
@@ -984,34 +956,39 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
         <table style={S.table} aria-label="診症紀錄列表">
           <thead>
             <tr>
-              <th style={S.th}>日期</th><th style={S.th}>病人</th><th style={S.th}>醫師</th><th style={S.th}>店舖</th>
-              <th style={S.th}>中醫診斷</th><th style={S.th}>治療</th><th style={S.th}>覆診日期</th><th style={S.th}>操作</th>
+              <th style={S.th}>排號</th><th style={S.th}>顧客編號</th><th style={S.th}>顧客姓名</th><th style={S.th}>性別</th><th style={S.th}>年齡</th>
+              <th style={S.th}>手機</th><th style={S.th}>掛號日期</th><th style={S.th}>掛號時間</th><th style={S.th}>到診時間</th>
+              <th style={S.th}>診治醫師</th><th style={S.th}>現時狀態</th><th style={S.th}>最後更新</th><th style={S.th}>診所</th><th style={S.th}>服務項目</th><th style={S.th}>操作</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((c, idx) => (
               <tr key={c.id} style={rowStyle(idx)}>
-                <td style={S.td}>{(c.date || '').substring(0, 10)}</td>
+                <td style={{...S.td, fontWeight: 800, color: ECTCM.headerBg}}>{c.queueNo || '-'}</td>
+                <td style={{...S.td, fontSize: 11, color: '#0066cc'}}>{c.patientId || '-'}</td>
                 <td style={S.td}>
                   <span style={{ ...S.link, fontWeight: 600 }} onClick={() => setDetail(c)}>
                     {c.patientName}
                   </span>
                 </td>
+                <td style={{...S.td, textAlign: 'center'}}>{c.gender || '-'}</td>
+                <td style={{...S.td, textAlign: 'center'}}>{c.age || '-'}</td>
+                <td style={S.td}>{c.patientPhone || '-'}</td>
+                <td style={S.td}>{(c.date || '').substring(0, 10)}</td>
+                <td style={S.td}>{c.regTime || '-'}</td>
+                <td style={S.td}>{c.arrivalTime || '-'}</td>
                 <td style={S.td}>{c.doctor}</td>
-                <td style={S.td}>{c.store}</td>
-                <td style={S.td}>{c.tcmDiagnosis || '-'}{c.icd10Code && <span style={{ fontSize: 10, color: ECTCM.textMuted, marginLeft: 4 }}>({c.icd10Code})</span>}</td>
-                <td style={S.td}>{c.treatments ? (Array.isArray(c.treatments) ? c.treatments.join('、') : String(c.treatments)) : '-'}</td>
-                <td style={S.td}>{c.followUpDate || '-'}</td>
+                <td style={S.td}><span style={statusTag(c.status === 'completed' ? '服務完成' : c.status || '候診中', c.status === 'completed' ? 'green' : 'orange')}>{c.status === 'completed' ? '服務完成' : c.status || '候診中'}</span></td>
+                <td style={{...S.td, fontSize: 11}}>{c.lastUpdatedBy || '-'}</td>
+                <td style={{...S.td, fontSize: 11}}>{c.store}</td>
+                <td style={{...S.td, fontSize: 11}}>{c.treatments ? (Array.isArray(c.treatments) ? c.treatments.join('; ') : String(c.treatments)) : c.services || '-'}</td>
                 <td style={S.td}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <span style={S.link} onClick={() => setDetail(c)}>詳情</span>
-                    <span style={{ ...S.link, color: ECTCM.btnDanger }} onClick={() => setDeleteId(c.id)}>刪除</span>
-                  </div>
+                  <span style={S.link} onClick={() => setDetail(c)}>病歷</span>
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={8} style={{ ...S.td, textAlign: 'center', color: ECTCM.textMuted, padding: 24 }}>暫無診症紀錄</td></tr>
+              <tr><td colSpan={15} style={{ ...S.td, textAlign: 'center', color: ECTCM.textMuted, padding: 24 }}>暫無診症紀錄</td></tr>
             )}
           </tbody>
         </table>
