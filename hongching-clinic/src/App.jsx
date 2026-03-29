@@ -42,6 +42,7 @@ const PublicCheckin = lazy(() => import('./components/PublicCheckin'));
 const PublicInquiry = lazy(() => import('./components/PublicInquiry'));
 const PrivacyCenter = lazy(() => import('./components/PrivacyCenter'));
 const SuperAdmin = lazy(() => import('./components/SuperAdmin'));
+const WhatsAppInbox = lazy(() => import('./components/WhatsAppInbox'));
 const LandingPage = lazy(() => import('./components/LandingPage'));
 const MedicineScanner = lazy(() => import('./components/MedicineScanner'));
 const TermsOfService = lazy(() => import('./components/TermsOfService'));
@@ -211,6 +212,7 @@ const ALL_PAGES = [
   { id: 'txplan', icon: '📋', label: '醫療計劃', section: '病人', perm: 'viewEMR' },
   { id: 'storedcard', icon: '💳', label: '充值卡', section: '病人', perm: 'viewPatients' },
   { id: 'package', icon: '🎫', label: '套餐/會員', section: '病人', perm: 'viewPackages' },
+  { id: 'wa-inbox', icon: '📱', label: 'WhatsApp AI', section: '客戶', perm: 'viewEMR' },
   { id: 'crm', icon: '💬', label: 'WhatsApp CRM', section: '客戶', perm: 'viewEMR' },
   { id: 'dailycare', icon: '💝', label: '每日關懷', section: '客戶', perm: 'viewPatients' },
   { id: 'inventory', icon: '💊', label: '藥材庫存', section: '營運', perm: 'editExpenses' },
@@ -1355,6 +1357,7 @@ function MainApp() {
             {page === 'queue' && <QueuePage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
             {page === 'emr' && <EMRPage data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}
             {page === 'package' && <PackagePage data={filteredData} setData={updateData} showToast={showToast} allData={data} />}
+            {page === 'wa-inbox' && <WhatsAppInbox data={filteredData} setData={updateData} user={user} showToast={showToast} />}
             {page === 'crm' && <CRMPage data={filteredData} setData={updateData} showToast={showToast} />}
             {page === 'inventory' && <InventoryPage data={filteredData} setData={updateData} showToast={showToast} onNavigate={setPage} />}
             {page === 'medscan' && <MedicineScanner data={filteredData} setData={updateData} showToast={showToast} allData={data} user={user} onNavigate={setPage} />}

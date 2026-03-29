@@ -2668,14 +2668,227 @@ async function handleECTCMScrape(req, res) {
   }
 }
 
+// ── Handler: WhatsApp Webhook (incoming messages from patients) ──
+// GET = Meta verification, POST = receive messages — both NO AUTH required
+async function handleWaWebhook(req, res) {
+  // GET: Meta webhook verification
+  if (req.method === 'GET') {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    const verifyToken = process.env.WA_VERIFY_TOKEN || 'hongching_wa_verify_2026';
+    if (mode === 'subscribe' && token === verifyToken) {
+      console.log('[WA-Webhook] Verification OK');
+      return res.status(200).send(challenge);
+    }
+    return res.status(403).send('Forbidden');
+  }
+
+  // POST: Incoming WhatsApp message
+  const body = req.body;
+  if (!body?.entry?.[0]?.changes?.[0]?.value) {
+    return res.status(200).json({ status: 'ignored' }); // acknowledge but skip
+  }
+
+  const value = body.entry[0].changes[0].value;
+  const messages = value.messages || [];
+  const contacts = value.contacts || [];
+  const phoneNumberId = value.metadata?.phone_number_id || '';
+
+  // Determine store from phone_number_id
+  const phoneMap = (() => { try { return JSON.parse(process.env.WHATSAPP_PHONE_MAP || '{}'); } catch { return {}; } })();
+  const reverseMap = {};
+  for (const [store, pid] of Object.entries(phoneMap)) reverseMap[pid] = store;
+  const store = reverseMap[phoneNumberId] || '宋皇臺';
+
+  const sbUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const sbKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  const waToken = process.env.WHATSAPP_TOKEN;
+
+  for (const msg of messages) {
+    const from = msg.from; // e.g. "85261234567"
+    const contactName = contacts.find(c => c.wa_id === from)?.profile?.name || '';
+    const msgBody = msg.text?.body || msg.caption || '';
+    const msgType = msg.type || 'text';
+    const waId = msg.id || '';
+
+    // Dedup
+    if (isDuplicate(waId)) continue;
+
+    console.log(`[WA-Webhook] ${store} | ${from} (${contactName}): ${msgBody.substring(0, 80)}`);
+
+    // Store inbound message in Supabase
+    const msgId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+    if (sbUrl && sbKey) {
+      try {
+        await fetch(`${sbUrl}/rest/v1/wa_messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: sbKey, Authorization: `Bearer ${sbKey}`, Prefer: 'return=minimal' },
+          body: JSON.stringify({ id: msgId, wa_id: waId, phone: from, name: contactName, direction: 'inbound', body: msgBody, msg_type: msgType, store, status: 'received' }),
+        });
+      } catch (e) { console.error('[WA-Webhook] Save error:', e.message); }
+    }
+
+    // Match patient from DB
+    let patientName = contactName;
+    let patientInfo = null;
+    if (sbUrl && sbKey) {
+      try {
+        const pRes = await fetch(`${sbUrl}/rest/v1/patients?phone=like.*${from.slice(-8)}*&limit=1`, {
+          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+        });
+        const patients = await pRes.json();
+        if (patients.length) {
+          patientInfo = patients[0];
+          patientName = patients[0].name || contactName;
+        }
+      } catch (e) { console.error('[WA-Webhook] Patient lookup error:', e.message); }
+    }
+
+    // Get recent conversation history for this phone
+    let conversationHistory = '';
+    if (sbUrl && sbKey) {
+      try {
+        const hRes = await fetch(`${sbUrl}/rest/v1/wa_messages?phone=eq.${from}&order=created_at.desc&limit=10`, {
+          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+        });
+        const hist = await hRes.json();
+        conversationHistory = hist.reverse().map(m => `[${m.direction === 'inbound' ? '病人' : 'AI'}] ${m.body}`).join('\n');
+      } catch (e) { /* ignore */ }
+    }
+
+    // Get available bookings for context
+    let bookingSlots = '';
+    if (sbUrl && sbKey) {
+      try {
+        const today = new Date().toISOString().substring(0, 10);
+        const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10);
+        const bRes = await fetch(`${sbUrl}/rest/v1/bookings?date=gte.${today}&date=lte.${nextWeek}&status=in.(pending,confirmed)&select=date,time,doctor,store`, {
+          headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+        });
+        const booked = await bRes.json();
+        bookingSlots = JSON.stringify(booked.slice(0, 50));
+      } catch (e) { /* ignore */ }
+    }
+
+    // Generate AI reply
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    let aiReply = '多謝你嘅查詢！我哋會盡快回覆你。';
+
+    if (anthropicKey && msgBody) {
+      try {
+        const clinicContext = `
+你係康晴綜合醫療中心嘅 AI 客服助手。用親切嘅廣東話回覆病人。
+
+診所資料：
+- 宋皇臺店：九龍宋皇臺道38號傲寓地下3號舖，WhatsApp: 6341 6663
+- 太子店：九龍太子道西141號長榮大廈3樓B室，WhatsApp: 6506 5891
+- 營業時間：星期一至六 10:00-19:00，星期日休息
+- 服務：中醫診症（初診$450/覆診$350）、針灸($450)、推拿($350)、拔罐($250)、天灸($388)
+- 醫師：許植輝醫師（宋皇臺）、常凱晴醫師（太子/宋皇臺）、曾其方醫師（太子）
+
+病人而家喺 ${store}店 嘅 WhatsApp 傾偈。
+${patientInfo ? `已知病人：${patientName}，電話：${from}` : `新病人，電話：${from}，WhatsApp名：${contactName}`}
+
+已預約時段（未來7日）：
+${bookingSlots || '暫無預約資料'}
+
+規則：
+- 簡短友善，唔好太長篇
+- 如果病人想預約，回覆可用時段（避開已預約時段）
+- 如果病人想預約，用以下格式確認：📅 日期：YYYY-MM-DD ⏰ 時間：HH:MM 👨‍⚕️ 醫師：XXX 📍 地點：XXX店
+- 當病人確認預約，喺回覆最後加一行 [BOOK:YYYY-MM-DD|HH:MM|醫師名|店名|病人名|電話]
+- 唔好提供醫療建議，引導病人親臨診所
+- 如果問題超出範圍，建議病人直接致電診所`.trim();
+
+        const aiMessages = [{ role: 'user', content: `${conversationHistory ? '對話紀錄:\n' + conversationHistory + '\n\n' : ''}病人最新訊息: ${msgBody}` }];
+
+        const aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 500, system: clinicContext, messages: aiMessages }),
+        });
+
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          aiReply = aiData.content?.[0]?.text || aiReply;
+        }
+      } catch (e) { console.error('[WA-Webhook] AI error:', e.message); }
+    }
+
+    // Check for booking command in AI reply [BOOK:date|time|doctor|store|name|phone]
+    const bookMatch = aiReply.match(/\[BOOK:([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/);
+    let bookingId = null;
+    if (bookMatch && sbUrl && sbKey) {
+      const [, bDate, bTime, bDoctor, bStore, bName, bPhone] = bookMatch;
+      bookingId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+      try {
+        await fetch(`${sbUrl}/rest/v1/bookings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: sbKey, Authorization: `Bearer ${sbKey}`, Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            id: bookingId, patientName: bName.trim(), patientPhone: bPhone.trim(),
+            date: bDate.trim(), time: bTime.trim(), doctor: bDoctor.trim(),
+            store: bStore.trim(), type: '覆診', status: 'confirmed',
+            notes: 'WhatsApp AI 自動預約', createdAt: new Date().toISOString(),
+          }),
+        });
+        console.log(`[WA-Webhook] Booking created: ${bName} ${bDate} ${bTime} ${bDoctor}`);
+      } catch (e) { console.error('[WA-Webhook] Booking error:', e.message); }
+      // Remove the [BOOK:...] tag from the reply sent to patient
+      aiReply = aiReply.replace(/\[BOOK:[^\]]+\]/, '').trim();
+    }
+
+    // Send AI reply via WhatsApp
+    if (waToken && phoneNumberId) {
+      let formatted = from;
+      if (!formatted.startsWith('+')) formatted = '+' + formatted;
+      try {
+        await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${waToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messaging_product: 'whatsapp', to: formatted, type: 'text', text: { body: aiReply } }),
+        });
+      } catch (e) { console.error('[WA-Webhook] Send error:', e.message); }
+    }
+
+    // Store outbound AI reply
+    if (sbUrl && sbKey) {
+      const replyId = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+      try {
+        await fetch(`${sbUrl}/rest/v1/wa_messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', apikey: sbKey, Authorization: `Bearer ${sbKey}`, Prefer: 'return=minimal' },
+          body: JSON.stringify({ id: replyId, phone: from, name: patientName, direction: 'outbound', body: aiReply, msg_type: 'text', store, status: 'ai_replied', booking_id: bookingId }),
+        });
+      } catch (e) { console.error('[WA-Webhook] Save reply error:', e.message); }
+    }
+
+    // Update inbound message status
+    if (sbUrl && sbKey) {
+      try {
+        await fetch(`${sbUrl}/rest/v1/wa_messages?id=eq.${msgId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+          body: JSON.stringify({ status: 'ai_replied', ai_reply: aiReply }),
+        });
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  // Always return 200 to Meta (avoid retries)
+  return res.status(200).json({ status: 'ok' });
+}
+
 export default async function handler(req, res) {
   setCORS(req, res);
   if (handleOptions(req, res)) return;
 
   const action = req.query?.action || req.body?._action || '';
 
-  // tg-expense webhook: supports GET + POST, no auth required
+  // Webhooks: no auth required, support GET + POST
   if (action === 'tg-expense') return handleTgExpense(req, res);
+  if (action === 'wa-webhook') return handleWaWebhook(req, res);
 
   if (req.method !== 'POST') return errorResponse(res, 405, 'Method not allowed');
 

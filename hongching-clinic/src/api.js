@@ -396,6 +396,42 @@ export async function sendBatchFollowupWhatsApp(items) {
   }
 }
 
+// ── WhatsApp Inbox (incoming messages) ──
+export async function loadWaMessages(phone = null, limit = 100) {
+  const url = import.meta.env.VITE_SUPABASE_URL;
+  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !key) return [];
+  try {
+    let q = `${url}/rest/v1/wa_messages?order=created_at.desc&limit=${limit}`;
+    if (phone) q += `&phone=eq.${phone}`;
+    const res = await fetch(q, { headers: { apikey: key, Authorization: `Bearer ${key}` } });
+    return res.ok ? await res.json() : [];
+  } catch { return []; }
+}
+
+export async function sendWaReply(phone, message, store) {
+  try {
+    const res = await fetch('/api/messaging?action=whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+      body: JSON.stringify({ phone, message, store }),
+    });
+    const result = await res.json();
+    // Also save as outbound message
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (url && key && result.success) {
+      const id = Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
+      await fetch(`${url}/rest/v1/wa_messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${key}`, Prefer: 'return=minimal' },
+        body: JSON.stringify({ id, phone, direction: 'outbound', body: message, msg_type: 'text', store, status: 'sent' }),
+      });
+    }
+    return result;
+  } catch (err) { return { success: false, error: err.message }; }
+}
+
 // ── Telegram Bot ──
 export async function sendTelegram(message, chatId) {
   try {
