@@ -563,27 +563,21 @@ export default function BillingPage({ data, setData, showToast, allData, user })
 
   return (
     <div style={S.page}>
-      <div style={S.titleBar}>配藥/收費 &gt; 配藥/收費列表</div>
+      <div style={{ ...S.titleBar, background: '#b8d4d4', color: '#333', fontSize: 12, padding: '4px 12px' }}>配藥／收費 &gt; 配藥／收費列表</div>
 
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 8, padding: '8px 12px', flexWrap: 'wrap' }} role="status" aria-live="polite" aria-label="收費統計摘要">
-        <div style={S.statCard}><div style={S.statValue}>{summary.total}</div><div style={S.statLabel}>今日帳單</div></div>
-        <div style={S.statCard}><div style={{...S.statValue, color: ECTCM.btnSuccess}}>{fmtM(summary.paidAmount)}</div><div style={S.statLabel}>已收費 ({summary.paid} 筆)</div></div>
-        <div style={S.statCard}><div style={{...S.statValue, color: ECTCM.btnWarning}}>{fmtM(summary.unpaidAmount)}</div><div style={S.statLabel}>未收費 ({summary.unpaid} 筆)</div></div>
-        <div style={S.statCard}><div style={{...S.statValue, color: ECTCM.btnDanger}}>{fmtM(summary.totalFee)}</div><div style={S.statLabel}>費用合計</div></div>
-      </div>
-
-      {/* Filter Bar */}
-      <div style={S.filterBar}>
-        <span style={S.filterLabel}>日期</span>
-        <input type="date" style={{...S.filterInput, width: 'auto'}} value={filterDate} onChange={e => setFilterDate(e.target.value)} />
-        <input style={{...S.filterInput, flex: 1, minWidth: 140}} placeholder="搜尋病人/號碼..." value={search} onChange={e => setSearch(e.target.value)} />
-        <select style={S.filterSelect} value={filterDoctor} onChange={e => setFilterDoctor(e.target.value)}>
-          <option value="all">全部醫師</option>
-          {getDoctors().map(d => <option key={d}>{d}</option>)}
-        </select>
-        <button style={S.actionBtn} onClick={handleExport}>匯出Excel</button>
-        <button style={S.actionBtnOrange} onClick={() => printDailyClose()}>日結報告</button>
+      {/* eCTCM Filter Bar — matches exactly */}
+      <div style={{ ...S.filterBar, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 12px' }}>
+        <span style={{ fontSize: 12, fontWeight: 600 }}>BarCode/關鍵字:</span>
+        <input style={{ ...S.filterInput, width: 140 }} placeholder="" value={search} onChange={e => setSearch(e.target.value)} />
+        <span style={{ fontSize: 12, fontWeight: 600, marginLeft: 8 }}>掛號日期:</span>
+        <input type="date" style={{ ...S.filterInput, width: 130 }} value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+        <button style={{ ...S.actionBtn, background: '#2e7d32', fontSize: 12, padding: '4px 12px' }} onClick={() => setSearch('')}>搜索</button>
+        <button style={{ ...S.actionBtn, background: '#c8a600', color: '#333', fontSize: 12, padding: '4px 12px' }} onClick={() => setFilterDate(getToday())}>當天記錄</button>
+        <button style={{ ...S.actionBtn, background: '#1565c0', fontSize: 12, padding: '4px 12px' }} onClick={() => { setFilterDate(getToday()); setSearch(''); setFilterDoctor('all'); }}>刷新</button>
+        <button style={{ ...S.actionBtn, background: '#00838f', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>進階查詢</button>
+        <button style={{ ...S.actionBtn, background: '#c8a600', color: '#333', fontSize: 12, padding: '4px 12px' }} onClick={() => {}}>快捷配藥／收費</button>
+        <button style={{ ...S.actionBtn, background: '#455a64', fontSize: 12, padding: '4px 12px' }} onClick={() => printDailyClose()}>結算鎖定</button>
+        <button style={{ ...S.actionBtn, background: '#388e3c', fontSize: 12, padding: '4px 12px' }} onClick={handleExport}>更多操作... ▼</button>
       </div>
 
       {/* Revenue Reconciliation (#83) */}
@@ -629,29 +623,41 @@ export default function BillingPage({ data, setData, showToast, allData, user })
           <table style={S.table} aria-label="配藥及收費列表">
             <thead>
               <tr>
-                <th style={S.th}>號碼</th>
-                <th style={S.th}>病人</th>
-                <th style={S.th}>醫師</th>
-                <th style={S.th}>店舖</th>
+                <th style={S.th}>診所</th>
+                <th style={S.th}>掛號日期</th>
+                <th style={S.th}>排號</th>
+                <th style={S.th}>顧客編號</th>
+                <th style={S.th}>顧客姓名</th>
+                <th style={S.th}>性別</th>
+                <th style={S.th}>年齡</th>
+                <th style={S.th}>診治醫師</th>
                 <th style={S.th}>服務</th>
-                <th style={{...S.th, textAlign: 'right'}}>費用</th>
-                <th style={S.th}>狀態</th>
-                <th style={S.th}>配藥</th>
-                <th style={S.th}>收費</th>
+                <th style={{...S.th, textAlign: 'right'}}>再需付款</th>
+                <th style={{...S.th, textAlign: 'right'}}>服務總款</th>
+                <th style={S.th}>配藥狀態</th>
+                <th style={S.th}>收費狀態</th>
+                <th style={S.th}>列印</th>
                 <th style={S.th}>操作</th>
               </tr>
             </thead>
             <tbody>
               {!list.length && (
-                <tr><td colSpan={10} style={{...S.td, textAlign: 'center', padding: 40, color: '#aaa' }}>暫無帳單紀錄</td></tr>
+                <tr><td colSpan={15} style={{...S.td, textAlign: 'center', padding: 40, color: '#aaa' }}>暫無帳單紀錄</td></tr>
               )}
-              {list.map((r, idx) => (
-                <tr key={r.id} style={{...rowStyle(idx), ...(r.paymentStatus === 'paid' ? { opacity: 0.6 } : {})}}>
+              {list.map((r, idx) => {
+                const outstanding = Math.max(0, Number(r.serviceFee || 0) - Number(r.paidAmount || 0));
+                return (
+                <tr key={r.id} style={{...rowStyle(idx), ...(r.paymentStatus === 'paid' ? { opacity: 0.7 } : {})}}>
+                  <td style={{...S.td, fontSize: 11}}>{r.store || '宋皇臺'}</td>
+                  <td style={S.td}>{r.date || filterDate}</td>
                   <td style={{...S.td, fontWeight: 800, color: ECTCM.headerBg}}>{r.queueNo}</td>
+                  <td style={{...S.td, fontSize: 11, color: '#0066cc'}}>{r.customerCode || '-'}</td>
                   <td style={{...S.td, fontWeight: 600}}>{r.patientName}</td>
+                  <td style={{...S.td, textAlign: 'center'}}>{r.gender || '-'}</td>
+                  <td style={{...S.td, textAlign: 'center'}}>{r.age || '-'}</td>
                   <td style={S.td}>{r.doctor}</td>
-                  <td style={S.td}>{r.store}</td>
                   <td style={{...S.td, fontSize: 11}}>{r.services}</td>
+                  <td style={{...S.td, textAlign: 'right'}}>{r.paymentStatus === 'paid' ? '0.00' : fmtM(outstanding)}</td>
                   <td style={{...S.td, textAlign: 'right', fontWeight: 600}}>
                     {fmtM(r.serviceFee)}
                     {r.prescription?.length > 0 && (() => {
@@ -704,16 +710,24 @@ export default function BillingPage({ data, setData, showToast, allData, user })
                       {r.paymentStatus === 'paid' && (
                         <span style={{...S.link, color: ECTCM.btnDanger}} onClick={() => { setRefundItem(r); setRefundAmt(''); setRefundReason(''); }}>退款</span>
                       )}
-                      <span style={S.link} onClick={() => printReceipt(r)}>收據</span>
                     </div>
                   </td>
+                  <td style={{...S.td, fontSize: 11}}>
+                    <span style={S.link} onClick={() => printReceipt(r)}>收據</span>
+                  </td>
+                  <td style={S.td}>
+                    <span style={S.link} onClick={() => printReceipt(r)}>註</span>
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
             {list.length > 0 && (
               <tfoot role="status" aria-live="polite">
                 <tr style={{ background: ECTCM.trEvenBg, fontWeight: 700 }}>
-                  <td colSpan={5} style={{...S.td, textAlign: 'right'}}>合計</td>
+                  <td colSpan={8} style={S.td} />
+                  <td style={{...S.td, textAlign: 'right', fontWeight: 700}}>總數</td>
+                  <td style={{...S.td, textAlign: 'right', fontWeight: 700}}>{fmtM(summary.unpaidAmount)}</td>
                   <td style={{...S.td, textAlign: 'right', fontWeight: 700}}>{fmtM(summary.totalFee)}</td>
                   <td colSpan={4} style={S.td} />
                 </tr>
