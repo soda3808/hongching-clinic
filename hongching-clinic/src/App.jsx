@@ -1101,50 +1101,71 @@ function MainApp() {
   const currentPage = visiblePages.find(p => p.id === page) || visiblePages[0];
 
   // Core pages: eCTCM-style — only 9 daily essentials in main nav, everything else in "更多"
-  const CORE_IDS = new Set([
-    'dash',       // 總覽
-    'queue',      // 掛號排隊
-    'emr',        // 電子病歷
-    'billing',    // 配藥/收費
-    'patient',    // 病人管理
-    'inventory',  // 藥材庫存
-    'booking',    // 預約系統
-    'rev',        // 營業紀錄
-    'report',     // 報表中心
-  ]);
+  // ── eCTCM-identical navigation structure ──
+  // Matches: 個人管理 | 診所顧客列表 | 診症列表 | 配藥/收費 | 營運報表 | 藥物管理 | 商品管理 | 公司運作管理 | 帳號管理
+  const ECTCM_NAV = [
+    { label: '診所顧客列表', items: [
+      { id: 'patient', label: '顧客列表' },
+      { id: 'queue', label: '掛號列表' },
+      { id: 'booking', label: '網上預約列表' },
+      { id: 'regqueue', label: '排隊叫號' },
+      { id: 'schedule', label: '醫師掛號表' },
+    ]},
+    { label: '診症列表', items: [{ id: 'emr', label: '診症列表' }] },
+    { label: '配藥/收費', items: [
+      { id: 'billing', label: '配藥/收費列表' },
+      { id: 'closing', label: '結算鎖定管理' },
+    ]},
+    { label: '營運報表', items: [
+      { id: 'doc', label: '醫師工作報表' },
+      { id: 'report', label: '診所管理報表' },
+      { id: 'pnl', label: '醫務管理報表' },
+    ]},
+    { label: '藥物管理', items: [
+      { id: 'inventory', label: '中藥管理' },
+      { id: 'purchase', label: '入貨管理' },
+      { id: 'dispensing', label: '開藥日誌' },
+    ]},
+    { label: '商品管理', items: [
+      { id: 'products', label: '我的商品' },
+      { id: 'prodorders', label: '訂單管理' },
+    ]},
+    { label: '公司運作管理', items: [
+      { id: 'discount', label: '服務及療程管理' },
+      { id: 'msgtpl', label: '公司自訂短信管理' },
+      { id: 'drugprice', label: '藥物收費及安全量設定' },
+      { id: 'syscheck', label: '系統檢查' },
+      { id: 'recruit', label: '招聘管理' },
+      { id: 'backup', label: '數據備份中心' },
+    ]},
+    { label: '帳號管理', items: [
+      { id: 'settings', label: '用戶管理' },
+      { id: 'leave', label: '假期管理' },
+    ]},
+  ];
 
-  const corePages = visiblePages.filter(p => CORE_IDS.has(p.id));
-  const extraPages = visiblePages.filter(p => !CORE_IDS.has(p.id));
+  // Filter nav items by user permissions
+  const filteredNav = ECTCM_NAV.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      const pageDef = ALL_PAGES.find(p => p.id === item.id);
+      return pageDef && perms[pageDef.perm];
+    }),
+  })).filter(group => group.items.length > 0);
 
-  // Build main sections — eCTCM layout: flat nav items, no nested dropdowns for core
-  const SECTION_ORDER = ['診症', '營運', '財務'];
-  const SECTION_REMAP = {
-    'dash': '總覽',
-    'queue': '診症', 'emr': '診症', 'patient': '診症', 'booking': '診症',
-    'billing': '營運', 'inventory': '營運',
-    'rev': '財務', 'report': '財務',
-  };
-
-  let sections = {};
-  corePages.forEach(p => {
-    const sec = SECTION_REMAP[p.id] || p.section;
-    if (!sections[sec]) sections[sec] = [];
-    sections[sec].push(p);
-  });
-
-  // Sort sections by defined order
-  const orderedSections = {};
-  SECTION_ORDER.forEach(s => { if (sections[s]) orderedSections[s] = sections[s]; });
-  // Add any remaining
-  Object.keys(sections).forEach(s => { if (!orderedSections[s]) orderedSections[s] = sections[s]; });
-  sections = orderedSections;
-
-  // Group extra pages by their original sections
+  // All page IDs in the eCTCM nav
+  const ectcmIds = new Set(ECTCM_NAV.flatMap(g => g.items.map(i => i.id)));
+  // Extra pages = everything not in eCTCM nav
+  const extraPages = visiblePages.filter(p => !ectcmIds.has(p.id) && p.id !== 'dash' && p.id !== 'settings');
   let extraSections = {};
   extraPages.forEach(p => {
     if (!extraSections[p.section]) extraSections[p.section] = [];
     extraSections[p.section].push(p);
   });
+
+  // Keep sections for backward compat (used by mobile nav)
+  const sections = {};
+  filteredNav.forEach(g => { sections[g.label] = g.items.map(i => visiblePages.find(p => p.id === i.id)).filter(Boolean); });
 
   // Mobile tabs filtered by permissions
   const mobileTabs = MOBILE_TABS.filter(t => t.id === 'more' || perms[ALL_PAGES.find(p => p.id === t.id)?.perm]);
@@ -1222,107 +1243,78 @@ function MainApp() {
         </div>
       </div>
 
-      {/* eCTCM Main Nav Bar (desktop) */}
-      <div className="hide-mobile" style={{ background: '#005555', display: 'flex', gap: 0, padding: '0 8px', fontSize: 14, position: 'sticky', top: 56, zIndex: 99, borderBottom: '2px solid #004444' }}>
-        {Object.entries(sections).map(([section, items]) => {
-          const isActive = items.some(p => p.id === page);
-          const isOpen = openMenu === section;
+      {/* eCTCM-identical Main Nav Bar (desktop) */}
+      <div className="hide-mobile" style={{ background: '#5ba3a3', display: 'flex', gap: 0, padding: 0, fontSize: 13, position: 'sticky', top: 56, zIndex: 99, borderBottom: '1px solid #4a9090' }}>
+        {/* Dashboard link */}
+        <div style={{ position: 'relative' }}>
+          <div onClick={() => { setPage('dash'); setOpenMenu(null); }}
+            style={{ padding: '8px 14px', cursor: 'pointer', color: '#fff', fontWeight: page === 'dash' ? 700 : 500, background: page === 'dash' ? '#4a9090' : 'transparent', borderRight: '1px solid #4a9090', whiteSpace: 'nowrap' }}>
+            總覽
+          </div>
+        </div>
+        {filteredNav.map(group => {
+          const isActive = group.items.some(i => i.id === page);
+          const isOpen = openMenu === group.label;
+          const single = group.items.length === 1;
           return (
-            <div key={section} style={{ position: 'relative' }}
-              onMouseEnter={() => setOpenMenu(section)}
+            <div key={group.label} style={{ position: 'relative' }}
+              onMouseEnter={() => setOpenMenu(group.label)}
               onMouseLeave={() => setOpenMenu(null)}>
-              <div style={{
-                padding: '10px 18px', cursor: 'pointer', color: '#fff', fontWeight: isActive ? 700 : 500,
-                background: isActive ? '#004444' : isOpen ? '#004d4d' : 'transparent',
-                borderBottom: isActive ? '3px solid #ffcc00' : '3px solid transparent',
-                whiteSpace: 'nowrap', transition: 'background .15s', fontSize: 14, letterSpacing: 0.5,
-              }}>
-                {section} {items.length > 1 ? '▼' : ''}
-              </div>
-              {isOpen && items.length > 1 && (
-                <div style={{
-                  position: 'absolute', top: '100%', left: 0, background: '#fff', minWidth: 180,
-                  boxShadow: '0 4px 12px rgba(0,0,0,.18)', borderRadius: '0 0 4px 4px', zIndex: 200,
-                  border: '1px solid #ddd', borderTop: '2px solid #006666',
+              <div onClick={single ? () => { setPage(group.items[0].id); setOpenMenu(null); } : undefined}
+                style={{
+                  padding: '8px 14px', cursor: 'pointer', color: '#fff', fontWeight: isActive ? 700 : 400,
+                  background: isActive ? '#4a9090' : isOpen ? '#4a9090' : 'transparent',
+                  borderRight: '1px solid #4a9090', whiteSpace: 'nowrap',
                 }}>
-                  {items.map(p => (
-                    <div key={p.id} onClick={() => { setPage(p.id); setOpenMenu(null); }}
+                {group.label} {!single && '▼'}
+              </div>
+              {isOpen && !single && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, background: '#fff', minWidth: 200,
+                  boxShadow: '0 4px 12px rgba(0,0,0,.18)', zIndex: 200,
+                  border: '1px solid #ccc', borderTop: '2px solid #006666',
+                }}>
+                  {group.items.map(item => (
+                    <div key={item.id} onClick={() => { setPage(item.id); setOpenMenu(null); }}
                       style={{
-                        padding: '8px 14px', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
-                        background: page === p.id ? '#e6f5f5' : '#fff', color: page === p.id ? '#006666' : '#333',
-                        fontWeight: page === p.id ? 700 : 400, borderBottom: '1px solid #f0f0f0',
+                        padding: '7px 14px', cursor: 'pointer', fontSize: 13,
+                        background: page === item.id ? '#e6f5f5' : '#fff', color: page === item.id ? '#006666' : '#333',
+                        fontWeight: page === item.id ? 700 : 400, borderBottom: '1px solid #f0f0f0',
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#f5fafa'}
-                      onMouseLeave={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#fff'}>
-                      <span style={{ fontSize: 14 }}>{p.icon}</span>
-                      <span>{p.label}</span>
+                      onMouseEnter={e => { if (page !== item.id) e.currentTarget.style.background = '#f5fafa'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = page === item.id ? '#e6f5f5' : '#fff'; }}>
+                      {item.label}
                     </div>
                   ))}
                 </div>
               )}
-              {/* Single-item sections: click directly */}
-              {items.length === 1 && (
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, cursor: 'pointer' }}
-                  onClick={() => { setPage(items[0].id); setOpenMenu(null); }} />
-              )}
             </div>
           );
         })}
-        {/* Extra pages as "更多" dropdown */}
         {extraPages.length > 0 && (
           <div style={{ position: 'relative' }}
             onMouseEnter={() => setOpenMenu('__extra')}
             onMouseLeave={() => setOpenMenu(null)}>
-            <div style={{
-              padding: '7px 14px', cursor: 'pointer', color: '#fff',
-              fontWeight: extraPages.some(p => p.id === page) ? 700 : 400,
-              background: extraPages.some(p => p.id === page) ? '#004444' : openMenu === '__extra' ? '#004d4d' : 'transparent',
-              borderBottom: extraPages.some(p => p.id === page) ? '2px solid #ffcc00' : '2px solid transparent',
-              whiteSpace: 'nowrap',
-            }}>
-              更多 ▼
+            <div style={{ padding: '8px 14px', cursor: 'pointer', color: '#fff', fontWeight: extraPages.some(p => p.id === page) ? 700 : 400, background: openMenu === '__extra' ? '#4a9090' : 'transparent', borderRight: '1px solid #4a9090', whiteSpace: 'nowrap' }}>
+              更多操作... ▼
             </div>
             {openMenu === '__extra' && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, background: '#fff', minWidth: 220, maxHeight: 420, overflowY: 'auto',
-                boxShadow: '0 4px 12px rgba(0,0,0,.18)', borderRadius: '0 0 4px 4px', zIndex: 200,
-                border: '1px solid #ddd', borderTop: '2px solid #006666',
-              }}>
+              <div style={{ position: 'absolute', top: '100%', right: 0, background: '#fff', minWidth: 220, maxHeight: 450, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.18)', zIndex: 200, border: '1px solid #ccc', borderTop: '2px solid #006666' }}>
                 {Object.entries(extraSections).map(([section, items]) => (
                   <div key={section}>
-                    <div style={{ fontSize: 10, color: '#999', padding: '6px 14px 2px', textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>{section}</div>
+                    <div style={{ fontSize: 10, color: '#999', padding: '6px 14px 2px', letterSpacing: 1, fontWeight: 700, background: '#f5f5f5', borderBottom: '1px solid #eee' }}>{section}</div>
                     {items.map(p => (
                       <div key={p.id} onClick={() => { setPage(p.id); setOpenMenu(null); }}
-                        style={{
-                          padding: '6px 14px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8,
-                          background: page === p.id ? '#e6f5f5' : '#fff', color: page === p.id ? '#006666' : '#333',
-                          fontWeight: page === p.id ? 700 : 400,
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#f5fafa'}
-                        onMouseLeave={e => e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#fff'}>
-                        <span style={{ fontSize: 13 }}>{p.icon}</span>
-                        <span>{p.label}</span>
+                        style={{ padding: '6px 14px', cursor: 'pointer', fontSize: 12, background: page === p.id ? '#e6f5f5' : '#fff', color: page === p.id ? '#006666' : '#333', fontWeight: page === p.id ? 700 : 400, borderBottom: '1px solid #f5f5f5' }}
+                        onMouseEnter={e => { if (page !== p.id) e.currentTarget.style.background = '#f5fafa'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = page === p.id ? '#e6f5f5' : '#fff'; }}>
+                        {p.label}
                       </div>
                     ))}
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        )}
-        {/* Settings */}
-        {perms.viewSettings && (
-          <div style={{ position: 'relative' }}>
-            <div onClick={() => { setPage('settings'); setOpenMenu(null); }}
-              style={{
-                padding: '7px 14px', cursor: 'pointer', color: '#fff',
-                fontWeight: page === 'settings' ? 700 : 400,
-                background: page === 'settings' ? '#004444' : 'transparent',
-                borderBottom: page === 'settings' ? '2px solid #ffcc00' : '2px solid transparent',
-                whiteSpace: 'nowrap',
-              }}>
-              ⚙️ 設定
-            </div>
           </div>
         )}
       </div>
