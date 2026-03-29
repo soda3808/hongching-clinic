@@ -192,7 +192,7 @@ const ECTCMRevenue = lazy(() => import('./components/ECTCMRevenue'));
 const DailyCare = lazy(() => import('./components/DailyCare'));
 
 const ALL_PAGES = [
-  { id: 'dash', icon: '📊', label: 'Dashboard', section: '總覽', perm: 'viewDashboard' },
+  { id: 'dash', icon: '📊', label: '總覽', section: '總覽', perm: 'viewDashboard' },
   { id: 'rev', icon: '💰', label: '營業紀錄', section: '財務', perm: 'editRevenue' },
   { id: 'exp', icon: '🧾', label: '開支紀錄', section: '財務', perm: 'editExpenses' },
   { id: 'scan', icon: '📷', label: '收據掃描', section: '財務', perm: 'viewReceiptScanner' },
@@ -204,8 +204,8 @@ const ALL_PAGES = [
   { id: 'feedback', icon: '⭐', label: '顧客評分', section: '病人', perm: 'viewPatients' },
   { id: 'custanalytics', icon: '📊', label: '顧客分析', section: '病人', perm: 'viewPatients' },
   { id: 'booking', icon: '📅', label: '預約系統', section: '病人', perm: 'viewBookings' },
-  { id: 'queue', icon: '🎫', label: '掛號排隊', section: '病人', perm: 'viewQueue' },
-  { id: 'emr', icon: '🏥', label: '電子病歷', section: '病人', perm: 'viewEMR' },
+  { id: 'queue', icon: '🎫', label: '掛號排隊', section: '診症', perm: 'viewQueue' },
+  { id: 'emr', icon: '🏥', label: '電子病歷', section: '診症', perm: 'viewEMR' },
   { id: 'formulas', icon: '💊', label: '我的處方', section: '病人', perm: 'viewEMR' },
   { id: 'rxhistory', icon: '📜', label: '處方報表', section: '病人', perm: 'viewEMR' },
   { id: 'vitals', icon: '❤️', label: '健康資訊', section: '病人', perm: 'viewEMR' },
@@ -1100,39 +1100,29 @@ function MainApp() {
 
   const currentPage = visiblePages.find(p => p.id === page) || visiblePages[0];
 
-  // Core pages that show in main sidebar — everything else goes into "更多"
+  // Core pages: eCTCM-style — only 9 daily essentials in main nav, everything else in "更多"
   const CORE_IDS = new Set([
-    // 總覽
-    'dash',
-    // 診症流程
-    'patient', 'booking', 'queue', 'emr', 'voucher',
-    // 中藥
-    'formulas', 'herbwiki', 'dispensing', 'rxprint', 'drugcheck',
-    // 營運
-    'billing', 'inventory', 'medscan',
-    // 財務
-    'rev', 'exp', 'closing', 'pnl',
-    // 人事
-    'pay', 'schedule',
-    // 分析
-    'doc', 'report', 'ectcm',
-    // 客戶
-    'dailycare',
+    'dash',       // 總覽
+    'queue',      // 掛號排隊
+    'emr',        // 電子病歷
+    'billing',    // 配藥/收費
+    'patient',    // 病人管理
+    'inventory',  // 藥材庫存
+    'booking',    // 預約系統
+    'rev',        // 營業紀錄
+    'report',     // 報表中心
   ]);
 
   const corePages = visiblePages.filter(p => CORE_IDS.has(p.id));
   const extraPages = visiblePages.filter(p => !CORE_IDS.has(p.id));
 
-  // Build main sections from core pages only
-  const SECTION_ORDER = ['總覽', '診症', '中藥', '營運', '財務', '人事', '分析'];
+  // Build main sections — eCTCM layout: flat nav items, no nested dropdowns for core
+  const SECTION_ORDER = ['診症', '營運', '財務'];
   const SECTION_REMAP = {
     'dash': '總覽',
-    'patient': '診症', 'booking': '診症', 'queue': '診症', 'emr': '診症', 'voucher': '診症',
-    'formulas': '中藥', 'herbwiki': '中藥', 'dispensing': '中藥', 'rxprint': '中藥', 'drugcheck': '中藥',
-    'billing': '營運', 'inventory': '營運', 'medscan': '營運',
-    'rev': '財務', 'exp': '財務', 'closing': '財務', 'pnl': '財務',
-    'pay': '人事', 'schedule': '人事',
-    'doc': '分析', 'report': '分析', 'ectcm': '分析',
+    'queue': '診症', 'emr': '診症', 'patient': '診症', 'booking': '診症',
+    'billing': '營運', 'inventory': '營運',
+    'rev': '財務', 'report': '財務',
   };
 
   let sections = {};
