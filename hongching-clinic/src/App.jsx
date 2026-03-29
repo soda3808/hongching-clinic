@@ -1160,12 +1160,15 @@ function MainApp() {
   return (
     <>
       {/* eCTCM Top Header Bar */}
-      <div className="hide-mobile" style={{ background: '#006666', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 12px', fontSize: 12, position: 'sticky', top: 0, zIndex: 100 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} style={{ height: 28, borderRadius: 4 }} />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>{getClinicName()}</span>
+      <div className="hide-mobile" style={{ background: 'linear-gradient(180deg, #007777 0%, #006666 100%)', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 16px', fontSize: 13, position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,.15)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img src={getClinicLogo() || '/logo.jpg'} alt={getClinicName()} style={{ height: 36, borderRadius: 6, background: '#fff', padding: '2px 6px' }} />
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: 1 }}>{getClinicName()}</div>
+            <div style={{ fontSize: 10, opacity: 0.7 }}>Hong Ching International Medical Centre</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           {isOffline && <span style={{ background: '#cc6600', padding: '2px 8px', borderRadius: 10, fontSize: 11 }}>離線模式</span>}
           {perms.viewAllStores && (
             <select style={{ background: '#005555', color: '#fff', border: '1px solid #008888', borderRadius: 3, padding: '2px 6px', fontSize: 12, fontWeight: 600 }} value={activeStore} onChange={e => setActiveStore(e.target.value)}>
@@ -1228,7 +1231,7 @@ function MainApp() {
       </div>
 
       {/* eCTCM Main Nav Bar (desktop) */}
-      <div className="hide-mobile" style={{ background: '#005555', display: 'flex', gap: 0, padding: '0 4px', fontSize: 13, position: 'sticky', top: 36, zIndex: 99, flexWrap: 'wrap' }}>
+      <div className="hide-mobile" style={{ background: '#005555', display: 'flex', gap: 0, padding: '0 8px', fontSize: 14, position: 'sticky', top: 56, zIndex: 99, borderBottom: '2px solid #004444' }}>
         {Object.entries(sections).map(([section, items]) => {
           const isActive = items.some(p => p.id === page);
           const isOpen = openMenu === section;
@@ -1237,10 +1240,10 @@ function MainApp() {
               onMouseEnter={() => setOpenMenu(section)}
               onMouseLeave={() => setOpenMenu(null)}>
               <div style={{
-                padding: '7px 14px', cursor: 'pointer', color: '#fff', fontWeight: isActive ? 700 : 400,
+                padding: '10px 18px', cursor: 'pointer', color: '#fff', fontWeight: isActive ? 700 : 500,
                 background: isActive ? '#004444' : isOpen ? '#004d4d' : 'transparent',
-                borderBottom: isActive ? '2px solid #ffcc00' : '2px solid transparent',
-                whiteSpace: 'nowrap', transition: 'background .15s',
+                borderBottom: isActive ? '3px solid #ffcc00' : '3px solid transparent',
+                whiteSpace: 'nowrap', transition: 'background .15s', fontSize: 14, letterSpacing: 0.5,
               }}>
                 {section} {items.length > 1 ? '▼' : ''}
               </div>
