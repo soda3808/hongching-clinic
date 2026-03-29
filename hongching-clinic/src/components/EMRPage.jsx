@@ -1000,7 +1000,7 @@ export default function EMRPage({ data, setData, showToast, allData, user, onNav
                 <td style={S.td}>{c.doctor}</td>
                 <td style={S.td}>{c.store}</td>
                 <td style={S.td}>{c.tcmDiagnosis || '-'}{c.icd10Code && <span style={{ fontSize: 10, color: ECTCM.textMuted, marginLeft: 4 }}>({c.icd10Code})</span>}</td>
-                <td style={S.td}>{(c.treatments || []).length > 0 ? c.treatments.join('、') : '-'}</td>
+                <td style={S.td}>{c.treatments ? (Array.isArray(c.treatments) ? c.treatments.join('、') : String(c.treatments)) : '-'}</td>
                 <td style={S.td}>{c.followUpDate || '-'}</td>
                 <td style={S.td}>
                   <div style={{ display: 'flex', gap: 8 }}>

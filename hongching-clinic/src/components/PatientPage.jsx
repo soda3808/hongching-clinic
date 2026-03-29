@@ -1120,7 +1120,7 @@ export default function PatientPage({ data, setData, showToast, onNavigate }) {
                           {item.data.icd10Code && <span style={{ fontSize: 9, padding: '1px 5px', background: '#eff6ff', color: '#1e40af', borderRadius: 3 }}>ICD-10: {item.data.icd10Code}</span>}
                         </div>
                         {item.data.tcmPattern && <div style={{ color: '#666' }}>辨證：{item.data.tcmPattern}{item.data.cmZhengCode ? ` (${item.data.cmZhengCode})` : ''}</div>}
-                        {(item.data.treatments || []).length > 0 && <div>治療：{item.data.treatments.join('、')}</div>}
+                        {item.data.treatments && <div>治療：{Array.isArray(item.data.treatments) ? item.data.treatments.join('、') : String(item.data.treatments)}</div>}
                         {item.data.formulaName && <div style={{ fontWeight: 600 }}>處方：{item.data.formulaName} ({item.data.formulaDays || '-'}帖)</div>}
                         {(item.data.prescription || []).length > 0 && (
                           <div style={{ color: '#666', marginTop: 2 }}>

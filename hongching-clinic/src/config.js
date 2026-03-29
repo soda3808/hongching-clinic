@@ -13,7 +13,8 @@ export const DEFAULT_USERS = [
 
 // Fallback stores — in multi-tenant mode, stores come from tenant config in the database.
 export const DEFAULT_STORES = [
-  { id: 'store1', name: '分店A', address: '', phone: '', active: true },
+  { id: 'skt', name: '宋皇臺', address: '九龍宋皇臺道38號傲寓地下3號舖', phone: '6341 6663', active: true },
+  { id: 'tz', name: '太子', address: '九龍太子道西141號長榮大廈3樓B室', phone: '6506 5891', active: true },
 ];
 
 export const ROLE_LABELS = { admin: '管理員', manager: '店長', doctor: '醫師', staff: '助理' };
